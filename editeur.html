@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <title>Créateur d'Escape Game 360 - EPN</title>
+    <!-- Chargement Pannellum -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css">
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #e9ecef; margin: 0; padding: 20px; color: #333; }
+        .app-container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; }
+        
+        .top-toolbar { display: flex; gap: 10px; margin-bottom: 20px; background: #ecf0f1; padding: 15px; border-radius: 8px; }
+        .btn-save { background: #2980b9; flex: 1; font-size: 16px; }
+        .btn-load { background: #8e44ad; flex: 1; font-size: 16px; }
+        .btn-generate { background: #27ae60; width: 100%; font-size: 20px; margin-top: 30px; padding: 15px; }
+        .btn-generate:hover { background: #2ecc71; }
+        
+        .scene-block { border: 2px solid #3498db; border-radius: 8px; padding: 15px; margin-top: 20px; background: #f8fbff; }
+        .scene-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 10px; }
+        .hotspot-block { border: 1px solid #2ecc71; border-left: 5px solid #2ecc71; padding: 15px; margin-top: 15px; background: white; border-radius: 5px; }
+        
+        input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+        .row { display: flex; gap: 10px; }
+        .col { flex: 1; }
+        
+        button { cursor: pointer; padding: 10px 15px; border: none; border-radius: 5px; font-weight: bold; color: white; transition: 0.2s; }
+        .btn-add-scene { background: #3498db; width: 100%; font-size: 16px; margin-top: 20px; }
+        .btn-add-hs { background: #2ecc71; font-size: 14px; }
+        .btn-del { background: #e74c3c; padding: 5px 10px; }
+        .btn-target { background: #e67e22; width: 100%; font-size: 14px; margin-bottom: 10px; }
+        .btn-target:hover { background: #d35400; }
+        
+        .dynamic-fields { padding: 15px; background: #f9f9f9; border: 1px dashed #ccc; margin-top: 10px; border-radius: 4px; }
+        textarea.css-editor { font-family: 'Courier New', Courier, monospace; background: #2d3436; color: #f1c40f; font-size: 13px; }
+
+        #picker-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; flex-direction: column; }
+        #picker-header { padding: 15px; background: #222; color: white; display: flex; justify-content: space-between; align-items: center; font-size: 18px; }
+        #inv-settings { background: #fff3cd; padding: 15px; margin-top: 10px; border-radius: 8px; border: 1px solid #ffeeba; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <h1>🧩 Éditeur - Escape Game 360</h1>
+    <div class="top-toolbar">
+        <button class="btn-save" onclick="saveProject()">💾 Sauvegarder Projet (.json)</button>
+        <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Charger Projet (.json)</button>
+        <input type="file" id="file-import" style="display:none;" accept=".json" onchange="loadProject(event)">
+    </div>
+
+    <label>Titre du Jeu :</label><input type="text" id="gameTitle" value="Mon Super Jeu">
+    <label style="font-size: 18px; font-weight: bold; margin-top:15px; display:block;"><input type="checkbox" id="useInventory" checked onchange="toggleInvSettings()"> Activer le système d'Inventaire</label>
+    
+    <div id="inv-settings">
+        <div class="row">
+            <div class="col"><label>Position à l'écran :</label><select id="inv-pos"><option value="top-right">Haut droite</option><option value="top-left">Haut gauche</option><option value="bottom-right">Bas droite</option><option value="bottom-left">Bas gauche</option></select></div>
+            <div class="col"><label>Icône/Logo :</label><input type="text" id="inv-icon" value="🎒"></div>
+        </div>
+        <div class="row">
+            <div class="col"><label>Fond CSS du panneau :</label><input type="text" id="inv-bg" value="rgba(0,0,0,0.8)"></div>
+            <div class="col"><label>Couleur du texte :</label><input type="text" id="inv-color" value="white"></div>
+        </div>
+    </div>
+
+    <div id="scenes-container"></div>
+    <button class="btn-add-scene" onclick="addScene()">+ AJOUTER UNE NOUVELLE SCÈNE</button>
+    <button class="btn-generate" onclick="generateGame()">🚀 GÉNÉRER MON JEU (INDEX.HTML)</button>
+    <!-- CRÉDITS ET LICENCE -->
+    <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 13px; color: #7f8c8d; line-height: 1.5;">
+        <p>🛠️ Créé par <b>Renald Gauthier</b> avec la très grande assistance de <b>Perplexity AI</b>.</p>
+        <p>
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">
+                <img alt="Licence Creative Commons" style="border-width:0; vertical-align: middle; margin-bottom: 5px;" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" />
+            </a><br />
+            Ce projet est mis à disposition sous <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank" style="color: #3498db; text-decoration: none;">Licence Creative Commons BY-SA 4.0</a>.<br>
+            <i>(Partage et modification libres, à condition de citer les auteurs et de garder la même licence).</i>
+        </p>
+    </div>	
+</div>
+
+<!-- FENÊTRE MODALE -->
+<div id="picker-modal">
+    <div id="picker-header">
+        <div>
+            <span>📍 Tournez l'image et placez la cible au centre.</span><br>
+            <span style="color:#f1c40f; font-size:14px;">Cible : Pitch <b id="live-pitch">0</b> | Yaw <b id="live-yaw">0</b></span>
+        </div>
+        <div>
+            <button onclick="validerCoordonnees()" style="background:#27ae60; margin-right:10px; font-size:16px;">✅ Valider ces coordonnées</button>
+            <button onclick="closePicker()" style="background:#e74c3c;">Annuler</button>
+        </div>
+    </div>
+    <div style="position:relative; flex-grow:1; width:100%;">
+        <div id="picker-panorama" style="width:100%; height:100%;"></div>
+        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); pointer-events:none; color:rgba(255,255,0,0.8); font-size:40px; font-weight:bold; text-shadow: 0 0 5px black;">+</div>
+    </div>
+</div>
+
+<script>
+let sceneIdCounter = 0; let hsIdCounter = 0;
+let currentPickerHsId = null; let pickerViewer = null; let tempPitch = 0; let tempYaw = 0;
+
+function toggleInvSettings() { document.getElementById('inv-settings').style.display = document.getElementById('useInventory').checked ? "block" : "none"; }
+
+function addScene(scIdVal = null, scImgVal = null) {
+    sceneIdCounter++; const sId = sceneIdCounter;
+    if(!scIdVal) scIdVal = "scene_" + sId; if(!scImgVal) scImgVal = "salle.jpg";
+    const sceneHTML = `<div class="scene-block" id="scene_${sId}">
+        <div class="scene-header"><h3>🎬 Scène ${sId}</h3><button class="btn-del" onclick="document.getElementById('scene_${sId}').remove()">Supprimer</button></div>
+        <div class="row">
+            <div class="col"><label>ID court :</label><input type="text" class="sc-id" value="${scIdVal}"></div>
+            <div class="col"><label>Image 360 :</label><input type="text" class="sc-img" value="${scImgVal}"></div>
+        </div>
+        <h4>Points d'interaction</h4><div id="hs-container-${sId}"></div>
+        <button class="btn-add-hs" onclick="addHotspot(${sId})">+ Ajouter un point d'interaction</button>
+    </div>`;
+    document.getElementById('scenes-container').insertAdjacentHTML('beforeend', sceneHTML); return sId;
+}
+
+function addHotspot(sceneId, hsData = null) {
+    hsIdCounter++; const hId = hsIdCounter;
+    let pitch = 0, yaw = 0, cssPreset = 'porte', customCss = "width: 120px; height: 250px; background: rgba(255,0,0,0.2); cursor: pointer;", type = 'msg';
+    if(hsData) { pitch = hsData.pitch; yaw = hsData.yaw; cssPreset = hsData.cssPreset; customCss = hsData.customCss; type = hsData.type; }
+
+    const hsHTML = `<div class="hotspot-block" id="hs_${hId}">
+        <div style="display:flex; justify-content:space-between; margin-bottom: 10px;"><b>Hotspot ${hId}</b><button class="btn-del" onclick="document.getElementById('hs_${hId}').remove()">X</button></div>
+        <button class="btn-target" onclick="openPicker(${sceneId}, ${hId})">📍 Placer visuellement dans l'image 360</button>
+        <div class="row">
+            <div class="col"><label>Pitch :</label><input type="number" step="0.1" class="hs-pitch" value="${pitch}"></div>
+            <div class="col"><label>Yaw :</label><input type="number" step="0.1" class="hs-yaw" value="${yaw}"></div>
+            <div class="col"><label>Base CSS :</label><select class="hs-css-preset" onchange="updateCssTemplate(${hId})"><option value="porte">Zone (Porte/Mur)</option><option value="objet">Objet rond</option><option value="icone">Icône</option></select></div>
+        </div>
+        <textarea class="css-editor hs-custom-css" rows="2">${customCss}</textarea>
+        <label style="margin-top:10px;">Action au clic :</label>
+        <select class="hs-type" onchange="updateHsFields(${hId})">
+            <option value="msg">Afficher un message</option><option value="pick">Ramasser un objet</option><option value="req">Objet requis</option>
+            <option value="pwd">Énigme / Code secret</option><option value="scene">Aller à une scène</option>
+        </select>
+        <div class="dynamic-fields" id="fields_${hId}"></div>
+    </div>`;
+    document.getElementById(`hs-container-${sceneId}`).insertAdjacentHTML('beforeend', hsHTML);
+    const hsDiv = document.getElementById(`hs_${hId}`);
+    hsDiv.querySelector('.hs-css-preset').value = cssPreset; hsDiv.querySelector('.hs-type').value = type;
+    updateHsFields(hId); 
+
+    if(hsData) {
+        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko'];
+        fields.forEach(f => {
+            let el = hsDiv.querySelector('.' + f);
+            if(el && hsData[f.replace(/-/g, '_')] !== undefined) {
+                el.value = hsData[f.replace(/-/g, '_')];
+                if(f === 'f-pwd-action') el.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+}
+
+// ============== OUTIL 360 ==============
+function openPicker(sceneLocalId, hId) {
+    const scImg = document.querySelector(`#scene_${sceneLocalId} .sc-img`).value;
+    if(!scImg) return; currentPickerHsId = hId; document.getElementById('picker-modal').style.display = 'flex';
+    let imgUrl = scImg; if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:')) imgUrl = "./" + imgUrl;
+    if(pickerViewer) pickerViewer.destroy();
+    pickerViewer = pannellum.viewer('picker-panorama', { "type": "equirectangular", "panorama": imgUrl, "autoLoad": true, "showControls": false });
+    pickerViewer.on('load', function() {
+        setInterval(function() {
+            if(pickerViewer && document.getElementById('picker-modal').style.display === 'flex') {
+                tempPitch = pickerViewer.getPitch(); tempYaw = pickerViewer.getYaw();
+                document.getElementById('live-pitch').innerText = tempPitch.toFixed(1); document.getElementById('live-yaw').innerText = tempYaw.toFixed(1);
+            }
+        }, 100);
+    });
+}
+function validerCoordonnees() {
+    document.querySelector(`#hs_${currentPickerHsId} .hs-pitch`).value = tempPitch.toFixed(1);
+    document.querySelector(`#hs_${currentPickerHsId} .hs-yaw`).value = tempYaw.toFixed(1); closePicker();
+}
+function closePicker() { document.getElementById('picker-modal').style.display = 'none'; if(pickerViewer) { pickerViewer.destroy(); pickerViewer = null; } currentPickerHsId = null; }
+
+// ============== CHAMPS DYNAMIQUES ==============
+function updateCssTemplate(hId) {
+    const sel = document.querySelector(`#hs_${hId} .hs-css-preset`).value; const txt = document.querySelector(`#hs_${hId} .hs-custom-css`);
+    if(sel === 'porte') txt.value = "width: 120px; height: 250px; background: rgba(255,0,0,0.2); cursor: pointer;";
+    if(sel === 'objet') txt.value = "width: 40px; height: 40px; background: rgba(255,255,0,0.3); border-radius: 50%; border: 2px dashed yellow; cursor: pointer;";
+    if(sel === 'icone') txt.value = "width: 50px; height: 50px; background-image: url('search.jpg'); background-size: contain; background-repeat: no-repeat; background-position: center; cursor: pointer;";
+}
+
+function updateHsFields(hId) {
+    const type = document.querySelector(`#hs_${hId} .hs-type`).value; const container = document.getElementById(`fields_${hId}`);
+    if(type === 'msg') container.innerHTML = `<label>Texte (HTML) :</label><textarea class="f-txt" rows="3">Bravo.</textarea>`;
+    else if(type === 'pick') container.innerHTML = `<div class="row"><div class="col">abel>ID objet :</label><input type="text" class="f-item-id" value="cle"></div><div class="col">abel>Nom :</label><input type="text" class="f-item-name" value="La clé dorée"></div></div>abel>Texte narratif :</label><textarea class="f-pick-msg" rows="2">Vous trouvez <b>une clé</b>.</textarea>`;
+    else if(type === 'req') container.innerHTML = `
+        <label>ID objet requis dans l'inventaire :</label><input type="text" class="f-item-id" value="cle">
+        <label style="color:red;">Message d'erreur si objet ABSENT :</label><textarea class="f-ko" rows="2">La porte est verrouillée à clé.</textarea>
+        
+        <label style="margin-top:10px; border-top:1px dashed #ccc; padding-top:10px; color:#27ae60;"><b>Si l'objet est PRÉSENT (Récompense) :</b></label>
+        <select class="f-req-action" onchange="document.getElementById('req_res_${hId}').className = 'res-' + this.value">
+            <option value="scene">Changer de scène</option>
+            <option value="msg">Afficher un message</option>
+            <option value="pick">Donner un NOUVEL objet</option>
+        </select>
+        
+        <div id="req_res_${hId}" class="res-scene" style="margin-top:10px;">
+            <style>#req_res_${hId} .s-scene, #req_res_${hId} .s-msg, #req_res_${hId} .s-pick { display: none; } #req_res_${hId}.res-scene .s-scene { display: block; } #req_res_${hId}.res-msg .s-msg { display: block; } #req_res_${hId}.res-pick .s-pick { display: block; }</style>
+            
+            <div class="s-scene">
+                <label>Aller vers la scène (ID) :</label><input type="text" class="f-target" value="scene_2">
+                <label>Texte de transition (Optionnel) :</label><textarea class="f-trans-txt" rows="2" placeholder="Vous ouvrez la porte avec la clé..."></textarea>
+                <label>Texte bouton :</label><input type="text" class="f-trans-btn" value="Entrer">
+            </div>
+            
+            <div class="s-msg"><label>Message de réussite :</label><textarea class="f-ok-msg" rows="2">Vous utilisez la clé. Le tiroir s'ouvre !</textarea></div>
+            
+            <div class="s-pick">
+                <div class="row"><div class="col"><label>Nouvel ID objet :</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Nouveau Nom :</label><input type="text" class="f-pick-name" value="Document secret"></div></div>
+                <label>Texte trouvaille :</label><textarea class="f-pick-msg" rows="2">Vous ouvrez la boîte avec la clé et trouvez un document.</textarea>
+            </div>
+        </div>
+    `;
+    else if(type === 'scene') container.innerHTML = `
+        <label>Aller vers la scène (ID) :</label><input type="text" class="f-target" value="scene_2">
+        <label style="color:#2980b9;">Texte de Transition (Laissez vide pour aucune transition) :</label><textarea class="f-trans-txt" rows="2" placeholder="Vous montez dans la voiture..."></textarea>
+        <label>Texte du bouton de validation :</label><input type="text" class="f-trans-btn" value="Continuer">
+    `;
+    else if(type === 'pwd') container.innerHTML = `
+        <label>Texte de l'énigme / Question (HTML) :</label><textarea class="f-enigme-txt" rows="2">Code d'accès à 4 chiffres :</textarea>
+        <label>Réponse attendue (Le joueur peut utiliser des majuscules, le jeu comprendra) :</label><input type="text" class="f-pwd" value="1234">
+        
+        <label style="margin-top:10px; border-top:1px dashed #ccc; padding-top:10px;"><b>Récompense quand résolu :</b> (Le jeu s'en souviendra !)</label>
+        <select class="f-pwd-action" onchange="document.getElementById('pwd_res_${hId}').className = 'res-' + this.value">
+            <option value="scene">Changer de scène</option><option value="msg">Afficher un message</option><option value="pick">Donner un objet</option>
+        </select>
+        
+        <div id="pwd_res_${hId}" class="res-scene" style="margin-top:10px;">
+            <style>#pwd_res_${hId} .s-scene, #pwd_res_${hId} .s-msg, #pwd_res_${hId} .s-pick { display: none; } #pwd_res_${hId}.res-scene .s-scene { display: block; } #pwd_res_${hId}.res-msg .s-msg { display: block; } #pwd_res_${hId}.res-pick .s-pick { display: block; }</style>
+            <div class="s-scene">
+                <label>Aller vers la scène (ID) :</label><input type="text" class="f-target" value="scene_2">
+                <label>Texte de transition (Optionnel) :</label><textarea class="f-trans-txt" rows="2" placeholder="La porte s'ouvre..."></textarea>
+                <label>Texte bouton :</label><input type="text" class="f-trans-btn" value="Entrer">
+            </div>
+            <div class="s-msg"><label>Message révélé :</label><textarea class="f-ok-msg" rows="2">Ordinateur déverrouillé !</textarea></div>
+            <div class="s-pick">
+                <div class="row"><div class="col"><label>ID objet :</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Nom :</label><input type="text" class="f-pick-name" value="Document"></div></div>
+                <label>Texte trouvaille :</label><textarea class="f-pick-msg" rows="2">Le coffre s'ouvre. Vous trouvez un document.</textarea>
+            </div>
+        </div>
+    `;
+}
+
+// ============== SAUVEGARDE ET GÉNÉRATION ==============
+function saveProject() {
+    let project = { title: document.getElementById('gameTitle').value, useInv: document.getElementById('useInventory').checked, invPos: document.getElementById('inv-pos').value, invIcon: document.getElementById('inv-icon').value, invBg: document.getElementById('inv-bg').value, invColor: document.getElementById('inv-color').value, scenes: [] };
+    document.querySelectorAll('.scene-block').forEach(sceneDiv => {
+        let scene = { scId: sceneDiv.querySelector('.sc-id').value, scImg: sceneDiv.querySelector('.sc-img').value, hotspots: [] };
+        sceneDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
+            let hs = { pitch: hsDiv.querySelector('.hs-pitch').value, yaw: hsDiv.querySelector('.hs-yaw').value, cssPreset: hsDiv.querySelector('.hs-css-preset').value, customCss: hsDiv.querySelector('.hs-custom-css').value, type: hsDiv.querySelector('.hs-type').value };
+            let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko'];
+            fields.forEach(f => { let el = hsDiv.querySelector('.' + f); if(el) hs[f.replace(/-/g, '_')] = el.value; });
+            scene.hotspots.push(hs);
+        });
+        project.scenes.push(scene);
+    });
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+    const lien = document.createElement("a"); lien.href = URL.createObjectURL(blob); lien.download = "projet.json";
+    document.body.appendChild(lien); lien.click(); document.body.removeChild(lien);
+}
+
+function loadProject(event) {
+    const file = event.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const project = JSON.parse(e.target.result);
+            document.getElementById('scenes-container').innerHTML = ''; sceneIdCounter = 0; hsIdCounter = 0;
+            document.getElementById('gameTitle').value = project.title || "Mon Super Jeu";
+            document.getElementById('useInventory').checked = project.useInv !== false; toggleInvSettings();
+            if(project.useInv !== false) { document.getElementById('inv-pos').value = project.invPos || "top-right"; document.getElementById('inv-icon').value = project.invIcon || "🎒"; document.getElementById('inv-bg').value = project.invBg || "rgba(0,0,0,0.8)"; document.getElementById('inv-color').value = project.invColor || "white"; }
+            project.scenes.forEach(scene => { const sId = addScene(scene.scId, scene.scImg); scene.hotspots.forEach(hs => { addHotspot(sId, hs); }); });
+        } catch (err) { alert("Fichier invalide !"); }
+    };
+    reader.readAsText(file); event.target.value = '';
+}
+
+function generateGame() {
+    const title = document.getElementById('gameTitle').value; const hasInv = document.getElementById('useInventory').checked;
+    const invPos = document.getElementById('inv-pos').value; const invIconVal = document.getElementById('inv-icon').value; const invBg = document.getElementById('inv-bg').value; const invColor = document.getElementById('inv-color').value;
+    let invPosCSS = "top: 15px; right: 15px;"; let alignItems = "flex-end";
+    if(invPos === 'top-left') { invPosCSS = "top: 15px; left: 15px;"; alignItems = "flex-start"; } if(invPos === 'bottom-right') { invPosCSS = "bottom: 15px; right: 15px;"; alignItems = "flex-end"; } if(invPos === 'bottom-left') { invPosCSS = "bottom: 15px; left: 15px;"; alignItems = "flex-start"; }
+    let invIconHTML = invIconVal; if(invIconVal.startsWith('http') || invIconVal.endsWith('.png') || invIconVal.endsWith('.jpg')) invIconHTML = `<img src="${invIconVal}" style="width:30px; height:30px; display:block;">`;
+
+    let scenesConfig = {}; let firstSceneId = ""; let customStylesCSS = ""; let globalHsCount = 0; 
+    
+    document.querySelectorAll('.scene-block').forEach((sceneDiv, index) => {
+        const scId = sceneDiv.querySelector('.sc-id').value; let scImg = sceneDiv.querySelector('.sc-img').value;
+        if (!scImg.startsWith('http')) scImg = "./" + scImg; if(index === 0) firstSceneId = scId;
+        
+        let hotSpots = [];
+        sceneDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
+            globalHsCount++; const hsClass = "custom-hs-" + globalHsCount;
+            customStylesCSS += `.${hsClass} { ${hsDiv.querySelector('.hs-custom-css').value} pointer-events: auto; }\n.${hsClass}:hover { transform: scale(1.1); }\n`;
+
+            const type = hsDiv.querySelector('.hs-type').value; let args = { type: type, id: "hs_uid_" + globalHsCount };
+            if(type === 'msg') args.txt = hsDiv.querySelector('.f-txt').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+            if(type === 'scene') { args.target = hsDiv.querySelector('.f-target').value; args.transTxt = hsDiv.querySelector('.f-trans-txt').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); args.transBtn = hsDiv.querySelector('.f-trans-btn').value.replace(/"/g, '&quot;'); }
+            if(type === 'pick') { args.itemId = hsDiv.querySelector('.f-item-id').value; args.itemName = hsDiv.querySelector('.f-item-name').value; args.txt = hsDiv.querySelector('.f-pick-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); }
+            if(type === 'req') { 
+                args.itemId = hsDiv.querySelector('.f-item-id').value; 
+                args.ko = hsDiv.querySelector('.f-ko').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+                args.action = hsDiv.querySelector('.f-req-action').value;
+                if(args.action === 'scene') { args.target = hsDiv.querySelector('.f-target').value; args.transTxt = hsDiv.querySelector('.f-trans-txt').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); args.transBtn = hsDiv.querySelector('.f-trans-btn').value.replace(/"/g, '&quot;'); }
+                else if(args.action === 'msg') { args.okMsg = hsDiv.querySelector('.f-ok-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); }
+                else if(args.action === 'pick') { args.pickId = hsDiv.querySelector('.f-pick-id').value; args.pickName = hsDiv.querySelector('.f-pick-name').value; args.pickMsg = hsDiv.querySelector('.f-pick-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); }
+            }
+            if(type === 'pwd') {
+                args.enigmeTxt = hsDiv.querySelector('.f-enigme-txt').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+                args.pwd = hsDiv.querySelector('.f-pwd').value.toLowerCase().trim();
+                args.action = hsDiv.querySelector('.f-pwd-action').value;
+                if(args.action === 'scene') { args.target = hsDiv.querySelector('.f-target').value; args.transTxt = hsDiv.querySelector('.f-trans-txt').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); args.transBtn = hsDiv.querySelector('.f-trans-btn').value.replace(/"/g, '&quot;'); }
+                else if(args.action === 'msg') { args.okMsg = hsDiv.querySelector('.f-ok-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); }
+                else if(args.action === 'pick') { args.pickId = hsDiv.querySelector('.f-pick-id').value; args.pickName = hsDiv.querySelector('.f-pick-name').value; args.pickMsg = hsDiv.querySelector('.f-pick-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); }
+            }
+            hotSpots.push({ pitch: parseFloat(hsDiv.querySelector('.hs-pitch').value), yaw: parseFloat(hsDiv.querySelector('.hs-yaw').value), cssClass: hsClass, createTooltipFunc: "hotspotDispatcher", createTooltipArgs: args });
+        });
+        scenesConfig[scId] = { type: "equirectangular", panorama: scImg, hotSpots: hotSpots };
+    });
+
+    let jsonScenes = JSON.stringify(scenesConfig, null, 4).replace(/"createTooltipFunc": "hotspotDispatcher"/g, '"createTooltipFunc": hotspotDispatcher');
+
+    const htmlTemplate = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><title>${title}</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css"><script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js"><\/script>
+<style>body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: black; font-family: Arial; } #panorama { width: 100%; height: 100%; } ${customStylesCSS}
+#inv-container { position: absolute; ${invPosCSS} z-index: 9999; display: ${hasInv ? 'flex' : 'none'}; flex-direction: column; align-items: ${alignItems}; }
+#inv-toggle { cursor: pointer; font-size: 30px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 50%; text-align: center; line-height: 1; user-select: none; border: 2px solid rgba(255,255,255,0.3); transition: 0.2s; }
+#inv-toggle:hover { background: rgba(255,255,255,0.2); transform: scale(1.1); }
+#inv-panel { background: ${invBg}; color: ${invColor}; border: 2px solid white; padding: 15px; border-radius: 8px; margin-top: 10px; margin-bottom: 10px; display: none; min-width: 150px; }
+#inv-panel h3 { margin: 0 0 10px 0; border-bottom: 1px solid #555; padding-bottom: 5px; } #inv-list { margin: 0; padding: 0; list-style-type: none; line-height: 1.5; }</style></head>
+<body>
+    <div id="inv-container"><div id="inv-toggle" onclick="toggleInv()">${invIconHTML}</div><div id="inv-panel"><h3>Inventaire</h3><ul id="inv-list"><li style="color:gray; font-style:italic; list-style:none; margin-left:-20px;">Vide</li></ul></div></div>
+    <div id="panorama"></div>
+<script>
+var inventaire = {}; var unlockedHotspots = {};
+function toggleInv() { var p = document.getElementById('inv-panel'); p.style.display = (p.style.display === 'block') ? 'none' : 'block'; }
+
+function executeReward(args, hsDiv) {
+    if(args.action === 'scene') { if(args.transTxt) { afficherPopup("", args.transTxt, args.transBtn || "Continuer", function(){ viewer.loadScene(args.target); }); } else { viewer.loadScene(args.target); } }
+    else if(args.action === 'msg') { afficherPopup("", args.okMsg); }
+    else if(args.action === 'pick') { inventaire[args.pickId] = { name: args.pickName, style: "" }; hsDiv.style.display = 'none'; majInventaireUI(); afficherPopup("", args.pickMsg); }
+}
+
+function hotspotDispatcher(hsDiv, args) {
+    hsDiv.onclick = function() {
+        if(args.type === 'msg') { afficherPopup("", args.txt); } 
+        else if(args.type === 'scene') { if(args.transTxt) { afficherPopup("", args.transTxt, args.transBtn, function(){ viewer.loadScene(args.target); }); } else { viewer.loadScene(args.target); } }
+        else if(args.type === 'pick') { inventaire[args.itemId] = { name: args.itemName }; hsDiv.style.display = 'none'; majInventaireUI(); afficherPopup("", args.txt); }
+        else if(args.type === 'req') { 
+            if(inventaire[args.itemId]) { 
+                hsDiv.style.background = "rgba(0,255,0,0.5)"; 
+                executeReward(args, hsDiv); // Utilise exactement la même fonction de récompense que l'énigme !
+            } else { 
+                afficherPopup("", args.ko); 
+            } 
+        }
+        else if(args.type === 'pwd') {
+            if(unlockedHotspots[args.id]) { executeReward(args, hsDiv); return; } // Déjà résolu !
+            var msg = document.createElement('div'); msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:#00ff00;padding:30px;border:2px solid #00ff00;z-index:100;text-align:center;max-width:80%;';
+            msg.innerHTML = args.enigmeTxt + "<br><br>";
+            var inp = document.createElement('input'); inp.type = "text"; inp.style.cssText = 'background:black;color:#00ff00;border:1px solid #00ff00;padding:10px;text-align:center;font-size:18px;';
+            msg.appendChild(inp); msg.appendChild(document.createElement('br'));
+            var err = document.createElement('div'); err.style.color = "red"; err.style.marginTop = "10px"; msg.appendChild(err);
+            var btn = document.createElement('button'); btn.innerHTML = "[ VALIDER ]"; btn.style.cssText = 'background:transparent;color:#00ff00;border:1px solid #00ff00;padding:10px;margin-top:10px;cursor:pointer;';
+            btn.onclick = function() {
+                if(inp.value.toLowerCase().trim() === args.pwd) { document.body.removeChild(msg); unlockedHotspots[args.id] = true; executeReward(args, hsDiv); } 
+                else { err.innerHTML = "RÉPONSE INCORRECTE"; inp.value = ""; inp.focus(); }
+            };
+            msg.appendChild(btn); var cls = document.createElement('button'); cls.innerHTML = "X"; cls.style.cssText = 'position:absolute;top:5px;right:5px;background:transparent;color:red;border:none;cursor:pointer;font-size:16px;';
+            cls.onclick = function() { document.body.removeChild(msg); }; msg.appendChild(cls); document.body.appendChild(msg); setTimeout(function(){ inp.focus(); }, 100);
+        }
+    };
+}
+function majInventaireUI() {
+    var ul = document.getElementById('inv-list'); ul.innerHTML = ""; var c = 0;
+    for(var k in inventaire) { ul.innerHTML += "<li style='margin-bottom:5px;'>• " + inventaire[k].name + "</li>"; c++; }
+    if(c === 0) ul.innerHTML = '<li style="color:gray; font-style:italic;">Vide</li>';
+}
+function afficherPopup(titre, texte, btnTxt = 'Fermer', onConfirm = null) {
+    var msg = document.createElement('div'); msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:white;padding:30px;border:2px solid #888;z-index:100;text-align:center;max-width:80%;';
+    msg.innerHTML = (titre!=="" ? "<h3 style='margin-top:0;color:#f1c40f'>" + titre + "</h3>" : "") + texte + "<br>";
+    var btn = document.createElement('button'); btn.innerHTML = btnTxt; btn.style.cssText = 'margin-top:15px;cursor:pointer;padding:10px 20px;background:#27ae60;color:white;border:none;border-radius:5px;font-size:16px;';
+    btn.onclick = function() { document.body.removeChild(msg); if(onConfirm) onConfirm(); }; msg.appendChild(btn); document.body.appendChild(msg);
+}
+var viewer = pannellum.viewer('panorama', { "default": { "firstScene": "${firstSceneId}", "sceneFadeDuration": 1500, "autoLoad": true, "showFullscreenCtrl": false }, "scenes": ${jsonScenes} });
+<\/script></body></html>`;
+    const blob = new Blob([htmlTemplate], { type: "text/html;charset=utf-8" });
+    const lien = document.createElement("a"); lien.href = URL.createObjectURL(blob); lien.download = "index.html";
+    document.body.appendChild(lien); lien.click(); document.body.removeChild(lien);
+}
+window.onload = function() { addScene(); };
+</script>
+</body>
+</html>
