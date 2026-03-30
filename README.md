@@ -1,7 +1,8 @@
-# escape-game-360-maker
-## 🧩 Éditeur - Escape Game 360°
+# 🧩 Éditeur - Escape Game 360° (No-Code Builder)
 
-Un générateur visuel gratuit et open-source pour créer des "Escape Games" ou des visites virtuelles interactives en images 360°. Conçu spécifiquement pour être utilisé dans le cadre d'ateliers d'initiation au numérique. 
+🌍 **[🇬🇧 Click here for the English Version](#-english-version)**
+
+Un générateur visuel gratuit et open-source pour créer des "Escape Games" ou des visites virtuelles interactives en images 360°. Conçu spécifiquement pour être utilisé dans le cadre d'ateliers d'initiation au numérique (EPN). 
 
 L'outil génère un jeu complet sous la forme d'un simple fichier `index.html`, jouable directement dans n'importe quel navigateur, sans aucune connaissance en programmation requise !
 
@@ -9,7 +10,7 @@ L'outil génère un jeu complet sous la forme d'un simple fichier `index.html`, 
 
 ## 🛠️ Comment ça marche ?
 
-1. Ouvrez le fichier `editeur.html` (ou [la version en ligne de l'éditeur](https://mentisvidus.github.io/escape-game-360-maker/editeur.html)).
+1. Ouvrez l'éditeur : **[LANCER L'ÉDITEUR FR](https://MentisVidus.github.io/escape-game-360-maker/editeur.html)**
 2. Ajoutez des scènes (Pièces) et renseignez le nom de vos images 360° (format équirectangulaire).
 3. Ajoutez des "Points d'interaction" (Hotspots) pour créer des portes, des objets à ramasser ou des messages.
 4. Cliquez sur **"Générer mon jeu"**. Le navigateur téléchargera votre jeu prêt à jouer !
@@ -20,34 +21,60 @@ L'outil génère un jeu complet sous la forme d'un simple fichier `index.html`, 
 
 ---
 
-## ✨ Fonctionnalités actuelles (Version 4.0)
+## ✨ Fonctionnalités actuelles (Version 4.2)
 
 L'éditeur a évolué pour devenir un véritable moteur de création narratif :
 
+* **Aperçu en Direct (Nouveau v4.2)** : Testez le rendu d'une scène entière (et l'emplacement de vos zones invisibles encadrées en rouge) sans avoir à générer le jeu complet.
+* **Générateur CSS Visuel No-Code (Nouveau v4.2)** : Une interface intuitive permet de créer des zones cliquables (couleur, taille, bordure, opacité) et génère le code CSS automatiquement.
+* **Ergonomie de gestion (Nouveau v4.2)** : Déplacez vos scènes, dupliquez des hotspots d'une pièce à l'autre, et pliez/dépliez vos panneaux pour garder un espace de travail propre. Les scènes et hotspots peuvent désormais être nommés.
 * **Pointeur 360° intégré** : Plus besoin de deviner les coordonnées ! Un outil visuel permet de placer la caméra sur l'image pour récupérer le Pitch et le Yaw automatiquement.
 * **Système d'Inventaire** : Un panneau rétractable (et personnalisable) permet au joueur de stocker les objets ramassés.
-* **Logique conditionnelle** : Les objets peuvent être requis pour débloquer d'autres interactions (ex: posséder une clé pour ouvrir un coffre).
-* **Énigmes narratives** : Possibilité de poser des questions/mots de passe au joueur. Le jeu mémorise les énigmes résolues !
-* **Récompenses multiples** : La résolution d'une énigme ou l'utilisation d'un objet peut déclencher un changement de scène, un texte, ou le don d'un nouvel objet.
-* **Textes de transition** : Possibilité d'afficher un écran narratif de transition entre deux scènes.
-* **Personnalisation CSS en direct** : Interface permettant de prévisualiser et modifier l'apparence des zones cliquables (portes invisibles, icônes, objets ronds...).
+* **Logique conditionnelle & Énigmes** : Posez des questions aux joueurs, exigez des clés pour ouvrir des portes. Le jeu mémorise la progression !
 
 ---
 
 ## 🚀 Feuille de route (Roadmap / À venir)
 
-Le projet est en constante évolution. Voici les axes de développement prévus pour les prochaines versions :
+- [ ] **Alternative au CDN Pannellum** : Ajouter une option pour télécharger les dépendances localement.
+- [ ] **Gestion de l'Audio** : Intégrer des musiques d'ambiance ou des effets sonores.
+- [ ] **Système de "Niveaux"** : Lier plusieurs fichiers HTML générés entre eux (avec transfert de l'inventaire via le `localStorage`).
+- [ ] **Persistance des objets ramassés** : Empêcher la réapparition d'un objet ramassé quand on revient dans la pièce.
 
-- [ ] **Alternative au CDN Pannellum** : Ajouter une option pour télécharger les dépendances Pannellum localement, afin de ne pas surcharger les serveurs gratuits de l'auteur d'origine.
-- [ ] **Gestion de l'Audio** : Ajouter un système pour intégrer des musiques d'ambiance ou des effets sonores lors des clics.
-- [ ] **Système de "Niveaux" (Multi-pages)** : Permettre de lier plusieurs fichiers HTML générés pour éviter de créer un fichier final trop lourd si le jeu contient des dizaines de pièces (avec transfert de l'inventaire via la mémoire du navigateur).
-- [ ] **Persistance des objets ramassés** : Faire en sorte qu'un objet disparaissant après avoir été ramassé ne réapparaisse pas si le joueur quitte la pièce et y revient (actuellement contournable en créant une "scène alternative" post-ramassage).
+<br>
+<br>
 
 ---
 
-## 📜 Crédits & Licence
+# 🌍 English Version
 
-Créé par **Renald Gauthier** (Conseiller Numérique) avec l'assistance de **Perplexity AI**.
-Le moteur de rendu 360° utilise l'excellente bibliothèque [Pannellum](https://pannellum.org/) développée par Matthew Petroff.
+🇫🇷 **[Cliquez ici pour la version Française](#-éditeur-pro---escape-game-360-no-code-builder)**
 
-Ce projet est mis à disposition sous licence **Creative Commons BY-SA 4.0** (Attribution - Partage dans les Mêmes Conditions). Vous êtes libres de l'utiliser, de le modifier et de le partager, même dans un cadre d'ateliers professionnels, à condition de citer la source d'origine.
+A free, open-source visual builder to create 360° Escape Rooms and interactive virtual tours. Designed specifically for educational workshops, this "No-Code" tool generates a standalone `index.html` game file, playable in any web browser.
+
+## 🛠️ How it works
+
+1. Open the English Editor: **[LAUNCH EN EDITOR](https://MentisVidus.github.io/escape-game-360-maker/editor_en.html)**
+2. Add scenes (Rooms) and input your 360° equirectangular image URLs.
+3. Add interaction points (Hotspots) to create doors, pickable items, or riddles.
+4. Click **"GENERATE MY GAME"**. That's it!
+
+*(Tip: For testing purposes, it is highly recommended to use online image URLs starting with `http` rather than local files, to avoid browser CORS security blocks).*
+
+## ✨ Features (v4.2)
+
+* **Live Scene Preview (New v4.2)**: Test an entire scene layout without generating the full game. Hotspots are outlined in red for easy validation.
+* **Visual CSS Editor (New v4.2)**: Use sliders and color pickers to style your interaction zones. Code is generated for you. Includes an Expert Mode.
+* **Smart Duplication (New v4.2)**: Rearrange scenes, copy hotspots from one room to another instantly, and collapse panels for a clean workspace. Custom titles added.
+* **Built-in 360° Target Picker**: Visually place your hotspots on the image to auto-fill Pitch/Yaw coordinates.
+* **Inventory System**: A customizable, retractable panel to store found items.
+* **Smart Puzzles & Logic**: Create riddles and lock doors with required items. The game remembers what the player has already unlocked!
+
+---
+
+## 📜 Credits & License
+
+Created by **Renald Gauthier** with the assistance of **Perplexity AI**.
+The 360° rendering engine uses the amazing [Pannellum](https://pannellum.org/) library by Matthew Petroff.
+
+This project is licensed under **Creative Commons BY-SA 4.0** (Attribution - ShareAlike). You are free to use, modify, and share it as long as you credit the original source.
