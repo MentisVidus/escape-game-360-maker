@@ -230,12 +230,37 @@
                         <h3 style="margin-top: 0; opacity: 0.8;">Bravo !</h3>
                         <p style="margin-bottom: 15px; font-size: 15px;">Vous avez trouvé la solution.</p>
                         <button id="preview-pop-btn" style="padding: 8px 15px; border: none; border-radius: 5px; transition: all 0.3s;">Continuer</button>
-                    </div>
+					</div>
                 </div>
 
             </div> <!-- /popup-settings-container -->
         </div> <!-- /BLOC 2 -->
 
+
+        <!-- ============================================== -->
+        <!-- BLOC 3 : AUDIO GLOBAL (Réglages)               -->
+        <!-- ============================================== -->
+        <div style="background: #fdfefe; padding: 20px; border-radius: 8px; border: 1px solid #d5dbdb;">
+            <label style="font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 20px;">
+                <input type="checkbox" id="useGlobalAudio" onchange="document.getElementById('audio-settings-container').style.display = this.checked ? 'flex' : 'none';" style="width: 20px; height: 20px;"> 
+                Activer l'Audio (Musique de fond)
+            </label>
+            
+            <!-- Le conteneur Flexbox interne à l'Audio -->
+            <div id="audio-settings-container" style="display: none; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
+                
+                <div style="flex: 1; min-width: 300px;">
+                    <div class="row" style="margin-bottom: 10px;">
+                        <div class="col" style="flex: 1;">
+                            <label>URL du fichier audio (.mp3, .ogg) :</label>
+                            <input type="text" id="globalAudioUrl" placeholder="https://exemple.com/musique.mp3" style="width: 100%;">
+                        </div>
+                    </div>
+                    <small style="color: #7f8c8d;">Cette musique se lancera au démarrage du jeu et tournera en boucle.</small>
+                </div>
+
+            </div> <!-- /audio-settings-container -->
+        </div> <!-- /BLOC 3 -->
     </div> <!-- /Fin de la colonne principale -->
 	</div>
 </div>
@@ -752,6 +777,8 @@ function saveProject() {
         invBga: document.getElementById('inv-bga').value, 
         invColor: document.getElementById('inv-color').value, 
         useCustomPopup: document.getElementById('useCustomPopup').checked,
+        useGlobalAudio: document.getElementById('useGlobalAudio').checked,
+        globalAudioUrl: document.getElementById('globalAudioUrl').value,
         popFont: document.getElementById('pop-font').value,
         popColor: document.getElementById('pop-color').value,
         popBgc: document.getElementById('pop-bgc').value,
@@ -820,7 +847,6 @@ function loadProject(event) {
             // --- RESTAURE LES POPUPS ---
             const usePopup = project.useCustomPopup || false;
             document.getElementById('useCustomPopup').checked = usePopup;
-            // On affiche ou on cache le bloc des popups selon s'il est coché ou non
 			document.getElementById('popup-settings-container').style.display = usePopup ? 'flex' : 'none';
             
             if(usePopup) {
@@ -831,7 +857,12 @@ function loadProject(event) {
                 document.getElementById('pop-btn-bg').value = project.popBtnBg || "#27ae60";
                 document.getElementById('pop-btn-col').value = project.popBtnCol || "#ffffff";
             }
-            
+
+            // Restauration de l'audio global (Nouveau)
+            const useAudio = project.useGlobalAudio || false;
+            document.getElementById('useGlobalAudio').checked = useAudio;
+            document.getElementById('audio-settings-container').style.display = useAudio ? 'flex' : 'none';
+            document.getElementById('globalAudioUrl').value = project.globalAudioUrl || "";
             // Restaure les scènes et les hotspots
             project.scenes.forEach(scene => { 
                 const sId = addScene(scene.scId, scene.scImg, scene.scTitle); 
@@ -916,7 +947,9 @@ function generateGame() {
     const title = document.getElementById('gameTitle').value; 
     const hasInv = document.getElementById('useInventory').checked;
     const invPos = document.getElementById('inv-pos').value; 
-    const invIconVal = document.getElementById('inv-icon').value; 
+    const invIconVal = document.getElementById('inv-icon').value;
+	const useGlobalAudio = document.getElementById('useGlobalAudio').checked;
+	const globalAudioUrl = document.getElementById('globalAudioUrl').value;
 
     
     // Détermination de la position CSS de l'inventaire
@@ -1058,6 +1091,17 @@ function generateGame() {
     </style>
 </head>
 <body>
+    <!-- AUDIO MANAGER (3 canaux cachés) -->
+    <audio id="audio-music" loop></audio>
+    <audio id="audio-ambiance" loop></audio>
+    <audio id="audio-sfx"></audio>
+
+    <!-- Écran d'accueil pour débloquer l'audio -->
+    <div id="start-screen" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; color: white;">
+        <h1 style="font-size: 3em; margin-bottom: 30px;">${title}</h1>
+        <button onclick="startGame()" style="padding: 15px 30px; font-size: 1.2em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Commencer l'aventure</button>
+    </div>
+
     <!-- Interface Joueur -->
     <div id="inv-container">
         <div id="inv-toggle" onclick="toggleInv()">${invIconHTML}</div>
@@ -1074,6 +1118,44 @@ function generateGame() {
     // Variables du joueur
     var inventaire = {}; 
     var unlockedHotspots = {};
+    var viewer;
+
+    // --- MOTEUR AUDIO ---
+    var audioSys = {
+        masterVol: 1.0, musicVol: 0.5, ambianceVol: 0.8, sfxVol: 1.0,
+        
+        playMusic: function(url) {
+            var p = document.getElementById('audio-music');
+            if(!url) { p.pause(); return; }
+            if(p.src !== url) { p.src = url; p.volume = this.musicVol * this.masterVol; p.play().catch(function(e){console.log(e)}); }
+        },
+        playAmbiance: function(url) {
+            var p = document.getElementById('audio-ambiance');
+            if(!url) { p.pause(); return; }
+            if(p.src !== url) { p.src = url; p.volume = this.ambianceVol * this.masterVol; p.play().catch(function(e){console.log(e)}); }
+        },
+        playSFX: function(url) {
+            if(!url) return;
+            var p = document.getElementById('audio-sfx');
+            p.src = url; p.volume = this.sfxVol * this.masterVol; p.play().catch(function(e){console.log(e)});
+        }
+    };
+
+    // --- LANCEMENT DU JEU ---
+    function startGame() {
+        document.getElementById('start-screen').style.display = 'none';
+        
+        // Initialisation de Pannellum
+        viewer = pannellum.viewer('panorama', { 
+            "default": { "firstScene": "${firstSceneId}", "sceneFadeDuration": 1500, "autoLoad": true, "showFullscreenCtrl": false }, 
+            "scenes": ${jsonScenes} 
+        });
+
+        // Lancement de la musique globale si activée
+        if (${useGlobalAudio} && "${globalAudioUrl}" !== "") {
+            audioSys.playMusic("${globalAudioUrl}");
+        }
+    }
     
     function toggleInv() { 
         var p = document.getElementById('inv-panel'); 
@@ -1194,12 +1276,6 @@ function generateGame() {
         msg.appendChild(btn); 
         document.body.appendChild(msg);
     }
-    
-    // Initialisation du lecteur Pannellum avec les données générées !
-    var viewer = pannellum.viewer('panorama', { 
-        "default": { "firstScene": "${firstSceneId}", "sceneFadeDuration": 1500, "autoLoad": true, "showFullscreenCtrl": false }, 
-        "scenes": ${jsonScenes} 
-    });
 <\/script>
 </body>
 </html>`;
