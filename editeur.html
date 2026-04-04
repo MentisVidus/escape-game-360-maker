@@ -105,8 +105,48 @@
             <div class="col"><label>Icône/Logo :</label><input type="text" id="inv-icon" value="🎒"></div>
         </div>
         <div class="row">
-            <div class="col"><label>Fond CSS du panneau :</label><input type="text" id="inv-bg" value="rgba(0,0,0,0.8)"></div>
-            <div class="col"><label>Couleur du texte :</label><input type="text" id="inv-color" value="white"></div>
+            <div class="col"><label>Couleur de fond :</label><div style="display:flex; align-items:center; gap:10px;"><input type="color" id="inv-bgc" value="#000000" style="width:50px;"><input type="range" id="inv-bga" min="0" max="1" step="0.1" value="0.8" style="flex:1;"></div></div>
+            <div class="col"><label>Couleur du texte :</label><input type="color" id="inv-color" value="#ffffff"></div>
+        </div>
+    </div>
+	
+    <label style="font-size: 18px; font-weight: bold; margin-top:20px; display:block;">
+        <input type="checkbox" id="useCustomPopup" onchange="document.getElementById('popup-settings').style.display = this.checked ? 'block' : 'none'"> Personnaliser les boîtes de dialogue
+    </label>
+    
+    <div id="popup-settings" style="background: #e8f8f5; padding: 15px; margin-top: 10px; border-radius: 8px; border: 1px solid #a3e4d7; display:none;">
+        <div class="row">
+            <div class="col">
+                <label>Police d'écriture :</label>
+                <select id="pop-font">
+                    <option value="Arial, sans-serif">Arial (Moderne/Classique)</option>
+                    <option value="Courier, monospace">Courier New (Machine à écrire/Terminal)</option>
+                    <option value="Times, serif">Times New Roman (Livre/Vieux document)</option>
+                    <option value="cursive, sans-serif">Comic Sans (Manuscrit/Bande dessinée)</option>
+                    <option value="Impact, fantasy">Impact (Affiche/Urgence)</option>
+                </select>
+            </div>
+            <div class="col">
+                <label>Couleur du texte :</label>
+                <input type="color" id="pop-color" value="#ffffff">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <label>Couleur de fond :</label>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="color" id="pop-bgc" value="#000000" style="width:50px;">
+                    <input type="range" id="pop-bga" min="0" max="1" step="0.1" value="0.9" style="flex:1;">
+                </div>
+            </div>
+            <div class="col">
+                <label>Couleur du bouton :</label>
+                <input type="color" id="pop-btn-bg" value="#27ae60">
+            </div>
+            <div class="col">
+                <label>Texte du bouton :</label>
+                <input type="color" id="pop-btn-col" value="#ffffff">
+            </div>
         </div>
     </div>
 
@@ -623,8 +663,16 @@ function saveProject() {
         useInv: document.getElementById('useInventory').checked, 
         invPos: document.getElementById('inv-pos').value, 
         invIcon: document.getElementById('inv-icon').value, 
-        invBg: document.getElementById('inv-bg').value, 
+        invBgc: document.getElementById('inv-bgc').value, 
+        invBga: document.getElementById('inv-bga').value, 
         invColor: document.getElementById('inv-color').value, 
+        useCustomPopup: document.getElementById('useCustomPopup').checked,
+        popFont: document.getElementById('pop-font').value,
+        popColor: document.getElementById('pop-color').value,
+        popBgc: document.getElementById('pop-bgc').value,
+        popBga: document.getElementById('pop-bga').value,
+        popBtnBg: document.getElementById('pop-btn-bg').value,
+        popBtnCol: document.getElementById('pop-btn-col').value,
         scenes: [] 
     };
     
@@ -675,8 +723,20 @@ function loadProject(event) {
             if(project.useInv !== false) { 
                 document.getElementById('inv-pos').value = project.invPos || "top-right"; 
                 document.getElementById('inv-icon').value = project.invIcon || "🎒"; 
-                document.getElementById('inv-bg').value = project.invBg || "rgba(0,0,0,0.8)"; 
-                document.getElementById('inv-color').value = project.invColor || "white"; 
+                document.getElementById('inv-bgc').value = project.invBgc || "#000000"; 
+                document.getElementById('inv-bga').value = project.invBga !== undefined ? project.invBga : "0.8"; 
+                document.getElementById('inv-color').value = project.invColor || "#ffffff"; 
+            }
+            
+            document.getElementById('useCustomPopup').checked = project.useCustomPopup || false;
+            document.getElementById('popup-settings').style.display = project.useCustomPopup ? 'block' : 'none';
+            if(project.useCustomPopup) {
+                document.getElementById('pop-font').value = project.popFont || "Arial, sans-serif";
+                document.getElementById('pop-color').value = project.popColor || "#ffffff";
+                document.getElementById('pop-bgc').value = project.popBgc || "#000000";
+                document.getElementById('pop-bga').value = project.popBga !== undefined ? project.popBga : "0.9";
+                document.getElementById('pop-btn-bg').value = project.popBtnBg || "#27ae60";
+                document.getElementById('pop-btn-col').value = project.popBtnCol || "#ffffff";
             }
             
             // Restaure les scènes et les hotspots
@@ -698,8 +758,7 @@ function generateGame() {
     const hasInv = document.getElementById('useInventory').checked;
     const invPos = document.getElementById('inv-pos').value; 
     const invIconVal = document.getElementById('inv-icon').value; 
-    const invBg = document.getElementById('inv-bg').value; 
-    const invColor = document.getElementById('inv-color').value;
+
     
     // Détermination de la position CSS de l'inventaire
     let invPosCSS = "top: 15px; right: 15px;"; let alignItems = "flex-end";
@@ -712,6 +771,22 @@ function generateGame() {
     if(invIconVal.startsWith('http') || invIconVal.endsWith('.png') || invIconVal.endsWith('.jpg')) {
         invIconHTML = `<img src="${invIconVal}" style="width:30px; height:30px; display:block;">`;
     }
+	
+    // Extraction des couleurs inventaire (conversion RGBa)
+    const invBgc = document.getElementById('inv-bgc').value;
+    const invBga = document.getElementById('inv-bga').value;
+    const invBg = hexToRgba(invBgc, invBga);
+    const invColor = document.getElementById('inv-color').value;
+
+    // Paramètres Popup personnalisés ou par défaut
+    const useCustomPopup = document.getElementById('useCustomPopup').checked;
+    const popFont = useCustomPopup ? document.getElementById('pop-font').value : "Arial, sans-serif";
+    const popColor = useCustomPopup ? document.getElementById('pop-color').value : "#ffffff";
+    const popBgc = useCustomPopup ? document.getElementById('pop-bgc').value : "#000000";
+    const popBga = useCustomPopup ? document.getElementById('pop-bga').value : "0.95";
+    const popBg = hexToRgba(popBgc, popBga);
+    const popBtnBg = useCustomPopup ? document.getElementById('pop-btn-bg').value : "#27ae60";
+    const popBtnCol = useCustomPopup ? document.getElementById('pop-btn-col').value : "#ffffff";
 
     let scenesConfig = {}; 
     let firstSceneId = ""; 
@@ -891,12 +966,12 @@ function generateGame() {
                 
                 // Création dynamique de la popup pour l'énigme
                 var msg = document.createElement('div'); 
-                msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:#00ff00;padding:30px;border:2px solid #00ff00;z-index:100;text-align:center;max-width:80%;';
+                msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:${popBg};color:${popColor};font-family:${popFont};padding:30px;border:2px solid #888;z-index:100;text-align:center;max-width:80%;';
                 msg.innerHTML = args.enigmeTxt + "<br><br>";
                 
                 var inp = document.createElement('input'); 
                 inp.type = "text"; 
-                inp.style.cssText = 'background:black;color:#00ff00;border:1px solid #00ff00;padding:10px;text-align:center;font-size:18px;';
+                inp.style.cssText = 'margin-top:15px;padding:10px;width:80%;font-size:16px;text-align:center;font-family:inherit;';
                 msg.appendChild(inp); msg.appendChild(document.createElement('br'));
                 
                 var err = document.createElement('div'); 
@@ -905,7 +980,7 @@ function generateGame() {
                 
                 var btn = document.createElement('button'); 
                 btn.innerHTML = "[ VALIDER ]"; 
-                btn.style.cssText = 'background:transparent;color:#00ff00;border:1px solid #00ff00;padding:10px;margin-top:10px;cursor:pointer;';
+                btn.style.cssText = 'margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;';
                 btn.onclick = function() {
                     if(inp.value.toLowerCase().trim() === args.pwd) { 
                         document.body.removeChild(msg); 
@@ -946,12 +1021,12 @@ function generateGame() {
     // Affiche une simple boîte de dialogue stylisée
     function afficherPopup(titre, texte, btnTxt = 'Fermer', onConfirm = null) {
         var msg = document.createElement('div'); 
-        msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:white;padding:30px;border:2px solid #888;z-index:100;text-align:center;max-width:80%;';
-        msg.innerHTML = (titre!=="" ? "<h3 style='margin-top:0;color:#f1c40f'>" + titre + "</h3>" : "") + texte + "<br>";
+        msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:${popBg};color:${popColor};font-family:${popFont};padding:30px;border:2px solid #888;z-index:100;text-align:center;max-width:80%;';
+        msg.innerHTML = (titre!=="" ? "<h3 style='margin-top:0;color:inherit;opacity:0.8;'>" + titre + "</h3>" : "") + texte + "<br>";
         
         var btn = document.createElement('button'); 
         btn.innerHTML = btnTxt; 
-        btn.style.cssText = 'margin-top:15px;cursor:pointer;padding:10px 20px;background:#27ae60;color:white;border:none;border-radius:5px;font-size:16px;';
+        btn.style.cssText = 'margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;';
         btn.onclick = function() { 
             document.body.removeChild(msg); 
             if(onConfirm) onConfirm(); 
