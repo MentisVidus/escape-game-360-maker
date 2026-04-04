@@ -95,60 +95,150 @@
     <label>Titre du Jeu :</label>
     <input type="text" id="gameTitle" value="Mon Super Jeu">
     
-    <label style="font-size: 18px; font-weight: bold; margin-top:15px; display:block;">
-        <input type="checkbox" id="useInventory" checked onchange="toggleInvSettings()"> Activer le système d'Inventaire
-    </label>
-    
-    <div id="inv-settings">
-        <div class="row">
-            <div class="col"><label>Position à l'écran :</label><select id="inv-pos"><option value="top-right">Haut droite</option><option value="top-left">Haut gauche</option><option value="bottom-right">Bas droite</option><option value="bottom-left">Bas gauche</option></select></div>
-            <div class="col"><label>Icône/Logo :</label><input type="text" id="inv-icon" value="🎒"></div>
-        </div>
-        <div class="row">
-            <div class="col"><label>Couleur de fond :</label><div style="display:flex; align-items:center; gap:10px;"><input type="color" id="inv-bgc" value="#000000" style="width:50px;"><input type="range" id="inv-bga" min="0" max="1" step="0.1" value="0.8" style="flex:1;"></div></div>
-            <div class="col"><label>Couleur du texte :</label><input type="color" id="inv-color" value="#ffffff"></div>
-        </div>
+<!-- PARAMÈTRES GLOBAUX -->
+<div id="global-settings" class="section">
+    <!-- En-tête cliquable utilisant toggleCollapse -->
+    <div style="background: #2c3e50; color: white; padding: 15px; border-radius: 5px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;" 
+         onclick="toggleCollapse('global-settings-content', this.querySelector('span'))">
+        <h2 style="margin: 0; font-size: 18px;">⚙️ Paramètres Globaux du Jeu</h2>
+        <span style="font-weight: bold;">▼</span>
     </div>
-	
-    <label style="font-size: 18px; font-weight: bold; margin-top:20px; display:block;">
-        <input type="checkbox" id="useCustomPopup" onchange="document.getElementById('popup-settings').style.display = this.checked ? 'block' : 'none'"> Personnaliser les boîtes de dialogue
-    </label>
-    
-    <div id="popup-settings" style="background: #e8f8f5; padding: 15px; margin-top: 10px; border-radius: 8px; border: 1px solid #a3e4d7; display:none;">
-        <div class="row">
-            <div class="col">
-                <label>Police d'écriture :</label>
-                <select id="pop-font">
-                    <option value="Arial, sans-serif">Arial (Moderne/Classique)</option>
-                    <option value="Courier, monospace">Courier New (Machine à écrire/Terminal)</option>
-                    <option value="Times, serif">Times New Roman (Livre/Vieux document)</option>
-                    <option value="cursive, sans-serif">Comic Sans (Manuscrit/Bande dessinée)</option>
-                    <option value="Impact, fantasy">Impact (Affiche/Urgence)</option>
-                </select>
-            </div>
-            <div class="col">
-                <label>Couleur du texte :</label>
-                <input type="color" id="pop-color" value="#ffffff">
-            </div>
-        </div>
-        <div class="row">
-            <div class="col">
-                <label>Couleur de fond :</label>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <input type="color" id="pop-bgc" value="#000000" style="width:50px;">
-                    <input type="range" id="pop-bga" min="0" max="1" step="0.1" value="0.9" style="flex:1;">
+
+    <!-- Le conteneur qu'on va cacher/afficher -->
+    <div id="global-settings-content" style="display: flex; flex-direction: column; gap: 30px;">
+    <div style="display: flex; flex-direction: column; gap: 30px;"> <!-- On empile les blocs verticalement -->
+
+        <!-- ============================================== -->
+        <!-- BLOC 1 : INVENTAIRE (Réglages + Aperçu)        -->
+        <!-- ============================================== -->
+        <div style="background: #fdfefe; padding: 20px; border-radius: 8px; border: 1px solid #d5dbdb;">
+            <label style="font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 20px;">
+                <input type="checkbox" id="useInventory" checked onchange="document.getElementById('inv-settings-container').style.display = this.checked ? 'flex' : 'none'; updatePreview();" style="width: 20px; height: 20px;"> 
+                Activer l'Inventaire
+            </label>
+
+            <!-- Le conteneur Flexbox interne à l'inventaire -->
+            <div id="inv-settings-container" style="display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
+                
+                <!-- Colonne de gauche : Réglages -->
+                <div style="flex: 1; min-width: 300px;">
+                    <div class="row">
+                        <div class="col">
+                            <label>Position :</label>
+                            <select id="inv-pos" onchange="updatePreview()">
+                                <option value="top-right">En haut à droite</option>
+                                <option value="top-left">En haut à gauche</option>
+                                <option value="bottom-right">En bas à droite</option>
+                                <option value="bottom-left">En bas à gauche</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label>Icône d'ouverture :</label>
+                            <input type="text" id="inv-icon" value="🎒" oninput="updatePreview()">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <label>Couleur de fond :</label>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <input type="color" id="inv-bgc" value="#000000" style="width:50px; cursor: pointer;" oninput="updatePreview()">
+                                <input type="range" id="inv-bga" min="0" max="1" step="0.1" value="0.8" style="flex:1;" oninput="updatePreview()">
+                            </div>
+                        </div>
+                        <div class="col">
+                            <label>Couleur du texte :</label>
+                            <input type="color" id="inv-color" value="#ffffff" style="cursor: pointer;" oninput="updatePreview()">
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="col">
-                <label>Couleur du bouton :</label>
-                <input type="color" id="pop-btn-bg" value="#27ae60">
-            </div>
-            <div class="col">
-                <label>Texte du bouton :</label>
-                <input type="color" id="pop-btn-col" value="#ffffff">
-            </div>
-        </div>
-    </div>
+
+                <!-- Colonne de droite : Aperçu -->
+                <div style="flex: 1; min-width: 300px; background: #ebedef; padding: 20px; border-radius: 8px; border: 1px dashed #bdc3c7; text-align: center;">
+                    <div style="font-size: 12px; color: #7f8c8d; text-transform: uppercase; font-weight: bold; margin-bottom: 15px;">Aperçu de l'inventaire</div>
+                    
+                    <div id="preview-inv-container" style="padding: 15px; border-radius: 8px; display: inline-block; min-width: 200px; text-align: left; transition: all 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid currentColor; padding-bottom: 5px;">
+                            <span id="preview-inv-icon">🎒</span> Inventaire
+                        </div>
+                        <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
+                            <li style="margin-bottom: 5px;">🗝️ Clé rouillée</li>
+                            <li>📄 Morceau de papier</li>
+                        </ul>
+                    </div>
+                    
+                    <div id="preview-inv-disabled" style="display: none; font-style: italic; color: #95a5a6;">L'inventaire est désactivé.</div>
+                </div>
+
+            </div> <!-- /inv-settings-container -->
+        </div> <!-- /BLOC 1 -->
+
+
+        <!-- ============================================== -->
+        <!-- BLOC 2 : POPUPS (Réglages + Aperçu)            -->
+        <!-- ============================================== -->
+        <div style="background: #fdfefe; padding: 20px; border-radius: 8px; border: 1px solid #d5dbdb;">
+            <label style="font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 20px;">
+                <input type="checkbox" id="useCustomPopup" onchange="document.getElementById('popup-settings-container').style.display = this.checked ? 'flex' : 'none'; updatePreview();" style="width: 20px; height: 20px;"> 
+                Personnaliser les boîtes de dialogue
+            </label>
+            
+            <!-- Le conteneur Flexbox interne aux Popups -->
+            <div id="popup-settings-container" style="display: none; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
+                
+                <!-- Colonne de gauche : Réglages -->
+                <div style="flex: 1; min-width: 300px;">
+                    <div class="row">
+                        <div class="col">
+                            <label>Police d'écriture :</label>
+                            <select id="pop-font" onchange="updatePreview()">
+                                <option value="Arial, sans-serif">Arial (Moderne/Classique)</option>
+                                <option value="Courier, monospace">Courier New (Machine à écrire/Terminal)</option>
+                                <option value="Times, serif">Times New Roman (Livre/Vieux document)</option>
+                                <option value="cursive, sans-serif">Comic Sans (Manuscrit/Bande dessinée)</option>
+                                <option value="Impact, fantasy">Impact (Affiche/Urgence)</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label>Couleur du texte :</label>
+                            <input type="color" id="pop-color" value="#ffffff" style="cursor: pointer;" oninput="updatePreview()">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <label>Couleur de fond :</label>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <input type="color" id="pop-bgc" value="#000000" style="width:50px; cursor: pointer;" oninput="updatePreview()">
+                                <input type="range" id="pop-bga" min="0" max="1" step="0.1" value="0.9" style="flex:1;" oninput="updatePreview()">
+                            </div>
+                        </div>
+                        <div class="col">
+                            <label>Couleur du bouton :</label>
+                            <input type="color" id="pop-btn-bg" value="#27ae60" style="cursor: pointer;" oninput="updatePreview()">
+                        </div>
+                        <div class="col">
+                            <label>Texte du bouton :</label>
+                            <input type="color" id="pop-btn-col" value="#ffffff" style="cursor: pointer;" oninput="updatePreview()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Colonne de droite : Aperçu -->
+                <div style="flex: 1; min-width: 300px; background: #ebedef; padding: 20px; border-radius: 8px; border: 1px dashed #bdc3c7; text-align: center;">
+                    <div style="font-size: 12px; color: #7f8c8d; text-transform: uppercase; font-weight: bold; margin-bottom: 15px;">Aperçu des boîtes de dialogue</div>
+                    
+                    <div id="preview-pop-container" style="padding: 20px; border-radius: 5px; border: 2px solid #888; display: inline-block; width: 80%; transition: all 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                        <h3 style="margin-top: 0; opacity: 0.8;">Bravo !</h3>
+                        <p style="margin-bottom: 15px; font-size: 15px;">Vous avez trouvé la solution.</p>
+                        <button id="preview-pop-btn" style="padding: 8px 15px; border: none; border-radius: 5px; transition: all 0.3s;">Continuer</button>
+                    </div>
+                </div>
+
+            </div> <!-- /popup-settings-container -->
+        </div> <!-- /BLOC 2 -->
+
+    </div> <!-- /Fin de la colonne principale -->
+	</div>
+</div>
 
     <!-- ========================================== -->
     <!-- CONTENEUR DES SCÈNES ET BOUTONS D'AJOUT    -->
@@ -218,17 +308,12 @@ let tempYaw = 0;
 // Variable pour le lecteur de prévisualisation (Preview)
 let scenePreviewViewer = null;
 
-// --- FONCTION : Afficher/Cacher les paramètres d'inventaire ---
-function toggleInvSettings() { 
-    document.getElementById('inv-settings').style.display = document.getElementById('useInventory').checked ? "block" : "none"; 
-}
-
 // --- FONCTIONS D'ERGONOMIE VISUELLE (Plier, Monter, Descendre) ---
 // Masque ou affiche le contenu d'une scène ou d'un hotspot
 function toggleCollapse(bodyId, btn) {
     const body = document.getElementById(bodyId);
     if(body.style.display === 'none') { 
-        body.style.display = 'block'; 
+        body.style.display = ''; 
         btn.innerHTML = '▼'; 
     } else { 
         body.style.display = 'none'; 
@@ -715,12 +800,16 @@ function loadProject(event) {
             sceneIdCounter = 0; 
             hsIdCounter = 0;
             
-            // Restaure les paramètres globaux
+            // Restaure le titre
             document.getElementById('gameTitle').value = project.title || "Mon Super Jeu";
-            document.getElementById('useInventory').checked = project.useInv !== false; 
-            toggleInvSettings();
             
-            if(project.useInv !== false) { 
+            // --- RESTAURE L'INVENTAIRE ---
+            const useInv = project.useInv !== false;
+            document.getElementById('useInventory').checked = useInv;
+            // On affiche ou on cache le bloc d'inventaire selon s'il est coché ou non
+            document.getElementById('inv-settings-container').style.display = useInv ? 'flex' : 'none';
+            
+            if(useInv) { 
                 document.getElementById('inv-pos').value = project.invPos || "top-right"; 
                 document.getElementById('inv-icon').value = project.invIcon || "🎒"; 
                 document.getElementById('inv-bgc').value = project.invBgc || "#000000"; 
@@ -728,9 +817,13 @@ function loadProject(event) {
                 document.getElementById('inv-color').value = project.invColor || "#ffffff"; 
             }
             
-            document.getElementById('useCustomPopup').checked = project.useCustomPopup || false;
-            document.getElementById('popup-settings').style.display = project.useCustomPopup ? 'block' : 'none';
-            if(project.useCustomPopup) {
+            // --- RESTAURE LES POPUPS ---
+            const usePopup = project.useCustomPopup || false;
+            document.getElementById('useCustomPopup').checked = usePopup;
+            // On affiche ou on cache le bloc des popups selon s'il est coché ou non
+			document.getElementById('popup-settings-container').style.display = usePopup ? 'flex' : 'none';
+            
+            if(usePopup) {
                 document.getElementById('pop-font').value = project.popFont || "Arial, sans-serif";
                 document.getElementById('pop-color').value = project.popColor || "#ffffff";
                 document.getElementById('pop-bgc').value = project.popBgc || "#000000";
@@ -744,12 +837,78 @@ function loadProject(event) {
                 const sId = addScene(scene.scId, scene.scImg, scene.scTitle); 
                 scene.hotspots.forEach(hs => { addHotspot(sId, hs); }); 
             });
+            
+            // === MISE À JOUR DE L'APERÇU VISUEL ===
+            updatePreview();
+            
         } catch (err) { alert("Fichier invalide !"); }
     };
     reader.readAsText(file); 
     event.target.value = ''; // Réinitialise l'input de fichier
 }
 
+// --- FONCTIONS DE MISE A JOUR D APERCU ---
+function updatePreview() {
+    // 1. Mise à jour de l'aperçu Inventaire
+    if(document.getElementById('useInventory').checked) {
+        document.getElementById('preview-inv-container').style.display = 'inline-block';
+		document.getElementById('preview-inv-disabled').style.display = 'none';
+        
+        const invBgc = document.getElementById('inv-bgc').value;
+        const invBga = document.getElementById('inv-bga').value;
+        const invColor = document.getElementById('inv-color').value;
+        const invIcon = document.getElementById('inv-icon').value;
+        
+        // Fonction utilitaire locale pour convertir Hex en Rgba
+        const hex = invBgc.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        
+        document.getElementById('preview-inv-container').style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${invBga})`;
+        document.getElementById('preview-inv-container').style.color = invColor;
+        document.getElementById('preview-inv-icon').innerText = invIcon;
+    } else {
+        document.getElementById('preview-inv-container').style.display = 'none';
+		document.getElementById('preview-inv-disabled').style.display = 'block';
+    }
+
+    // 2. Mise à jour de l'aperçu Popup
+    if(document.getElementById('useCustomPopup').checked) {
+        const popFont = document.getElementById('pop-font').value;
+        const popColor = document.getElementById('pop-color').value;
+        const popBgc = document.getElementById('pop-bgc').value;
+        const popBga = document.getElementById('pop-bga').value;
+        const popBtnBg = document.getElementById('pop-btn-bg').value;
+        const popBtnCol = document.getElementById('pop-btn-col').value;
+
+        const hexPop = popBgc.replace('#', '');
+        const rp = parseInt(hexPop.substring(0, 2), 16);
+        const gp = parseInt(hexPop.substring(2, 4), 16);
+        const bp = parseInt(hexPop.substring(4, 6), 16);
+
+        const popContainer = document.getElementById('preview-pop-container');
+        popContainer.style.backgroundColor = `rgba(${rp}, ${gp}, ${bp}, ${popBga})`;
+        popContainer.style.color = popColor;
+        popContainer.style.fontFamily = popFont;
+
+        const popBtn = document.getElementById('preview-pop-btn');
+        popBtn.style.backgroundColor = popBtnBg;
+        popBtn.style.color = popBtnCol;
+        popBtn.style.fontFamily = popFont; // Le bouton hérite de la police
+    } else {
+        // Style par défaut si personnalisé n'est pas coché
+        const popContainer = document.getElementById('preview-pop-container');
+        popContainer.style.backgroundColor = 'rgba(0,0,0,0.9)';
+        popContainer.style.color = 'white';
+        popContainer.style.fontFamily = 'sans-serif';
+
+        const popBtn = document.getElementById('preview-pop-btn');
+        popBtn.style.backgroundColor = '#27ae60';
+        popBtn.style.color = 'white';
+        popBtn.style.fontFamily = 'sans-serif';
+    }
+}
 // --- LA GRANDE FONCTION : GÉNÉRATION DU JEU (Création de index.html) ---
 // Cette fonction lit tout le formulaire et fabrique le code du jeu final
 function generateGame() {
@@ -1057,7 +1216,8 @@ function generateGame() {
 
 // Au lancement de l'éditeur, on crée directement une première scène vide
 window.onload = function() { 
-    addScene(); 
+    addScene();
+	updatePreview();
 };
 </script>
 </body>
