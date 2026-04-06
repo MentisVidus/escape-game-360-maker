@@ -12,8 +12,9 @@ Pour le contexte général du projet, voir [ARCHITECTURE.md](./ARCHITECTURE.md).
 - Un hotspot peut ouvrir une **popup menu** avec plusieurs **choix** (boutons et/ou liste déroulante — voir §4).
 - Chaque choix exécute une **action** du même genre que les hotspots actuels : `msg`, `scene`, `pick`, `req`, `pwd`, ou un **sous-selector** (imbrication).
 - **Un seul moteur d’actions** côté jeu généré : `executeAction(payload, …)` appelé depuis un hotspot “classique” ou depuis un choix de selector.
-- **Rétrocompatibilité** : projets et jeux existants sans `selector` inchangés.
 - **Style** : la popup selector réutilise les **paramètres globaux de personnalisation des boîtes de dialogue** (comme les popups actuelles).
+
+**Rétrocompatibilité JSON** : non requise pour ce projet au moment du refactor (usage principal = auteur seul, anciens fichiers surtout POC). Un **schéma JSON v2** peut donc **casser** l’ancien format si cela simplifie le code ; documenter une procédure de migration manuelle ou un script reste utile pour qui aurait gardé d’anciens `.json`.
 
 ---
 
@@ -23,7 +24,7 @@ Pour le contexte général du projet, voir [ARCHITECTURE.md](./ARCHITECTURE.md).
 |--------|------|
 | `hotspotDispatcher(hsDiv, args)` | Point d’entrée Pannellum. Si `args.type === 'selector'` → ouvrir l’UI selector ; sinon → `executeAction(...)`. |
 | `executeAction(payload, hsDiv, uiContext)` | Exécute une action unique (message, changement de scène, ramassage, requis, passcode, etc.). |
-| `openSelector(selectorArgs, uiContext)` | Affiche la popup menu, gère la pile de navigation (Retour), Fermer, et les clics sur les choix. |
+| `openSelector(selectorArgs, uiContext)` | Affiche **une seule** surface modale ; le **contenu** (titre, intro, liste de choix) est **remplacé** quand on descend dans un sous-menu ou qu’on revient en arrière. **Pas** d’empilement de plusieurs popups les unes sur les autres — uniquement une **pile logique** (historique) pour le bouton Retour. |
 | `evaluateChoiceVisibility(choice, gameState)` | (Optionnel v1) Décide si un choix est visible / activé selon l’inventaire ou d’autres états. |
 
 **Contexte partagé** : inventaire, scène courante, états de déverrouillage, etc. Les sous-selectors **héritent** du même état global (pas de “sandbox” séparé sauf besoin futur explicite).
@@ -107,15 +108,13 @@ En implémentation v1 on peut **garder les types existants** dans l’éditeur e
 
 ### 4.2 Navigation
 
-- **Retour** : ramène au niveau de menu précédent ; **la popup reste ouverte** (pas de fermeture complète).
-- **Fermer / Sortir** : ferme tout le selector (équivalent croix).
-- Sous-menus imbriqués : pile de “pages” gérée par `openSelector` (stack).
+- **Retour** : ramène au **contenu** du niveau précédent **dans la même boîte** (une seule modale DOM).
+- **Fermer / Sortir** : ferme cette seule modale (équivalent croix).
+- Sous-menus imbriqués : **historique logique** (tableau ou pile en mémoire) pour savoir quoi re-rendre au Retour — **pas** de nouvelle popup par niveau.
 
 ### 4.3 Fermeture après une action “feuille”
 
-- Règle par défaut : après exécution d’une action qui n’est **pas** une navigation interne au menu (ex. message simple), comportement à définir finement :
-  - soit fermer le selector après le message (si le message est modal séparé),
-  - soit garder le selector ouvert selon le type (à préciser lors de l’implémentation pour rester cohérent avec `afficherPopup` actuel).
+- Objectif : **éviter** une deuxième modale “message” par-dessus le selector. Préférer : message **dans la même surface** (remplacer le corps du menu par le texte + bouton OK puis revenir au menu ou fermer), ou fermer le selector puis afficher un message — à trancher à l’implémentation, mais **pas** de stack visuelle de popups.
 
 ### 4.4 Options conditionnelles (inventaire / état)
 
@@ -136,14 +135,14 @@ Les deux sont compatibles avec le même schéma si `evaluateChoiceVisibility` es
 
 ## 6. Migration et compatibilité
 
-- Projets JSON **sans** champ `selector` : chargement inchangé.
-- Jeux générés **anciens** : mêmes types `msg`, `scene`, etc. ; pas de régression si le template détecte l’absence de `selector`.
+- **Pas d’engagement** de charge automatique des anciens `.json` si le schéma change (voir §1). Si besoin : export manuel, ou script de migration, ou ressaisie dans l’éditeur.
+- Les **jeux déjà générés** (`index.html` téléchargés) restent des fichiers figés ; seuls les **nouveaux** jeux générés après le refactor suivront le nouveau moteur.
 
 ---
 
 ## 7. Ordre d’implémentation recommandé
 
-1. Refactor **jeu généré uniquement** : extraire `executeAction` depuis la logique actuelle de `hotspotDispatcher` + `executeReward` ; tests sur jeux existants.
+1. Refactor **jeu généré uniquement** : extraire `executeAction` depuis la logique actuelle de `hotspotDispatcher` + `executeReward` ; valider avec des scénarios de test (anciens POC optionnels).
 2. Ajouter `openSelector` minimal (liste de boutons, un niveau, pas d’imbrication).
 3. Étendre JSON + éditeur pour éditer `choices` simples.
 4. Ajouter **Retour**, **imbrication**, **visibilité conditionnelle**, **liste déroulante**, **SFX par choice**.
