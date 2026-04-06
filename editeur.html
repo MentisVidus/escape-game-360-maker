@@ -333,6 +333,8 @@ let tempYaw = 0;
 // Variable pour le lecteur de prévisualisation (Preview)
 let scenePreviewViewer = null;
 
+function updateScenePreview() { /* hook réservé (ex: validation URL) ; champ .sc-img l'appelle au oninput */ }
+
 // --- FONCTIONS D'ERGONOMIE VISUELLE (Plier, Monter, Descendre) ---
 // Masque ou affiche le contenu d'une scène ou d'un hotspot
 function toggleCollapse(bodyId, btn) {

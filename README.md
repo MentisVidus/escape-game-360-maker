@@ -19,12 +19,18 @@ L'outil génère un jeu complet sous la forme d'un simple fichier `index.html`, 
 * **Images et liens (CORS)** : Lors de la conception et des tests, il est **fortement recommandé** d'utiliser des URL d'images hébergées en ligne (ex: via PostImages, Imgur, etc.) commençant par `http://` ou `https://`. Si vous utilisez des images locales (ex: `salle.jpg`), les navigateurs bloquent souvent l'affichage 3D par mesure de sécurité si le jeu n'est pas hébergé sur un serveur web.
 * **Sauvegarde** : Le bouton "Sauvegarder le projet" génère un fichier `.json`. Pensez à l'utiliser régulièrement ! Vous pourrez recharger ce fichier plus tard pour reprendre votre travail là où vous l'avez laissé.
 
+### Documentation technique (développeurs & IA)
+
+* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — fonctionnement du code, flux de données, JSON, Pannellum, audio.
+* [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — synchronisation FR/EN, bonnes pratiques de modification.
+
 ---
 
-## ✨ Fonctionnalités actuelles (Version 4.2)
+## ✨ Fonctionnalités actuelles (v4.2 + audio)
 
 L'éditeur a évolué pour devenir un véritable moteur de création narratif :
 
+* **Musique globale & ambiance par scène** : musique de fond optionnelle pour tout le jeu ; fichier audio optionnel par scène (silence si l’URL est vide).
 * **Aperçu en Direct (Nouveau v4.2)** : Testez le rendu d'une scène entière (et l'emplacement de vos zones invisibles encadrées en rouge) sans avoir à générer le jeu complet.
 * **Générateur CSS Visuel No-Code (Nouveau v4.2)** : Une interface intuitive permet de créer des zones cliquables (couleur, taille, bordure, opacité) et génère le code CSS automatiquement.
 * **Ergonomie de gestion (Nouveau v4.2)** : Déplacez vos scènes, dupliquez des hotspots d'une pièce à l'autre, et pliez/dépliez vos panneaux pour garder un espace de travail propre. Les scènes et hotspots peuvent désormais être nommés.
@@ -37,7 +43,7 @@ L'éditeur a évolué pour devenir un véritable moteur de création narratif :
 ## 🚀 Feuille de route (Roadmap / À venir)
 
 - [ ] **Alternative au CDN Pannellum** : Ajouter une option pour télécharger les dépendances localement.
-- [ ] **Gestion de l'Audio** : Intégrer des musiques d'ambiance ou des effets sonores.
+- [ ] **Audio avancé** : Effets sonores (SFX) par hotspot, réglages de volume côté joueur, balance par piste côté éditeur (voir la doc technique pour l’existant).
 - [ ] **Système de "Niveaux"** : Lier plusieurs fichiers HTML générés entre eux (avec transfert de l'inventaire via le `localStorage`).
 - [ ] **Persistance des objets ramassés** : Empêcher la réapparition d'un objet ramassé quand on revient dans la pièce.
 
@@ -61,8 +67,14 @@ A free, open-source visual builder to create 360° Escape Rooms and interactive 
 
 *(Tip: For testing purposes, it is highly recommended to use online image URLs starting with `http` rather than local files, to avoid browser CORS security blocks).*
 
-## ✨ Features (v4.2)
+### Technical documentation (developers & AI assistants)
 
+* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — code layout, data flow, JSON, Pannellum, audio.
+* [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — keeping FR/EN in sync, safe change checklist.
+
+## ✨ Features (v4.2 + audio)
+
+* **Global music & per-scene ambient audio**: optional background loop; optional ambient track per scene (no sound if URL empty).
 * **Live Scene Preview (New v4.2)**: Test an entire scene layout without generating the full game. Hotspots are outlined in red for easy validation.
 * **Visual CSS Editor (New v4.2)**: Use sliders and color pickers to style your interaction zones. Code is generated for you. Includes an Expert Mode.
 * **Smart Duplication (New v4.2)**: Rearrange scenes, copy hotspots from one room to another instantly, and collapse panels for a clean workspace. Custom titles added.
