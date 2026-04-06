@@ -6,12 +6,12 @@ Contributors comfortable editing HTML/CSS/JS, and **AI tools** applying patches.
 
 ## French / English editors
 
-- **Canonical behavior** should stay identical between [editeur.js](../editeur.js) and [editor_en.js](../editor_en.js) (loaded by [editeur.html](../editeur.html) and [editor_en.html](../editor_en.html)).
+- **Canonical behavior** should stay identical between the French and English **pairs** (`js/editeur-app.js` / `js/editeur-generate.js` vs `js/editor-en-app.js` / `js/editor-en-generate.js`), loaded by [editeur.html](../editeur.html) and [editor_en.html](../editor_en.html).
 - Typical workflow when adding a feature:
-  1. Implement in `editeur.js` (or in `editor_en.js` if you prefer, then port).
-  2. Port the same logic to the other file: form fields, `saveProject` / `loadProject`, and the **`generateGame()` template** if gameplay changes.
-  3. In `editor_en.js`, use **English comments**; user-visible strings in English.
-  4. Shared styling goes in [editor.css](../editor.css) when it applies to both UIs.
+  1. Implement in the French files (or English first, then port).
+  2. Port the same logic: form fields, `saveProject` / `loadProject`, and the **`generateGame()` template** in `*-generate.js` if gameplay changes.
+  3. In the English files, use **English comments**; user-visible strings in English.
+  4. Shared styling goes in [css/editor.css](../css/editor.css) when it applies to both UIs.
 
 Save filenames: `projet.json` (FR editor) vs `project.json` (EN editor) — **same JSON shape**; either editor can load a file saved by the other.
 

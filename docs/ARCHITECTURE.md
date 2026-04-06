@@ -8,18 +8,20 @@ This document is for **developers** and **AI assistants** working on the reposit
 |------|------|
 | [editeur.html](../editeur.html) | Main editor (French UI): markup + `<link>` / `<script src>`. |
 | [editor_en.html](../editor_en.html) | Same behavior, English UI; comments in English; default save as `project.json`. |
-| [editor.css](../editor.css) | Shared editor chrome (layout, buttons, modals, form controls). |
-| [editeur.js](../editeur.js) | French editor application logic (`saveProject`, `loadProject`, `generateGame`, …). |
-| [editor_en.js](../editor_en.js) | English editor — same structure as `editeur.js`; user-facing strings and comments differ. |
+| [css/editor.css](../css/editor.css) | Shared editor chrome (layout, buttons, modals, form controls). |
+| [js/editeur-app.js](../js/editeur-app.js) | French editor: UI, scenes/hotspots, save/load, previews — everything except `generateGame`. |
+| [js/editeur-generate.js](../js/editeur-generate.js) | French: `generateGame()` (player template) + `window.onload` boot. |
+| [js/editor-en-app.js](../js/editor-en-app.js) | English editor — same split as FR; mirrors `editeur-app.js`. |
+| [js/editor-en-generate.js](../js/editor-en-generate.js) | English: `generateGame()` + boot; mirrors `editeur-generate.js`. |
 | [README.md](../README.md) | User-facing documentation (FR + EN). |
 
-There is **no build step**. Open either HTML file from disk or host statically (e.g. GitHub Pages). Keep `editor.css`, `editeur.js`, and `editor_en.js` next to the HTML files so relative URLs resolve.
+There is **no build step**. Open either HTML file from disk or host statically (e.g. GitHub Pages). HTML files live at the repo root; assets use relative paths (`css/`, `js/`). Load order: **`*-app.js` then `*-generate.js`** (both `defer`); the second file defines `generateGame` and `window.onload`.
 
 ## Editor shell vs generated player
 
 Each editor page loads:
 
-1. **Editor application** — `editeur.js` or `editor_en.js` runs in the browser tab; builds the form, preview modals, saves JSON, calls `generateGame()`.
+1. **Editor application** — the `*-app.js` then `*-generate.js` pair runs in the browser tab; builds the form, preview modals, saves JSON, calls `generateGame()`.
 2. **Generated output** — not stored in the repo; `generateGame()` builds a **string** (`htmlTemplate`) and triggers download of **`index.html`**. That file is a **standalone player**: Pannellum + inventory + audio + hotspot logic.
 
 Important: the **player** code is embedded as a large template literal inside `generateGame()`. Changing gameplay requires editing that template (or later extracting it to a shared script).
