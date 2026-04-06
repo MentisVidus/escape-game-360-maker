@@ -86,6 +86,8 @@ Hotspot **types** in the player are handled in `hotspotDispatcher` inside the ge
 
 Hotspots use `createTooltipFunc` pointing to **`hotspotDispatcher`** (a real function in the player). The config is built with `JSON.stringify` then a string replace converts `"createTooltipFunc": "hotspotDispatcher"` to a **bare identifier** so the output is valid JavaScript.
 
+**Modales joueur** (`openSelector`, `afficherPopup`, énigme mot de passe) partagent le même **chrome** : overlay plein écran assombri (`rgba(0,0,0,0.82)`), `z-index: 10050`, panneau centré `max-width: 420px`, `border-radius: 8px`, ombre. Clic sur le fond : fermeture (pour `afficherPopup`, sans appeler `onConfirm`).
+
 Scene changes: player listens to **`scenechange`** and calls **`applySceneAmbiance(sceneId)`** so per-scene ambient audio stays aligned with the current room.
 
 ## Audio (player)

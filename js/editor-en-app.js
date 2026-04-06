@@ -455,11 +455,14 @@ function updateHsFields(hId) {
         <label>Menu title:</label><input type="text" class="f-sel-title" value="Choose an action">
         <label>Introduction (HTML, optional):</label><textarea class="f-sel-intro" rows="2"></textarea>
         <label>Choices — JSON array:</label>
-        <textarea class="f-sel-choices" rows="12" style="font-family:Consolas,monospace;font-size:12px;">[
-  { "label": "Show message", "actionType": "msg", "txt": "&lt;p&gt;Hello!&lt;/p&gt;" },
-  { "label": "Go elsewhere", "actionType": "scene", "target": "scene_2", "transTxt": "", "transBtn": "Continue" }
+        <textarea class="f-sel-choices" rows="16" style="font-family:Consolas,monospace;font-size:12px;">[
+  { "label": "Sub-menu (nested)", "actionType": "selector", "nested": { "title": "More options", "introHtml": "&lt;p&gt;Level 2&lt;/p&gt;", "choices": [
+    { "label": "Message here", "actionType": "msg", "txt": "&lt;p&gt;Nested content&lt;/p&gt;" }
+  ]}},
+  { "label": "Direct message", "actionType": "msg", "txt": "&lt;p&gt;Level 1&lt;/p&gt;" },
+  { "label": "Other scene", "actionType": "scene", "target": "scene_2", "transTxt": "", "transBtn": "Continue" }
 ]</textarea>
-        <small style="color:#555;">Allowed <code>actionType</code> (v1): <code>msg</code>, <code>scene</code>, <code>pick</code> — fields same as the matching hotspot type.</small>`;
+        <small style="color:#555;"><code>actionType</code>: <code>msg</code>, <code>scene</code>, <code>pick</code>, or <code>selector</code> with <code>nested</code> (same shape: <code>title</code>, <code>introHtml</code>, <code>choices</code>). <b>← Back</b> in the player.</small>`;
     }
 }
 

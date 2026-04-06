@@ -456,11 +456,14 @@ function updateHsFields(hId) {
         <label>Titre du menu :</label><input type="text" class="f-sel-title" value="Choisissez une action">
         <label>Introduction (HTML, optionnel) :</label><textarea class="f-sel-intro" rows="2"></textarea>
         <label>Choix — JSON (tableau) :</label>
-        <textarea class="f-sel-choices" rows="12" style="font-family:Consolas,monospace;font-size:12px;">[
-  { "label": "Lire un message", "actionType": "msg", "txt": "&lt;p&gt;Bonjour !&lt;/p&gt;" },
-  { "label": "Aller ailleurs", "actionType": "scene", "target": "scene_2", "transTxt": "", "transBtn": "Continuer" }
+        <textarea class="f-sel-choices" rows="16" style="font-family:Consolas,monospace;font-size:12px;">[
+  { "label": "Sous-menu (nested)", "actionType": "selector", "nested": { "title": "Plus d'options", "introHtml": "&lt;p&gt;Niveau 2&lt;/p&gt;", "choices": [
+    { "label": "Message ici", "actionType": "msg", "txt": "&lt;p&gt;Contenu du sous-menu&lt;/p&gt;" }
+  ]}},
+  { "label": "Message direct", "actionType": "msg", "txt": "&lt;p&gt;Niveau 1&lt;/p&gt;" },
+  { "label": "Autre scène", "actionType": "scene", "target": "scene_2", "transTxt": "", "transBtn": "Continuer" }
 ]</textarea>
-        <small style="color:#555;">actionType autorisés (v1) : <code>msg</code>, <code>scene</code>, <code>pick</code> — champs comme pour un hotspot du même type (<code>txt</code>, <code>target</code>, <code>itemId</code> / <code>itemName</code>, etc.).</small>`;
+        <small style="color:#555;"><code>actionType</code> : <code>msg</code>, <code>scene</code>, <code>pick</code>, ou <code>selector</code> avec <code>nested</code> (même schéma : <code>title</code>, <code>introHtml</code>, <code>choices</code>). Bouton <b>← Retour</b> dans le jeu.</small>`;
     }
 }
 

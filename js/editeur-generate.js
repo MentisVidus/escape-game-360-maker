@@ -303,6 +303,13 @@ function generateGame() {
         }
     }
 
+    var selectorHistory = [];
+    var selectorHsDiv = null;
+
+    function normalizeSelectorLevel(obj) {
+        if(!obj) obj = {};
+        return { title: obj.title || '', introHtml: obj.introHtml || '', choices: Array.isArray(obj.choices) ? obj.choices : [] };
+    }
     function choiceToPayload(choice) {
         if(!choice || !choice.actionType) return null;
         var at = choice.actionType;
@@ -314,9 +321,78 @@ function generateGame() {
     function closeSelectorOverlay() {
         var o = document.getElementById('selector-overlay');
         if(o) o.remove();
+        selectorHistory = [];
+        selectorHsDiv = null;
+    }
+    function selectorBack() {
+        if(selectorHistory.length <= 1) {
+            closeSelectorOverlay();
+            return;
+        }
+        selectorHistory.pop();
+        renderSelectorPanel();
+    }
+    function renderSelectorPanel() {
+        var inner = document.getElementById('selector-panel-inner');
+        if(!inner || selectorHistory.length === 0) return;
+        var level = selectorHistory[selectorHistory.length - 1];
+        var hsDiv = selectorHsDiv;
+        inner.innerHTML = '';
+        var topBar = document.createElement('div');
+        topBar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;min-height:28px;';
+        var backBtn = document.createElement('button');
+        backBtn.type = 'button';
+        backBtn.textContent = '← Retour';
+        backBtn.style.cssText = 'cursor:pointer;padding:6px 10px;border:none;border-radius:4px;background:rgba(255,255,255,0.15);color:inherit;font:inherit;' + (selectorHistory.length > 1 ? '' : 'visibility:hidden;');
+        backBtn.onclick = function(){ selectorBack(); };
+        var mid = document.createElement('span');
+        mid.style.flex = '1';
+        var btnX = document.createElement('button');
+        btnX.innerHTML = '✕';
+        btnX.setAttribute('aria-label','Fermer');
+        btnX.style.cssText = 'background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;';
+        btnX.onclick = function(){ closeSelectorOverlay(); };
+        topBar.appendChild(backBtn);
+        topBar.appendChild(mid);
+        topBar.appendChild(btnX);
+        inner.appendChild(topBar);
+        var h = document.createElement('h2');
+        h.style.cssText = 'margin:0 0 12px 0;font-size:1.25em;';
+        h.textContent = level.title || 'Choix';
+        inner.appendChild(h);
+        if(level.introHtml) {
+            var intro = document.createElement('div');
+            intro.style.cssText = 'margin-bottom:16px;font-size:0.95em;';
+            intro.innerHTML = level.introHtml;
+            inner.appendChild(intro);
+        }
+        var wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+        (level.choices || []).forEach(function(choice, idx) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = choice.label || ('Choix ' + (idx+1));
+            b.style.cssText = 'cursor:pointer;padding:12px 16px;border:none;border-radius:6px;font-size:16px;font-weight:bold;background:${popBtnBg};color:${popBtnCol};font-family:inherit;width:100%;';
+            b.onclick = function() {
+                if(choice.actionType === 'selector') {
+                    if(choice.nested) {
+                        selectorHistory.push(normalizeSelectorLevel(choice.nested));
+                        renderSelectorPanel();
+                    }
+                    return;
+                }
+                var payload = choiceToPayload(choice);
+                closeSelectorOverlay();
+                if(payload) executeAction(payload, hsDiv);
+            };
+            wrap.appendChild(b);
+        });
+        inner.appendChild(wrap);
     }
     function openSelector(args, hsDiv) {
         closeSelectorOverlay();
+        selectorHistory = [normalizeSelectorLevel(args)];
+        selectorHsDiv = hsDiv;
         var overlay = document.createElement('div');
         overlay.id = 'selector-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
@@ -324,39 +400,12 @@ function generateGame() {
         var panel = document.createElement('div');
         panel.style.cssText = 'background:${popBg};color:${popColor};font-family:${popFont};max-width:420px;width:100%;max-height:85vh;overflow:auto;padding:24px;border-radius:8px;border:2px solid #888;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.5);';
         panel.onclick = function(e){ e.stopPropagation(); };
-        var btnX = document.createElement('button');
-        btnX.innerHTML = '✕';
-        btnX.setAttribute('aria-label','Fermer');
-        btnX.style.cssText = 'position:absolute;top:8px;right:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;';
-        btnX.onclick = function(){ closeSelectorOverlay(); };
-        panel.appendChild(btnX);
-        var h = document.createElement('h2');
-        h.style.cssText = 'margin:0 0 12px 0;padding-right:28px;font-size:1.25em;';
-        h.textContent = args.title || 'Choix';
-        panel.appendChild(h);
-        if(args.introHtml) {
-            var intro = document.createElement('div');
-            intro.style.cssText = 'margin-bottom:16px;font-size:0.95em;';
-            intro.innerHTML = args.introHtml;
-            panel.appendChild(intro);
-        }
-        var wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
-        (args.choices || []).forEach(function(choice, idx) {
-            var b = document.createElement('button');
-            b.type = 'button';
-            b.textContent = choice.label || ('Choix ' + (idx+1));
-            b.style.cssText = 'cursor:pointer;padding:12px 16px;border:none;border-radius:6px;font-size:16px;font-weight:bold;background:${popBtnBg};color:${popBtnCol};font-family:inherit;width:100%;';
-            b.onclick = function() {
-                closeSelectorOverlay();
-                var payload = choiceToPayload(choice);
-                if(payload) executeAction(payload, hsDiv);
-            };
-            wrap.appendChild(b);
-        });
-        panel.appendChild(wrap);
+        var inner = document.createElement('div');
+        inner.id = 'selector-panel-inner';
+        panel.appendChild(inner);
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
+        renderSelectorPanel();
     }
 
     function hotspotDispatcher(hsDiv, args) {
@@ -376,9 +425,12 @@ function generateGame() {
             else if(args.type === 'pwd') {
                 if(unlockedHotspots[args.id]) { executeReward(args, hsDiv); return; }
                 
-                // Création dynamique de la popup pour l'énigme
-                var msg = document.createElement('div'); 
-                msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:${popBg};color:${popColor};font-family:${popFont};padding:30px;border:2px solid #888;z-index:100;text-align:center;max-width:80%;';
+                var pwdBackdrop = document.createElement('div');
+                pwdBackdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+                pwdBackdrop.onclick = function(e) { if(e.target === pwdBackdrop) document.body.removeChild(pwdBackdrop); };
+                var msg = document.createElement('div');
+                msg.style.cssText = 'background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;';
+                msg.onclick = function(e){ e.stopPropagation(); };
                 msg.innerHTML = args.enigmeTxt + "<br><br>";
                 
                 var inp = document.createElement('input'); 
@@ -395,7 +447,7 @@ function generateGame() {
                 btn.style.cssText = 'margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;';
                 btn.onclick = function() {
                     if(inp.value.toLowerCase().trim() === args.pwd) { 
-                        document.body.removeChild(msg); 
+                        document.body.removeChild(pwdBackdrop); 
                         unlockedHotspots[args.id] = true; 
                         executeReward(args, hsDiv); 
                     } else { 
@@ -408,11 +460,13 @@ function generateGame() {
                 
                 var cls = document.createElement('button'); 
                 cls.innerHTML = "X"; 
-                cls.style.cssText = 'position:absolute;top:5px;right:5px;background:transparent;color:red;border:none;cursor:pointer;font-size:16px;';
-                cls.onclick = function() { document.body.removeChild(msg); }; 
+                cls.setAttribute('aria-label','Fermer');
+                cls.style.cssText = 'position:absolute;top:8px;right:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;';
+                cls.onclick = function() { document.body.removeChild(pwdBackdrop); }; 
                 
                 msg.appendChild(cls); 
-                document.body.appendChild(msg); 
+                pwdBackdrop.appendChild(msg);
+                document.body.appendChild(pwdBackdrop); 
                 setTimeout(function(){ inp.focus(); }, 100);
             }
         };
@@ -430,22 +484,27 @@ function generateGame() {
         if(c === 0) ul.innerHTML = '<li style="color:gray; font-style:italic;">Vide</li>';
     }
     
-    // Affiche une simple boîte de dialogue stylisée
+    // Boîte de dialogue — même « chrome » visuel que le selector (overlay + panneau arrondi)
     function afficherPopup(titre, texte, btnTxt = 'Fermer', onConfirm = null) {
-        var msg = document.createElement('div'); 
-        msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:${popBg};color:${popColor};font-family:${popFont};padding:30px;border:2px solid #888;z-index:100;text-align:center;max-width:80%;';
+        var backdrop = document.createElement('div');
+        backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+        backdrop.onclick = function(e) { if(e.target === backdrop) document.body.removeChild(backdrop); };
+        var msg = document.createElement('div');
+        msg.style.cssText = 'background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;max-height:85vh;overflow:auto;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;';
+        msg.onclick = function(e){ e.stopPropagation(); };
         msg.innerHTML = (titre!=="" ? "<h3 style='margin-top:0;color:inherit;opacity:0.8;'>" + titre + "</h3>" : "") + texte + "<br>";
         
         var btn = document.createElement('button'); 
         btn.innerHTML = btnTxt; 
         btn.style.cssText = 'margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;';
         btn.onclick = function() { 
-            document.body.removeChild(msg); 
+            document.body.removeChild(backdrop); 
             if(onConfirm) onConfirm(); 
         }; 
         
         msg.appendChild(btn); 
-        document.body.appendChild(msg);
+        backdrop.appendChild(msg);
+        document.body.appendChild(backdrop);
     }
 <\/script>
 </body>
