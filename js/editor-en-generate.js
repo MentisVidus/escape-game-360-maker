@@ -262,45 +262,47 @@ function generateGame() {
         p.style.display = (p.style.display === 'block') ? 'none' : 'block'; 
     }
     
-    // Reward branch after passcode / required item
-    function executeReward(args, hsDiv) {
-        if(args.action === 'scene') { 
-            if(args.transTxt) { 
-                afficherPopup("", args.transTxt, args.transBtn || "Continue", function(){ viewer.loadScene(args.target); }); 
-            } else { 
-                viewer.loadScene(args.target); 
-            } 
-        }
-        else if(args.action === 'msg') { afficherPopup("", args.okMsg); }
-        else if(args.action === 'pick') { 
-            inventaire[args.pickId] = { name: args.pickName }; 
-            hsDiv.style.display = 'none'; 
-            majInventaireUI(); 
-            afficherPopup("", args.pickMsg); 
+    // Leaf action (msg / scene / pick) — shared engine for classic hotspots and future selector choices (see docs/SELECTOR_SPEC.md)
+    function executeAction(payload, hsDiv) {
+        if(payload.type === 'scene') {
+            if(payload.transTxt) {
+                afficherPopup("", payload.transTxt, payload.transBtn || "Continue", function(){ viewer.loadScene(payload.target); });
+            } else {
+                viewer.loadScene(payload.target);
+            }
+        } else if(payload.type === 'msg') {
+            afficherPopup("", payload.txt);
+        } else if(payload.type === 'pick') {
+            inventaire[payload.itemId] = { name: payload.itemName };
+            hsDiv.style.display = 'none';
+            majInventaireUI();
+            afficherPopup("", payload.txt);
         }
     }
-    
-    // Hotspot factory: wires click → game logic
+
+    // Reward after passcode or required item (internal scene / msg / pick branches)
+    function executeReward(args, hsDiv) {
+        if(args.action === 'scene') {
+            executeAction({ type: 'scene', target: args.target, transTxt: args.transTxt, transBtn: args.transBtn }, hsDiv);
+        } else if(args.action === 'msg') {
+            executeAction({ type: 'msg', txt: args.okMsg }, hsDiv);
+        } else if(args.action === 'pick') {
+            executeAction({ type: 'pick', itemId: args.pickId, itemName: args.pickName, txt: args.pickMsg }, hsDiv);
+        }
+    }
+
     function hotspotDispatcher(hsDiv, args) {
         hsDiv.onclick = function() {
-            if(args.type === 'msg') { afficherPopup("", args.txt); } 
-            else if(args.type === 'scene') { 
-                if(args.transTxt) { afficherPopup("", args.transTxt, args.transBtn, function(){ viewer.loadScene(args.target); }); } 
-                else { viewer.loadScene(args.target); } 
-            }
-            else if(args.type === 'pick') { 
-                inventaire[args.itemId] = { name: args.itemName }; 
-                hsDiv.style.display = 'none'; 
-                majInventaireUI(); 
-                afficherPopup("", args.txt); 
-            }
-            else if(args.type === 'req') { 
-                if(inventaire[args.itemId]) { 
-                    hsDiv.style.background = "rgba(0,255,0,0.5)"; 
-                    executeReward(args, hsDiv); 
-                } else { 
-                    afficherPopup("", args.ko); 
-                } 
+            if(args.type === 'msg') { executeAction({ type: 'msg', txt: args.txt }, hsDiv); }
+            else if(args.type === 'scene') { executeAction({ type: 'scene', target: args.target, transTxt: args.transTxt, transBtn: args.transBtn }, hsDiv); }
+            else if(args.type === 'pick') { executeAction({ type: 'pick', itemId: args.itemId, itemName: args.itemName, txt: args.txt }, hsDiv); }
+            else if(args.type === 'req') {
+                if(inventaire[args.itemId]) {
+                    hsDiv.style.background = "rgba(0,255,0,0.5)";
+                    executeReward(args, hsDiv);
+                } else {
+                    afficherPopup("", args.ko);
+                }
             }
             else if(args.type === 'pwd') {
                 if(unlockedHotspots[args.id]) { executeReward(args, hsDiv); return; }

@@ -142,7 +142,7 @@ Les deux sont compatibles avec le même schéma si `evaluateChoiceVisibility` es
 
 ## 7. Ordre d’implémentation recommandé
 
-1. Refactor **jeu généré uniquement** : extraire `executeAction` depuis la logique actuelle de `hotspotDispatcher` + `executeReward` ; valider avec des scénarios de test (anciens POC optionnels).
+1. ~~Refactor **jeu généré uniquement** : extraire `executeAction` depuis la logique actuelle de `hotspotDispatcher` + `executeReward` ; valider avec des scénarios de test (anciens POC optionnels).~~ **Fait** (template dans `js/editeur-generate.js` / `js/editor-en-generate.js`).
 2. Ajouter `openSelector` minimal (liste de boutons, un niveau, pas d’imbrication).
 3. Étendre JSON + éditeur pour éditer `choices` simples.
 4. Ajouter **Retour**, **imbrication**, **visibilité conditionnelle**, **liste déroulante**, **SFX par choice**.

@@ -139,11 +139,11 @@ For selectors and nested selectors, action execution should be centralized in on
 ### Target architecture
 
 1. Keep `hotspotDispatcher` as the trigger layer (Pannellum integration).
-2. Add `executeAction(payload, hsDiv)` as the action engine.
+2. **`executeAction(payload, hsDiv)`** — implemented in the **generated** `index.html` (template in `*-generate.js`). Handles `msg` / `scene` / `pick`; `executeReward` delegates req/pwd success branches to the same engine.
 3. Add `openSelector(...)` for selector UI: **one modal container**; sub-menus **replace** inner content (logical history stack only — **no** stacked popups).
 4. `hotspotDispatcher` behavior:
-   - classic hotspot: call `executeAction(...)`
-   - selector hotspot: call `openSelector(...)`
+   - classic hotspot (`msg` / `scene` / `pick` / `req` / `pwd`): today `executeAction` / `executeReward` / inline pwd UI
+   - selector hotspot (next): call `openSelector(...)`
 5. A selector choice click:
    - if `actionType !== "selector"`: call `executeAction(...)`
    - if `actionType === "selector"`: push next level into the **same** modal (replace view)
