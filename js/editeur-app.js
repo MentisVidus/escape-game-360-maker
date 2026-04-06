@@ -165,6 +165,7 @@ function addHotspot(sceneId, hsData = null) {
                 <option value="req">Objet requis</option>
                 <option value="pwd">Énigme / Code</option>
                 <option value="scene">Aller à une scène</option>
+                <option value="selector">Menu de choix (selector)</option>
             </select>
             <!-- Conteneur qui affichera les champs spécifiques au type choisi -->
             <div class="dynamic-fields" id="fields_${hId}"></div>
@@ -182,7 +183,7 @@ function addHotspot(sceneId, hsData = null) {
 
     // Remplissage des champs dynamiques avec les données sauvegardées (si on charge un projet)
     if(hsData) {
-        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko'];
+        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-choices'];
         fields.forEach(f => {
             let el = hsDiv.querySelector('.' + f);
             if(el && hsData[f.replace(/-/g, '_')] !== undefined) {
@@ -207,7 +208,7 @@ function extractHotspotData(hId) {
         type: hsDiv.querySelector('.hs-type').value 
     };
     
-    let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'ui-w', 'ui-h', 'ui-shape', 'ui-bgc', 'ui-bga', 'ui-brd-style', 'ui-brd-w', 'ui-brd-c', 'ui-img'];
+    let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-choices', 'ui-w', 'ui-h', 'ui-shape', 'ui-bgc', 'ui-bga', 'ui-brd-style', 'ui-brd-w', 'ui-brd-c', 'ui-img'];
     fields.forEach(f => { 
         let el = hsDiv.querySelector('.' + f); 
         if(el) hs[f.replace(/-/g, '_')] = el.value; 
@@ -449,6 +450,17 @@ function updateHsFields(hId) {
             <div class="s-msg"><label>Message :</label><textarea class="f-ok-msg" rows="2">Déverrouillé !</textarea></div>
             <div class="s-pick"><div class="row"><div class="col"><label>ID objet :</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Nom :</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Texte trouvaille :</label><textarea class="f-pick-msg" rows="2">Trouvé.</textarea></div>
         </div>`;
+    }
+    else if(type === 'selector') {
+        container.innerHTML = `
+        <label>Titre du menu :</label><input type="text" class="f-sel-title" value="Choisissez une action">
+        <label>Introduction (HTML, optionnel) :</label><textarea class="f-sel-intro" rows="2"></textarea>
+        <label>Choix — JSON (tableau) :</label>
+        <textarea class="f-sel-choices" rows="12" style="font-family:Consolas,monospace;font-size:12px;">[
+  { "label": "Lire un message", "actionType": "msg", "txt": "&lt;p&gt;Bonjour !&lt;/p&gt;" },
+  { "label": "Aller ailleurs", "actionType": "scene", "target": "scene_2", "transTxt": "", "transBtn": "Continuer" }
+]</textarea>
+        <small style="color:#555;">actionType autorisés (v1) : <code>msg</code>, <code>scene</code>, <code>pick</code> — champs comme pour un hotspot du même type (<code>txt</code>, <code>target</code>, <code>itemId</code> / <code>itemName</code>, etc.).</small>`;
     }
 }
 

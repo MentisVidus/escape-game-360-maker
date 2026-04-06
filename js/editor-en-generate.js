@@ -119,6 +119,18 @@ function generateGame() {
                     args.pickMsg = hsDiv.querySelector('.f-pick-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); 
                 }
             }
+            if(type === 'selector') {
+                args.title = hsDiv.querySelector('.f-sel-title').value;
+                args.introHtml = hsDiv.querySelector('.f-sel-intro').value;
+                try {
+                    var selChoices = JSON.parse(hsDiv.querySelector('.f-sel-choices').value.trim());
+                    if(!Array.isArray(selChoices)) throw new Error('choices must be a JSON array');
+                    args.choices = selChoices;
+                } catch(e) {
+                    alert('Selector: invalid choices JSON.\\n' + e.message);
+                    return;
+                }
+            }
             
             // Push hotspot config
             hotSpots.push({ pitch: parseFloat(hsDiv.querySelector('.hs-pitch').value), yaw: parseFloat(hsDiv.querySelector('.hs-yaw').value), cssClass: hsClass, createTooltipFunc: "hotspotDispatcher", createTooltipArgs: args });
@@ -291,9 +303,66 @@ function generateGame() {
         }
     }
 
+    function choiceToPayload(choice) {
+        if(!choice || !choice.actionType) return null;
+        var at = choice.actionType;
+        if(at === 'msg') return { type: 'msg', txt: choice.txt || '' };
+        if(at === 'scene') return { type: 'scene', target: choice.target || '', transTxt: choice.transTxt || '', transBtn: choice.transBtn };
+        if(at === 'pick') return { type: 'pick', itemId: choice.itemId, itemName: choice.itemName, txt: choice.txt || '' };
+        return null;
+    }
+    function closeSelectorOverlay() {
+        var o = document.getElementById('selector-overlay');
+        if(o) o.remove();
+    }
+    function openSelector(args, hsDiv) {
+        closeSelectorOverlay();
+        var overlay = document.createElement('div');
+        overlay.id = 'selector-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+        overlay.onclick = function(e) { if(e.target === overlay) closeSelectorOverlay(); };
+        var panel = document.createElement('div');
+        panel.style.cssText = 'background:${popBg};color:${popColor};font-family:${popFont};max-width:420px;width:100%;max-height:85vh;overflow:auto;padding:24px;border-radius:8px;border:2px solid #888;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.5);';
+        panel.onclick = function(e){ e.stopPropagation(); };
+        var btnX = document.createElement('button');
+        btnX.innerHTML = '✕';
+        btnX.setAttribute('aria-label','Close');
+        btnX.style.cssText = 'position:absolute;top:8px;right:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;';
+        btnX.onclick = function(){ closeSelectorOverlay(); };
+        panel.appendChild(btnX);
+        var h = document.createElement('h2');
+        h.style.cssText = 'margin:0 0 12px 0;padding-right:28px;font-size:1.25em;';
+        h.textContent = args.title || 'Choose';
+        panel.appendChild(h);
+        if(args.introHtml) {
+            var intro = document.createElement('div');
+            intro.style.cssText = 'margin-bottom:16px;font-size:0.95em;';
+            intro.innerHTML = args.introHtml;
+            panel.appendChild(intro);
+        }
+        var wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+        (args.choices || []).forEach(function(choice, idx) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = choice.label || ('Choice ' + (idx+1));
+            b.style.cssText = 'cursor:pointer;padding:12px 16px;border:none;border-radius:6px;font-size:16px;font-weight:bold;background:${popBtnBg};color:${popBtnCol};font-family:inherit;width:100%;';
+            b.onclick = function() {
+                closeSelectorOverlay();
+                var payload = choiceToPayload(choice);
+                if(payload) executeAction(payload, hsDiv);
+            };
+            wrap.appendChild(b);
+        });
+        panel.appendChild(wrap);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+    }
+
     function hotspotDispatcher(hsDiv, args) {
         hsDiv.onclick = function() {
-            if(args.type === 'msg') { executeAction({ type: 'msg', txt: args.txt }, hsDiv); }
+            if(args.type === 'selector') { openSelector(args, hsDiv); }
+            else if(args.type === 'msg') { executeAction({ type: 'msg', txt: args.txt }, hsDiv); }
             else if(args.type === 'scene') { executeAction({ type: 'scene', target: args.target, transTxt: args.transTxt, transBtn: args.transBtn }, hsDiv); }
             else if(args.type === 'pick') { executeAction({ type: 'pick', itemId: args.itemId, itemName: args.itemName, txt: args.txt }, hsDiv); }
             else if(args.type === 'req') {

@@ -143,8 +143,8 @@ Les deux sont compatibles avec le même schéma si `evaluateChoiceVisibility` es
 ## 7. Ordre d’implémentation recommandé
 
 1. ~~Refactor **jeu généré uniquement** : extraire `executeAction` depuis la logique actuelle de `hotspotDispatcher` + `executeReward` ; valider avec des scénarios de test (anciens POC optionnels).~~ **Fait** (template dans `js/editeur-generate.js` / `js/editor-en-generate.js`).
-2. Ajouter `openSelector` minimal (liste de boutons, un niveau, pas d’imbrication).
-3. Étendre JSON + éditeur pour éditer `choices` simples.
+2. ~~Ajouter `openSelector` minimal (liste de boutons, un niveau, pas d’imbrication).~~ **Fait** : overlay plein écran (`#selector-overlay`), une modale, boutons ; `choiceToPayload` → `executeAction` pour `msg` / `scene` / `pick`.
+3. ~~Étendre JSON + éditeur pour éditer `choices` simples.~~ **Partiel** : type `selector` + titre / intro / **textarea JSON** des choix (édition avancée) ; à remplacer plus tard par un formulaire guidé (ajout/suppression de lignes, etc.).
 4. Ajouter **Retour**, **imbrication**, **visibilité conditionnelle**, **liste déroulante**, **SFX par choice**.
 5. Découpage fichiers (`player.js` / modules) une fois le comportement stable.
 

@@ -72,7 +72,7 @@ Each hotspot object is produced by `extractHotspotData()` — dynamic field name
 | `duplicateHotspot` / `duplicateScene` | Copy helpers; scene duplicate copies ambient URL. |
 | `buildCss` / `toggleExpertMode` | No-code CSS vs raw textarea. |
 | `openPicker` / `previewScene` | Fullscreen Pannellum for coordinates / scene preview (`#live-preview-styles`). |
-| `updateHsFields` | Swap dynamic fields by hotspot type (`msg`, `pick`, `req`, `pwd`, `scene`). |
+| `updateHsFields` | Swap dynamic fields by hotspot type (`msg`, `pick`, `req`, `pwd`, `scene`, `selector`). |
 | `saveProject` / `loadProject` | JSON persistence. |
 | `updatePreview` | Inventory + dialog preview widgets in global settings. |
 | `generateGame` | Read DOM → build `scenesConfig`, `sceneAudios`, CSS, inject into template → download. |
@@ -142,8 +142,8 @@ For selectors and nested selectors, action execution should be centralized in on
 2. **`executeAction(payload, hsDiv)`** — implemented in the **generated** `index.html` (template in `*-generate.js`). Handles `msg` / `scene` / `pick`; `executeReward` delegates req/pwd success branches to the same engine.
 3. Add `openSelector(...)` for selector UI: **one modal container**; sub-menus **replace** inner content (logical history stack only — **no** stacked popups).
 4. `hotspotDispatcher` behavior:
-   - classic hotspot (`msg` / `scene` / `pick` / `req` / `pwd`): today `executeAction` / `executeReward` / inline pwd UI
-   - selector hotspot (next): call `openSelector(...)`
+   - classic hotspot (`msg` / `scene` / `pick` / `req` / `pwd`): `executeAction` / `executeReward` / inline pwd UI
+   - selector hotspot: `openSelector(...)` then `choiceToPayload` → `executeAction` for each choice (`msg` / `scene` / `pick` in v1)
 5. A selector choice click:
    - if `actionType !== "selector"`: call `executeAction(...)`
    - if `actionType === "selector"`: push next level into the **same** modal (replace view)
