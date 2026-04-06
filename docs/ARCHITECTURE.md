@@ -135,19 +135,19 @@ For selectors and nested selectors, action execution should be centralized in on
 
 1. Keep `hotspotDispatcher` as the trigger layer (Pannellum integration).
 2. Add `executeAction(payload, hsDiv)` as the action engine.
-3. Add `showSelector(choices, context)` for selector UI rendering.
+3. Add `openSelector(...)` for selector UI: **one modal container**; sub-menus **replace** inner content (logical history stack only — **no** stacked popups).
 4. `hotspotDispatcher` behavior:
    - classic hotspot: call `executeAction(...)`
-   - selector hotspot: call `showSelector(...)`
+   - selector hotspot: call `openSelector(...)`
 5. A selector choice click:
    - if `actionType !== "selector"`: call `executeAction(...)`
-   - if `actionType === "selector"`: open nested `showSelector(...)`
+   - if `actionType === "selector"`: push next level into the **same** modal (replace view)
 
 ```mermaid
 flowchart TD
     A[Hotspot click] --> B{type}
     B -->|classic| C[executeAction payload]
-    B -->|selector| D[showSelector choices]
+    B -->|selector| D[openSelector same modal]
     D --> E[Choice click]
     E --> F{choice actionType}
     F -->|classic| C
@@ -175,7 +175,7 @@ Add selector payload on top:
   - `loadProject`
   - `generateGame`
 - Selector UI editor should be dynamic (add / remove / reorder choices).
-- Keep JSON backward compatible: old projects without selectors must still load unchanged.
+- **JSON compatibility**: project author prefers **no** guarantee of loading old project files after a breaking schema change; simplify code over legacy support (see [SELECTOR_SPEC.md](./SELECTOR_SPEC.md) §1 / §6).
 
 ## Versioning
 
