@@ -29,7 +29,7 @@ When implementing selector / nested selector behavior later, verify all layers:
 2. Persistence: save/load JSON keeps selector trees intact.
 3. Generation: selector payload is injected into generated player config.
 4. Runtime: classic hotspots still work, selector choices work, nested selector works.
-5. Backward compatibility: old non-selector projects load and generate exactly as before.
+5. If the project JSON schema changes (e.g. selector v2), confirm whether old files still load or document breaking changes — **no automatic obligation** unless explicitly required.
 
 ## Style
 
