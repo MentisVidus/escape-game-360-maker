@@ -385,7 +385,8 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
         <div id="scene_body_${sId}">
             <div class="row">
                 <div class="col"><label>ID court système (ex: cuisine) :</label><input type="text" class="sc-id" value="${scIdVal}"></div>
-                <div class="col"><label>Image 360 (ex: salle.jpg ou http...) :</label><input type="text" class="sc-img" value="${scImgVal}"></div>
+                <div class="col"><label>Image 360 (ex: salle.jpg ou http...) :</label><input type="text" class="sc-img" value="${scImgVal}" oninput="updateScenePreview(this)"></div>
+                <div class="col" style="flex: 1; min-width: 200px;"><label>🎵 Audio d'ambiance (URL mp3) :</label><input type="text" class="sc-audio" placeholder="Optionnel"></div>
             </div>
             <h4>Points d'interaction</h4>
             <div id="hs-container-${sId}"></div>
@@ -573,6 +574,11 @@ function duplicateScene(sId) {
         sDiv.querySelector('.sc-title').value + " (Copie)"
     );
     
+    const newScDiv = document.getElementById('scene_' + newSId);
+    if (newScDiv && newScDiv.querySelector('.sc-audio') && sDiv.querySelector('.sc-audio')) {
+        newScDiv.querySelector('.sc-audio').value = sDiv.querySelector('.sc-audio').value;
+    }
+
     // Copie chaque hotspot de l'ancienne scène dans la nouvelle
     sDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
         addHotspot(newSId, extractHotspotData(hsDiv.id.split('_')[1]));
@@ -791,10 +797,11 @@ function saveProject() {
     // Parcourt toutes les scènes créées
     document.querySelectorAll('.scene-block').forEach(sceneDiv => {
         let scene = { 
-            scId: sceneDiv.querySelector('.sc-id').value, 
-            scImg: sceneDiv.querySelector('.sc-img').value, 
-            scTitle: sceneDiv.querySelector('.sc-title').value, 
-            hotspots: [] 
+			scId: sceneDiv.querySelector('.sc-id').value,
+			scImg: sceneDiv.querySelector('.sc-img').value,
+			scTitle: sceneDiv.querySelector('.sc-title').value,
+			scAudio: sceneDiv.querySelector('.sc-audio') ? sceneDiv.querySelector('.sc-audio').value : "",
+			hotspots: [] 
         };
         // Parcourt et extrait les données de tous les hotspots de la scène
         sceneDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => { 
@@ -865,7 +872,14 @@ function loadProject(event) {
             document.getElementById('globalAudioUrl').value = project.globalAudioUrl || "";
             // Restaure les scènes et les hotspots
             project.scenes.forEach(scene => { 
-                const sId = addScene(scene.scId, scene.scImg, scene.scTitle); 
+                const sId = addScene(scene.scId, scene.scImg, scene.scTitle);
+				
+                // NOUVEAU : Restaure l'audio de la scène fraîchement créée
+                var scDiv = document.getElementById('scene_' + sId);
+                if (scDiv && scDiv.querySelector('.sc-audio')) {
+                    scDiv.querySelector('.sc-audio').value = scene.scAudio || "";
+                }
+				
                 scene.hotspots.forEach(hs => { addHotspot(sId, hs); }); 
             });
             
@@ -980,10 +994,11 @@ function generateGame() {
     const popBtnBg = useCustomPopup ? document.getElementById('pop-btn-bg').value : "#27ae60";
     const popBtnCol = useCustomPopup ? document.getElementById('pop-btn-col').value : "#ffffff";
 
-    let scenesConfig = {}; 
-    let firstSceneId = ""; 
-    let customStylesCSS = ""; 
-    let globalHsCount = 0; 
+    let scenesConfig = {};
+    let firstSceneId = "";
+    let customStylesCSS = "";
+    let globalHsCount = 0;
+	let sceneAudios = {};
     
     // 2. Parcourt des scènes pour construire le code compréhensible par Pannellum
     document.querySelectorAll('.scene-block').forEach((sceneDiv, index) => {
@@ -991,6 +1006,13 @@ function generateGame() {
         let scImg = sceneDiv.querySelector('.sc-img').value;
         if (!scImg.startsWith('http')) scImg = "./" + scImg; // Ajoute "./" si l'image est locale
         if(index === 0) firstSceneId = scId; // La première scène devient la scène de départ
+
+        let scAudioRaw = sceneDiv.querySelector('.sc-audio') ? sceneDiv.querySelector('.sc-audio').value.trim() : "";
+        if (scAudioRaw) {
+            let scAudioUrl = scAudioRaw;
+            if (!scAudioUrl.startsWith('http')) scAudioUrl = "./" + scAudioUrl;
+            sceneAudios[scId] = scAudioUrl;
+        }
         
         let hotSpots = [];
         
@@ -1065,6 +1087,8 @@ function generateGame() {
     // 3. Transformation de la configuration en texte JSON (et nettoyage des guillemets pour la fonction JS)
     let jsonScenes = JSON.stringify(scenesConfig, null, 4).replace(/"createTooltipFunc": "hotspotDispatcher"/g, '"createTooltipFunc": hotspotDispatcher');
 
+    const sceneAmbianceJson = JSON.stringify(sceneAudios);
+
     // 4. CONSTRUCTION DU FICHIER HTML FINAL (Le Modèle)
     const htmlTemplate = `<!DOCTYPE html>
 <html lang="fr">
@@ -1121,8 +1145,11 @@ function generateGame() {
     var viewer;
 
     // --- MOTEUR AUDIO ---
+    var sceneAmbianceUrls = ${sceneAmbianceJson};
+
     var audioSys = {
         masterVol: 1.0, musicVol: 0.5, ambianceVol: 0.8, sfxVol: 1.0,
+        _ambianceLogicalUrl: '',
         
         playMusic: function(url) {
             var p = document.getElementById('audio-music');
@@ -1131,8 +1158,22 @@ function generateGame() {
         },
         playAmbiance: function(url) {
             var p = document.getElementById('audio-ambiance');
-            if(!url) { p.pause(); return; }
-            if(p.src !== url) { p.src = url; p.volume = this.ambianceVol * this.masterVol; p.play().catch(function(e){console.log(e)}); }
+            if(!url || !String(url).trim()) {
+                p.pause();
+                this._ambianceLogicalUrl = '';
+                p.removeAttribute('src');
+                try { p.load(); } catch (e) {}
+                return;
+            }
+            url = String(url).trim();
+            p.volume = this.ambianceVol * this.masterVol;
+            if (this._ambianceLogicalUrl === url) {
+                if (p.paused) p.play().catch(function(e){console.log(e)});
+                return;
+            }
+            this._ambianceLogicalUrl = url;
+            p.src = url;
+            p.play().catch(function(e){console.log(e)});
         },
         playSFX: function(url) {
             if(!url) return;
@@ -1140,6 +1181,15 @@ function generateGame() {
             p.src = url; p.volume = this.sfxVol * this.masterVol; p.play().catch(function(e){console.log(e)});
         }
     };
+
+    function applySceneAmbiance(sceneId) {
+        var url = sceneAmbianceUrls[sceneId];
+        if (!url || String(url).trim() === '') {
+            audioSys.playAmbiance('');
+            return;
+        }
+        audioSys.playAmbiance(url);
+    }
 
     // --- LANCEMENT DU JEU ---
     function startGame() {
@@ -1150,6 +1200,12 @@ function generateGame() {
             "default": { "firstScene": "${firstSceneId}", "sceneFadeDuration": 1500, "autoLoad": true, "showFullscreenCtrl": false }, 
             "scenes": ${jsonScenes} 
         });
+
+        viewer.on('scenechange', function(sceneId) {
+            var sid = (sceneId != null && sceneId !== '') ? sceneId : viewer.getScene();
+            applySceneAmbiance(sid);
+        });
+        applySceneAmbiance("${firstSceneId}");
 
         // Lancement de la musique globale si activée
         if (${useGlobalAudio} && "${globalAudioUrl}" !== "") {
