@@ -6,17 +6,20 @@ This document is for **developers** and **AI assistants** working on the reposit
 
 | Path | Role |
 |------|------|
-| [editeur.html](../editeur.html) | Main editor (French UI). Single HTML file: CSS + markup + all editor JS. |
+| [editeur.html](../editeur.html) | Main editor (French UI): markup + `<link>` / `<script src>`. |
 | [editor_en.html](../editor_en.html) | Same behavior, English UI; comments in English; default save as `project.json`. |
+| [editor.css](../editor.css) | Shared editor chrome (layout, buttons, modals, form controls). |
+| [editeur.js](../editeur.js) | French editor application logic (`saveProject`, `loadProject`, `generateGame`, …). |
+| [editor_en.js](../editor_en.js) | English editor — same structure as `editeur.js`; user-facing strings and comments differ. |
 | [README.md](../README.md) | User-facing documentation (FR + EN). |
 
-There is **no build step**. Open either HTML file from disk or host statically (e.g. GitHub Pages).
+There is **no build step**. Open either HTML file from disk or host statically (e.g. GitHub Pages). Keep `editor.css`, `editeur.js`, and `editor_en.js` next to the HTML files so relative URLs resolve.
 
-## Two programs in one file
+## Editor shell vs generated player
 
-Each editor file contains:
+Each editor page loads:
 
-1. **Editor application** — runs in the browser tab; builds the form, preview modals, saves JSON, calls `generateGame()`.
+1. **Editor application** — `editeur.js` or `editor_en.js` runs in the browser tab; builds the form, preview modals, saves JSON, calls `generateGame()`.
 2. **Generated output** — not stored in the repo; `generateGame()` builds a **string** (`htmlTemplate`) and triggers download of **`index.html`**. That file is a **standalone player**: Pannellum + inventory + audio + hotspot logic.
 
 Important: the **player** code is embedded as a large template literal inside `generateGame()`. Changing gameplay requires editing that template (or later extracting it to a shared script).

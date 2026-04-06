@@ -1,0 +1,56 @@
+﻿        /* Style global de la page */
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #e9ecef; margin: 0; padding: 20px; color: #333; }
+        .app-container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; }
+        
+        /* Barre d'outils (Sauvegarder / Charger) */
+        .top-toolbar { display: flex; gap: 10px; margin-bottom: 20px; background: #ecf0f1; padding: 15px; border-radius: 8px; }
+        .btn-save { background: #2980b9; flex: 1; font-size: 16px; }
+        .btn-load { background: #8e44ad; flex: 1; font-size: 16px; }
+        
+        /* Bouton principal de génération du jeu */
+        .btn-generate { background: #27ae60; width: 100%; font-size: 20px; margin-top: 30px; padding: 15px; }
+        .btn-generate:hover { background: #2ecc71; }
+        
+        /* Blocs visuels (Scènes et Hotspots) */
+        .scene-block { border: 2px solid #3498db; border-radius: 8px; padding: 15px; margin-top: 20px; background: #f8fbff; }
+        .scene-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-bottom: 10px; background: #eaf2f8; padding: 10px; border-radius: 5px; }
+        .hotspot-block { border: 1px solid #2ecc71; border-left: 5px solid #2ecc71; padding: 15px; margin-top: 15px; background: white; border-radius: 5px; }
+        
+        /* Éléments de formulaire (Inputs, bouttons) */
+        input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+        .row { display: flex; gap: 10px; }
+        .col { flex: 1; }
+        button { cursor: pointer; padding: 10px 15px; border: none; border-radius: 5px; font-weight: bold; color: white; transition: 0.2s; }
+        
+        /* Boutons d'actions spécifiques */
+        .btn-add-scene { background: #3498db; width: 100%; font-size: 16px; margin-top: 20px; }
+        .btn-add-hs { background: #2ecc71; font-size: 14px; margin-top: 10px; }
+        .btn-del { background: #e74c3c; padding: 5px 10px; }
+        .btn-target { background: #e67e22; width: 100%; font-size: 14px; margin-bottom: 10px; }
+        .btn-preview-scene { background: #f39c12; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        
+        /* Petits boutons d'interface (Flèches, Dupliquer, Plier) */
+        .btn-icon { background: #95a5a6; color: white; padding: 6px 10px; border-radius: 4px; margin-right: 3px; font-size: 14px; }
+        .btn-icon:hover { background: #7f8c8d; }
+        
+        /* Champs de titres facultatifs (Notes pour l'utilisateur) */
+        .title-input { display: inline-block; width: 250px; margin: 0 0 0 15px; padding: 5px; border: 1px dashed #ccc; background: white; }
+
+        /* Éditeur CSS (Mode Expert) */
+        .dynamic-fields { padding: 15px; background: #f9f9f9; border: 1px dashed #ccc; margin-top: 10px; border-radius: 4px; }
+        textarea.css-editor { font-family: 'Courier New', Courier, monospace; background: #2d3436; color: #f1c40f; font-size: 13px; }
+
+        /* Éditeur CSS Visuel (Mode No-Code) */
+        .visual-css-editor { background: #ecf0f1; border: 1px solid #bdc3c7; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 13px; }
+        .visual-css-editor label { display: block; margin-top: 5px; font-weight: bold; color: #34495e; }
+        input[type="color"] { padding: 0; border: none; border-radius: 4px; cursor: pointer; height: 35px; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: 1px solid #ccc; border-radius: 4px; }
+        
+        /* Fenêtres Modales (Popups prenant tout l'écran) */
+        .modal-fullscreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 10000; flex-direction: column; }
+        .modal-header { padding: 15px; background: #222; color: white; display: flex; justify-content: space-between; align-items: center; font-size: 18px; }
+
+        /* Paramètres de l'inventaire */
+        #inv-settings { background: #fff3cd; padding: 15px; margin-top: 10px; border-radius: 8px; border: 1px solid #ffeeba; }

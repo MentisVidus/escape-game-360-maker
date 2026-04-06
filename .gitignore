@@ -1,0 +1,14 @@
+# OS / éditeurs
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+*~
+
+# Dépendances (si vous ajoutez npm plus tard)
+node_modules/
+
+# Fichiers locaux de travail (jeux générés / exports)
+# Décommentez si vous ne voulez pas versionner certains dossiers :
+# dist/
+# *.local.json
