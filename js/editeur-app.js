@@ -128,6 +128,9 @@ function addHotspot(sceneId, hsData = null) {
                 <div class="col"><label>Yaw :</label><input type="number" step="0.1" class="hs-yaw" value="${yaw}"></div>
             </div>
             
+            <div class="editor-collapse-section">
+                <button type="button" class="editor-collapse-header" onclick="toggleCollapse('hs_appearance_body_${hId}', this)">▶ Apparence du hotspot (zone cliquable)</button>
+                <div id="hs_appearance_body_${hId}" style="display:none">
             <!-- Éditeur No-Code Visuel -->
             <div class="visual-css-editor" id="nocode_ui_${hId}">
                 <b style="color:#2980b9;">🎨 Éditeur de style visuel :</b>
@@ -156,6 +159,8 @@ function addHotspot(sceneId, hsData = null) {
                 <button class="btn-icon" style="background:#7f8c8d; margin-bottom:5px;" onclick="toggleExpertMode(${hId})">🧑‍💻 Mode Expert (CSS Libre)</button>
             </div>
             <textarea class="css-editor hs-custom-css" id="css_text_${hId}" rows="2" readonly>${customCss}</textarea>
+                </div>
+            </div>
             
             <!-- Type d'action du Hotspot -->
             <label style="margin-top:10px;">Action au clic :</label>
@@ -191,6 +196,10 @@ function addHotspot(sceneId, hsData = null) {
                 if(f === 'f-pwd-action' || f === 'f-req-action') el.dispatchEvent(new Event('change')); // Force l'affichage des sous-champs
             }
         });
+        if(hsData.type === 'selector') {
+            if(hsData.selJsonExpertMode) toggleSelectorJsonExpert(hId, true);
+            else initSelectorChoicesForm(hId);
+        }
         // Restaure l'état du mode expert
         if(hsData.expertMode) toggleExpertMode(hId, true); 
     }
@@ -216,6 +225,10 @@ function extractHotspotData(hId) {
     
     // Mémorise si le joueur avait activé le mode expert pour ce hotspot
     if(!hsDiv.querySelector('.hs-custom-css').hasAttribute("readonly")) hs.expertMode = true;
+    if(hs.type === 'selector') {
+        var fc = hsDiv.querySelector('.f-sel-choices');
+        if(fc && !fc.hasAttribute('readonly')) hs.selJsonExpertMode = true;
+    }
     return hs;
 }
 
@@ -406,6 +419,404 @@ function closeScenePreview() {
     if(scenePreviewViewer) { scenePreviewViewer.destroy(); scenePreviewViewer = null; } 
 }
 
+// --- Selector : formulaire des choix + JSON avancé (lecture seule par défaut) ---
+var SELECTOR_MAX_DEPTH = 3;
+
+function getDefaultSelectorChoices() {
+    return [
+        { label: "Message d'accueil", actionType: "msg", txt: "<p>Texte affiché au joueur.</p>" },
+        { label: "Aller ailleurs", actionType: "scene", target: "scene_2", transTxt: "", transBtn: "Continuer" }
+    ];
+}
+
+function getDefaultChoice() {
+    return { label: "Nouveau choix", actionType: "msg", txt: "<p>Texte</p>" };
+}
+
+function collectChoicesFromList(listEl) {
+    if(!listEl) return [];
+    var cards = listEl.querySelectorAll(":scope > .sel-choice-card");
+    return Array.prototype.map.call(cards, function(c) { return cardToChoice(c); });
+}
+
+function cardToChoice(card) {
+    var type = card.querySelector(".sel-action-type").value;
+    var label = (card.querySelector(".sel-label").value || "").trim();
+    var out = { label: label || "Option", actionType: type };
+    if(type === "msg") {
+        var t = card.querySelector(".sel-msg-txt");
+        out.txt = t ? t.value : "";
+    } else if(type === "scene") {
+        out.target = card.querySelector(".sel-scene-target").value;
+        out.transTxt = card.querySelector(".sel-scene-trans").value;
+        out.transBtn = card.querySelector(".sel-scene-btn").value;
+    } else if(type === "pick") {
+        out.itemId = card.querySelector(".sel-pick-id").value;
+        out.itemName = card.querySelector(".sel-pick-name").value;
+        out.txt = card.querySelector(".sel-pick-txt").value;
+    } else if(type === "selector") {
+        var nest = {
+            title: card.querySelector(".sel-nested-title").value,
+            introHtml: card.querySelector(".sel-nested-intro").value,
+            choices: collectChoicesFromList(card.querySelector(".sel-nested-list"))
+        };
+        var dm = card.querySelector(".sel-nested-display");
+        if(dm && dm.value === "dropdown") nest.displayMode = "dropdown";
+        out.nested = nest;
+    }
+    var req = card.querySelector(".sel-opt-req");
+    if(req && req.value.trim()) out.requiresItem = req.value.trim();
+    var hid = card.querySelector(".sel-opt-hidden");
+    if(hid && hid.value.trim()) out.hiddenIfHasItem = hid.value.trim();
+    var sfx = card.querySelector(".sel-opt-sfx");
+    if(sfx && sfx.value.trim()) out.sfxUrl = sfx.value.trim();
+    var sfxv = card.querySelector(".sel-opt-sfxvol");
+    if(sfxv && sfxv.value.trim() !== "") {
+        var v = parseFloat(sfxv.value);
+        if(!isNaN(v)) out.sfxVolume = v;
+    }
+    return out;
+}
+
+function syncSelectorChoicesToTextarea(hId) {
+    var hsDiv = document.getElementById("hs_" + hId);
+    var ta = hsDiv.querySelector(".f-sel-choices");
+    if(!ta || !ta.hasAttribute("readonly")) return;
+    var root = document.getElementById("sel_choices_root_" + hId);
+    if(!root) return;
+    var arr = collectChoicesFromList(root);
+    ta.value = JSON.stringify(arr, null, 2);
+}
+
+function attachSelectorChoicesListeners(hId) {
+    var wrap = document.getElementById("fields_" + hId);
+    if(!wrap) return;
+    var root = wrap.querySelector(".sel-choices-root");
+    if(!root) return;
+    var sync = function() { syncSelectorChoicesToTextarea(hId); };
+    root.removeEventListener("input", root._selSync);
+    root.removeEventListener("change", root._selSync);
+    root._selSync = sync;
+    root.addEventListener("input", sync);
+    root.addEventListener("change", sync);
+}
+
+function selectorMoveChoice(btn, dir) {
+    var card = btn.closest(".sel-choice-card");
+    if(!card) return;
+    var list = card.parentElement;
+    var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
+    if(dir < 0 && card.previousElementSibling) list.insertBefore(card, card.previousElementSibling);
+    else if(dir > 0 && card.nextElementSibling) list.insertBefore(card.nextElementSibling, card);
+    syncSelectorChoicesToTextarea(hId);
+}
+
+function selectorRemoveChoice(btn) {
+    var card = btn.closest(".sel-choice-card");
+    if(!card) return;
+    var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
+    card.remove();
+    syncSelectorChoicesToTextarea(hId);
+}
+
+function selectorAddChoice(hId) {
+    var root = document.getElementById("sel_choices_root_" + hId);
+    if(!root) return;
+    root.appendChild(renderChoiceCardElement(getDefaultChoice(), hId, 0));
+    syncSelectorChoicesToTextarea(hId);
+}
+
+function selectorAddNestedChoice(btn) {
+    var list = btn.previousElementSibling;
+    var card = btn.closest(".sel-choice-card");
+    if(!list || !list.classList.contains("sel-nested-list") || !card) return;
+    var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
+    var depth = parseInt(card.dataset.depth || "0", 10);
+    if(depth + 1 >= SELECTOR_MAX_DEPTH) {
+        alert("Profondeur maximale de sous-menus atteinte (" + SELECTOR_MAX_DEPTH + " niveaux).");
+        return;
+    }
+    list.appendChild(renderChoiceCardElement(getDefaultChoice(), hId, depth + 1));
+    syncSelectorChoicesToTextarea(hId);
+}
+
+function selectorRebuildActionFields(card, ch) {
+    ch = ch || {};
+    var type = card.querySelector(".sel-action-type").value;
+    var container = card.querySelector(".sel-action-fields");
+    var depth = parseInt(card.dataset.depth || "0", 10);
+    if(!container) return;
+    container.innerHTML = "";
+
+    if(type === "msg") {
+        var l1 = document.createElement("label");
+        l1.textContent = "Contenu du message (HTML) :";
+        var ta = document.createElement("textarea");
+        ta.className = "sel-msg-txt";
+        ta.rows = 3;
+        ta.value = ch.txt || "";
+        container.appendChild(l1);
+        container.appendChild(ta);
+    } else if(type === "scene") {
+        var r1 = document.createElement("div");
+        r1.className = "row";
+        r1.innerHTML = "<div class=\"col\"><label>ID de la scène cible :</label><input type=\"text\" class=\"sel-scene-target\" value=\"\"></div>";
+        container.appendChild(r1);
+        r1.querySelector(".sel-scene-target").value = ch.target || "";
+        var l2 = document.createElement("label");
+        l2.textContent = "Texte de transition :";
+        var t2 = document.createElement("textarea");
+        t2.className = "sel-scene-trans";
+        t2.rows = 2;
+        t2.value = ch.transTxt || "";
+        var l3 = document.createElement("label");
+        l3.textContent = "Libellé du bouton :";
+        var i3 = document.createElement("input");
+        i3.type = "text";
+        i3.className = "sel-scene-btn";
+        i3.value = ch.transBtn || "Continuer";
+        container.appendChild(l2);
+        container.appendChild(t2);
+        container.appendChild(l3);
+        container.appendChild(i3);
+    } else if(type === "pick") {
+        var rp = document.createElement("div");
+        rp.className = "row";
+        rp.innerHTML = "<div class=\"col\"><label>ID de l'objet :</label><input type=\"text\" class=\"sel-pick-id\" value=\"\"></div><div class=\"col\"><label>Nom affiché :</label><input type=\"text\" class=\"sel-pick-name\" value=\"\"></div>";
+        container.appendChild(rp);
+        rp.querySelector(".sel-pick-id").value = ch.itemId || "";
+        rp.querySelector(".sel-pick-name").value = ch.itemName || "";
+        var lp = document.createElement("label");
+        lp.textContent = "Texte lors du ramassage (HTML) :";
+        var tp = document.createElement("textarea");
+        tp.className = "sel-pick-txt";
+        tp.rows = 2;
+        tp.value = ch.txt || "";
+        container.appendChild(lp);
+        container.appendChild(tp);
+    } else if(type === "selector") {
+        var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
+        var nest = ch.nested || {};
+        var nb = document.createElement("div");
+        nb.className = "sel-nested-block";
+        var lt = document.createElement("label");
+        lt.textContent = "Titre du sous-menu :";
+        var it = document.createElement("input");
+        it.type = "text";
+        it.className = "sel-nested-title";
+        it.value = nest.title || "";
+        var li = document.createElement("label");
+        li.textContent = "Introduction (HTML, optionnel) :";
+        var ti = document.createElement("textarea");
+        ti.className = "sel-nested-intro";
+        ti.rows = 2;
+        ti.value = nest.introHtml || "";
+        var ld = document.createElement("label");
+        ld.textContent = "Présentation des sous-choix :";
+        var sd = document.createElement("select");
+        sd.className = "sel-nested-display";
+        sd.innerHTML = "<option value=\"buttons\">Boutons</option><option value=\"dropdown\">Liste déroulante + Valider</option>";
+        if(nest.displayMode === "dropdown") sd.value = "dropdown";
+        nb.appendChild(lt);
+        nb.appendChild(it);
+        nb.appendChild(li);
+        nb.appendChild(ti);
+        nb.appendChild(ld);
+        nb.appendChild(sd);
+        var nestedList = document.createElement("div");
+        nestedList.className = "sel-choices-list sel-nested-list";
+        var arr = Array.isArray(nest.choices) && nest.choices.length ? nest.choices : [getDefaultChoice()];
+        arr.forEach(function(nch) { nestedList.appendChild(renderChoiceCardElement(nch, hId, depth + 1)); });
+        var btnAdd = document.createElement("button");
+        btnAdd.type = "button";
+        btnAdd.className = "btn-add-hs";
+        btnAdd.textContent = "+ Ajouter un sous-choix";
+        btnAdd.onclick = function() { selectorAddNestedChoice(btnAdd); };
+        nb.appendChild(nestedList);
+        nb.appendChild(btnAdd);
+        container.appendChild(nb);
+    }
+}
+
+function renderChoiceCardElement(ch, hId, depth) {
+    ch = ch || getDefaultChoice();
+    var at = ch.actionType || "msg";
+    if(depth >= SELECTOR_MAX_DEPTH && at === "selector") at = "msg";
+
+    var card = document.createElement("div");
+    card.className = "sel-choice-card";
+    card.dataset.depth = String(depth);
+
+    var tb = document.createElement("div");
+    tb.className = "sel-choice-toolbar";
+    var h = document.createElement("span");
+    h.className = "sel-choice-heading";
+    h.textContent = "Choix";
+    var bUp = document.createElement("button");
+    bUp.type = "button";
+    bUp.className = "btn-icon";
+    bUp.title = "Monter";
+    bUp.textContent = "↑";
+    bUp.onclick = function() { selectorMoveChoice(bUp, -1); };
+    var bDn = document.createElement("button");
+    bDn.type = "button";
+    bDn.className = "btn-icon";
+    bDn.title = "Descendre";
+    bDn.textContent = "↓";
+    bDn.onclick = function() { selectorMoveChoice(bDn, 1); };
+    var bRm = document.createElement("button");
+    bRm.type = "button";
+    bRm.className = "btn-del";
+    bRm.title = "Supprimer ce choix";
+    bRm.textContent = "×";
+    bRm.onclick = function() { selectorRemoveChoice(bRm); };
+    tb.appendChild(h);
+    tb.appendChild(bUp);
+    tb.appendChild(bDn);
+    tb.appendChild(bRm);
+
+    var lblL = document.createElement("label");
+    lblL.textContent = "Texte affiché (bouton ou ligne) :";
+    var inpL = document.createElement("input");
+    inpL.type = "text";
+    inpL.className = "sel-label";
+    inpL.value = ch.label || "";
+
+    var lblA = document.createElement("label");
+    lblA.textContent = "Action :";
+    var selA = document.createElement("select");
+    selA.className = "sel-action-type";
+    var opts = depth >= SELECTOR_MAX_DEPTH - 1
+        ? [
+            ["msg", "Afficher un message"],
+            ["scene", "Aller à une autre scène"],
+            ["pick", "Ramasser un objet"]
+          ]
+        : [
+            ["msg", "Afficher un message"],
+            ["scene", "Aller à une autre scène"],
+            ["pick", "Ramasser un objet"],
+            ["selector", "Sous-menu (menu imbriqué)"]
+          ];
+    opts.forEach(function(o) {
+        var oel = document.createElement("option");
+        oel.value = o[0];
+        oel.textContent = o[1];
+        if(at === o[0]) oel.selected = true;
+        selA.appendChild(oel);
+    });
+    if(!at || !opts.some(function(o) { return o[0] === at; })) selA.value = "msg";
+
+    selA.onchange = function() {
+        selectorRebuildActionFields(card, {});
+        syncSelectorChoicesToTextarea(hId);
+    };
+
+    var fields = document.createElement("div");
+    fields.className = "sel-action-fields";
+
+    card.appendChild(tb);
+    card.appendChild(lblL);
+    card.appendChild(inpL);
+    card.appendChild(lblA);
+    card.appendChild(selA);
+    card.appendChild(fields);
+
+    var det = document.createElement("details");
+    det.className = "sel-opt-advanced";
+    var sum = document.createElement("summary");
+    sum.textContent = "Options avancées (inventaire, son)";
+    det.appendChild(sum);
+    var lr = document.createElement("label");
+    lr.textContent = "Afficher seulement si le joueur a l'objet (ID) :";
+    var ir = document.createElement("input");
+    ir.type = "text";
+    ir.className = "sel-opt-req";
+    ir.placeholder = "optionnel";
+    ir.value = ch.requiresItem || "";
+    var lh = document.createElement("label");
+    lh.textContent = "Masquer si le joueur a déjà l'objet (ID) :";
+    var ih = document.createElement("input");
+    ih.type = "text";
+    ih.className = "sel-opt-hidden";
+    ih.placeholder = "optionnel";
+    ih.value = ch.hiddenIfHasItem || "";
+    var ls = document.createElement("label");
+    ls.textContent = "Son au clic (URL) :";
+    var is = document.createElement("input");
+    is.type = "text";
+    is.className = "sel-opt-sfx";
+    is.placeholder = "optionnel";
+    is.value = ch.sfxUrl || "";
+    var lsv = document.createElement("label");
+    lsv.textContent = "Volume du son (0 à 1) :";
+    var isv = document.createElement("input");
+    isv.type = "number";
+    isv.className = "sel-opt-sfxvol";
+    isv.min = "0";
+    isv.max = "1";
+    isv.step = "0.1";
+    isv.value = ch.sfxVolume !== undefined && ch.sfxVolume !== null ? String(ch.sfxVolume) : "";
+    det.appendChild(lr);
+    det.appendChild(ir);
+    det.appendChild(lh);
+    det.appendChild(ih);
+    det.appendChild(ls);
+    det.appendChild(is);
+    det.appendChild(lsv);
+    det.appendChild(isv);
+    card.appendChild(det);
+
+    ch.actionType = selA.value;
+    selectorRebuildActionFields(card, ch);
+    return card;
+}
+
+function initSelectorChoicesForm(hId) {
+    var hsDiv = document.getElementById("hs_" + hId);
+    var ta = hsDiv.querySelector(".f-sel-choices");
+    var root = document.getElementById("sel_choices_root_" + hId);
+    if(!ta || !root) return;
+    var arr;
+    try { arr = JSON.parse(ta.value.trim()); } catch(e) { arr = getDefaultSelectorChoices(); }
+    if(!Array.isArray(arr)) arr = getDefaultSelectorChoices();
+    root.innerHTML = "";
+    arr.forEach(function(ch) { root.appendChild(renderChoiceCardElement(ch, hId, 0)); });
+    attachSelectorChoicesListeners(hId);
+    syncSelectorChoicesToTextarea(hId);
+}
+
+function toggleSelectorJsonExpert(hId, forceExpert) {
+    if(forceExpert === undefined) forceExpert = false;
+    var ta = document.querySelector("#hs_" + hId + " .f-sel-choices");
+    var formUi = document.getElementById("selector_form_ui_" + hId);
+    var btn = document.querySelector("#hs_" + hId + " .btn-sel-json-expert");
+    if(!ta || !formUi) return;
+    if(ta.hasAttribute("readonly") || forceExpert) {
+        if(forceExpert || confirm("Attention : le mode expert JSON désactive le formulaire. Vous pourrez éditer le JSON à la main. Continuer ?")) {
+            ta.removeAttribute("readonly");
+            ta.style.border = "2px solid #e74c3c";
+            formUi.style.opacity = "0.35";
+            formUi.style.pointerEvents = "none";
+            if(btn) {
+                btn.innerHTML = "🔙 Revenir au formulaire (réappliquer le JSON)";
+                btn.style.background = "#e74c3c";
+            }
+        }
+    } else {
+        try { JSON.parse(ta.value.trim()); } catch(e) { alert("JSON invalide : " + e.message); return; }
+        ta.setAttribute("readonly", "readonly");
+        ta.style.border = "";
+        formUi.style.opacity = "1";
+        formUi.style.pointerEvents = "auto";
+        if(btn) {
+            btn.innerHTML = "🧑‍💻 Mode expert JSON";
+            btn.style.background = "#7f8c8d";
+        }
+        initSelectorChoicesForm(hId);
+    }
+}
+
 // --- FONCTION : AFFICHER LES BONS CHAMPS SELON LE TYPE DE HOTSPOT ---
 function updateHsFields(hId) {
     const type = document.querySelector(`#hs_${hId} .hs-type`).value; 
@@ -452,6 +863,7 @@ function updateHsFields(hId) {
         </div>`;
     }
     else if(type === 'selector') {
+        var defaultSelJson = JSON.stringify(getDefaultSelectorChoices(), null, 2);
         container.innerHTML = `
         <label>Titre du menu :</label><input type="text" class="f-sel-title" value="Choisissez une action">
         <label>Introduction (HTML, optionnel) :</label><textarea class="f-sel-intro" rows="2"></textarea>
@@ -460,15 +872,24 @@ function updateHsFields(hId) {
             <option value="buttons" selected>Boutons</option>
             <option value="dropdown">Liste déroulante + Valider</option>
         </select>
-        <label>Choix — JSON (tableau) :</label>
-        <textarea class="f-sel-choices" rows="16" style="font-family:Consolas,monospace;font-size:12px;">[
-  { "label": "Sous-menu (nested)", "actionType": "selector", "nested": { "title": "Plus d'options", "introHtml": "&lt;p&gt;Niveau 2&lt;/p&gt;", "choices": [
-    { "label": "Message ici", "actionType": "msg", "txt": "&lt;p&gt;Contenu du sous-menu&lt;/p&gt;" }
-  ]}},
-  { "label": "Message direct", "actionType": "msg", "txt": "&lt;p&gt;Niveau 1&lt;/p&gt;" },
-  { "label": "Autre scène", "actionType": "scene", "target": "scene_2", "transTxt": "", "transBtn": "Continuer" }
-]</textarea>
-        <small style="color:#555;">Champs optionnels par choix : <code>requiresItem</code> (ID objet requis pour afficher le choix), <code>hiddenIfHasItem</code> (masqué si l’objet est dans l’inventaire), <code>sfxUrl</code> + <code>sfxVolume</code> (0–1, volume relatif). Sous-menu : <code>displayMode</code> dans <code>nested</code> pour boutons / liste. <code>actionType</code> : <code>msg</code>, <code>scene</code>, <code>pick</code>, <code>selector</code> + <code>nested</code>.</small>`;
+        <p style="margin:12px 0 6px 0;color:#2c3e50;"><b>Choix proposés au joueur</b> — ajoutez ou réordonnez des lignes ; chaque ligne peut ouvrir un message, une scène, un objet, ou un sous-menu.</p>
+        <div id="selector_form_ui_${hId}" class="selector-form-wrap">
+            <div id="sel_choices_root_${hId}" class="sel-choices-list sel-choices-root"></div>
+            <button type="button" class="btn-add-hs" onclick="selectorAddChoice(${hId})">+ Ajouter un choix</button>
+        </div>
+        <div class="editor-collapse-section">
+            <button type="button" class="editor-collapse-header" onclick="toggleCollapse('sel_json_wrap_${hId}', this)">▶ JSON avancé (référence technique)</button>
+            <div id="sel_json_wrap_${hId}" style="display:none">
+                <p class="selector-json-hint">Le jeu lit ce tableau JSON. En usage courant, le formulaire ci-dessus suffit ; ouvrez cette zone pour <b>voir</b> ou <b>copier</b> la structure. Le mode expert permet de modifier le JSON à la main (comme le CSS en mode expert).</p>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:8px;">
+                    <label style="margin:0;">Données JSON des choix</label>
+                    <button type="button" class="btn-icon btn-sel-json-expert" style="background:#7f8c8d;" onclick="toggleSelectorJsonExpert(${hId})">🧑‍💻 Mode expert JSON</button>
+                </div>
+                <textarea class="f-sel-choices css-editor" rows="12" readonly style="font-family:Consolas,monospace;font-size:12px;">${defaultSelJson}</textarea>
+            </div>
+        </div>
+        <small style="color:#555;display:block;margin-top:10px;">Astuce : conditions d’affichage et sons par choix se règlent dans <b>Options avancées</b> sur chaque ligne, ou dans le JSON.</small>`;
+        initSelectorChoicesForm(hId);
     }
 }
 
