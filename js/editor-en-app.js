@@ -182,7 +182,7 @@ function addHotspot(sceneId, hsData = null) {
 
     // Restore field values when loading hsData from JSON
     if(hsData) {
-        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-choices'];
+        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices'];
         fields.forEach(f => {
             let el = hsDiv.querySelector('.' + f);
             if(el && hsData[f.replace(/-/g, '_')] !== undefined) {
@@ -207,7 +207,7 @@ function extractHotspotData(hId) {
         type: hsDiv.querySelector('.hs-type').value 
     };
     
-    let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-choices', 'ui-w', 'ui-h', 'ui-shape', 'ui-bgc', 'ui-bga', 'ui-brd-style', 'ui-brd-w', 'ui-brd-c', 'ui-img'];
+    let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'ui-w', 'ui-h', 'ui-shape', 'ui-bgc', 'ui-bga', 'ui-brd-style', 'ui-brd-w', 'ui-brd-c', 'ui-img'];
     fields.forEach(f => { 
         let el = hsDiv.querySelector('.' + f); 
         if(el) hs[f.replace(/-/g, '_')] = el.value; 
@@ -454,6 +454,11 @@ function updateHsFields(hId) {
         container.innerHTML = `
         <label>Menu title:</label><input type="text" class="f-sel-title" value="Choose an action">
         <label>Introduction (HTML, optional):</label><textarea class="f-sel-intro" rows="2"></textarea>
+        <label>Choice layout:</label>
+        <select class="f-sel-display">
+            <option value="buttons" selected>Buttons</option>
+            <option value="dropdown">Dropdown + OK</option>
+        </select>
         <label>Choices — JSON array:</label>
         <textarea class="f-sel-choices" rows="16" style="font-family:Consolas,monospace;font-size:12px;">[
   { "label": "Sub-menu (nested)", "actionType": "selector", "nested": { "title": "More options", "introHtml": "&lt;p&gt;Level 2&lt;/p&gt;", "choices": [
@@ -462,7 +467,7 @@ function updateHsFields(hId) {
   { "label": "Direct message", "actionType": "msg", "txt": "&lt;p&gt;Level 1&lt;/p&gt;" },
   { "label": "Other scene", "actionType": "scene", "target": "scene_2", "transTxt": "", "transBtn": "Continue" }
 ]</textarea>
-        <small style="color:#555;"><code>actionType</code>: <code>msg</code>, <code>scene</code>, <code>pick</code>, or <code>selector</code> with <code>nested</code> (same shape: <code>title</code>, <code>introHtml</code>, <code>choices</code>). <b>← Back</b> in the player.</small>`;
+        <small style="color:#555;">Optional per choice: <code>requiresItem</code>, <code>hiddenIfHasItem</code> (inventory IDs), <code>sfxUrl</code> + <code>sfxVolume</code> (0–1). Nested block may set <code>displayMode</code>. <code>actionType</code>: <code>msg</code>, <code>scene</code>, <code>pick</code>, <code>selector</code> + <code>nested</code>.</small>`;
     }
 }
 

@@ -82,8 +82,11 @@ Payload minimal :
 |-------|--------|
 | `label` | Texte du bouton ou entrée de liste. |
 | `actionType` | `msg` \| `scene` \| `pick` \| `req` \| `pwd` \| `selector` |
-| `sfxUrl` | URL du son à jouer au clic sur ce choix (optionnel). |
-| `sfxVolume` | 0–1, relatif ; combinaison future avec volume joueur (cf. roadmap audio). |
+| `requiresItem` | (Optionnel) ID d’objet : le choix n’apparaît que si l’inventaire contient cet ID. |
+| `hiddenIfHasItem` | (Optionnel) ID d’objet : le choix est masqué si le joueur possède cet objet. |
+| `sfxUrl` | URL du son au clic sur ce choix (optionnel). |
+| `sfxVolume` | 0–1, relatif au canal SFX du joueur (`sfxVol` × `masterVol`). |
+| `displayMode` | Sur un niveau (`nested` ou racine via l’éditeur) : `buttons` (défaut) ou `dropdown`. |
 
 Les autres champs reprennent la **même sémantique** que les champs actuels des hotspots (ex. `txt`, `target`, `itemId`, `ko`, `transTxt`, etc.) pour que `executeAction` reste unique.
 
@@ -145,7 +148,7 @@ Les deux sont compatibles avec le même schéma si `evaluateChoiceVisibility` es
 1. ~~Refactor **jeu généré uniquement** : extraire `executeAction` depuis la logique actuelle de `hotspotDispatcher` + `executeReward` ; valider avec des scénarios de test (anciens POC optionnels).~~ **Fait** (template dans `js/editeur-generate.js` / `js/editor-en-generate.js`).
 2. ~~Ajouter `openSelector` minimal (liste de boutons, un niveau, pas d’imbrication).~~ **Fait** : overlay plein écran (`#selector-overlay`), une modale, boutons ; `choiceToPayload` → `executeAction` pour `msg` / `scene` / `pick`.
 3. ~~Étendre JSON + éditeur pour éditer `choices` simples.~~ **Partiel** : type `selector` + titre / intro / **textarea JSON** des choix (édition avancée) ; à remplacer plus tard par un formulaire guidé (ajout/suppression de lignes, etc.).
-4. ~~Ajouter **Retour**, **imbrication**~~ **Fait** ; reste **visibilité conditionnelle**, **liste déroulante**, **SFX par choice**.
+4. ~~Ajouter **Retour**, **imbrication**~~ **Fait** ; ~~**visibilité conditionnelle** (`requiresItem`, `hiddenIfHasItem`), **liste déroulante** (`displayMode`), **SFX** (`sfxUrl`, `sfxVolume` + `audioSys.playSFX`)~~ **Fait** (joueur + option éditeur « Liste déroulante » ; champs JSON documentés dans l’UI).
 5. Découpage fichiers (`player.js` / modules) une fois le comportement stable.
 
 ---

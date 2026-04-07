@@ -122,6 +122,8 @@ function generateGame() {
             if(type === 'selector') {
                 args.title = hsDiv.querySelector('.f-sel-title').value;
                 args.introHtml = hsDiv.querySelector('.f-sel-intro').value;
+                var selDm = hsDiv.querySelector('.f-sel-display');
+                args.displayMode = (selDm && selDm.value === 'dropdown') ? 'dropdown' : 'buttons';
                 try {
                     var selChoices = JSON.parse(hsDiv.querySelector('.f-sel-choices').value.trim());
                     if(!Array.isArray(selChoices)) throw new Error('choices must be a JSON array');
@@ -231,10 +233,12 @@ function generateGame() {
             p.src = url;
             p.play().catch(function(e){console.log(e)});
         },
-        playSFX: function(url) {
+        playSFX: function(url, relVol) {
             if(!url) return;
             var p = document.getElementById('audio-sfx');
-            p.src = url; p.volume = this.sfxVol * this.masterVol; p.play().catch(function(e){console.log(e)});
+            var m = 1;
+            if(relVol != null && relVol !== '' && !isNaN(Number(relVol))) m = Math.max(0, Math.min(1, Number(relVol)));
+            p.src = url; p.volume = this.sfxVol * this.masterVol * m; p.play().catch(function(e){console.log(e)});
         }
     };
 
@@ -306,9 +310,20 @@ function generateGame() {
     var selectorHistory = [];
     var selectorHsDiv = null;
 
-    function normalizeSelectorLevel(obj) {
+    function normalizeSelectorLevel(obj, fallbackDisplayMode) {
         if(!obj) obj = {};
-        return { title: obj.title || '', introHtml: obj.introHtml || '', choices: Array.isArray(obj.choices) ? obj.choices : [] };
+        var dm = obj.displayMode === 'dropdown' ? 'dropdown' : (fallbackDisplayMode === 'dropdown' ? 'dropdown' : 'buttons');
+        return { title: obj.title || '', introHtml: obj.introHtml || '', choices: Array.isArray(obj.choices) ? obj.choices : [], displayMode: dm };
+    }
+    function isChoiceVisible(choice) {
+        if(!choice) return false;
+        if(choice.requiresItem != null && String(choice.requiresItem).trim() !== '') {
+            if(!inventaire[String(choice.requiresItem).trim()]) return false;
+        }
+        if(choice.hiddenIfHasItem != null && String(choice.hiddenIfHasItem).trim() !== '') {
+            if(inventaire[String(choice.hiddenIfHasItem).trim()]) return false;
+        }
+        return true;
     }
     function choiceToPayload(choice) {
         if(!choice || !choice.actionType) return null;
@@ -332,11 +347,26 @@ function generateGame() {
         selectorHistory.pop();
         renderSelectorPanel();
     }
+    function runSelectorChoice(choice) {
+        if(!choice) return;
+        if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== '') {
+            audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
+        }
+        if(choice.actionType === 'selector') {
+            if(choice.nested) {
+                selectorHistory.push(normalizeSelectorLevel(choice.nested, selectorHistory[selectorHistory.length - 1].displayMode));
+                renderSelectorPanel();
+            }
+            return;
+        }
+        var payload = choiceToPayload(choice);
+        closeSelectorOverlay();
+        if(payload) executeAction(payload, selectorHsDiv);
+    }
     function renderSelectorPanel() {
         var inner = document.getElementById('selector-panel-inner');
         if(!inner || selectorHistory.length === 0) return;
         var level = selectorHistory[selectorHistory.length - 1];
-        var hsDiv = selectorHsDiv;
         inner.innerHTML = '';
         var topBar = document.createElement('div');
         topBar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;min-height:28px;';
@@ -366,27 +396,43 @@ function generateGame() {
             intro.innerHTML = level.introHtml;
             inner.appendChild(intro);
         }
+        var visibleChoices = (level.choices || []).filter(isChoiceVisible);
         var wrap = document.createElement('div');
         wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
-        (level.choices || []).forEach(function(choice, idx) {
-            var b = document.createElement('button');
-            b.type = 'button';
-            b.textContent = choice.label || ('Choice ' + (idx+1));
-            b.style.cssText = 'cursor:pointer;padding:12px 16px;border:none;border-radius:6px;font-size:16px;font-weight:bold;background:${popBtnBg};color:${popBtnCol};font-family:inherit;width:100%;';
-            b.onclick = function() {
-                if(choice.actionType === 'selector') {
-                    if(choice.nested) {
-                        selectorHistory.push(normalizeSelectorLevel(choice.nested));
-                        renderSelectorPanel();
-                    }
-                    return;
-                }
-                var payload = choiceToPayload(choice);
-                closeSelectorOverlay();
-                if(payload) executeAction(payload, hsDiv);
+        if(visibleChoices.length === 0) {
+            var empty = document.createElement('p');
+            empty.style.cssText = 'margin:0;font-style:italic;opacity:0.85;';
+            empty.textContent = 'No choices are available right now.';
+            wrap.appendChild(empty);
+        } else if(level.displayMode === 'dropdown') {
+            var sel = document.createElement('select');
+            sel.style.cssText = 'width:100%;padding:12px;font-size:16px;font-family:inherit;border-radius:6px;border:1px solid #888;box-sizing:border-box;background:#ffffff;color:#111;';
+            visibleChoices.forEach(function(ch, i) {
+                var opt = document.createElement('option');
+                opt.value = String(i);
+                opt.textContent = ch.label || ('Choice ' + (i+1));
+                sel.appendChild(opt);
+            });
+            var goBtn = document.createElement('button');
+            goBtn.type = 'button';
+            goBtn.textContent = 'OK';
+            goBtn.style.cssText = 'cursor:pointer;padding:12px 16px;border:none;border-radius:6px;font-size:16px;font-weight:bold;background:${popBtnBg};color:${popBtnCol};font-family:inherit;width:100%;';
+            goBtn.onclick = function() {
+                var idx = parseInt(sel.value, 10);
+                if(!isNaN(idx)) runSelectorChoice(visibleChoices[idx]);
             };
-            wrap.appendChild(b);
-        });
+            wrap.appendChild(sel);
+            wrap.appendChild(goBtn);
+        } else {
+            visibleChoices.forEach(function(choice, idx) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = choice.label || ('Choice ' + (idx+1));
+                b.style.cssText = 'cursor:pointer;padding:12px 16px;border:none;border-radius:6px;font-size:16px;font-weight:bold;background:${popBtnBg};color:${popBtnCol};font-family:inherit;width:100%;';
+                b.onclick = function() { runSelectorChoice(choice); };
+                wrap.appendChild(b);
+            });
+        }
         inner.appendChild(wrap);
     }
     function openSelector(args, hsDiv) {
@@ -525,3 +571,4 @@ window.onload = function() {
     addScene();
 	updatePreview();
 };
+

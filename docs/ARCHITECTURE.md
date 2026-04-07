@@ -94,7 +94,7 @@ Scene changes: player listens to **`scenechange`** and calls **`applySceneAmbian
 
 - **Music**: optional loop on `#audio-music`, URL from global settings; started after splash.
 - **Ambiance**: loop on `#audio-ambiance`; URL map `sceneAmbianceUrls` built from each scene’s `.sc-audio`; empty URL → stop and clear channel.
-- **SFX**: `#audio-sfx` reserved; not yet wired to hotspot actions in the editor UI.
+- **SFX**: `#audio-sfx` ; `playSFX(url, relVol)` (volume relatif 0–1). Utilisé par les **choix selector** (`sfxUrl` / `sfxVolume` dans le JSON des choix).
 
 Splash screen exists so audio can start after a **user gesture** (browser autoplay policies).
 

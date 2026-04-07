@@ -183,7 +183,7 @@ function addHotspot(sceneId, hsData = null) {
 
     // Remplissage des champs dynamiques avec les données sauvegardées (si on charge un projet)
     if(hsData) {
-        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-choices'];
+        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices'];
         fields.forEach(f => {
             let el = hsDiv.querySelector('.' + f);
             if(el && hsData[f.replace(/-/g, '_')] !== undefined) {
@@ -208,7 +208,7 @@ function extractHotspotData(hId) {
         type: hsDiv.querySelector('.hs-type').value 
     };
     
-    let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-choices', 'ui-w', 'ui-h', 'ui-shape', 'ui-bgc', 'ui-bga', 'ui-brd-style', 'ui-brd-w', 'ui-brd-c', 'ui-img'];
+    let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'ui-w', 'ui-h', 'ui-shape', 'ui-bgc', 'ui-bga', 'ui-brd-style', 'ui-brd-w', 'ui-brd-c', 'ui-img'];
     fields.forEach(f => { 
         let el = hsDiv.querySelector('.' + f); 
         if(el) hs[f.replace(/-/g, '_')] = el.value; 
@@ -455,6 +455,11 @@ function updateHsFields(hId) {
         container.innerHTML = `
         <label>Titre du menu :</label><input type="text" class="f-sel-title" value="Choisissez une action">
         <label>Introduction (HTML, optionnel) :</label><textarea class="f-sel-intro" rows="2"></textarea>
+        <label>Présentation des choix :</label>
+        <select class="f-sel-display">
+            <option value="buttons" selected>Boutons</option>
+            <option value="dropdown">Liste déroulante + Valider</option>
+        </select>
         <label>Choix — JSON (tableau) :</label>
         <textarea class="f-sel-choices" rows="16" style="font-family:Consolas,monospace;font-size:12px;">[
   { "label": "Sous-menu (nested)", "actionType": "selector", "nested": { "title": "Plus d'options", "introHtml": "&lt;p&gt;Niveau 2&lt;/p&gt;", "choices": [
@@ -463,7 +468,7 @@ function updateHsFields(hId) {
   { "label": "Message direct", "actionType": "msg", "txt": "&lt;p&gt;Niveau 1&lt;/p&gt;" },
   { "label": "Autre scène", "actionType": "scene", "target": "scene_2", "transTxt": "", "transBtn": "Continuer" }
 ]</textarea>
-        <small style="color:#555;"><code>actionType</code> : <code>msg</code>, <code>scene</code>, <code>pick</code>, ou <code>selector</code> avec <code>nested</code> (même schéma : <code>title</code>, <code>introHtml</code>, <code>choices</code>). Bouton <b>← Retour</b> dans le jeu.</small>`;
+        <small style="color:#555;">Champs optionnels par choix : <code>requiresItem</code> (ID objet requis pour afficher le choix), <code>hiddenIfHasItem</code> (masqué si l’objet est dans l’inventaire), <code>sfxUrl</code> + <code>sfxVolume</code> (0–1, volume relatif). Sous-menu : <code>displayMode</code> dans <code>nested</code> pour boutons / liste. <code>actionType</code> : <code>msg</code>, <code>scene</code>, <code>pick</code>, <code>selector</code> + <code>nested</code>.</small>`;
     }
 }
 
