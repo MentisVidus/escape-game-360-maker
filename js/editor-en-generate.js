@@ -277,9 +277,16 @@ function generateGame() {
         var p = document.getElementById('inv-panel'); 
         p.style.display = (p.style.display === 'block') ? 'none' : 'block'; 
     }
+    function openInventoryPanelIfVisible() {
+        var c = document.getElementById('inv-container');
+        if(!c || c.style.display === 'none') return;
+        var p = document.getElementById('inv-panel');
+        if(p) p.style.display = 'block';
+    }
     
     // Leaf action (msg / scene / pick) — shared engine for classic hotspots and future selector choices (see docs/SELECTOR_SPEC.md)
-    function executeAction(payload, hsDiv) {
+    // fromSelector: if true, do not hide hotspot after pick (same div must reopen the selector)
+    function executeAction(payload, hsDiv, fromSelector) {
         if(payload.type === 'scene') {
             if(payload.transTxt) {
                 afficherPopup("", payload.transTxt, payload.transBtn || "Continue", function(){ viewer.loadScene(payload.target); });
@@ -290,8 +297,9 @@ function generateGame() {
             afficherPopup("", payload.txt);
         } else if(payload.type === 'pick') {
             inventaire[payload.itemId] = { name: payload.itemName };
-            hsDiv.style.display = 'none';
+            if(hsDiv && !fromSelector) hsDiv.style.display = 'none';
             majInventaireUI();
+            openInventoryPanelIfVisible();
             afficherPopup("", payload.txt);
         }
     }
@@ -360,14 +368,52 @@ function generateGame() {
             return;
         }
         var payload = choiceToPayload(choice);
+        if(payload && payload.type === 'msg') {
+            selectorHistory.push({ _inlineMessage: true, bodyHtml: payload.txt || '' });
+            renderSelectorPanel();
+            return;
+        }
+        var hsForAction = selectorHsDiv;
         closeSelectorOverlay();
-        if(payload) executeAction(payload, selectorHsDiv);
+        if(payload) executeAction(payload, hsForAction, true);
     }
     function renderSelectorPanel() {
         var inner = document.getElementById('selector-panel-inner');
         if(!inner || selectorHistory.length === 0) return;
         var level = selectorHistory[selectorHistory.length - 1];
         inner.innerHTML = '';
+        if(level._inlineMessage) {
+            var topBarMsg = document.createElement('div');
+            topBarMsg.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;min-height:28px;';
+            var backMsg = document.createElement('button');
+            backMsg.type = 'button';
+            backMsg.textContent = '← Back to menu';
+            backMsg.style.cssText = 'cursor:pointer;padding:6px 10px;border:none;border-radius:4px;background:rgba(255,255,255,0.15);color:inherit;font:inherit;';
+            backMsg.onclick = function() {
+                selectorHistory.pop();
+                renderSelectorPanel();
+            };
+            var midMsg = document.createElement('span');
+            midMsg.style.flex = '1';
+            var btnXMsg = document.createElement('button');
+            btnXMsg.innerHTML = '✕';
+            btnXMsg.setAttribute('aria-label','Close');
+            btnXMsg.style.cssText = 'background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;';
+            btnXMsg.onclick = function(){ closeSelectorOverlay(); };
+            topBarMsg.appendChild(backMsg);
+            topBarMsg.appendChild(midMsg);
+            topBarMsg.appendChild(btnXMsg);
+            inner.appendChild(topBarMsg);
+            var hMsg = document.createElement('h2');
+            hMsg.style.cssText = 'margin:0 0 12px 0;font-size:1.25em;';
+            hMsg.textContent = 'Message';
+            inner.appendChild(hMsg);
+            var scroll = document.createElement('div');
+            scroll.style.cssText = 'max-height:min(55vh, 420px); overflow:auto; text-align:left; padding:8px; font-size:0.95em; line-height:1.45;';
+            scroll.innerHTML = level.bodyHtml || '';
+            inner.appendChild(scroll);
+            return;
+        }
         var topBar = document.createElement('div');
         topBar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;min-height:28px;';
         var backBtn = document.createElement('button');

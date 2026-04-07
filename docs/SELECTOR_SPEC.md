@@ -117,7 +117,14 @@ En implémentation v1 on peut **garder les types existants** dans l’éditeur e
 
 ### 4.3 Fermeture après une action “feuille”
 
-- Objectif : **éviter** une deuxième modale “message” par-dessus le selector. Préférer : message **dans la même surface** (remplacer le corps du menu par le texte + bouton OK puis revenir au menu ou fermer), ou fermer le selector puis afficher un message — à trancher à l’implémentation, mais **pas** de stack visuelle de popups.
+- **Implémenté (v1)** : pour un choix `actionType: "msg"`, le texte s’affiche **dans la même modale** (vue « Message » avec zone défilante pour les longs textes), bouton **← Retour au menu** pour revenir au niveau de choix sans fermer le selector — pas de seconde popup par-dessus.
+- Les hotspots **classiques** (`msg` hors selector) restent sur `afficherPopup` (comportement inchangé).
+- **Scène / ramassage** depuis le selector : fermeture du selector puis logique habituelle (`executeAction`). Pour un **pick**, le hotspot **selector** n’est **pas** masqué (contrairement au pick « classique ») : la même zone doit pouvoir rouvrir le menu pour d’autres choix ou indices.
+
+### 4.3 bis — Inventaire « pick » et visibilité future
+
+- Après un ramassage depuis le selector, le panneau inventaire s’**ouvre** si l’inventaire global est activé (sinon l’objet est quand même dans l’état `inventaire` mais l’UI reste masquée).
+- **Roadmap** : option éditeur / champ JSON du type `isHidden` (ou équivalent) pour qu’un objet ramassé soit **compté dans la logique** mais **non listé** dans l’inventaire visible (cas narratifs / quêtes cachées).
 
 ### 4.4 Options conditionnelles (inventaire / état)
 

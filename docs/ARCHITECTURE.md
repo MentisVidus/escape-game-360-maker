@@ -95,6 +95,8 @@ Scene changes: player listens to **`scenechange`** and calls **`applySceneAmbian
 - **Music**: optional loop on `#audio-music`, URL from global settings; started after splash.
 - **Ambiance**: loop on `#audio-ambiance`; URL map `sceneAmbianceUrls` built from each scene’s `.sc-audio`; empty URL → stop and clear channel.
 - **SFX**: `#audio-sfx` ; `playSFX(url, relVol)` (volume relatif 0–1). Utilisé par les **choix selector** (`sfxUrl` / `sfxVolume` dans le JSON des choix).
+- **Selector + message** : les choix `msg` ouvrent une **vue message** dans la même modale (scroll), pas une `afficherPopup` séparée ; **pick** ouvre le panneau inventaire si l’inventaire est activé dans les paramètres globaux du jeu généré.
+- **Pick** : depuis un hotspot classique, la zone est masquée après ramassage ; depuis un **selector**, la zone **reste** (troisième argument `fromSelector` à `executeAction`) pour pouvoir rouvrir le menu.
 
 Splash screen exists so audio can start after a **user gesture** (browser autoplay policies).
 
