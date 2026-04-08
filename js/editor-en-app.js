@@ -182,8 +182,8 @@ function addHotspot(sceneId, hsData = null) {
     const hsDiv = document.getElementById(`hs_${hId}`);
     hsDiv.querySelector('.hs-type').value = type;
     
-    // Rebuild type-specific fields
-    updateHsFields(hId); 
+    // Rebuild type-specific fields (defer selector init when restoring from JSON so f_sel_choices is not overwritten)
+    updateHsFields(hId, { deferSelectorInit: !!hsData }); 
 
     // Restore field values when loading hsData from JSON
     if(hsData) {
@@ -434,42 +434,62 @@ function getDefaultChoice() {
 
 function collectChoicesFromList(listEl) {
     if(!listEl) return [];
-    var cards = listEl.querySelectorAll(":scope > .sel-choice-card");
-    return Array.prototype.map.call(cards, function(c) { return cardToChoice(c); });
+    var cards = Array.prototype.filter.call(listEl.children || [], function(el) {
+        return el.classList && el.classList.contains("sel-choice-card");
+    });
+    return cards.map(function(c) { return cardToChoice(c); });
+}
+
+function getOwnChoiceField(card, selector) {
+    var nodes = card.querySelectorAll(selector);
+    for(var i = 0; i < nodes.length; i++) {
+        if(nodes[i].closest(".sel-choice-card") === card) return nodes[i];
+    }
+    return null;
 }
 
 function cardToChoice(card) {
-    var type = card.querySelector(".sel-action-type").value;
-    var label = (card.querySelector(".sel-label").value || "").trim();
+    var typeEl = getOwnChoiceField(card, ".sel-action-type");
+    var type = typeEl ? typeEl.value : "msg";
+    var labelEl = getOwnChoiceField(card, ".sel-label");
+    var label = ((labelEl && labelEl.value) || "").trim();
     var out = { label: label || "Option", actionType: type };
     if(type === "msg") {
-        var t = card.querySelector(".sel-msg-txt");
+        var t = getOwnChoiceField(card, ".sel-msg-txt");
         out.txt = t ? t.value : "";
     } else if(type === "scene") {
-        out.target = card.querySelector(".sel-scene-target").value;
-        out.transTxt = card.querySelector(".sel-scene-trans").value;
-        out.transBtn = card.querySelector(".sel-scene-btn").value;
+        var scTarget = getOwnChoiceField(card, ".sel-scene-target");
+        var scTrans = getOwnChoiceField(card, ".sel-scene-trans");
+        var scBtn = getOwnChoiceField(card, ".sel-scene-btn");
+        out.target = scTarget ? scTarget.value : "";
+        out.transTxt = scTrans ? scTrans.value : "";
+        out.transBtn = scBtn ? scBtn.value : "";
     } else if(type === "pick") {
-        out.itemId = card.querySelector(".sel-pick-id").value;
-        out.itemName = card.querySelector(".sel-pick-name").value;
-        out.txt = card.querySelector(".sel-pick-txt").value;
+        var pkId = getOwnChoiceField(card, ".sel-pick-id");
+        var pkName = getOwnChoiceField(card, ".sel-pick-name");
+        var pkTxt = getOwnChoiceField(card, ".sel-pick-txt");
+        out.itemId = pkId ? pkId.value : "";
+        out.itemName = pkName ? pkName.value : "";
+        out.txt = pkTxt ? pkTxt.value : "";
     } else if(type === "selector") {
+        var nestedListEl = card.querySelector(".sel-action-fields .sel-nested-list");
         var nest = {
-            title: card.querySelector(".sel-nested-title").value,
-            introHtml: card.querySelector(".sel-nested-intro").value,
-            choices: collectChoicesFromList(card.querySelector(".sel-nested-list"))
+            title: (getOwnChoiceField(card, ".sel-nested-title") || { value: "" }).value,
+            introHtml: (getOwnChoiceField(card, ".sel-nested-intro") || { value: "" }).value,
+            choices: collectChoicesFromList(nestedListEl)
         };
-        var dm = card.querySelector(".sel-nested-display");
+        var dm = getOwnChoiceField(card, ".sel-nested-display");
         if(dm && dm.value === "dropdown") nest.displayMode = "dropdown";
         out.nested = nest;
     }
-    var req = card.querySelector(".sel-opt-req");
+    var req = getOwnChoiceField(card, ".sel-opt-req");
     if(req && req.value.trim()) out.requiresItem = req.value.trim();
-    var hid = card.querySelector(".sel-opt-hidden");
+    var hid = getOwnChoiceField(card, ".sel-opt-hidden");
     if(hid && hid.value.trim()) out.hiddenIfHasItem = hid.value.trim();
-    var sfx = card.querySelector(".sel-opt-sfx");
+    else if(type === "pick") delete out.hiddenIfHasItem;
+    var sfx = getOwnChoiceField(card, ".sel-opt-sfx");
     if(sfx && sfx.value.trim()) out.sfxUrl = sfx.value.trim();
-    var sfxv = card.querySelector(".sel-opt-sfxvol");
+    var sfxv = getOwnChoiceField(card, ".sel-opt-sfxvol");
     if(sfxv && sfxv.value.trim() !== "") {
         var v = parseFloat(sfxv.value);
         if(!isNaN(v)) out.sfxVolume = v;
@@ -479,6 +499,7 @@ function cardToChoice(card) {
 
 function syncSelectorChoicesToTextarea(hId) {
     var hsDiv = document.getElementById("hs_" + hId);
+    if(!hsDiv) return;
     var ta = hsDiv.querySelector(".f-sel-choices");
     if(!ta || !ta.hasAttribute("readonly")) return;
     var root = document.getElementById("sel_choices_root_" + hId);
@@ -539,12 +560,17 @@ function selectorAddNestedChoice(btn) {
     syncSelectorChoicesToTextarea(hId);
 }
 
-function selectorRebuildActionFields(card, ch) {
+function selectorRebuildActionFields(card, ch, hsHotspotId) {
     ch = ch || {};
     var type = card.querySelector(".sel-action-type").value;
     var container = card.querySelector(".sel-action-fields");
     var depth = parseInt(card.dataset.depth || "0", 10);
     if(!container) return;
+    var hsIdNum = hsHotspotId;
+    if(hsIdNum == null || isNaN(hsIdNum)) {
+        var hb = card.closest(".hotspot-block");
+        hsIdNum = hb ? parseInt(hb.id.replace("hs_", ""), 10) : NaN;
+    }
     container.innerHTML = "";
 
     if(type === "msg") {
@@ -593,8 +619,23 @@ function selectorRebuildActionFields(card, ch) {
         tp.value = ch.txt || "";
         container.appendChild(lp);
         container.appendChild(tp);
+        var advHidden = getOwnChoiceField(card, ".sel-opt-hidden");
+        var pickIdInput = rp.querySelector(".sel-pick-id");
+        if(advHidden) {
+            if((advHidden.value || "").trim() === "" && (pickIdInput.value || "").trim() !== "") {
+                advHidden.value = pickIdInput.value.trim();
+                advHidden.dataset.autoFilled = "1";
+            }
+            advHidden.addEventListener("input", function() { advHidden.dataset.autoFilled = "0"; });
+        }
+        pickIdInput.addEventListener("input", function() {
+            if(advHidden && (advHidden.dataset.autoFilled === "1" || (advHidden.value || "").trim() === "")) {
+                advHidden.value = pickIdInput.value.trim();
+                advHidden.dataset.autoFilled = "1";
+            }
+        });
     } else if(type === "selector") {
-        var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
+        if(isNaN(hsIdNum)) return;
         var nest = ch.nested || {};
         var nb = document.createElement("div");
         nb.className = "sel-nested-block";
@@ -625,7 +666,7 @@ function selectorRebuildActionFields(card, ch) {
         var nestedList = document.createElement("div");
         nestedList.className = "sel-choices-list sel-nested-list";
         var arr = Array.isArray(nest.choices) && nest.choices.length ? nest.choices : [getDefaultChoice()];
-        arr.forEach(function(nch) { nestedList.appendChild(renderChoiceCardElement(nch, hId, depth + 1)); });
+        arr.forEach(function(nch) { nestedList.appendChild(renderChoiceCardElement(nch, hsIdNum, depth + 1)); });
         var btnAdd = document.createElement("button");
         btnAdd.type = "button";
         btnAdd.className = "btn-add-hs";
@@ -707,7 +748,7 @@ function renderChoiceCardElement(ch, hId, depth) {
     if(!at || !opts.some(function(o) { return o[0] === at; })) selA.value = "msg";
 
     selA.onchange = function() {
-        selectorRebuildActionFields(card, {});
+        selectorRebuildActionFields(card, {}, hId);
         syncSelectorChoicesToTextarea(hId);
     };
 
@@ -767,7 +808,7 @@ function renderChoiceCardElement(ch, hId, depth) {
     card.appendChild(det);
 
     ch.actionType = selA.value;
-    selectorRebuildActionFields(card, ch);
+    selectorRebuildActionFields(card, ch, hId);
     return card;
 }
 
@@ -777,7 +818,10 @@ function initSelectorChoicesForm(hId) {
     var root = document.getElementById("sel_choices_root_" + hId);
     if(!ta || !root) return;
     var arr;
-    try { arr = JSON.parse(ta.value.trim()); } catch(e) { arr = getDefaultSelectorChoices(); }
+    try { arr = JSON.parse(ta.value.trim()); } catch(e) {
+        console.warn("f_sel_choices invalid JSON:", e);
+        arr = getDefaultSelectorChoices();
+    }
     if(!Array.isArray(arr)) arr = getDefaultSelectorChoices();
     root.innerHTML = "";
     arr.forEach(function(ch) { root.appendChild(renderChoiceCardElement(ch, hId, 0)); });
@@ -817,7 +861,8 @@ function toggleSelectorJsonExpert(hId, forceExpert) {
 }
 
 // --- Dynamic hotspot form fields by action type ---
-function updateHsFields(hId) {
+function updateHsFields(hId, opts) {
+    opts = opts || {};
     const type = document.querySelector(`#hs_${hId} .hs-type`).value; 
     const container = document.getElementById(`fields_${hId}`);
     
@@ -888,7 +933,7 @@ function updateHsFields(hId) {
             </div>
         </div>
         <small style="color:#555;display:block;margin-top:10px;">Tip: per-choice visibility and sounds are under <b>Advanced options</b> on each line, or in the JSON.</small>`;
-        initSelectorChoicesForm(hId);
+        if(!opts.deferSelectorInit) initSelectorChoicesForm(hId);
     }
 }
 
@@ -1007,7 +1052,10 @@ function loadProject(event) {
             // Refresh inventory / popup previews
             updatePreview();
             
-        } catch (err) { alert("Invalid file!"); }
+        } catch (err) {
+            console.error(err);
+            alert("Invalid file or load error: " + (err && err.message ? err.message : String(err)));
+        }
     };
     reader.readAsText(file); 
     event.target.value = ''; // Allow re-selecting same file
