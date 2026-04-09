@@ -27,14 +27,14 @@ L'outil génère un jeu complet sous la forme d'un simple fichier `index.html`, 
 
 ---
 
-## ✨ Fonctionnalités actuelles (v4.2 + audio)
+## ✨ Fonctionnalités actuelles (bêta — avril 2026)
 
 L'éditeur a évolué pour devenir un véritable moteur de création narratif :
 
 * **Musique globale & ambiance par scène** : musique de fond optionnelle pour tout le jeu ; fichier audio optionnel par scène (silence si l’URL est vide).
-* **Aperçu en Direct (Nouveau v4.2)** : Testez le rendu d'une scène entière (et l'emplacement de vos zones invisibles encadrées en rouge) sans avoir à générer le jeu complet.
-* **Générateur CSS Visuel No-Code (Nouveau v4.2)** : Une interface intuitive permet de créer des zones cliquables (couleur, taille, bordure, opacité) et génère le code CSS automatiquement.
-* **Ergonomie de gestion (Nouveau v4.2)** : Déplacez vos scènes, dupliquez des hotspots d'une pièce à l'autre, et pliez/dépliez vos panneaux pour garder un espace de travail propre. Les scènes et hotspots peuvent désormais être nommés.
+* **Aperçu en direct** : Testez le rendu d'une scène entière (et l'emplacement de vos zones invisibles encadrées en rouge) sans avoir à générer le jeu complet.
+* **Générateur CSS visuel no-code** : Une interface intuitive permet de créer des zones cliquables (couleur, taille, bordure, opacité) et génère le code CSS automatiquement.
+* **Ergonomie de gestion** : Déplacez vos scènes, dupliquez des hotspots d'une pièce à l'autre, et pliez/dépliez vos panneaux pour garder un espace de travail propre. Les scènes et hotspots peuvent être nommés.
 * **Pointeur 360° intégré** : Plus besoin de deviner les coordonnées ! Un outil visuel permet de placer la caméra sur l'image pour récupérer le Pitch et le Yaw automatiquement.
 * **Système d'Inventaire** : Un panneau rétractable (et personnalisable) permet au joueur de stocker les objets ramassés.
 * **Logique conditionnelle & Énigmes** : Posez des questions aux joueurs, exigez des clés pour ouvrir des portes. Le jeu mémorise la progression !
@@ -75,12 +75,12 @@ A free, open-source visual builder to create 360° Escape Rooms and interactive 
 * [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — keeping FR/EN in sync, safe change checklist.
 * [docs/SELECTOR_SPEC.md](docs/SELECTOR_SPEC.md) — choice menus, nesting, per-choice SFX.
 
-## ✨ Features (v4.2 + audio)
+## ✨ Features (beta — April 2026)
 
 * **Global music & per-scene ambient audio**: optional background loop; optional ambient track per scene (no sound if URL empty).
-* **Live Scene Preview (New v4.2)**: Test an entire scene layout without generating the full game. Hotspots are outlined in red for easy validation.
-* **Visual CSS Editor (New v4.2)**: Use sliders and color pickers to style your interaction zones. Code is generated for you. Includes an Expert Mode.
-* **Smart Duplication (New v4.2)**: Rearrange scenes, copy hotspots from one room to another instantly, and collapse panels for a clean workspace. Custom titles added.
+* **Live scene preview**: Test an entire scene layout without generating the full game. Hotspots are outlined in red for easy validation.
+* **Visual CSS editor**: Use sliders and color pickers to style your interaction zones. Code is generated for you. Includes an Expert Mode.
+* **Smart duplication**: Rearrange scenes, copy hotspots from one room to another instantly, and collapse panels for a clean workspace. Custom titles added.
 * **Built-in 360° Target Picker**: Visually place your hotspots on the image to auto-fill Pitch/Yaw coordinates.
 * **Inventory System**: A customizable, retractable panel to store found items.
 * **Smart Puzzles & Logic**: Create riddles and lock doors with required items. The game remembers what the player has already unlocked!
