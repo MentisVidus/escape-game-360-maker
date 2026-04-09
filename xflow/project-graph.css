@@ -1,0 +1,55 @@
+/* Vue carte (Drawflow) — styles des nœuds dans l’éditeur */
+
+#project-drawflow {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    background: #2b303b;
+    background-image: radial-gradient(circle, #3d4450 1px, transparent 1px);
+    background-size: 16px 16px;
+}
+
+.xflow-node-scene .xflow-node-title,
+.xflow-node-hotspot .xflow-node-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.85;
+    margin-bottom: 6px;
+}
+
+.xflow-node-scene .xflow-node-sub {
+    font-size: 0.72rem;
+    opacity: 0.9;
+    margin-top: 4px;
+    word-break: break-word;
+}
+
+.xflow-node-scene .xflow-node-body {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.xflow-node-hotspot .xflow-node-body {
+    font-size: 0.9rem;
+}
+
+.xflow-node-scene {
+    min-width: 160px;
+    max-width: 220px;
+    padding: 10px 12px;
+    background: linear-gradient(145deg, #1e3d32, #152e28);
+    border: 1px solid #2d6a4f;
+    border-radius: 8px;
+    color: #d8f3dc;
+}
+
+.xflow-node-hotspot {
+    min-width: 170px;
+    max-width: 240px;
+    padding: 10px 12px;
+    background: linear-gradient(145deg, #3d2e1e, #2d2218);
+    border: 1px solid #bc6c25;
+    border-radius: 8px;
+    color: #ffe8d6;
+}

@@ -938,8 +938,9 @@ function updateHsFields(hId, opts) {
 }
 
 // --- Save / load project JSON ---
-function saveProject() {
-    // Collect editor state into one object
+
+/** Same shape as downloaded project.json (for map view, export, etc.) */
+function getCurrentProjectData() {
     let project = { 
         title: document.getElementById('gameTitle').value, 
         useInv: document.getElementById('useInventory').checked, 
@@ -960,7 +961,6 @@ function saveProject() {
         scenes: [] 
     };
     
-    // All scenes and nested hotspots
     document.querySelectorAll('.scene-block').forEach(sceneDiv => {
         let scene = { 
 			scId: sceneDiv.querySelector('.sc-id').value,
@@ -969,12 +969,16 @@ function saveProject() {
 			scAudio: sceneDiv.querySelector('.sc-audio') ? sceneDiv.querySelector('.sc-audio').value : "",
 			hotspots: [] 
         };
-        // Hotspots for this scene
         sceneDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => { 
             scene.hotspots.push(extractHotspotData(hsDiv.id.split('_')[1])); 
         });
         project.scenes.push(scene);
     });
+    return project;
+}
+
+function saveProject() {
+    const project = getCurrentProjectData();
     
     // Trigger browser download
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });

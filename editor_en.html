@@ -17,6 +17,8 @@
     <!-- Editor UI styles (shared with editeur.html) -->
     <!-- ========================================== -->
     <link rel="stylesheet" href="css/editor.css">
+    <link rel="stylesheet" href="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.css" />
+    <link rel="stylesheet" href="xflow/project-graph.css" />
     
     <!-- Injected CSS for live scene preview (hotspot outlines) -->
     <style id="live-preview-styles"></style>
@@ -36,6 +38,7 @@
     <div class="top-toolbar">
         <button class="btn-save" onclick="saveProject()">💾 Save project (.json)</button>
         <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Load project (.json)</button>
+        <button type="button" class="btn-load" onclick="openProjectMap()" title="Graph view of scenes and transitions">🗺️ Show map</button>
         <!-- Hidden file input for “Load project” -->
         <input type="file" id="file-import" style="display:none;" accept=".json" onchange="loadProject(event)">
     </div>
@@ -251,10 +254,21 @@
     <div id="scene-preview-panorama" style="flex-grow:1; width:100%;"></div>
 </div>
 
+<!-- Project graph (Drawflow) — read-only from current project -->
+<div id="project-map-modal" class="modal-fullscreen" style="display:none;">
+    <div class="modal-header">
+        <div><span>🗺️ <b>Project map</b> <small style="opacity:0.85;font-weight:normal;">(scenes, hotspots, scene transitions)</small></span></div>
+        <button type="button" onclick="closeProjectMap()" style="background:#e74c3c;">Close</button>
+    </div>
+    <div id="project-drawflow"></div>
+</div>
+
 <!-- ========================================== -->
 <!-- Editor application script -->
 <!-- ========================================== -->
+    <script src="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.js"></script>
     <script src="js/editor-en-app.js" defer></script>
     <script src="js/editor-en-generate.js" defer></script>
+    <script src="xflow/project-graph.js" defer></script>
 </body>
 </html>

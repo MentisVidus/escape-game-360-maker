@@ -12,6 +12,8 @@
     <!-- STYLES CSS DE L'INTERFACE DE L'ÉDITEUR     -->
     <!-- ========================================== -->
     <link rel="stylesheet" href="css/editor.css">
+    <link rel="stylesheet" href="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.css" />
+    <link rel="stylesheet" href="xflow/project-graph.css" />
     
     <!-- Balise style utilisée pour injecter le CSS lors de l'aperçu Live d'une scène -->
     <style id="live-preview-styles"></style>
@@ -31,6 +33,7 @@
     <div class="top-toolbar">
         <button class="btn-save" onclick="saveProject()">💾 Sauvegarder Projet (.json)</button>
         <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Charger Projet (.json)</button>
+        <button type="button" class="btn-load" onclick="openProjectMap()" title="Vue graphe des scènes et transitions">🗺️ Afficher la carte</button>
         <!-- Input caché utilisé pour ouvrir la fenêtre de sélection de fichier -->
         <input type="file" id="file-import" style="display:none;" accept=".json" onchange="loadProject(event)">
     </div>
@@ -258,10 +261,21 @@
     <div id="scene-preview-panorama" style="flex-grow:1; width:100%;"></div>
 </div>
 
+<!-- Carte graphe (Drawflow) — lecture seule depuis le projet en cours -->
+<div id="project-map-modal" class="modal-fullscreen" style="display:none;">
+    <div class="modal-header">
+        <div><span>🗺️ <b>Carte du projet</b> <small style="opacity:0.85;font-weight:normal;">(scènes, hotspots, transitions vers scène)</small></span></div>
+        <button type="button" onclick="closeProjectMap()" style="background:#e74c3c;">Fermer</button>
+    </div>
+    <div id="project-drawflow"></div>
+</div>
+
 <!-- ========================================== -->
 <!-- SCRIPTS JAVASCRIPT (Logique de l'éditeur)  -->
 <!-- ========================================== -->
+    <script src="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.js"></script>
     <script src="js/editeur-app.js" defer></script>
     <script src="js/editeur-generate.js" defer></script>
+    <script src="xflow/project-graph.js" defer></script>
 </body>
 </html>

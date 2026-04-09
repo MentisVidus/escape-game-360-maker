@@ -941,8 +941,12 @@ function updateHsFields(hId, opts) {
 }
 
 // --- FONCTIONS DE SAUVEGARDE ET CHARGEMENT DU FICHIER .JSON ---
-function saveProject() {
-    // Crée un objet regroupant tous les paramètres
+
+/**
+ * Objet projet aligné sur le fichier .json (même forme que la sauvegarde).
+ * Utilisable pour la vue graphe (Drawflow), export, etc.
+ */
+function getCurrentProjectData() {
     let project = { 
         title: document.getElementById('gameTitle').value, 
         useInv: document.getElementById('useInventory').checked, 
@@ -963,7 +967,6 @@ function saveProject() {
         scenes: [] 
     };
     
-    // Parcourt toutes les scènes créées
     document.querySelectorAll('.scene-block').forEach(sceneDiv => {
         let scene = { 
 			scId: sceneDiv.querySelector('.sc-id').value,
@@ -972,12 +975,16 @@ function saveProject() {
 			scAudio: sceneDiv.querySelector('.sc-audio') ? sceneDiv.querySelector('.sc-audio').value : "",
 			hotspots: [] 
         };
-        // Parcourt et extrait les données de tous les hotspots de la scène
         sceneDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => { 
             scene.hotspots.push(extractHotspotData(hsDiv.id.split('_')[1])); 
         });
         project.scenes.push(scene);
     });
+    return project;
+}
+
+function saveProject() {
+    const project = getCurrentProjectData();
     
     // Lance le téléchargement du fichier JSON
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
