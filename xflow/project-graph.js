@@ -1,7 +1,8 @@
 /**
  * Carte Drawflow à partir du JSON projet (getCurrentProjectData).
- * - Mode focus (défaut) : une scène active + ses hotspots ; scènes cibles repliées.
- * - Mode full : graphe complet (option viewMode: 'full').
+ * - focus : une scène active + hotspots ; cibles compactes (double-clic).
+ * - full : graphe complet.
+ * - tree : flux gauche → droite depuis la 1re scène ; renvois vers scènes déjà vues = nœud alias.
  */
 (function () {
     "use strict";
@@ -280,11 +281,194 @@
     }
 
     /**
+     * Vue arbre : entrée = première scène du projet, expansion vers la droite.
+     * visitedFull mémorise les scènes déjà dessinées « en entier » ; toute transition vers l’une d’elles
+     * utilise un nœud « Renvoi » (pas de fil long vers la gauche).
+     */
+    function generateGraphTree(editor, project) {
+        var scenes = project.scenes || [];
+        if (scenes.length === 0) return;
+
+        var HS_STEP = 108;
+        var HOTSPOT_DX = 230;
+        var SUBTREE_GAP = 72;
+        var REDIRECT_DX = 380;
+
+        var visitedFull = new Set();
+
+        function redirectNodeHtml(targetKey) {
+            var meta = findSceneByKey(project, targetKey);
+            var title = meta ? meta.scene.scTitle || meta.scene.scId || targetKey : targetKey;
+            var en = document.documentElement.lang === "en";
+            var head = en ? "Shortcut" : "Renvoi";
+            var body = en ? "Back: " + title : "Renvoi : " + title;
+            return (
+                '<div class="xflow-node-redirect-inner">' +
+                '<div class="xflow-node-title">' +
+                head +
+                "</div>" +
+                '<div class="xflow-node-body">' +
+                escapeHtml(body) +
+                "</div>" +
+                '<div class="xflow-node-sub"><code style="font-size:0.7rem;">' +
+                escapeHtml(targetKey) +
+                "</code></div></div>"
+            );
+        }
+
+        /**
+         * Place une scène (si pas déjà visitée), ses hotspots, et récursivement les nouvelles cibles.
+         * @returns {{ right: number }} abscisse maximale utilisée par ce sous-arbre
+         */
+        function placeScene(sk, x, yCenter) {
+            var meta = findSceneByKey(project, sk);
+            if (!meta) return { right: x };
+
+            if (visitedFull.has(sk)) {
+                return { right: x };
+            }
+
+            visitedFull.add(sk);
+
+            var title = meta.scene.scTitle || meta.scene.scId || sk;
+            var html = sceneNodeHtml(title, meta.scene.scId, false);
+            var data = {
+                kind: "scene",
+                scId: meta.scene.scId,
+                sceneKey: sk,
+                label: title,
+                viewMode: "tree"
+            };
+            var sceneNid = editor.addNode(
+                "scene",
+                1,
+                1,
+                x,
+                yCenter,
+                "xflow-node-scene xflow-node-tree-scene",
+                data,
+                html
+            );
+
+            var hsList = Array.isArray(meta.scene.hotspots) ? meta.scene.hotspots : [];
+            var baseHy = yCenter - ((Math.max(hsList.length, 1) - 1) * HS_STEP) / 2;
+            var subtreeRight = x + 200;
+            var nextChildX = x + HOTSPOT_DX + 280;
+
+            hsList.forEach(function (hs, i) {
+                var hy = baseHy + i * HS_STEP;
+                var label = hs.hsTitle || "Hotspot " + (i + 1);
+                var hsHtml = hotspotNodeHtml(label, hs.type);
+                var hsData = {
+                    kind: "hotspot",
+                    parentSceneKey: sk,
+                    parentScId: meta.scene.scId,
+                    index: i,
+                    type: hs.type,
+                    label: label,
+                    viewMode: "tree"
+                };
+                var hsNid = editor.addNode(
+                    "hotspot",
+                    1,
+                    1,
+                    x + HOTSPOT_DX,
+                    hy,
+                    "xflow-node-hotspot",
+                    hsData,
+                    hsHtml
+                );
+
+                try {
+                    editor.addConnection(sceneNid, hsNid, "output_1", "input_1");
+                } catch (e) {
+                    console.warn("[Map tree] Scene → hotspot:", e);
+                }
+
+                var target = getTargetSceneIdFromHotspot(hs);
+                if (!target) {
+                    subtreeRight = Math.max(subtreeRight, x + HOTSPOT_DX + 200);
+                    return;
+                }
+
+                if (!visitedFull.has(target)) {
+                    var sub = placeScene(target, nextChildX, hy);
+                    nextChildX = sub.right + SUBTREE_GAP;
+                    subtreeRight = Math.max(subtreeRight, sub.right);
+                } else {
+                    var redHtml = redirectNodeHtml(target);
+                    var redData = {
+                        kind: "redirect",
+                        targetSceneKey: target,
+                        viewMode: "tree"
+                    };
+                    var redNid = editor.addNode(
+                        "redirect",
+                        1,
+                        0,
+                        x + REDIRECT_DX,
+                        hy,
+                        "xflow-node-redirect",
+                        redData,
+                        redHtml
+                    );
+                    try {
+                        editor.addConnection(hsNid, redNid, "output_1", "input_1");
+                    } catch (e2) {
+                        console.warn("[Map tree] Hotspot → redirect:", e2);
+                    }
+                    subtreeRight = Math.max(subtreeRight, x + REDIRECT_DX + 200);
+                }
+            });
+
+            return { right: subtreeRight };
+        }
+
+        var entryKey = sceneKey(scenes[0], 0);
+        placeScene(entryKey, 60, 320);
+    }
+
+    function updateProjectMapToolbar(activeMode) {
+        var bar = document.getElementById("project-map-toolbar");
+        if (!bar) return;
+        var buttons = bar.querySelectorAll(".project-map-tool");
+        buttons.forEach(function (btn) {
+            var m = btn.getAttribute("data-project-map-view");
+            if (m === activeMode) btn.classList.add("active");
+            else btn.classList.remove("active");
+        });
+    }
+
+    /**
+     * Regénère la carte (modale ouverte) selon le mode choisi.
+     * @param {string} mode — 'focus' | 'full' | 'tree'
+     */
+    function setProjectMapView(mode) {
+        var ed = window._projectMapEditor;
+        if (!ed || typeof getCurrentProjectData !== "function") return;
+        window._projectMapViewMode = mode;
+        ed.clear();
+        var project = getCurrentProjectData();
+        var opts = { viewMode: mode };
+        if (mode === "focus") {
+            var k = window._projectMapActiveSceneKey;
+            if (k == null || k === "") {
+                if (project.scenes && project.scenes.length > 0) {
+                    k = sceneKey(project.scenes[0], 0);
+                }
+            }
+            opts.activeSceneKey = k;
+        }
+        generateGraphFromJson(ed, project, opts);
+        updateProjectMapToolbar(mode);
+    }
+
+    /**
      * @param {Drawflow} editor
      * @param {object} project — getCurrentProjectData()
      * @param {object} [options]
-     * @param {string} [options.viewMode] — 'focus' (défaut) | 'full'
-     * @param {string} [options.activeSceneKey] — clé scène (scId trimé ou __idx_N) pour le mode focus
+     * @param {string} [options.viewMode] — 'focus' (défaut) | 'full' | 'tree'
+     * @param {string} [options.activeSceneKey] — mode focus uniquement
      */
     function generateGraphFromJson(editor, project, options) {
         if (!editor || !project || !Array.isArray(project.scenes)) return;
@@ -293,6 +477,12 @@
 
         if (viewMode === "full") {
             generateGraphFull(editor, project);
+            window._projectMapActiveSceneKey = null;
+            return;
+        }
+
+        if (viewMode === "tree") {
+            generateGraphTree(editor, project);
             window._projectMapActiveSceneKey = null;
             return;
         }
@@ -322,11 +512,14 @@
             if (info.data.kind !== "scene" || info.data.viewMode !== "collapsed") return;
             ev.stopPropagation();
             var sk = info.data.sceneKey;
+            window._projectMapViewMode = "focus";
+            window._projectMapActiveSceneKey = sk;
             ed.clear();
             generateGraphFromJson(ed, getCurrentProjectData(), {
                 viewMode: "focus",
                 activeSceneKey: sk
             });
+            updateProjectMapToolbar("focus");
         });
         window._projectMapDblClickBound = true;
     }
@@ -355,7 +548,14 @@
         }
 
         ensureMapDblClickHandler();
-        generateGraphFromJson(window._projectMapEditor, project, { viewMode: "focus" });
+        window._projectMapViewMode = "focus";
+        window._projectMapActiveSceneKey =
+            project.scenes && project.scenes.length > 0 ? sceneKey(project.scenes[0], 0) : null;
+        generateGraphFromJson(window._projectMapEditor, project, {
+            viewMode: "focus",
+            activeSceneKey: window._projectMapActiveSceneKey
+        });
+        updateProjectMapToolbar("focus");
     }
 
     function closeProjectMap() {
@@ -367,5 +567,6 @@
     window.generateGraphFromJson = generateGraphFromJson;
     window.openProjectMap = openProjectMap;
     window.closeProjectMap = closeProjectMap;
+    window.setProjectMapView = setProjectMapView;
     window.sceneKeyFromProjectScene = sceneKey;
 })();

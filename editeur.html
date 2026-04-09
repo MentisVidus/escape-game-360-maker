@@ -264,7 +264,15 @@
 <!-- Carte graphe (Drawflow) — lecture seule depuis le projet en cours -->
 <div id="project-map-modal" class="modal-fullscreen" style="display:none;">
     <div class="modal-header">
-        <div><span>🗺️ <b>Carte du projet</b> <small style="opacity:0.85;font-weight:normal;">(vue centrée sur une scène — double-clic sur une scène compacte pour y aller)</small></span></div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;flex:1;">
+            <span>🗺️ <b>Carte du projet</b></span>
+            <div id="project-map-toolbar" class="project-map-toolbar" role="tablist" aria-label="Mode d’affichage de la carte">
+                <button type="button" class="project-map-tool active" data-project-map-view="focus" onclick="setProjectMapView('focus')">Vue Focus</button>
+                <button type="button" class="project-map-tool" data-project-map-view="full" onclick="setProjectMapView('full')">Vue complète</button>
+                <button type="button" class="project-map-tool" data-project-map-view="tree" onclick="setProjectMapView('tree')">Vue arbre</button>
+            </div>
+            <small class="project-map-toolbar-hint">Focus : double-clic sur une scène compacte pour y centrer.</small>
+        </div>
         <button type="button" onclick="closeProjectMap()" style="background:#e74c3c;">Fermer</button>
     </div>
     <div id="project-drawflow"></div>

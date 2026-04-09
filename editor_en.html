@@ -257,7 +257,15 @@
 <!-- Project graph (Drawflow) — read-only from current project -->
 <div id="project-map-modal" class="modal-fullscreen" style="display:none;">
     <div class="modal-header">
-        <div><span>🗺️ <b>Project map</b> <small style="opacity:0.85;font-weight:normal;">(focus on one scene — double-click a compact scene to open it)</small></span></div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;flex:1;">
+            <span>🗺️ <b>Project map</b></span>
+            <div id="project-map-toolbar" class="project-map-toolbar" role="tablist" aria-label="Map display mode">
+                <button type="button" class="project-map-tool active" data-project-map-view="focus" onclick="setProjectMapView('focus')">Focus view</button>
+                <button type="button" class="project-map-tool" data-project-map-view="full" onclick="setProjectMapView('full')">Full graph</button>
+                <button type="button" class="project-map-tool" data-project-map-view="tree" onclick="setProjectMapView('tree')">Tree view</button>
+            </div>
+            <small class="project-map-toolbar-hint">Focus: double-click a compact scene to center it.</small>
+        </div>
         <button type="button" onclick="closeProjectMap()" style="background:#e74c3c;">Close</button>
     </div>
     <div id="project-drawflow"></div>
