@@ -1,6 +1,6 @@
 /* Vue carte (Drawflow) — styles des nœuds dans l’éditeur */
 
-/* Barre de modes (Focus / Complète / Arbre) */
+/* Barre de modes (Focus / Complète / Acyclique) */
 .project-map-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -108,20 +108,45 @@
     opacity: 0.88;
 }
 
-/* Vue arbre — scène dans le flux */
+/* Vue acyclique — scène dans le flux */
 .drawflow-node.xflow-node-tree-scene .xflow-node-scene {
     border-color: #3498db;
 }
 
-/* Nœud « renvoi » vers une scène déjà placée (pas de fil en arrière) */
+/* Vue complète — léger repère de cellule (optionnel) */
+.drawflow-node.xflow-node-full-scene .xflow-node-scene {
+    box-shadow: 0 0 0 1px rgba(52, 152, 219, 0.25);
+}
+
+/*
+ * Nœud « renvoi » : Drawflow met background:#0ff et bordure sur .drawflow-node — tout retirer
+ * pour ne laisser que la pilule (.xflow-node-redirect-inner).
+ */
+.drawflow .drawflow-node.xflow-node-redirect {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+}
+
+.drawflow .drawflow-node.xflow-node-redirect .drawflow_content_node {
+    width: auto !important;
+    display: block;
+}
+
+/* Pilule seule : fond violet très clair, bordure pointillée */
 .xflow-node-redirect-inner {
     min-width: 120px;
-    max-width: 180px;
-    padding: 10px 12px;
-    background: linear-gradient(145deg, #4a235a, #2c1a33);
+    max-width: 200px;
+    padding: 12px 18px;
+    background: rgba(155, 89, 182, 0.18);
     border: 2px dashed #9b59b6;
     border-radius: 999px;
-    color: #ebdef8;
+    color: #2c1a33;
     text-align: center;
 }
 
@@ -137,12 +162,14 @@
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1.25;
+    color: #4a235a;
 }
 
 .xflow-node-redirect-inner .xflow-node-sub {
     margin-top: 6px;
     font-size: 0.65rem;
     opacity: 0.85;
+    color: #5b2c6f;
 }
 
 .xflow-node-hotspot {

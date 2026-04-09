@@ -97,10 +97,19 @@
         );
     }
 
-    /** Graphe historique : toutes les scènes et tous les liens (lisibilité faible sur gros jeux). */
+    /** Graphe complet : grille de cellules (scène + colonne hotspots) pour aérer le layout. */
     function generateGraphFull(editor, project) {
         var scenes = project.scenes;
         var sceneKeyToDrawflowId = {};
+        var n = scenes.length;
+        var cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+        var CELL_W = 480;
+        var CELL_H = 300;
+        var ORIGIN_X = 50;
+        var ORIGIN_Y = 50;
+        var HS_OFFSET_X = 240;
+        var HS_OFFSET_Y = 30;
+        var HS_STEP_Y = 108;
 
         scenes.forEach(function (scene, si) {
             var sk = sceneKey(scene, si);
@@ -113,8 +122,11 @@
                 label: title,
                 viewMode: "full"
             };
-            var y = 80 + si * 280;
-            var nid = editor.addNode("scene", 1, 1, 100, y, "xflow-node-scene", data, html);
+            var col = si % cols;
+            var row = Math.floor(si / cols);
+            var sx = ORIGIN_X + col * CELL_W;
+            var sy = ORIGIN_Y + row * CELL_H;
+            var nid = editor.addNode("scene", 1, 1, sx, sy, "xflow-node-scene xflow-node-full-scene", data, html);
             sceneKeyToDrawflowId[sk] = nid;
         });
 
@@ -122,6 +134,11 @@
             var sk = sceneKey(scene, si);
             var sceneNodeId = sceneKeyToDrawflowId[sk];
             if (sceneNodeId === undefined) return;
+
+            var col = si % cols;
+            var row = Math.floor(si / cols);
+            var sx = ORIGIN_X + col * CELL_W;
+            var sy = ORIGIN_Y + row * CELL_H;
 
             var hotspots = Array.isArray(scene.hotspots) ? scene.hotspots : [];
             hotspots.forEach(function (hs, hi) {
@@ -135,8 +152,9 @@
                     type: hs.type,
                     label: label
                 };
-                var y = 80 + si * 280 + hi * 108;
-                var hsNid = editor.addNode("hotspot", 1, 1, 480, y, "xflow-node-hotspot", data, html);
+                var hx = sx + HS_OFFSET_X;
+                var hy = sy + HS_OFFSET_Y + hi * HS_STEP_Y;
+                var hsNid = editor.addNode("hotspot", 1, 1, hx, hy, "xflow-node-hotspot", data, html);
 
                 try {
                     editor.addConnection(sceneNodeId, hsNid, "output_1", "input_1");
@@ -281,9 +299,8 @@
     }
 
     /**
-     * Vue arbre : entrée = première scène du projet, expansion vers la droite.
-     * visitedFull mémorise les scènes déjà dessinées « en entier » ; toute transition vers l’une d’elles
-     * utilise un nœud « Renvoi » (pas de fil long vers la gauche).
+     * Vue acyclique (viewMode tree) : entrée = première scène, expansion vers la droite.
+     * visitedFull : scènes déjà « pleines » ; retour vers une scène déjà vue → nœud Renvoi.
      */
     function generateGraphTree(editor, project) {
         var scenes = project.scenes || [];
@@ -318,14 +335,14 @@
 
         /**
          * Place une scène (si pas déjà visitée), ses hotspots, et récursivement les nouvelles cibles.
-         * @returns {{ right: number }} abscisse maximale utilisée par ce sous-arbre
+         * @returns {{ right: number, rootSceneNid: number|null }} rootSceneNid = id Drawflow du nœud scène racine (pour arêtes entrantes).
          */
         function placeScene(sk, x, yCenter) {
             var meta = findSceneByKey(project, sk);
-            if (!meta) return { right: x };
+            if (!meta) return { right: x, rootSceneNid: null };
 
             if (visitedFull.has(sk)) {
-                return { right: x };
+                return { right: x, rootSceneNid: null };
             }
 
             visitedFull.add(sk);
@@ -393,6 +410,13 @@
 
                 if (!visitedFull.has(target)) {
                     var sub = placeScene(target, nextChildX, hy);
+                    if (sub.rootSceneNid != null) {
+                        try {
+                            editor.addConnection(hsNid, sub.rootSceneNid, "output_1", "input_1");
+                        } catch (e3) {
+                            console.warn("[Map tree] Hotspot → target scene:", e3);
+                        }
+                    }
                     nextChildX = sub.right + SUBTREE_GAP;
                     subtreeRight = Math.max(subtreeRight, sub.right);
                 } else {
@@ -421,7 +445,7 @@
                 }
             });
 
-            return { right: subtreeRight };
+            return { right: subtreeRight, rootSceneNid: sceneNid };
         }
 
         var entryKey = sceneKey(scenes[0], 0);
