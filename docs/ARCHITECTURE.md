@@ -63,6 +63,44 @@ Top-level keys (see `saveProject()`):
 
 Each hotspot object is produced by `extractHotspotData()` — dynamic field names use underscores (e.g. `f_trans_txt` from class `f-trans-txt`), plus `ui_*` for visual CSS editor, `expertMode`, `hsTitle`, `pitch`, `yaw`, `customCss`, `type`.
 
+### Hotspot `selector` in the project file
+
+- **`f_sel_title`**, **`f_sel_intro`**, **`f_sel_display`** (`buttons` \| `dropdown`) — champs éditeur classiques.
+- **`f_sel_choices`** — **chaîne JSON** (pas un tableau natif dans le fichier) : c’est le résultat de `JSON.stringify` du tableau `choices` (messages, scènes, pick, sous-menus via `actionType: "selector"` et objet **`nested`** avec `title`, `introHtml`, `choices`, `displayMode` optionnel).
+- **`selJsonExpertMode`** (optionnel) — si vrai, le textarea JSON des choix était déverrouillé en mode expert au moment de la sauvegarde (même idée que `expertMode` pour le CSS).
+
+### Selector : flux sauvegarde / chargement (éditeur)
+
+Pièges qui ont causé des bugs réels :
+
+1. **`appendChild(renderChoiceCardElement(...))`** — la carte est construite **avant** d’être dans le DOM : `card.closest(".hotspot-block")` est **`null`** pendant ce temps. L’id du hotspot (`hId`) doit être **passé en argument** aux fonctions qui en ont besoin (ex. `selectorRebuildActionFields(card, ch, hId)`), pas déduit du DOM seul.
+2. **Ordre au chargement** — ne pas appeler `initSelectorChoicesForm` **avant** d’avoir assigné `f_sel_choices` depuis le JSON (`updateHsFields(..., { deferSelectorInit: !!hsData })` puis init **une fois** les champs restaurés).
+3. **Sérialisation** — lire les champs **de la carte courante** uniquement (`getOwnChoiceField` / sélecteurs bornés comme `.sel-action-fields .sel-nested-list`) pour ne pas mélanger parent et sous-cartes (ex. fuite de `sfxUrl`).
+
+```mermaid
+flowchart TD
+  subgraph save [Sauvegarde projet]
+    S1[DOM: formulaire selector + liste de cartes] --> S2[sync vers textarea f-sel-choices si mode formulaire]
+    S2 --> S3[extractHotspotData]
+    S3 --> S4["f_sel_choices = string JSON du tableau choices"]
+    S4 --> S5[JSON.stringify project → fichier]
+  end
+
+  subgraph load [Chargement projet]
+    L1[JSON.parse fichier] --> L2[addHotspot hsData]
+    L2 --> L3["updateHsFields(hId, deferSelectorInit: true)"]
+    L3 --> L4[Injection HTML selector sans init]
+    L4 --> L5[forEach: remplir f-sel-choices, titre, intro, display…]
+    L5 --> L6{selJsonExpertMode ?}
+    L6 -->|oui| L7[toggleSelectorJsonExpert]
+    L6 -->|non| L8[initSelectorChoicesForm]
+    L8 --> L9["JSON.parse ta.value → racine + nested récursif"]
+    L9 --> L10["Pour chaque choix: renderChoiceCardElement(ch, hId, depth)"]
+    L10 --> L11["appendChild: carte créée hors document → hId explicite dans rebuild"]
+    L11 --> L12[attachSelectorChoicesListeners + sync textarea]
+  end
+```
+
 ## Editor: main functions (reference)
 
 | Function | Purpose |
@@ -72,7 +110,8 @@ Each hotspot object is produced by `extractHotspotData()` — dynamic field name
 | `duplicateHotspot` / `duplicateScene` | Copy helpers; scene duplicate copies ambient URL. |
 | `buildCss` / `toggleExpertMode` | No-code CSS vs raw textarea. |
 | `openPicker` / `previewScene` | Fullscreen Pannellum for coordinates / scene preview (`#live-preview-styles`). |
-| `updateHsFields` | Swap dynamic fields by hotspot type (`msg`, `pick`, `req`, `pwd`, `scene`, `selector`). |
+| `updateHsFields` | Swap dynamic fields by hotspot type (`msg`, `pick`, `req`, `pwd`, `scene`, `selector`). Option **`deferSelectorInit`** : ne pas initialiser le formulaire des choix tant que `f_sel_choices` n’est pas restauré (chargement JSON). |
+| Selector helpers (`*-app.js`) | `initSelectorChoicesForm`, `renderChoiceCardElement`, `selectorRebuildActionFields(card, ch, hId)`, `syncSelectorChoicesToTextarea`, mode expert JSON, etc. |
 | `saveProject` / `loadProject` | JSON persistence. |
 | `updatePreview` | Inventory + dialog preview widgets in global settings. |
 | `generateGame` | Read DOM → build `scenesConfig`, `sceneAudios`, CSS, inject into template → download. |
@@ -94,7 +133,7 @@ Scene changes: player listens to **`scenechange`** and calls **`applySceneAmbian
 
 - **Music**: optional loop on `#audio-music`, URL from global settings; started after splash.
 - **Ambiance**: loop on `#audio-ambiance`; URL map `sceneAmbianceUrls` built from each scene’s `.sc-audio`; empty URL → stop and clear channel.
-- **SFX**: `#audio-sfx` ; `playSFX(url, relVol)` (volume relatif 0–1). Utilisé par les **choix selector** (`sfxUrl` / `sfxVolume` dans le JSON des choix).
+- **SFX**: `#audio-sfx` ; `playSFX(url, relVol)` et **`stopSFX()`** (pause + reset de la source). Utilisé par les **choix selector** (`sfxUrl` / `sfxVolume` dans le JSON des choix) ; le son est **coupé** à la fermeture du selector ou au retour depuis la vue message inline.
 - **Selector + message** : les choix `msg` ouvrent une **vue message** dans la même modale (scroll), pas une `afficherPopup` séparée ; **pick** ouvre le panneau inventaire si l’inventaire est activé dans les paramètres globaux du jeu généré.
 - **Pick** : depuis un hotspot classique, la zone est masquée après ramassage ; depuis un **selector**, la zone **reste** (troisième argument `fromSelector` à `executeAction`) pour pouvoir rouvrir le menu.
 
@@ -117,40 +156,23 @@ These are **not** fully implemented unless marked otherwise; listed so assistant
 
 - Split editor into `*.css` / `*.js` modules (same repo, still zero build or simple static hosting).
 - Optional **local Pannellum** bundle instead of CDN.
-- **SFX** per hotspot (URLs + volume).
+- **SFX** per classic hotspot (URLs + volume) — *les choix selector ont déjà SFX ; pas les hotspots classiques hors selector*.
 - **Player** volume UI: master / music / ambiance / SFX; editor-side gain × player gain.
 - **Levels**: multiple generated HTML files + `localStorage` inventory handoff.
 - **Picked items persistence** when revisiting a scene (hide picked hotspots across visits).
 - i18n: today FR/EN = **two files**; a shared JSON string table could reduce duplication later.
 
-## Planned selector refactor (future)
+## Hotspot `selector` (implémenté)
 
-Detailed **draft** specification: [SELECTOR_SPEC.md](./SELECTOR_SPEC.md).
+Spécification détaillée et pistes restantes : [SELECTOR_SPEC.md](./SELECTOR_SPEC.md).
 
-The next major gameplay evolution is a new hotspot type: **`selector`**.
+**État actuel** : type **`selector`** dans l’éditeur et le jeu généré ; menu modal unique avec historique ; choix `msg` / `scene` / `pick` / sous-menu (`nested`) ; `requiresItem` / `hiddenIfHasItem` ; `sfxUrl` / `sfxVolume` ; `displayMode` boutons ou liste déroulante ; formulaire structuré des choix + section JSON avancée (lecture seule + mode expert).
 
-Goal:
+**Architecture runtime** (inchangée par rapport au plan initial) :
 
-- A hotspot click opens a menu popup with multiple choices.
-- Each choice can run an action (`msg`, `scene`, `pick`, `req`, `pwd`).
-- Later, a choice may itself open another selector (nested menus).
-
-### Why refactor first
-
-Current generated player logic is mostly linear in `hotspotDispatcher`.  
-For selectors and nested selectors, action execution should be centralized in one reusable function.
-
-### Target architecture
-
-1. Keep `hotspotDispatcher` as the trigger layer (Pannellum integration).
-2. **`executeAction(payload, hsDiv)`** — implemented in the **generated** `index.html` (template in `*-generate.js`). Handles `msg` / `scene` / `pick`; `executeReward` delegates req/pwd success branches to the same engine.
-3. Add `openSelector(...)` for selector UI: **one modal container**; sub-menus **replace** inner content (logical history stack only — **no** stacked popups).
-4. `hotspotDispatcher` behavior:
-   - classic hotspot (`msg` / `scene` / `pick` / `req` / `pwd`): `executeAction` / `executeReward` / inline pwd UI
-   - selector hotspot: `openSelector(...)` then `choiceToPayload` → `executeAction` for each choice (`msg` / `scene` / `pick` in v1)
-5. A selector choice click:
-   - if `actionType !== "selector"`: call `executeAction(...)`
-   - if `actionType === "selector"`: push next level into the **same** modal (replace view)
+1. `hotspotDispatcher` — si `type === 'selector'` → `openSelector`, sinon actions classiques.
+2. **`executeAction`** — `msg` / `scene` / `pick` (et chemins req/pwd via `executeReward`).
+3. **`openSelector`** — une seule modale ; sous-niveaux = remplacement du contenu + pile logique (bouton Retour).
 
 ```mermaid
 flowchart TD
@@ -159,32 +181,15 @@ flowchart TD
     B -->|selector| D[openSelector same modal]
     D --> E[Choice click]
     E --> F{choice actionType}
-    F -->|classic| C
-    F -->|selector| D
+    F -->|msg scene pick| C
+    F -->|selector nested| D
 ```
 
-### Data model direction
+### Évolutions encore ouvertes (selector / éditeur)
 
-Current model stays valid for classic hotspot types.  
-Add selector payload on top:
-
-- Hotspot: `type: "selector"`
-- Hotspot args: `choices: []`
-- Each choice entry:
-  - `label`
-  - `actionType`
-  - action-specific fields (`target`, `txt`, `itemId`, etc.)
-  - optional nested `choices` for recursive selector
-
-### Implementation notes
-
-- The **same extraction and restore path** must support selector data:
-  - `extractHotspotData`
-  - `saveProject`
-  - `loadProject`
-  - `generateGame`
-- Selector UI editor should be dynamic (add / remove / reorder choices).
-- **JSON compatibility**: project author prefers **no** guarantee of loading old project files after a breaking schema change; simplify code over legacy support (see [SELECTOR_SPEC.md](./SELECTOR_SPEC.md) §1 / §6).
+- Profondeur d’imbrication côté **éditeur** plafonnée (UX) ; le moteur accepte une structure JSON plus profonde si éditée à la main.
+- Types de choix **`req`** / **`pwd`** dans le selector (voir spec).
+- Refactor « modules » player (`player.js`) — toujours dans les idées d’évolution globales.
 
 ## Versioning
 

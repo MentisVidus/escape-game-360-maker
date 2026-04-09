@@ -239,6 +239,13 @@ function generateGame() {
             var m = 1;
             if(relVol != null && relVol !== '' && !isNaN(Number(relVol))) m = Math.max(0, Math.min(1, Number(relVol)));
             p.src = url; p.volume = this.sfxVol * this.masterVol * m; p.play().catch(function(e){console.log(e)});
+        },
+        stopSFX: function() {
+            var p = document.getElementById('audio-sfx');
+            if(!p) return;
+            p.pause();
+            p.removeAttribute('src');
+            try { p.load(); } catch(e) {}
         }
     };
 
@@ -342,6 +349,7 @@ function generateGame() {
         return null;
     }
     function closeSelectorOverlay() {
+        audioSys.stopSFX();
         var o = document.getElementById('selector-overlay');
         if(o) o.remove();
         selectorHistory = [];
@@ -390,6 +398,7 @@ function generateGame() {
             backMsg.textContent = '← Retour au menu';
             backMsg.style.cssText = 'cursor:pointer;padding:6px 10px;border:none;border-radius:4px;background:rgba(255,255,255,0.15);color:inherit;font:inherit;';
             backMsg.onclick = function() {
+                audioSys.stopSFX();
                 selectorHistory.pop();
                 renderSelectorPanel();
             };

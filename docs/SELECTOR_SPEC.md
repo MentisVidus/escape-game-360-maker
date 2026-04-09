@@ -1,9 +1,9 @@
-# Selector v1 — Spécification (brouillon cible)
+# Selector v1 — Spécification et état d’implémentation
 
-Document de travail pour le futur type de hotspot **`selector`** (menu de choix, sous-menus, options conditionnelles, SFX par choix).  
-**Rien de ce qui suit n’est encore implémenté** dans le code : c’est le cahier des charges pour le refactor prévu.
+Document pour le hotspot **`selector`** (menu de choix, sous-menus, options conditionnelles, SFX par choix).  
+**La plupart du comportement décrit ci-dessous est implémenté** (éditeur FR/EN + jeu généré) ; les paragraphes marqués *roadmap* ou *à trancher* restent des pistes.
 
-Pour le contexte général du projet, voir [ARCHITECTURE.md](./ARCHITECTURE.md).
+Pour le contexte général du projet et le **flux sauvegarde / chargement** (avec diagramme), voir [ARCHITECTURE.md](./ARCHITECTURE.md) (section *Hotspot `selector` in the project file* et *Selector : flux sauvegarde / chargement*).
 
 ---
 
@@ -73,7 +73,7 @@ Payload minimal :
 }
 ```
 
-- **`nested`** ou **`actionType: "selector"` + sous-objet** : à trancher à l’implémentation (une seule convention pour éviter la duplication).
+- **Convention actuelle** : pour un sous-menu, `actionType: "selector"` + objet **`nested`** (`title`, `introHtml`, `choices`, `displayMode` optionnel). Pas de second format parallèle dans l’éditeur / le joueur.
 - **`introHtml`** : optionnel ; texte descriptif au-dessus des choix (style “livre dont vous êtes le héros”).
 
 ### 3.2 Champs par `choice` (tous optionnels sauf `label` + branche action)
@@ -135,11 +135,13 @@ Les deux sont compatibles avec le même schéma si `evaluateChoiceVisibility` es
 
 ---
 
-## 5. Côté éditeur (à implémenter plus tard)
+## 5. Côté éditeur (implémenté — détail)
 
-- Nouvelle valeur dans `.hs-type` : `selector`.
-- Conteneur dynamique : ajouter / supprimer / réordonner des **choix** ; chaque choix a un sous-formulaire selon `actionType` (comme aujourd’hui `updateHsFields`, mais imbriqué).
-- `extractHotspotData`, `saveProject`, `loadProject`, `generateGame` : sérialiser / désérialiser l’arbre `choices` (et IDs stables pour les tests).
+- Valeur **`.hs-type` : `selector`** ; champs titre, intro, mode d’affichage (boutons / liste déroulante).
+- **Formulaire structuré** : cartes de choix (ajout / suppression / réordonnancement), sous-formulaire par `actionType` (`msg`, `scene`, `pick`, `selector` avec bloc **nested**), champs conditionnels (ex. `requiresItem`, `hiddenIfHasItem`, SFX).
+- **JSON avancé** : textarea synchronisé avec le formulaire ; mode expert pour édition directe du tableau (voir `selJsonExpertMode` dans le JSON projet).
+- **`f_sel_choices`** : dans le fichier projet, le tableau est stocké en **chaîne** (`JSON.stringify`) ; au chargement, ordre critique : remplir le textarea puis **`initSelectorChoicesForm`** (voir [ARCHITECTURE.md](./ARCHITECTURE.md)).
+- `extractHotspotData`, `saveProject`, `loadProject`, `generateGame` : chemins alignés sur ce modèle (imbrication `nested` pour les sous-menus).
 
 ---
 
@@ -154,7 +156,7 @@ Les deux sont compatibles avec le même schéma si `evaluateChoiceVisibility` es
 
 1. ~~Refactor **jeu généré uniquement** : extraire `executeAction` depuis la logique actuelle de `hotspotDispatcher` + `executeReward` ; valider avec des scénarios de test (anciens POC optionnels).~~ **Fait** (template dans `js/editeur-generate.js` / `js/editor-en-generate.js`).
 2. ~~Ajouter `openSelector` minimal (liste de boutons, un niveau, pas d’imbrication).~~ **Fait** : overlay plein écran (`#selector-overlay`), une modale, boutons ; `choiceToPayload` → `executeAction` pour `msg` / `scene` / `pick`.
-3. ~~Étendre JSON + éditeur pour éditer `choices` simples.~~ **Partiel** : type `selector` + titre / intro / **textarea JSON** des choix (édition avancée) ; à remplacer plus tard par un formulaire guidé (ajout/suppression de lignes, etc.).
+3. ~~Étendre JSON + éditeur pour éditer `choices`.~~ **Fait** : formulaire guidé + textarea JSON (sync bidirectionnelle, mode expert).
 4. ~~Ajouter **Retour**, **imbrication**~~ **Fait** ; ~~**visibilité conditionnelle** (`requiresItem`, `hiddenIfHasItem`), **liste déroulante** (`displayMode`), **SFX** (`sfxUrl`, `sfxVolume` + `audioSys.playSFX`)~~ **Fait** (joueur + option éditeur « Liste déroulante » ; champs JSON documentés dans l’UI).
 5. Découpage fichiers (`player.js` / modules) une fois le comportement stable.
 
@@ -162,5 +164,5 @@ Les deux sont compatibles avec le même schéma si `evaluateChoiceVisibility` es
 
 ## 8. Références croisées
 
-- Vision produit et refactor : section “Planned selector refactor” dans [ARCHITECTURE.md](./ARCHITECTURE.md).
+- Vision produit et flux save/load : section **Hotspot `selector` (implémenté)** dans [ARCHITECTURE.md](./ARCHITECTURE.md).
 - Checklist contributeur : [CONTRIBUTING.md](./CONTRIBUTING.md).

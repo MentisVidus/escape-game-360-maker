@@ -21,8 +21,9 @@ L'outil génère un jeu complet sous la forme d'un simple fichier `index.html`, 
 
 ### Documentation technique (développeurs & IA)
 
-* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — fonctionnement du code, flux de données, JSON, Pannellum, audio.
+* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — fonctionnement du code, flux de données, JSON, Pannellum, audio, hotspot **selector** (sauvegarde / chargement).
 * [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — synchronisation FR/EN, bonnes pratiques de modification.
+* [docs/SELECTOR_SPEC.md](docs/SELECTOR_SPEC.md) — menus à choix multiples, sous-menus, SFX par choix.
 
 ---
 
@@ -37,13 +38,14 @@ L'éditeur a évolué pour devenir un véritable moteur de création narratif :
 * **Pointeur 360° intégré** : Plus besoin de deviner les coordonnées ! Un outil visuel permet de placer la caméra sur l'image pour récupérer le Pitch et le Yaw automatiquement.
 * **Système d'Inventaire** : Un panneau rétractable (et personnalisable) permet au joueur de stocker les objets ramassés.
 * **Logique conditionnelle & Énigmes** : Posez des questions aux joueurs, exigez des clés pour ouvrir des portes. Le jeu mémorise la progression !
+* **Menu de choix (selector)** : un hotspot peut ouvrir une liste d’actions (message, changement de scène, ramassage, sous-menus imbriqués, sons au clic).
 
 ---
 
 ## 🚀 Feuille de route (Roadmap / À venir)
 
 - [ ] **Alternative au CDN Pannellum** : Ajouter une option pour télécharger les dépendances localement.
-- [ ] **Audio avancé** : Effets sonores (SFX) par hotspot, réglages de volume côté joueur, balance par piste côté éditeur (voir la doc technique pour l’existant).
+- [ ] **Audio avancé** : SFX par hotspot « classique », réglages de volume côté joueur, balance par piste côté éditeur *(les choix du selector ont déjà des SFX optionnels — voir la doc technique)*.
 - [ ] **Système de "Niveaux"** : Lier plusieurs fichiers HTML générés entre eux (avec transfert de l'inventaire via le `localStorage`).
 - [ ] **Persistance des objets ramassés** : Empêcher la réapparition d'un objet ramassé quand on revient dans la pièce.
 
@@ -69,8 +71,9 @@ A free, open-source visual builder to create 360° Escape Rooms and interactive 
 
 ### Technical documentation (developers & AI assistants)
 
-* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — code layout, data flow, JSON, Pannellum, audio.
+* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — code layout, data flow, JSON, Pannellum, audio, **selector** save/load.
 * [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — keeping FR/EN in sync, safe change checklist.
+* [docs/SELECTOR_SPEC.md](docs/SELECTOR_SPEC.md) — choice menus, nesting, per-choice SFX.
 
 ## ✨ Features (v4.2 + audio)
 
@@ -81,6 +84,7 @@ A free, open-source visual builder to create 360° Escape Rooms and interactive 
 * **Built-in 360° Target Picker**: Visually place your hotspots on the image to auto-fill Pitch/Yaw coordinates.
 * **Inventory System**: A customizable, retractable panel to store found items.
 * **Smart Puzzles & Logic**: Create riddles and lock doors with required items. The game remembers what the player has already unlocked!
+* **Choice menu (selector)**: one hotspot can open a list of actions (message, scene change, pick-up, nested sub-menus, optional click sounds).
 
 ---
 

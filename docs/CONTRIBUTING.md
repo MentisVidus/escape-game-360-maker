@@ -24,13 +24,14 @@ Save filenames: `projet.json` (FR editor) vs `project.json` (EN editor) — **sa
 
 ### Extra checklist for selector-related work
 
-When implementing selector / nested selector behavior later, verify all layers:
+When touching selector / nested selector code, verify all layers:
 
-1. Editor UI: hotspot type dropdown + dynamic choice blocks.
-2. Persistence: save/load JSON keeps selector trees intact.
-3. Generation: selector payload is injected into generated player config.
-4. Runtime: classic hotspots still work, selector choices work, nested selector works.
-5. If the project JSON schema changes (e.g. selector v2), confirm whether old files still load or document breaking changes — **no automatic obligation** unless explicitly required.
+1. **Editor UI** : cartes de choix, champs par `actionType`, bloc `nested`, textarea JSON + mode expert — **sélecteurs DOM bornés à la carte courante** (éviter `querySelector` trop large entre parent et enfant).
+2. **Persistence** : **Save project → Load project** round-trip avec plusieurs niveaux ; si vous modifiez `updateHsFields` / `addHotspot`, garder **`deferSelectorInit`** tant que `f_sel_choices` n’est pas restauré depuis le JSON.
+3. **Generation** : le payload `choices` (y compris `nested`) est bien injecté dans le template joueur (`*-generate.js`).
+4. **Runtime** : hotspots classiques inchangés ; selector racine + sous-menus ; SFX coupés à la fermeture / retour message si vous touchez l’audio.
+5. **FR / EN** : porter les mêmes changements dans `editeur-app.js` / `editor-en-app.js` et les paires `*-generate.js`.
+6. Schéma JSON : pas d’obligation de rétrocompatibilité automatique — documenter les ruptures si besoin (voir [SELECTOR_SPEC.md](./SELECTOR_SPEC.md)).
 
 ## Style
 

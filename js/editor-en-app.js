@@ -127,6 +127,9 @@ function addHotspot(sceneId, hsData = null) {
                 <div class="col"><label>Yaw :</label><input type="number" step="0.1" class="hs-yaw" value="${yaw}"></div>
             </div>
             
+            <div class="editor-collapse-section">
+                <button type="button" class="editor-collapse-header" onclick="toggleCollapse('hs_appearance_body_${hId}', this)">▶ Hotspot appearance (clickable area)</button>
+                <div id="hs_appearance_body_${hId}" style="display:none">
             <!-- No-code CSS UI -->
             <div class="visual-css-editor" id="nocode_ui_${hId}">
                 <b style="color:#2980b9;">🎨 Visual style editor:</b>
@@ -155,6 +158,8 @@ function addHotspot(sceneId, hsData = null) {
                 <button class="btn-icon" style="background:#7f8c8d; margin-bottom:5px;" onclick="toggleExpertMode(${hId})">🧑‍💻 Expert mode (free CSS)</button>
             </div>
             <textarea class="css-editor hs-custom-css" id="css_text_${hId}" rows="2" readonly>${customCss}</textarea>
+                </div>
+            </div>
             
             <!-- Hotspot action type -->
             <label style="margin-top:10px;">On click:</label>
@@ -177,8 +182,8 @@ function addHotspot(sceneId, hsData = null) {
     const hsDiv = document.getElementById(`hs_${hId}`);
     hsDiv.querySelector('.hs-type').value = type;
     
-    // Rebuild type-specific fields
-    updateHsFields(hId); 
+    // Rebuild type-specific fields (defer selector init when restoring from JSON so f_sel_choices is not overwritten)
+    updateHsFields(hId, { deferSelectorInit: !!hsData }); 
 
     // Restore field values when loading hsData from JSON
     if(hsData) {
@@ -190,6 +195,10 @@ function addHotspot(sceneId, hsData = null) {
                 if(f === 'f-pwd-action' || f === 'f-req-action') el.dispatchEvent(new Event('change')); // Show nested reward fields
             }
         });
+        if(hsData.type === 'selector') {
+            if(hsData.selJsonExpertMode) toggleSelectorJsonExpert(hId, true);
+            else initSelectorChoicesForm(hId);
+        }
         // Restore expert CSS mode if it was on
         if(hsData.expertMode) toggleExpertMode(hId, true); 
     }
@@ -215,6 +224,10 @@ function extractHotspotData(hId) {
     
     // Expert mode = textarea not readonly
     if(!hsDiv.querySelector('.hs-custom-css').hasAttribute("readonly")) hs.expertMode = true;
+    if(hs.type === 'selector') {
+        var fc = hsDiv.querySelector('.f-sel-choices');
+        if(fc && !fc.hasAttribute('readonly')) hs.selJsonExpertMode = true;
+    }
     return hs;
 }
 
@@ -405,8 +418,451 @@ function closeScenePreview() {
     if(scenePreviewViewer) { scenePreviewViewer.destroy(); scenePreviewViewer = null; } 
 }
 
+// --- Selector: choice form + advanced JSON (readonly by default) ---
+var SELECTOR_MAX_DEPTH = 3;
+
+function getDefaultSelectorChoices() {
+    return [
+        { label: "Welcome message", actionType: "msg", txt: "<p>Text shown to the player.</p>" },
+        { label: "Go elsewhere", actionType: "scene", target: "scene_2", transTxt: "", transBtn: "Continue" }
+    ];
+}
+
+function getDefaultChoice() {
+    return { label: "New choice", actionType: "msg", txt: "<p>Text</p>" };
+}
+
+function collectChoicesFromList(listEl) {
+    if(!listEl) return [];
+    var cards = Array.prototype.filter.call(listEl.children || [], function(el) {
+        return el.classList && el.classList.contains("sel-choice-card");
+    });
+    return cards.map(function(c) { return cardToChoice(c); });
+}
+
+function getOwnChoiceField(card, selector) {
+    var nodes = card.querySelectorAll(selector);
+    for(var i = 0; i < nodes.length; i++) {
+        if(nodes[i].closest(".sel-choice-card") === card) return nodes[i];
+    }
+    return null;
+}
+
+function cardToChoice(card) {
+    var typeEl = getOwnChoiceField(card, ".sel-action-type");
+    var type = typeEl ? typeEl.value : "msg";
+    var labelEl = getOwnChoiceField(card, ".sel-label");
+    var label = ((labelEl && labelEl.value) || "").trim();
+    var out = { label: label || "Option", actionType: type };
+    if(type === "msg") {
+        var t = getOwnChoiceField(card, ".sel-msg-txt");
+        out.txt = t ? t.value : "";
+    } else if(type === "scene") {
+        var scTarget = getOwnChoiceField(card, ".sel-scene-target");
+        var scTrans = getOwnChoiceField(card, ".sel-scene-trans");
+        var scBtn = getOwnChoiceField(card, ".sel-scene-btn");
+        out.target = scTarget ? scTarget.value : "";
+        out.transTxt = scTrans ? scTrans.value : "";
+        out.transBtn = scBtn ? scBtn.value : "";
+    } else if(type === "pick") {
+        var pkId = getOwnChoiceField(card, ".sel-pick-id");
+        var pkName = getOwnChoiceField(card, ".sel-pick-name");
+        var pkTxt = getOwnChoiceField(card, ".sel-pick-txt");
+        out.itemId = pkId ? pkId.value : "";
+        out.itemName = pkName ? pkName.value : "";
+        out.txt = pkTxt ? pkTxt.value : "";
+    } else if(type === "selector") {
+        var nestedListEl = card.querySelector(".sel-action-fields .sel-nested-list");
+        var nest = {
+            title: (getOwnChoiceField(card, ".sel-nested-title") || { value: "" }).value,
+            introHtml: (getOwnChoiceField(card, ".sel-nested-intro") || { value: "" }).value,
+            choices: collectChoicesFromList(nestedListEl)
+        };
+        var dm = getOwnChoiceField(card, ".sel-nested-display");
+        if(dm && dm.value === "dropdown") nest.displayMode = "dropdown";
+        out.nested = nest;
+    }
+    var req = getOwnChoiceField(card, ".sel-opt-req");
+    if(req && req.value.trim()) out.requiresItem = req.value.trim();
+    var hid = getOwnChoiceField(card, ".sel-opt-hidden");
+    if(hid && hid.value.trim()) out.hiddenIfHasItem = hid.value.trim();
+    else if(type === "pick") delete out.hiddenIfHasItem;
+    var sfx = getOwnChoiceField(card, ".sel-opt-sfx");
+    if(sfx && sfx.value.trim()) out.sfxUrl = sfx.value.trim();
+    var sfxv = getOwnChoiceField(card, ".sel-opt-sfxvol");
+    if(sfxv && sfxv.value.trim() !== "") {
+        var v = parseFloat(sfxv.value);
+        if(!isNaN(v)) out.sfxVolume = v;
+    }
+    return out;
+}
+
+function syncSelectorChoicesToTextarea(hId) {
+    var hsDiv = document.getElementById("hs_" + hId);
+    if(!hsDiv) return;
+    var ta = hsDiv.querySelector(".f-sel-choices");
+    if(!ta || !ta.hasAttribute("readonly")) return;
+    var root = document.getElementById("sel_choices_root_" + hId);
+    if(!root) return;
+    var arr = collectChoicesFromList(root);
+    ta.value = JSON.stringify(arr, null, 2);
+}
+
+function attachSelectorChoicesListeners(hId) {
+    var wrap = document.getElementById("fields_" + hId);
+    if(!wrap) return;
+    var root = wrap.querySelector(".sel-choices-root");
+    if(!root) return;
+    var sync = function() { syncSelectorChoicesToTextarea(hId); };
+    root.removeEventListener("input", root._selSync);
+    root.removeEventListener("change", root._selSync);
+    root._selSync = sync;
+    root.addEventListener("input", sync);
+    root.addEventListener("change", sync);
+}
+
+function selectorMoveChoice(btn, dir) {
+    var card = btn.closest(".sel-choice-card");
+    if(!card) return;
+    var list = card.parentElement;
+    var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
+    if(dir < 0 && card.previousElementSibling) list.insertBefore(card, card.previousElementSibling);
+    else if(dir > 0 && card.nextElementSibling) list.insertBefore(card.nextElementSibling, card);
+    syncSelectorChoicesToTextarea(hId);
+}
+
+function selectorRemoveChoice(btn) {
+    var card = btn.closest(".sel-choice-card");
+    if(!card) return;
+    var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
+    card.remove();
+    syncSelectorChoicesToTextarea(hId);
+}
+
+function selectorAddChoice(hId) {
+    var root = document.getElementById("sel_choices_root_" + hId);
+    if(!root) return;
+    root.appendChild(renderChoiceCardElement(getDefaultChoice(), hId, 0));
+    syncSelectorChoicesToTextarea(hId);
+}
+
+function selectorAddNestedChoice(btn) {
+    var list = btn.previousElementSibling;
+    var card = btn.closest(".sel-choice-card");
+    if(!list || !list.classList.contains("sel-nested-list") || !card) return;
+    var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
+    var depth = parseInt(card.dataset.depth || "0", 10);
+    if(depth + 1 >= SELECTOR_MAX_DEPTH) {
+        alert("Maximum sub-menu depth reached (" + SELECTOR_MAX_DEPTH + " levels).");
+        return;
+    }
+    list.appendChild(renderChoiceCardElement(getDefaultChoice(), hId, depth + 1));
+    syncSelectorChoicesToTextarea(hId);
+}
+
+function selectorRebuildActionFields(card, ch, hsHotspotId) {
+    ch = ch || {};
+    var type = card.querySelector(".sel-action-type").value;
+    var container = card.querySelector(".sel-action-fields");
+    var depth = parseInt(card.dataset.depth || "0", 10);
+    if(!container) return;
+    var hsIdNum = hsHotspotId;
+    if(hsIdNum == null || isNaN(hsIdNum)) {
+        var hb = card.closest(".hotspot-block");
+        hsIdNum = hb ? parseInt(hb.id.replace("hs_", ""), 10) : NaN;
+    }
+    container.innerHTML = "";
+
+    if(type === "msg") {
+        var l1 = document.createElement("label");
+        l1.textContent = "Message content (HTML):";
+        var ta = document.createElement("textarea");
+        ta.className = "sel-msg-txt";
+        ta.rows = 3;
+        ta.value = ch.txt || "";
+        container.appendChild(l1);
+        container.appendChild(ta);
+    } else if(type === "scene") {
+        var r1 = document.createElement("div");
+        r1.className = "row";
+        r1.innerHTML = "<div class=\"col\"><label>Target scene ID:</label><input type=\"text\" class=\"sel-scene-target\" value=\"\"></div>";
+        container.appendChild(r1);
+        r1.querySelector(".sel-scene-target").value = ch.target || "";
+        var l2 = document.createElement("label");
+        l2.textContent = "Transition text:";
+        var t2 = document.createElement("textarea");
+        t2.className = "sel-scene-trans";
+        t2.rows = 2;
+        t2.value = ch.transTxt || "";
+        var l3 = document.createElement("label");
+        l3.textContent = "Button label:";
+        var i3 = document.createElement("input");
+        i3.type = "text";
+        i3.className = "sel-scene-btn";
+        i3.value = ch.transBtn || "Continue";
+        container.appendChild(l2);
+        container.appendChild(t2);
+        container.appendChild(l3);
+        container.appendChild(i3);
+    } else if(type === "pick") {
+        var rp = document.createElement("div");
+        rp.className = "row";
+        rp.innerHTML = "<div class=\"col\"><label>Item ID:</label><input type=\"text\" class=\"sel-pick-id\" value=\"\"></div><div class=\"col\"><label>Display name:</label><input type=\"text\" class=\"sel-pick-name\" value=\"\"></div>";
+        container.appendChild(rp);
+        rp.querySelector(".sel-pick-id").value = ch.itemId || "";
+        rp.querySelector(".sel-pick-name").value = ch.itemName || "";
+        var lp = document.createElement("label");
+        lp.textContent = "Pickup message (HTML):";
+        var tp = document.createElement("textarea");
+        tp.className = "sel-pick-txt";
+        tp.rows = 2;
+        tp.value = ch.txt || "";
+        container.appendChild(lp);
+        container.appendChild(tp);
+        var advHidden = getOwnChoiceField(card, ".sel-opt-hidden");
+        var pickIdInput = rp.querySelector(".sel-pick-id");
+        if(advHidden) {
+            if((advHidden.value || "").trim() === "" && (pickIdInput.value || "").trim() !== "") {
+                advHidden.value = pickIdInput.value.trim();
+                advHidden.dataset.autoFilled = "1";
+            }
+            advHidden.addEventListener("input", function() { advHidden.dataset.autoFilled = "0"; });
+        }
+        pickIdInput.addEventListener("input", function() {
+            if(advHidden && (advHidden.dataset.autoFilled === "1" || (advHidden.value || "").trim() === "")) {
+                advHidden.value = pickIdInput.value.trim();
+                advHidden.dataset.autoFilled = "1";
+            }
+        });
+    } else if(type === "selector") {
+        if(isNaN(hsIdNum)) return;
+        var nest = ch.nested || {};
+        var nb = document.createElement("div");
+        nb.className = "sel-nested-block";
+        var lt = document.createElement("label");
+        lt.textContent = "Sub-menu title:";
+        var it = document.createElement("input");
+        it.type = "text";
+        it.className = "sel-nested-title";
+        it.value = nest.title || "";
+        var li = document.createElement("label");
+        li.textContent = "Introduction (HTML, optional):";
+        var ti = document.createElement("textarea");
+        ti.className = "sel-nested-intro";
+        ti.rows = 2;
+        ti.value = nest.introHtml || "";
+        var ld = document.createElement("label");
+        ld.textContent = "Sub-choices layout:";
+        var sd = document.createElement("select");
+        sd.className = "sel-nested-display";
+        sd.innerHTML = "<option value=\"buttons\">Buttons</option><option value=\"dropdown\">Dropdown + OK</option>";
+        if(nest.displayMode === "dropdown") sd.value = "dropdown";
+        nb.appendChild(lt);
+        nb.appendChild(it);
+        nb.appendChild(li);
+        nb.appendChild(ti);
+        nb.appendChild(ld);
+        nb.appendChild(sd);
+        var nestedList = document.createElement("div");
+        nestedList.className = "sel-choices-list sel-nested-list";
+        var arr = Array.isArray(nest.choices) && nest.choices.length ? nest.choices : [getDefaultChoice()];
+        arr.forEach(function(nch) { nestedList.appendChild(renderChoiceCardElement(nch, hsIdNum, depth + 1)); });
+        var btnAdd = document.createElement("button");
+        btnAdd.type = "button";
+        btnAdd.className = "btn-add-hs";
+        btnAdd.textContent = "+ Add sub-choice";
+        btnAdd.onclick = function() { selectorAddNestedChoice(btnAdd); };
+        nb.appendChild(nestedList);
+        nb.appendChild(btnAdd);
+        container.appendChild(nb);
+    }
+}
+
+function renderChoiceCardElement(ch, hId, depth) {
+    ch = ch || getDefaultChoice();
+    var at = ch.actionType || "msg";
+    if(depth >= SELECTOR_MAX_DEPTH && at === "selector") at = "msg";
+
+    var card = document.createElement("div");
+    card.className = "sel-choice-card";
+    card.dataset.depth = String(depth);
+
+    var tb = document.createElement("div");
+    tb.className = "sel-choice-toolbar";
+    var h = document.createElement("span");
+    h.className = "sel-choice-heading";
+    h.textContent = "Choice";
+    var bUp = document.createElement("button");
+    bUp.type = "button";
+    bUp.className = "btn-icon";
+    bUp.title = "Move up";
+    bUp.textContent = "↑";
+    bUp.onclick = function() { selectorMoveChoice(bUp, -1); };
+    var bDn = document.createElement("button");
+    bDn.type = "button";
+    bDn.className = "btn-icon";
+    bDn.title = "Move down";
+    bDn.textContent = "↓";
+    bDn.onclick = function() { selectorMoveChoice(bDn, 1); };
+    var bRm = document.createElement("button");
+    bRm.type = "button";
+    bRm.className = "btn-del";
+    bRm.title = "Remove this choice";
+    bRm.textContent = "×";
+    bRm.onclick = function() { selectorRemoveChoice(bRm); };
+    tb.appendChild(h);
+    tb.appendChild(bUp);
+    tb.appendChild(bDn);
+    tb.appendChild(bRm);
+
+    var lblL = document.createElement("label");
+    lblL.textContent = "Label (button or line):";
+    var inpL = document.createElement("input");
+    inpL.type = "text";
+    inpL.className = "sel-label";
+    inpL.value = ch.label || "";
+
+    var lblA = document.createElement("label");
+    lblA.textContent = "Action:";
+    var selA = document.createElement("select");
+    selA.className = "sel-action-type";
+    var opts = depth >= SELECTOR_MAX_DEPTH - 1
+        ? [
+            ["msg", "Show message"],
+            ["scene", "Go to another scene"],
+            ["pick", "Pick up an item"]
+          ]
+        : [
+            ["msg", "Show message"],
+            ["scene", "Go to another scene"],
+            ["pick", "Pick up an item"],
+            ["selector", "Sub-menu (nested)"]
+          ];
+    opts.forEach(function(o) {
+        var oel = document.createElement("option");
+        oel.value = o[0];
+        oel.textContent = o[1];
+        if(at === o[0]) oel.selected = true;
+        selA.appendChild(oel);
+    });
+    if(!at || !opts.some(function(o) { return o[0] === at; })) selA.value = "msg";
+
+    selA.onchange = function() {
+        selectorRebuildActionFields(card, {}, hId);
+        syncSelectorChoicesToTextarea(hId);
+    };
+
+    var fields = document.createElement("div");
+    fields.className = "sel-action-fields";
+
+    card.appendChild(tb);
+    card.appendChild(lblL);
+    card.appendChild(inpL);
+    card.appendChild(lblA);
+    card.appendChild(selA);
+    card.appendChild(fields);
+
+    var det = document.createElement("details");
+    det.className = "sel-opt-advanced";
+    var sum = document.createElement("summary");
+    sum.textContent = "Advanced options (inventory, sound)";
+    det.appendChild(sum);
+    var lr = document.createElement("label");
+    lr.textContent = "Show only if player has item (ID):";
+    var ir = document.createElement("input");
+    ir.type = "text";
+    ir.className = "sel-opt-req";
+    ir.placeholder = "optional";
+    ir.value = ch.requiresItem || "";
+    var lh = document.createElement("label");
+    lh.textContent = "Hide if player already has item (ID):";
+    var ih = document.createElement("input");
+    ih.type = "text";
+    ih.className = "sel-opt-hidden";
+    ih.placeholder = "optional";
+    ih.value = ch.hiddenIfHasItem || "";
+    var ls = document.createElement("label");
+    ls.textContent = "Click sound (URL):";
+    var is = document.createElement("input");
+    is.type = "text";
+    is.className = "sel-opt-sfx";
+    is.placeholder = "optional";
+    is.value = ch.sfxUrl || "";
+    var lsv = document.createElement("label");
+    lsv.textContent = "Sound volume (0–1):";
+    var isv = document.createElement("input");
+    isv.type = "number";
+    isv.className = "sel-opt-sfxvol";
+    isv.min = "0";
+    isv.max = "1";
+    isv.step = "0.1";
+    isv.value = ch.sfxVolume !== undefined && ch.sfxVolume !== null ? String(ch.sfxVolume) : "";
+    det.appendChild(lr);
+    det.appendChild(ir);
+    det.appendChild(lh);
+    det.appendChild(ih);
+    det.appendChild(ls);
+    det.appendChild(is);
+    det.appendChild(lsv);
+    det.appendChild(isv);
+    card.appendChild(det);
+
+    ch.actionType = selA.value;
+    selectorRebuildActionFields(card, ch, hId);
+    return card;
+}
+
+function initSelectorChoicesForm(hId) {
+    var hsDiv = document.getElementById("hs_" + hId);
+    var ta = hsDiv.querySelector(".f-sel-choices");
+    var root = document.getElementById("sel_choices_root_" + hId);
+    if(!ta || !root) return;
+    var arr;
+    try { arr = JSON.parse(ta.value.trim()); } catch(e) {
+        console.warn("f_sel_choices invalid JSON:", e);
+        arr = getDefaultSelectorChoices();
+    }
+    if(!Array.isArray(arr)) arr = getDefaultSelectorChoices();
+    root.innerHTML = "";
+    arr.forEach(function(ch) { root.appendChild(renderChoiceCardElement(ch, hId, 0)); });
+    attachSelectorChoicesListeners(hId);
+    syncSelectorChoicesToTextarea(hId);
+}
+
+function toggleSelectorJsonExpert(hId, forceExpert) {
+    if(forceExpert === undefined) forceExpert = false;
+    var ta = document.querySelector("#hs_" + hId + " .f-sel-choices");
+    var formUi = document.getElementById("selector_form_ui_" + hId);
+    var btn = document.querySelector("#hs_" + hId + " .btn-sel-json-expert");
+    if(!ta || !formUi) return;
+    if(ta.hasAttribute("readonly") || forceExpert) {
+        if(forceExpert || confirm("Warning: JSON expert mode disables the form so you can edit the JSON by hand. Continue?")) {
+            ta.removeAttribute("readonly");
+            ta.style.border = "2px solid #e74c3c";
+            formUi.style.opacity = "0.35";
+            formUi.style.pointerEvents = "none";
+            if(btn) {
+                btn.innerHTML = "🔙 Back to form (apply JSON)";
+                btn.style.background = "#e74c3c";
+            }
+        }
+    } else {
+        try { JSON.parse(ta.value.trim()); } catch(e) { alert("Invalid JSON: " + e.message); return; }
+        ta.setAttribute("readonly", "readonly");
+        ta.style.border = "";
+        formUi.style.opacity = "1";
+        formUi.style.pointerEvents = "auto";
+        if(btn) {
+            btn.innerHTML = "🧑‍💻 JSON expert mode";
+            btn.style.background = "#7f8c8d";
+        }
+        initSelectorChoicesForm(hId);
+    }
+}
+
 // --- Dynamic hotspot form fields by action type ---
-function updateHsFields(hId) {
+function updateHsFields(hId, opts) {
+    opts = opts || {};
     const type = document.querySelector(`#hs_${hId} .hs-type`).value; 
     const container = document.getElementById(`fields_${hId}`);
     
@@ -451,6 +907,7 @@ function updateHsFields(hId) {
         </div>`;
     }
     else if(type === 'selector') {
+        var defaultSelJson = JSON.stringify(getDefaultSelectorChoices(), null, 2);
         container.innerHTML = `
         <label>Menu title:</label><input type="text" class="f-sel-title" value="Choose an action">
         <label>Introduction (HTML, optional):</label><textarea class="f-sel-intro" rows="2"></textarea>
@@ -459,15 +916,24 @@ function updateHsFields(hId) {
             <option value="buttons" selected>Buttons</option>
             <option value="dropdown">Dropdown + OK</option>
         </select>
-        <label>Choices — JSON array:</label>
-        <textarea class="f-sel-choices" rows="16" style="font-family:Consolas,monospace;font-size:12px;">[
-  { "label": "Sub-menu (nested)", "actionType": "selector", "nested": { "title": "More options", "introHtml": "&lt;p&gt;Level 2&lt;/p&gt;", "choices": [
-    { "label": "Message here", "actionType": "msg", "txt": "&lt;p&gt;Nested content&lt;/p&gt;" }
-  ]}},
-  { "label": "Direct message", "actionType": "msg", "txt": "&lt;p&gt;Level 1&lt;/p&gt;" },
-  { "label": "Other scene", "actionType": "scene", "target": "scene_2", "transTxt": "", "transBtn": "Continue" }
-]</textarea>
-        <small style="color:#555;">Optional per choice: <code>requiresItem</code>, <code>hiddenIfHasItem</code> (inventory IDs), <code>sfxUrl</code> + <code>sfxVolume</code> (0–1). Nested block may set <code>displayMode</code>. <code>actionType</code>: <code>msg</code>, <code>scene</code>, <code>pick</code>, <code>selector</code> + <code>nested</code>.</small>`;
+        <p style="margin:12px 0 6px 0;color:#2c3e50;"><b>Choices for the player</b> — add or reorder lines; each line can show a message, change scene, pick an item, or open a sub-menu.</p>
+        <div id="selector_form_ui_${hId}" class="selector-form-wrap">
+            <div id="sel_choices_root_${hId}" class="sel-choices-list sel-choices-root"></div>
+            <button type="button" class="btn-add-hs" onclick="selectorAddChoice(${hId})">+ Add choice</button>
+        </div>
+        <div class="editor-collapse-section">
+            <button type="button" class="editor-collapse-header" onclick="toggleCollapse('sel_json_wrap_${hId}', this)">▶ Advanced JSON (technical reference)</button>
+            <div id="sel_json_wrap_${hId}" style="display:none">
+                <p class="selector-json-hint">The game reads this JSON array. Usually the form above is enough; open this section to <b>view</b> or <b>copy</b> the structure. Expert mode unlocks hand-editing (like free CSS).</p>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:8px;">
+                    <label style="margin:0;">Choices JSON data</label>
+                    <button type="button" class="btn-icon btn-sel-json-expert" style="background:#7f8c8d;" onclick="toggleSelectorJsonExpert(${hId})">🧑‍💻 JSON expert mode</button>
+                </div>
+                <textarea class="f-sel-choices css-editor" rows="12" readonly style="font-family:Consolas,monospace;font-size:12px;">${defaultSelJson}</textarea>
+            </div>
+        </div>
+        <small style="color:#555;display:block;margin-top:10px;">Tip: per-choice visibility and sounds are under <b>Advanced options</b> on each line, or in the JSON.</small>`;
+        if(!opts.deferSelectorInit) initSelectorChoicesForm(hId);
     }
 }
 
@@ -586,7 +1052,10 @@ function loadProject(event) {
             // Refresh inventory / popup previews
             updatePreview();
             
-        } catch (err) { alert("Invalid file!"); }
+        } catch (err) {
+            console.error(err);
+            alert("Invalid file or load error: " + (err && err.message ? err.message : String(err)));
+        }
     };
     reader.readAsText(file); 
     event.target.value = ''; // Allow re-selecting same file
