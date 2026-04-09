@@ -97,16 +97,94 @@
         );
     }
 
-    /** Graphe complet : grille de cellules (scène + colonne hotspots) pour aérer le layout. */
+    /**
+     * Positions pour la vue complète : BFS depuis la 1re scène = « profondeur » (flux gauche → droite).
+     * Scènes non atteignables depuis l’entrée : colonne supplémentaire après le max.
+     */
+    function computeFullViewPositionsByDepth(project) {
+        var scenes = project.scenes || [];
+        var posByKey = {};
+        if (scenes.length === 0) return posByKey;
+
+        var entryKey = sceneKey(scenes[0], 0);
+        var queue = [{ key: entryKey, level: 0 }];
+        var visited = new Set();
+        var levelByKey = {};
+
+        while (queue.length > 0) {
+            var cur = queue.shift();
+            var k = cur.key;
+            var lv = cur.level;
+            if (visited.has(k)) continue;
+            visited.add(k);
+            levelByKey[k] = lv;
+
+            var meta = findSceneByKey(project, k);
+            if (!meta) continue;
+            var hsList = Array.isArray(meta.scene.hotspots) ? meta.scene.hotspots : [];
+            for (var hi = 0; hi < hsList.length; hi++) {
+                var t = getTargetSceneIdFromHotspot(hsList[hi]);
+                if (t && findSceneByKey(project, t) && !visited.has(t)) {
+                    queue.push({ key: t, level: lv + 1 });
+                }
+            }
+        }
+
+        var maxL = 0;
+        Object.keys(levelByKey).forEach(function (k2) {
+            maxL = Math.max(maxL, levelByKey[k2]);
+        });
+
+        scenes.forEach(function (scene, si) {
+            var sk = sceneKey(scene, si);
+            if (levelByKey[sk] === undefined) {
+                levelByKey[sk] = maxL + 1;
+            }
+        });
+
+        maxL = 0;
+        Object.keys(levelByKey).forEach(function (k3) {
+            maxL = Math.max(maxL, levelByKey[k3]);
+        });
+
+        var byLevel = {};
+        scenes.forEach(function (scene, si) {
+            var sk = sceneKey(scene, si);
+            var lev = levelByKey[sk];
+            if (!byLevel[lev]) byLevel[lev] = [];
+            byLevel[lev].push(sk);
+        });
+
+        var LEVEL_DX = 520;
+        var ROW_DY = 280;
+        var ORIGIN_X = 50;
+        var ORIGIN_Y = 50;
+
+        Object.keys(byLevel)
+            .map(function (x) {
+                return parseInt(x, 10);
+            })
+            .sort(function (a, b) {
+                return a - b;
+            })
+            .forEach(function (lev) {
+                var list = byLevel[lev];
+                for (var j = 0; j < list.length; j++) {
+                    posByKey[list[j]] = {
+                        sx: ORIGIN_X + lev * LEVEL_DX,
+                        sy: ORIGIN_Y + j * ROW_DY
+                    };
+                }
+            });
+
+        return posByKey;
+    }
+
+    /** Graphe complet : colonnes = profondeur depuis la scène d’entrée ; hotspots à droite de chaque scène. */
     function generateGraphFull(editor, project) {
         var scenes = project.scenes;
         var sceneKeyToDrawflowId = {};
-        var n = scenes.length;
-        var cols = Math.max(1, Math.ceil(Math.sqrt(n)));
-        var CELL_W = 480;
-        var CELL_H = 300;
-        var ORIGIN_X = 50;
-        var ORIGIN_Y = 50;
+        var posByKey = computeFullViewPositionsByDepth(project);
         var HS_OFFSET_X = 240;
         var HS_OFFSET_Y = 30;
         var HS_STEP_Y = 108;
@@ -122,10 +200,9 @@
                 label: title,
                 viewMode: "full"
             };
-            var col = si % cols;
-            var row = Math.floor(si / cols);
-            var sx = ORIGIN_X + col * CELL_W;
-            var sy = ORIGIN_Y + row * CELL_H;
+            var p = posByKey[sk] || { sx: 50, sy: 50 + si * 280 };
+            var sx = p.sx;
+            var sy = p.sy;
             var nid = editor.addNode("scene", 1, 1, sx, sy, "xflow-node-scene xflow-node-full-scene", data, html);
             sceneKeyToDrawflowId[sk] = nid;
         });
@@ -135,10 +212,9 @@
             var sceneNodeId = sceneKeyToDrawflowId[sk];
             if (sceneNodeId === undefined) return;
 
-            var col = si % cols;
-            var row = Math.floor(si / cols);
-            var sx = ORIGIN_X + col * CELL_W;
-            var sy = ORIGIN_Y + row * CELL_H;
+            var p = posByKey[sk] || { sx: 50, sy: 50 + si * 280 };
+            var sx = p.sx;
+            var sy = p.sy;
 
             var hotspots = Array.isArray(scene.hotspots) ? scene.hotspots : [];
             hotspots.forEach(function (hs, hi) {

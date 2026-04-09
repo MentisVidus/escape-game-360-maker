@@ -45,5 +45,5 @@ Les **selectors** et les autres actions (msg, pick seuls, etc.) ne créent pas e
 
 - À l’ouverture, seule la **première scène** est « active » (détail + liste de ses hotspots) ; chaque **transition vers une autre scène** affiche cette cible comme bloc **compact** (sans ses hotspots).
 - **Double-clic** sur un bloc compact : le graphe se régénère avec cette scène comme centre (ex. retour S2 → S1 en compact).
-- API : `generateGraphFromJson(editor, project, { viewMode: 'focus', activeSceneKey: 'mon_scId' })` ; `viewMode: 'full'` (grille √n colonnes) ; `viewMode: 'tree'` vue **acyclique** (flux gauche → droite, renvois).
+- API : `generateGraphFromJson(editor, project, { viewMode: 'focus', activeSceneKey: 'mon_scId' })` ; `viewMode: 'full'` (colonnes = **profondeur BFS** depuis la 1re scène ; scènes isolées à droite) ; `viewMode: 'tree'` vue **acyclique**.
 - Barre : **Vue Focus** / **Vue complète** / **Vue acyclique** (`setProjectMapView('focus'|'full'|'tree')`).

@@ -138,15 +138,15 @@
     display: block;
 }
 
-/* Pilule seule : fond violet très clair, bordure pointillée */
+/* Pilule : fond violet opaque, texte blanc (lisible sur grille sombre) */
 .xflow-node-redirect-inner {
     min-width: 120px;
     max-width: 200px;
     padding: 12px 18px;
-    background: rgba(155, 89, 182, 0.18);
-    border: 2px dashed #9b59b6;
+    background: #8e44ad;
+    border: 2px dashed rgba(255, 255, 255, 0.75);
     border-radius: 999px;
-    color: #2c1a33;
+    color: #ffffff;
     text-align: center;
 }
 
@@ -155,21 +155,29 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     margin-bottom: 4px;
-    opacity: 0.9;
+    color: rgba(255, 255, 255, 0.92);
+    opacity: 1;
 }
 
 .xflow-node-redirect-inner .xflow-node-body {
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1.25;
-    color: #4a235a;
+    color: #ffffff;
 }
 
 .xflow-node-redirect-inner .xflow-node-sub {
     margin-top: 6px;
     font-size: 0.65rem;
-    opacity: 0.85;
-    color: #5b2c6f;
+    color: rgba(255, 255, 255, 0.88);
+    opacity: 1;
+}
+
+.xflow-node-redirect-inner .xflow-node-sub code {
+    color: rgba(255, 255, 255, 0.95);
+    background: rgba(0, 0, 0, 0.2);
+    padding: 1px 5px;
+    border-radius: 4px;
 }
 
 .xflow-node-hotspot {
