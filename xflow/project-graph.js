@@ -1,15 +1,11 @@
 /**
  * Carte Drawflow à partir du JSON projet (getCurrentProjectData).
- * Étape 2 : lecture seule — Scène → Hotspots → Scène cible (transition).
- * Les selectors et autres branches sont ignorés pour l’instant.
+ * - Mode focus (défaut) : une scène active + ses hotspots ; scènes cibles repliées.
+ * - Mode full : graphe complet (option viewMode: 'full').
  */
 (function () {
     "use strict";
 
-    /**
-     * ID de scène cible pour les transitions (hotspot type "scene", ou récompense req/pwd).
-     * Clés alignées sur extractHotspotData / fichier JSON (f_target, f_req_action, f_pwd_action).
-     */
     function getTargetSceneIdFromHotspot(hs) {
         if (!hs || !hs.type) return null;
         var t = hs.type;
@@ -34,14 +30,40 @@
         return d.innerHTML;
     }
 
-    function sceneNodeHtml(title, scId) {
+    function sceneKey(scene, index) {
+        var k = (scene.scId || "").trim();
+        if (k) return k;
+        return "__idx_" + index;
+    }
+
+    function findSceneByKey(project, key) {
+        var scenes = project.scenes || [];
+        for (var i = 0; i < scenes.length; i++) {
+            var sk = sceneKey(scenes[i], i);
+            if (sk === key) return { scene: scenes[i], index: i, key: sk };
+        }
+        return null;
+    }
+
+    function sceneNodeHtml(title, scId, collapsed) {
         var en = document.documentElement.lang === "en";
         var labScene = en ? "Scene" : "Scène";
         var labId = en ? "ID:" : "ID :";
+        var extraClass = collapsed ? " xflow-node-scene-collapsed" : "";
+        var hint = "";
+        if (collapsed) {
+            hint =
+                '<div class="xflow-node-collapsed-hint">' +
+                (en ? "Double-click to focus" : "Double-clic pour ouvrir") +
+                "</div>";
+        }
         return (
-            '<div class="xflow-node-scene">' +
+            '<div class="xflow-node-scene' +
+            extraClass +
+            '">' +
             '<div class="xflow-node-title">' +
             labScene +
+            (collapsed ? " · " + (en ? "compact" : "aperçu") : "") +
             "</div>" +
             '<div class="xflow-node-body">' +
             escapeHtml(title) +
@@ -50,7 +72,9 @@
             labId +
             ' <code style="font-size:0.75rem;">' +
             escapeHtml(scId || "—") +
-            "</code></div></div>"
+            "</code></div>" +
+            hint +
+            "</div>"
         );
     }
 
@@ -72,30 +96,22 @@
         );
     }
 
-    /**
-     * Clé stable pour indexer les scènes (alignée sur f_target dans le jeu).
-     */
-    function sceneKey(scene, index) {
-        var k = (scene.scId || "").trim();
-        if (k) return k;
-        return "__idx_" + index;
-    }
-
-    /**
-     * @param {Drawflow} editor — instance déjà démarrée
-     * @param {object} project — retour de getCurrentProjectData()
-     */
-    function generateGraphFromJson(editor, project) {
-        if (!editor || !project || !Array.isArray(project.scenes)) return;
-
+    /** Graphe historique : toutes les scènes et tous les liens (lisibilité faible sur gros jeux). */
+    function generateGraphFull(editor, project) {
         var scenes = project.scenes;
         var sceneKeyToDrawflowId = {};
 
         scenes.forEach(function (scene, si) {
             var sk = sceneKey(scene, si);
             var title = scene.scTitle || scene.scId || "Scène " + (si + 1);
-            var html = sceneNodeHtml(title, scene.scId);
-            var data = { kind: "scene", scId: scene.scId, sceneKey: sk, label: title };
+            var html = sceneNodeHtml(title, scene.scId, false);
+            var data = {
+                kind: "scene",
+                scId: scene.scId,
+                sceneKey: sk,
+                label: title,
+                viewMode: "full"
+            };
             var y = 80 + si * 280;
             var nid = editor.addNode("scene", 1, 1, 100, y, "xflow-node-scene", data, html);
             sceneKeyToDrawflowId[sk] = nid;
@@ -137,16 +153,182 @@
                             console.warn("[Map] Hotspot → scene connection:", e2);
                         }
                     } else {
-                        console.warn(
-                            "[Map] Unknown target scene id:",
-                            targetId,
-                            "(hotspot:",
-                            label + ")"
-                        );
+                        console.warn("[Map] Unknown target scene id:", targetId, "(hotspot:", label + ")");
                     }
                 }
             });
         });
+    }
+
+    /**
+     * Vue focalisée : une scène active (détail + hotspots) ; les cibles de transition en blocs compacts.
+     */
+    function generateGraphFocus(editor, project, activeSceneKey) {
+        var scenes = project.scenes || [];
+        if (scenes.length === 0) return;
+
+        var resolved = findSceneByKey(project, activeSceneKey);
+        if (!resolved) {
+            resolved = { scene: scenes[0], index: 0, key: sceneKey(scenes[0], 0) };
+        }
+
+        var activeKey = resolved.key;
+        var activeScene = resolved.scene;
+        var sceneKeyToDrawflowId = {};
+
+        var ACTIVE_X = 80;
+        var ACTIVE_Y = 220;
+        var HS_X = 380;
+        var HS_START_Y = 60;
+        var HS_STEP = 112;
+        var STUB_X = 700;
+        var STUB_START_Y = 80;
+        var STUB_STEP = 100;
+
+        var activeTitle = activeScene.scTitle || activeScene.scId || "Scène";
+        var activeHtml = sceneNodeHtml(activeTitle, activeScene.scId, false);
+        var activeData = {
+            kind: "scene",
+            scId: activeScene.scId,
+            sceneKey: activeKey,
+            label: activeTitle,
+            viewMode: "active"
+        };
+        var activeNid = editor.addNode(
+            "scene",
+            1,
+            1,
+            ACTIVE_X,
+            ACTIVE_Y,
+            "xflow-node-scene xflow-node-scene-active",
+            activeData,
+            activeHtml
+        );
+        sceneKeyToDrawflowId[activeKey] = activeNid;
+
+        var hotspots = Array.isArray(activeScene.hotspots) ? activeScene.hotspots : [];
+        var uniqueTargets = [];
+        hotspots.forEach(function (hs) {
+            var tid = getTargetSceneIdFromHotspot(hs);
+            if (!tid || tid === activeKey) return;
+            if (uniqueTargets.indexOf(tid) !== -1) return;
+            if (findSceneByKey(project, tid)) uniqueTargets.push(tid);
+        });
+
+        uniqueTargets.forEach(function (tid, ti) {
+            var meta = findSceneByKey(project, tid);
+            if (!meta) return;
+            var tTitle = meta.scene.scTitle || meta.scene.scId || tid;
+            var stubHtml = sceneNodeHtml(tTitle, meta.scene.scId, true);
+            var stubData = {
+                kind: "scene",
+                scId: meta.scene.scId,
+                sceneKey: tid,
+                label: tTitle,
+                viewMode: "collapsed"
+            };
+            var y = STUB_START_Y + ti * STUB_STEP;
+            var nid = editor.addNode(
+                "scene",
+                1,
+                1,
+                STUB_X,
+                y,
+                "xflow-node-scene xflow-node-scene-collapsed",
+                stubData,
+                stubHtml
+            );
+            sceneKeyToDrawflowId[tid] = nid;
+        });
+
+        hotspots.forEach(function (hs, hi) {
+            var label = hs.hsTitle || "Hotspot " + (hi + 1);
+            var html = hotspotNodeHtml(label, hs.type);
+            var data = {
+                kind: "hotspot",
+                parentSceneKey: activeKey,
+                parentScId: activeScene.scId,
+                index: hi,
+                type: hs.type,
+                label: label
+            };
+            var y = HS_START_Y + hi * HS_STEP;
+            var hsNid = editor.addNode("hotspot", 1, 1, HS_X, y, "xflow-node-hotspot", data, html);
+
+            try {
+                editor.addConnection(activeNid, hsNid, "output_1", "input_1");
+            } catch (e) {
+                console.warn("[Map] Scene → hotspot connection:", e);
+            }
+
+            var targetId = getTargetSceneIdFromHotspot(hs);
+            if (targetId) {
+                var targetNid = sceneKeyToDrawflowId[targetId];
+                if (targetNid !== undefined) {
+                    try {
+                        editor.addConnection(hsNid, targetNid, "output_1", "input_1");
+                    } catch (e2) {
+                        console.warn("[Map] Hotspot → scene connection:", e2);
+                    }
+                } else {
+                    console.warn("[Map] Unknown target scene id:", targetId, "(hotspot:", label + ")");
+                }
+            }
+        });
+
+        window._projectMapActiveSceneKey = activeKey;
+    }
+
+    /**
+     * @param {Drawflow} editor
+     * @param {object} project — getCurrentProjectData()
+     * @param {object} [options]
+     * @param {string} [options.viewMode] — 'focus' (défaut) | 'full'
+     * @param {string} [options.activeSceneKey] — clé scène (scId trimé ou __idx_N) pour le mode focus
+     */
+    function generateGraphFromJson(editor, project, options) {
+        if (!editor || !project || !Array.isArray(project.scenes)) return;
+        options = options || {};
+        var viewMode = options.viewMode || "focus";
+
+        if (viewMode === "full") {
+            generateGraphFull(editor, project);
+            window._projectMapActiveSceneKey = null;
+            return;
+        }
+
+        var key = options.activeSceneKey;
+        if (key == null || key === "") {
+            if (project.scenes.length > 0) key = sceneKey(project.scenes[0], 0);
+        }
+        generateGraphFocus(editor, project, key);
+    }
+
+    function ensureMapDblClickHandler() {
+        if (window._projectMapDblClickBound) return;
+        var container = document.getElementById("project-drawflow");
+        if (!container) return;
+        container.addEventListener("dblclick", function (ev) {
+            var nodeEl = ev.target.closest(".drawflow-node");
+            if (!nodeEl) return;
+            var rawId = nodeEl.id || "";
+            if (rawId.indexOf("node-") !== 0) return;
+            var nid = parseInt(rawId.replace("node-", ""), 10);
+            if (isNaN(nid)) return;
+            var ed = window._projectMapEditor;
+            if (!ed) return;
+            var info = ed.getNodeFromId(nid);
+            if (!info || !info.data) return;
+            if (info.data.kind !== "scene" || info.data.viewMode !== "collapsed") return;
+            ev.stopPropagation();
+            var sk = info.data.sceneKey;
+            ed.clear();
+            generateGraphFromJson(ed, getCurrentProjectData(), {
+                viewMode: "focus",
+                activeSceneKey: sk
+            });
+        });
+        window._projectMapDblClickBound = true;
     }
 
     function openProjectMap() {
@@ -172,7 +354,8 @@
             window._projectMapEditor.clear();
         }
 
-        generateGraphFromJson(window._projectMapEditor, project);
+        ensureMapDblClickHandler();
+        generateGraphFromJson(window._projectMapEditor, project, { viewMode: "focus" });
     }
 
     function closeProjectMap() {
@@ -184,4 +367,5 @@
     window.generateGraphFromJson = generateGraphFromJson;
     window.openProjectMap = openProjectMap;
     window.closeProjectMap = closeProjectMap;
+    window.sceneKeyFromProjectScene = sceneKey;
 })();

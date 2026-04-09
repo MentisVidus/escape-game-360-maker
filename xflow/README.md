@@ -40,3 +40,9 @@ Voir `poc.js` pour un mini **panneau détail** factice qui illustre le lien `nod
 - Bouton **« Afficher la carte »** / **« Show map »** dans la barre d’outils : modale plein écran avec Drawflow.
 
 Les **selectors** et les autres actions (msg, pick seuls, etc.) ne créent pas encore d’arête vers une scène (hors périmètre actuel).
+
+### Mode focus (défaut)
+
+- À l’ouverture, seule la **première scène** est « active » (détail + liste de ses hotspots) ; chaque **transition vers une autre scène** affiche cette cible comme bloc **compact** (sans ses hotspots).
+- **Double-clic** sur un bloc compact : le graphe se régénère avec cette scène comme centre (ex. retour S2 → S1 en compact).
+- API : `generateGraphFromJson(editor, project, { viewMode: 'focus', activeSceneKey: 'mon_scId' })` ; `viewMode: 'full'` réaffiche l’ancien graphe complet (debug / petits projets).
