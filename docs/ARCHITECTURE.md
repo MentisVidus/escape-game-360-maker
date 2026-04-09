@@ -187,6 +187,7 @@ flowchart TD
 
 ### Évolutions encore ouvertes (selector / éditeur)
 
+- Feuille de route **éditeur nodal** + **schéma projet v2** (action unifiée, panneau latéral, selectors dans Drawflow) : [PLAN_EDITEUR_NODAL.md](./PLAN_EDITEUR_NODAL.md).
 - Profondeur d’imbrication côté **éditeur** plafonnée (UX) ; le moteur accepte une structure JSON plus profonde si éditée à la main.
 - Types de choix **`req`** / **`pwd`** dans le selector (voir spec).
 - Refactor « modules » player (`player.js`) — toujours dans les idées d’évolution globales.
