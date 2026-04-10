@@ -9,6 +9,7 @@ This document is for **developers** and **AI assistants** working on the reposit
 | [editeur.html](../editeur.html) | Main editor (French UI): markup + `<link>` / `<script src>`. |
 | [editor_en.html](../editor_en.html) | Same behavior, English UI; comments in English; default save as `project.json`. |
 | [css/editor.css](../css/editor.css) | Shared editor chrome (layout, buttons, modals, form controls). |
+| [js/editor-core.js](../js/editor-core.js) | **Headless** project model & unified action helpers (`EditorCore`) — no DOM; shared by HTML editor and future graph UI. |
 | [js/editeur-app.js](../js/editeur-app.js) | French editor: UI, scenes/hotspots, save/load, previews — everything except `generateGame`. |
 | [js/editeur-generate.js](../js/editeur-generate.js) | French: `generateGame()` (player template) + `window.onload` boot. |
 | [js/editor-en-app.js](../js/editor-en-app.js) | English editor — same split as FR; mirrors `editeur-app.js`. |

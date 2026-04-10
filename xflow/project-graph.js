@@ -7,20 +7,33 @@
 (function () {
     "use strict";
 
+    /**
+     * Cible de transition (schéma V2 : hs.action.type + payload / rewardAction).
+     * Compat. formulaire legacy : f_target, f_req_action, type racine.
+     */
     function getTargetSceneIdFromHotspot(hs) {
-        if (!hs || !hs.type) return null;
-        var t = hs.type;
+        if (!hs) return null;
+        var a = hs.action;
+        if (!a || typeof a !== "object") {
+            a = hs;
+        }
+        var p = a.payload || {};
+        var t = a.type;
         if (t === "scene") {
-            var v = (hs.f_target || "").trim();
+            var v = (p.target || hs.f_target || "").trim();
             return v || null;
         }
-        if (t === "req" && hs.f_req_action === "scene") {
-            var r = (hs.f_target || "").trim();
+        if (t === "req") {
+            var rr = p.rewardAction || {};
+            if ((rr.type || hs.f_req_action) !== "scene") return null;
+            var r = ((rr.payload && rr.payload.target) || hs.f_target || "").trim();
             return r || null;
         }
-        if (t === "pwd" && hs.f_pwd_action === "scene") {
-            var p = (hs.f_target || "").trim();
-            return p || null;
+        if (t === "pwd") {
+            var rp = p.rewardAction || {};
+            if ((rp.type || hs.f_pwd_action) !== "scene") return null;
+            var pt = ((rp.payload && rp.payload.target) || hs.f_target || "").trim();
+            return pt || null;
         }
         return null;
     }
@@ -31,10 +44,69 @@
         return d.innerHTML;
     }
 
+    /** Clé stable pour indexation (JSON V2 : scene.id). */
     function sceneKey(scene, index) {
-        var k = (scene.scId || "").trim();
+        var k = scene && scene.id != null ? String(scene.id).trim() : "";
         if (k) return k;
+        if (scene && scene.scId != null && String(scene.scId).trim()) {
+            return String(scene.scId).trim();
+        }
         return "__idx_" + index;
+    }
+
+    function sceneTitleForGraph(scene, index) {
+        if (!scene) return "Scène " + (index + 1);
+        var title = scene.title != null ? String(scene.title).trim() : "";
+        if (title) return title;
+        if (scene.scTitle != null && String(scene.scTitle).trim()) {
+            return String(scene.scTitle).trim();
+        }
+        var id = scene.id != null ? String(scene.id).trim() : "";
+        if (id) return id;
+        if (scene.scId != null && String(scene.scId).trim()) {
+            return String(scene.scId).trim();
+        }
+        return "Scène " + (index + 1);
+    }
+
+    /** Titre / id affichable ; si la scène n’a ni titre ni id métier, utilise keyFallback (ex. clé graphe). */
+    function sceneLabelWithFallback(scene, index, keyFallback) {
+        if (!scene) return keyFallback != null ? String(keyFallback) : "—";
+        var hasAny =
+            (scene.title && String(scene.title).trim()) ||
+            (scene.id && String(scene.id).trim()) ||
+            (scene.scTitle && String(scene.scTitle).trim()) ||
+            (scene.scId && String(scene.scId).trim());
+        if (!hasAny && keyFallback != null && String(keyFallback).trim()) {
+            return String(keyFallback).trim();
+        }
+        return sceneTitleForGraph(scene, index);
+    }
+
+    function sceneIdLabel(scene) {
+        if (!scene) return "—";
+        var id = scene.id != null ? String(scene.id).trim() : "";
+        if (id) return id;
+        if (scene.scId != null && String(scene.scId).trim()) {
+            return String(scene.scId).trim();
+        }
+        return "—";
+    }
+
+    function hotspotLabel(hs, index) {
+        if (!hs) return "Hotspot " + (index + 1);
+        var t = hs.title != null ? String(hs.title).trim() : "";
+        if (t) return t;
+        if (hs.hsTitle != null && String(hs.hsTitle).trim()) {
+            return String(hs.hsTitle).trim();
+        }
+        return "Hotspot " + (index + 1);
+    }
+
+    function hotspotActionType(hs) {
+        if (hs && hs.action && hs.action.type) return String(hs.action.type);
+        if (hs && hs.type) return String(hs.type);
+        return "?";
     }
 
     function findSceneByKey(project, key) {
@@ -191,11 +263,11 @@
 
         scenes.forEach(function (scene, si) {
             var sk = sceneKey(scene, si);
-            var title = scene.scTitle || scene.scId || "Scène " + (si + 1);
-            var html = sceneNodeHtml(title, scene.scId, false);
+            var title = sceneTitleForGraph(scene, si);
+            var html = sceneNodeHtml(title, sceneIdLabel(scene), false);
             var data = {
                 kind: "scene",
-                scId: scene.scId,
+                scId: sceneIdLabel(scene),
                 sceneKey: sk,
                 label: title,
                 viewMode: "full"
@@ -218,14 +290,15 @@
 
             var hotspots = Array.isArray(scene.hotspots) ? scene.hotspots : [];
             hotspots.forEach(function (hs, hi) {
-                var label = hs.hsTitle || "Hotspot " + (hi + 1);
-                var html = hotspotNodeHtml(label, hs.type);
+                var label = hotspotLabel(hs, hi);
+                var at = hotspotActionType(hs);
+                var html = hotspotNodeHtml(label, at);
                 var data = {
                     kind: "hotspot",
                     parentSceneKey: sk,
-                    parentScId: scene.scId,
+                    parentScId: sceneIdLabel(scene),
                     index: hi,
-                    type: hs.type,
+                    type: at,
                     label: label
                 };
                 var hx = sx + HS_OFFSET_X;
@@ -280,11 +353,11 @@
         var STUB_START_Y = 80;
         var STUB_STEP = 100;
 
-        var activeTitle = activeScene.scTitle || activeScene.scId || "Scène";
-        var activeHtml = sceneNodeHtml(activeTitle, activeScene.scId, false);
+        var activeTitle = sceneTitleForGraph(activeScene, resolved.index);
+        var activeHtml = sceneNodeHtml(activeTitle, sceneIdLabel(activeScene), false);
         var activeData = {
             kind: "scene",
-            scId: activeScene.scId,
+            scId: sceneIdLabel(activeScene),
             sceneKey: activeKey,
             label: activeTitle,
             viewMode: "active"
@@ -313,11 +386,11 @@
         uniqueTargets.forEach(function (tid, ti) {
             var meta = findSceneByKey(project, tid);
             if (!meta) return;
-            var tTitle = meta.scene.scTitle || meta.scene.scId || tid;
-            var stubHtml = sceneNodeHtml(tTitle, meta.scene.scId, true);
+            var tTitle = sceneLabelWithFallback(meta.scene, meta.index, tid);
+            var stubHtml = sceneNodeHtml(tTitle, sceneIdLabel(meta.scene), true);
             var stubData = {
                 kind: "scene",
-                scId: meta.scene.scId,
+                scId: sceneIdLabel(meta.scene),
                 sceneKey: tid,
                 label: tTitle,
                 viewMode: "collapsed"
@@ -337,14 +410,15 @@
         });
 
         hotspots.forEach(function (hs, hi) {
-            var label = hs.hsTitle || "Hotspot " + (hi + 1);
-            var html = hotspotNodeHtml(label, hs.type);
+            var label = hotspotLabel(hs, hi);
+            var at = hotspotActionType(hs);
+            var html = hotspotNodeHtml(label, at);
             var data = {
                 kind: "hotspot",
                 parentSceneKey: activeKey,
-                parentScId: activeScene.scId,
+                parentScId: sceneIdLabel(activeScene),
                 index: hi,
-                type: hs.type,
+                type: at,
                 label: label
             };
             var y = HS_START_Y + hi * HS_STEP;
@@ -391,7 +465,7 @@
 
         function redirectNodeHtml(targetKey) {
             var meta = findSceneByKey(project, targetKey);
-            var title = meta ? meta.scene.scTitle || meta.scene.scId || targetKey : targetKey;
+            var title = sceneLabelWithFallback(meta ? meta.scene : null, meta ? meta.index : 0, targetKey);
             var en = document.documentElement.lang === "en";
             var head = en ? "Shortcut" : "Renvoi";
             var body = en ? "Back: " + title : "Renvoi : " + title;
@@ -423,11 +497,11 @@
 
             visitedFull.add(sk);
 
-            var title = meta.scene.scTitle || meta.scene.scId || sk;
-            var html = sceneNodeHtml(title, meta.scene.scId, false);
+            var title = sceneTitleForGraph(meta.scene, meta.index);
+            var html = sceneNodeHtml(title, sceneIdLabel(meta.scene), false);
             var data = {
                 kind: "scene",
-                scId: meta.scene.scId,
+                scId: sceneIdLabel(meta.scene),
                 sceneKey: sk,
                 label: title,
                 viewMode: "tree"
@@ -450,14 +524,15 @@
 
             hsList.forEach(function (hs, i) {
                 var hy = baseHy + i * HS_STEP;
-                var label = hs.hsTitle || "Hotspot " + (i + 1);
-                var hsHtml = hotspotNodeHtml(label, hs.type);
+                var label = hotspotLabel(hs, i);
+                var at = hotspotActionType(hs);
+                var hsHtml = hotspotNodeHtml(label, at);
                 var hsData = {
                     kind: "hotspot",
                     parentSceneKey: sk,
-                    parentScId: meta.scene.scId,
+                    parentScId: sceneIdLabel(meta.scene),
                     index: i,
-                    type: hs.type,
+                    type: at,
                     label: label,
                     viewMode: "tree"
                 };

@@ -18,6 +18,13 @@ Document de **feuille de route** pour passer du visualiseur de graphe (`xflow/` 
 
 Références code actuel : [ARCHITECTURE.md](./ARCHITECTURE.md), [SELECTOR_SPEC.md](./SELECTOR_SPEC.md), dossier [xflow/](../xflow/).
 
+### Couche headless — `EditorCore` (UI-agnostique)
+
+- **Fichier** : [`js/editor-core.js`](../js/editor-core.js) — aucun accès `document` / Drawflow ; exposé sur `window.EditorCore`.
+- **Rôle** : constante `SCHEMA_VERSION`, fabrique de projet vide, **action unifiée** par défaut (`createDefaultAction`), sérialisation / parse JSON avec détection `legacyV1` (fichiers sans `schemaVersion`).
+- **Adaptateurs** (à enrichir) : `editeur-app.js` / `editor-en-app.js` lisent et écrivent le DOM ; ils appellent `EditorCore` pour construire ou consommer le modèle. **Drawflow** (`xflow/project-graph.js`) continue de consommer un objet projet obtenu via `getCurrentProjectData()` jusqu’à ce que ce dernier s’appuie sur le v2.
+- **Migration React Flow** : remplacer uniquement les adaptateurs « graphe » ; le même `EditorCore` reste la source de vérité logique.
+
 ---
 
 ## 2. Schéma JSON cible (schéma projet v2)
@@ -80,7 +87,7 @@ Lorsque la modale **Carte** / graphe Drawflow est ouverte (ou un panneau docké 
 
 ## 4. Ordre des chantiers (validé)
 
-1. **Refactorisation JS + schéma projet v2**  
+1. **Refactorisation JS + schéma projet v2** *(démarré : noyau `EditorCore` ; suite : migration DOM + save/load + generate)*  
    - Introduire `schemaVersion` et le nouveau modèle **action unifiée** (hotspots + choix selector).  
    - Refactoriser `saveProject` / `loadProject` / `extractHotspotData` / sérialisation des choix / `generateGame` pour ce schéma.  
    - Factoriser la logique d’édition des actions (descripteurs de champs, sérialisation) pour un seul pipeline « type d’action → champs → JSON ».

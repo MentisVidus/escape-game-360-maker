@@ -1,13 +1,19 @@
 ﻿// --- LA GRANDE FONCTION : GÉNÉRATION DU JEU (Création de index.html) ---
 // Cette fonction lit tout le formulaire et fabrique le code du jeu final
 function generateGame() {
-    // 1. Récupération des paramètres globaux
-    const title = document.getElementById('gameTitle').value; 
-    const hasInv = document.getElementById('useInventory').checked;
-    const invPos = document.getElementById('inv-pos').value; 
-    const invIconVal = document.getElementById('inv-icon').value;
-	const useGlobalAudio = document.getElementById('useGlobalAudio').checked;
-	const globalAudioUrl = document.getElementById('globalAudioUrl').value;
+    // 1. Paramètres globaux depuis le projet v2
+    const project = getCurrentProjectData();
+    const title = project.title || "Mon Super Jeu";
+    const hasInv = project.useInv !== false;
+    const invPos = project.invPos || "top-right";
+    const invIconVal = project.invIcon || "🎒";
+	const useGlobalAudio = !!project.useGlobalAudio;
+	const gm = project.globalMusic || {};
+	const globalMusicUrl = String(gm.url != null ? gm.url : project.globalAudioUrl || "").trim();
+	const globalMusicVol =
+		gm.volume !== undefined && !isNaN(Number(gm.volume))
+			? Math.max(0, Math.min(1, Number(gm.volume)))
+			: 0.5;
 
     
     // Détermination de la position CSS de l'inventaire
@@ -23,119 +29,168 @@ function generateGame() {
     }
 	
     // Extraction des couleurs inventaire (conversion RGBa)
-    const invBgc = document.getElementById('inv-bgc').value;
-    const invBga = document.getElementById('inv-bga').value;
+    const invBgc = project.invBgc || "#000000";
+    const invBga = project.invBga !== undefined ? project.invBga : "0.8";
     const invBg = hexToRgba(invBgc, invBga);
-    const invColor = document.getElementById('inv-color').value;
+    const invColor = project.invColor || "#ffffff";
 
     // Paramètres Popup personnalisés ou par défaut
-    const useCustomPopup = document.getElementById('useCustomPopup').checked;
-    const popFont = useCustomPopup ? document.getElementById('pop-font').value : "Arial, sans-serif";
-    const popColor = useCustomPopup ? document.getElementById('pop-color').value : "#ffffff";
-    const popBgc = useCustomPopup ? document.getElementById('pop-bgc').value : "#000000";
-    const popBga = useCustomPopup ? document.getElementById('pop-bga').value : "0.95";
+    const useCustomPopup = !!project.useCustomPopup;
+    const popFont = useCustomPopup ? (project.popFont || "Arial, sans-serif") : "Arial, sans-serif";
+    const popColor = useCustomPopup ? (project.popColor || "#ffffff") : "#ffffff";
+    const popBgc = useCustomPopup ? (project.popBgc || "#000000") : "#000000";
+    const popBga = useCustomPopup ? (project.popBga !== undefined ? project.popBga : "0.95") : "0.95";
     const popBg = hexToRgba(popBgc, popBga);
-    const popBtnBg = useCustomPopup ? document.getElementById('pop-btn-bg').value : "#27ae60";
-    const popBtnCol = useCustomPopup ? document.getElementById('pop-btn-col').value : "#ffffff";
+    const popBtnBg = useCustomPopup ? (project.popBtnBg || "#27ae60") : "#27ae60";
+    const popBtnCol = useCustomPopup ? (project.popBtnCol || "#ffffff") : "#ffffff";
 
     let scenesConfig = {};
     let firstSceneId = "";
     let customStylesCSS = "";
     let globalHsCount = 0;
-	let sceneAudios = {};
+	let sceneAmbianceClips = {};
     
-    // 2. Parcourt des scènes pour construire le code compréhensible par Pannellum
-    document.querySelectorAll('.scene-block').forEach((sceneDiv, index) => {
-        const scId = sceneDiv.querySelector('.sc-id').value; 
-        let scImg = sceneDiv.querySelector('.sc-img').value;
-        if (!scImg.startsWith('http')) scImg = "./" + scImg; // Ajoute "./" si l'image est locale
-        if(index === 0) firstSceneId = scId; // La première scène devient la scène de départ
+    function choiceV2ToLegacy(choice) {
+        if(!choice || !choice.action) return { label: "Option", actionType: "msg", txt: "" };
+        var a = choice.action;
+        var p = a.payload || {};
+        var c = p.copy || {};
+        var out = { label: choice.label || "Option", actionType: a.type || "msg" };
+        if(a.type === "msg") out.txt = c.bodyHtml || "";
+        else if(a.type === "scene") {
+            out.target = p.target || "";
+            out.transTxt = c.bodyHtml || "";
+            out.transBtn = c.buttonLabel || "Continuer";
+        } else if(a.type === "pick") {
+            out.itemId = p.itemId || "";
+            out.itemName = p.itemName || "";
+            out.txt = c.bodyHtml || "";
+        } else if(a.type === "selector") {
+            var n = p.nested || {};
+            var nc = n.copy || {};
+            out.nested = {
+                title: n.title || "",
+                introHtml: nc.bodyHtml || "",
+                displayMode: n.displayMode === "dropdown" ? "dropdown" : "buttons",
+                choices: (Array.isArray(n.choices) ? n.choices : []).map(choiceV2ToLegacy)
+            };
+        }
+        if(a.visibility && a.visibility.requiresItem) out.requiresItem = a.visibility.requiresItem;
+        if(a.visibility && a.visibility.hiddenIfHasItem) out.hiddenIfHasItem = a.visibility.hiddenIfHasItem;
+        if(a.sfx && a.sfx.url) out.sfxUrl = a.sfx.url;
+        if(a.sfx && a.sfx.volume !== undefined) out.sfxVolume = a.sfx.volume;
+        return out;
+    }
 
-        let scAudioRaw = sceneDiv.querySelector('.sc-audio') ? sceneDiv.querySelector('.sc-audio').value.trim() : "";
+    function actionV2ToPlayerArgs(action) {
+        var a = action || {};
+        var p = a.payload || {};
+        var pc = p.copy || {};
+        var args = { type: a.type || "msg" };
+        if(args.type === "msg") args.txt = pc.bodyHtml || "";
+        else if(args.type === "scene") {
+            args.target = p.target || "";
+            args.transTxt = pc.bodyHtml || "";
+            args.transBtn = pc.buttonLabel || "Continuer";
+        } else if(args.type === "pick") {
+            args.itemId = p.itemId || "";
+            args.itemName = p.itemName || "";
+            args.txt = pc.bodyHtml || "";
+        } else if(args.type === "req") {
+            args.itemId = p.itemId || "";
+            args.ko = pc.bodyHtml || "";
+            var r = p.rewardAction || {};
+            var rc = (r.payload && r.payload.copy) || {};
+            args.action = r.type || "scene";
+            if(args.action === "scene") {
+                args.target = (r.payload && r.payload.target) || "";
+                args.transTxt = rc.bodyHtml || "";
+                args.transBtn = rc.buttonLabel || "Continuer";
+            } else if(args.action === "msg") args.okMsg = rc.bodyHtml || "";
+            else if(args.action === "pick") {
+                args.pickId = (r.payload && r.payload.itemId) || "";
+                args.pickName = (r.payload && r.payload.itemName) || "";
+                args.pickMsg = rc.bodyHtml || "";
+            }
+        } else if(args.type === "pwd") {
+            args.enigmeTxt = pc.bodyHtml || "";
+            args.pwd = (p.answer || "").toLowerCase().trim();
+            var rp = p.rewardAction || {};
+            var rpc = (rp.payload && rp.payload.copy) || {};
+            args.action = rp.type || "scene";
+            if(args.action === "scene") {
+                args.target = (rp.payload && rp.payload.target) || "";
+                args.transTxt = rpc.bodyHtml || "";
+                args.transBtn = rpc.buttonLabel || "Continuer";
+            } else if(args.action === "msg") args.okMsg = rpc.bodyHtml || "";
+            else if(args.action === "pick") {
+                args.pickId = (rp.payload && rp.payload.itemId) || "";
+                args.pickName = (rp.payload && rp.payload.itemName) || "";
+                args.pickMsg = rpc.bodyHtml || "";
+            }
+        } else if(args.type === "selector") {
+            var n = p.nested || {};
+            var ncopy = n.copy || {};
+            args.title = n.title || "";
+            args.introHtml = ncopy.bodyHtml || "";
+            args.displayMode = n.displayMode === "dropdown" ? "dropdown" : "buttons";
+            args.choices = (Array.isArray(n.choices) ? n.choices : []).map(choiceV2ToLegacy);
+        }
+        if(a.visibility && a.visibility.requiresItem) args.requiresItem = a.visibility.requiresItem;
+        if(a.visibility && a.visibility.hiddenIfHasItem) args.hiddenIfHasItem = a.visibility.hiddenIfHasItem;
+        if(a.sfx && a.sfx.url) args.sfxUrl = a.sfx.url;
+        if(a.sfx && a.sfx.volume !== undefined) args.sfxVolume = a.sfx.volume;
+        return args;
+    }
+
+    // 2. Parcourt des scènes v2 pour construire la config Pannellum
+    (project.scenes || []).forEach((scene, index) => {
+        const scId = scene.id || ("scene_" + (index + 1));
+        let scImg = (scene.media && scene.media.panoramaUrl) ? scene.media.panoramaUrl : "";
+        if (!String(scImg).startsWith('http')) scImg = "./" + scImg;
+        if(index === 0) firstSceneId = scId;
+
+        var amb = scene.media && scene.media.ambiance;
+        var scAudioRaw =
+            typeof amb === "string"
+                ? String(amb).trim()
+                : amb && amb.url != null
+                  ? String(amb.url).trim()
+                  : "";
         if (scAudioRaw) {
             let scAudioUrl = scAudioRaw;
-            if (!scAudioUrl.startsWith('http')) scAudioUrl = "./" + scAudioUrl;
-            sceneAudios[scId] = scAudioUrl;
+            if (!scAudioUrl.startsWith("http")) scAudioUrl = "./" + scAudioUrl;
+            var ambVol =
+                amb && typeof amb === "object" && amb.volume !== undefined && !isNaN(Number(amb.volume))
+                    ? Math.max(0, Math.min(1, Number(amb.volume)))
+                    : 1;
+            sceneAmbianceClips[scId] = { url: scAudioUrl, volume: ambVol };
         }
         
         let hotSpots = [];
         
         // Parcourt des hotspots de la scène
-        sceneDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
+        (scene.hotspots || []).forEach(hs => {
             globalHsCount++; 
             const hsClass = "custom-hs-" + globalHsCount;
             
             // Compilation du CSS du hotspot pour l'injecter dans le jeu
-            customStylesCSS += `.${hsClass} { ${hsDiv.querySelector('.hs-custom-css').value} pointer-events: auto; }\n.${hsClass}:hover { transform: scale(1.1); }\n`;
+            customStylesCSS += `.${hsClass} { ${(hs.customCss || "")} pointer-events: auto; }\n.${hsClass}:hover { transform: scale(1.1); }\n`;
             
-            const type = hsDiv.querySelector('.hs-type').value; 
+            const type = (hs.action && hs.action.type) ? hs.action.type : "msg";
             
             // L'objet `args` contient toutes les données que Pannellum va utiliser lors d'un clic
-            let args = { type: type, id: "hs_uid_" + globalHsCount };
-            
-            // Extraction des données en fonction du type d'action choisi
-            if(type === 'msg') {
-                args.txt = hsDiv.querySelector('.f-txt').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>');
-            }
-            if(type === 'scene') { 
-                args.target = hsDiv.querySelector('.f-target').value; 
-                args.transTxt = hsDiv.querySelector('.f-trans-txt').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); 
-                args.transBtn = hsDiv.querySelector('.f-trans-btn').value.replace(/"/g, '&quot;'); 
-            }
-            if(type === 'pick') { 
-                args.itemId = hsDiv.querySelector('.f-item-id').value; 
-                args.itemName = hsDiv.querySelector('.f-item-name').value; 
-                args.txt = hsDiv.querySelector('.f-pick-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); 
-            }
-            if(type === 'req') { 
-                args.itemId = hsDiv.querySelector('.f-item-id').value; 
-                args.ko = hsDiv.querySelector('.f-ko').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); 
-                args.action = hsDiv.querySelector('.f-req-action').value;
-                if(args.action === 'scene') { 
-                    args.target = hsDiv.querySelector('.f-target').value; 
-                    args.transTxt = hsDiv.querySelector('.f-trans-txt').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); 
-                    args.transBtn = hsDiv.querySelector('.f-trans-btn').value.replace(/"/g, '&quot;'); 
-                }
-                else if(args.action === 'msg') { args.okMsg = hsDiv.querySelector('.f-ok-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); }
-                else if(args.action === 'pick') { 
-                    args.pickId = hsDiv.querySelector('.f-pick-id').value; 
-                    args.pickName = hsDiv.querySelector('.f-pick-name').value; 
-                    args.pickMsg = hsDiv.querySelector('.f-pick-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); 
-                }
-            }
-            if(type === 'pwd') {
-                args.enigmeTxt = hsDiv.querySelector('.f-enigme-txt').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); 
-                args.pwd = hsDiv.querySelector('.f-pwd').value.toLowerCase().trim(); 
-                args.action = hsDiv.querySelector('.f-pwd-action').value;
-                if(args.action === 'scene') { 
-                    args.target = hsDiv.querySelector('.f-target').value; 
-                    args.transTxt = hsDiv.querySelector('.f-trans-txt').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); 
-                    args.transBtn = hsDiv.querySelector('.f-trans-btn').value.replace(/"/g, '&quot;'); 
-                }
-                else if(args.action === 'msg') { args.okMsg = hsDiv.querySelector('.f-ok-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); }
-                else if(args.action === 'pick') { 
-                    args.pickId = hsDiv.querySelector('.f-pick-id').value; 
-                    args.pickName = hsDiv.querySelector('.f-pick-name').value; 
-                    args.pickMsg = hsDiv.querySelector('.f-pick-msg').value.replace(/"/g, '&quot;').replace(/\n/g, '<br>'); 
-                }
-            }
-            if(type === 'selector') {
-                args.title = hsDiv.querySelector('.f-sel-title').value;
-                args.introHtml = hsDiv.querySelector('.f-sel-intro').value;
-                var selDm = hsDiv.querySelector('.f-sel-display');
-                args.displayMode = (selDm && selDm.value === 'dropdown') ? 'dropdown' : 'buttons';
-                try {
-                    var selChoices = JSON.parse(hsDiv.querySelector('.f-sel-choices').value.trim());
-                    if(!Array.isArray(selChoices)) throw new Error('choices doit être un tableau JSON');
-                    args.choices = selChoices;
-                } catch(e) {
-                    alert('Selector : JSON des choix invalide.\\n' + e.message);
-                    return;
-                }
-            }
+            let args = actionV2ToPlayerArgs(hs.action || { type: type, payload: {} });
+            args.id = "hs_uid_" + globalHsCount;
             
             // Ajout du hotspot à la liste de la scène
-            hotSpots.push({ pitch: parseFloat(hsDiv.querySelector('.hs-pitch').value), yaw: parseFloat(hsDiv.querySelector('.hs-yaw').value), cssClass: hsClass, createTooltipFunc: "hotspotDispatcher", createTooltipArgs: args });
+            hotSpots.push({
+                pitch: parseFloat(hs.pitch != null ? hs.pitch : 0),
+                yaw: parseFloat(hs.yaw != null ? hs.yaw : 0),
+                cssClass: hsClass,
+                createTooltipFunc: "hotspotDispatcher",
+                createTooltipArgs: args
+            });
         });
         
         // Ajout de la scène à la configuration globale de Pannellum
@@ -145,7 +200,7 @@ function generateGame() {
     // 3. Transformation de la configuration en texte JSON (et nettoyage des guillemets pour la fonction JS)
     let jsonScenes = JSON.stringify(scenesConfig, null, 4).replace(/"createTooltipFunc": "hotspotDispatcher"/g, '"createTooltipFunc": hotspotDispatcher');
 
-    const sceneAmbianceJson = JSON.stringify(sceneAudios);
+    const sceneAmbianceJson = JSON.stringify(sceneAmbianceClips);
 
     // 4. CONSTRUCTION DU FICHIER HTML FINAL (Le Modèle)
     const htmlTemplate = `<!DOCTYPE html>
@@ -203,18 +258,23 @@ function generateGame() {
     var viewer;
 
     // --- MOTEUR AUDIO ---
-    var sceneAmbianceUrls = ${sceneAmbianceJson};
+    var sceneAmbianceClips = ${sceneAmbianceJson};
 
     var audioSys = {
         masterVol: 1.0, musicVol: 0.5, ambianceVol: 0.8, sfxVol: 1.0,
         _ambianceLogicalUrl: '',
         
-        playMusic: function(url) {
+        playMusic: function(url, clipVol) {
             var p = document.getElementById('audio-music');
-            if(!url) { p.pause(); return; }
-            if(p.src !== url) { p.src = url; p.volume = this.musicVol * this.masterVol; p.play().catch(function(e){console.log(e)}); }
+            if(!url || !String(url).trim()) { p.pause(); return; }
+            url = String(url).trim();
+            var m = 1;
+            if(clipVol != null && clipVol !== '' && !isNaN(Number(clipVol))) m = Math.max(0, Math.min(1, Number(clipVol)));
+            p.volume = this.musicVol * this.masterVol * m;
+            if(p.src !== url) { p.src = url; }
+            p.play().catch(function(e){console.log(e)});
         },
-        playAmbiance: function(url) {
+        playAmbiance: function(url, clipVol) {
             var p = document.getElementById('audio-ambiance');
             if(!url || !String(url).trim()) {
                 p.pause();
@@ -224,7 +284,9 @@ function generateGame() {
                 return;
             }
             url = String(url).trim();
-            p.volume = this.ambianceVol * this.masterVol;
+            var m = 1;
+            if(clipVol != null && clipVol !== '' && !isNaN(Number(clipVol))) m = Math.max(0, Math.min(1, Number(clipVol)));
+            p.volume = this.ambianceVol * this.masterVol * m;
             if (this._ambianceLogicalUrl === url) {
                 if (p.paused) p.play().catch(function(e){console.log(e)});
                 return;
@@ -250,12 +312,12 @@ function generateGame() {
     };
 
     function applySceneAmbiance(sceneId) {
-        var url = sceneAmbianceUrls[sceneId];
-        if (!url || String(url).trim() === '') {
+        var clip = sceneAmbianceClips[sceneId];
+        if (!clip || !clip.url || String(clip.url).trim() === '') {
             audioSys.playAmbiance('');
             return;
         }
-        audioSys.playAmbiance(url);
+        audioSys.playAmbiance(clip.url, clip.volume);
     }
 
     // --- LANCEMENT DU JEU ---
@@ -275,8 +337,8 @@ function generateGame() {
         applySceneAmbiance("${firstSceneId}");
 
         // Lancement de la musique globale si activée
-        if (${useGlobalAudio} && "${globalAudioUrl}" !== "") {
-            audioSys.playMusic("${globalAudioUrl}");
+        if (${useGlobalAudio} && "${globalMusicUrl}" !== "") {
+            audioSys.playMusic("${globalMusicUrl}", ${globalMusicVol});
         }
     }
     
@@ -294,6 +356,9 @@ function generateGame() {
     // Action « feuille » (msg / changement de scène / ramassage) — même moteur pour hotspots classiques et futurs choix selector (voir docs/SELECTOR_SPEC.md)
     // fromSelector : si vrai, on ne masque pas le hotspot après pick (le même div sert encore à rouvrir le menu selector)
     function executeAction(payload, hsDiv, fromSelector) {
+        if(payload.sfxUrl != null && String(payload.sfxUrl).trim() !== '') {
+            audioSys.playSFX(String(payload.sfxUrl).trim(), payload.sfxVolume);
+        }
         if(payload.type === 'scene') {
             if(payload.transTxt) {
                 afficherPopup("", payload.transTxt, payload.transBtn || "Continuer", function(){ viewer.loadScene(payload.target); });
@@ -337,6 +402,16 @@ function generateGame() {
         }
         if(choice.hiddenIfHasItem != null && String(choice.hiddenIfHasItem).trim() !== '') {
             if(inventaire[String(choice.hiddenIfHasItem).trim()]) return false;
+        }
+        return true;
+    }
+    function isActionVisible(args) {
+        if(!args) return false;
+        if(args.requiresItem != null && String(args.requiresItem).trim() !== '') {
+            if(!inventaire[String(args.requiresItem).trim()]) return false;
+        }
+        if(args.hiddenIfHasItem != null && String(args.hiddenIfHasItem).trim() !== '') {
+            if(inventaire[String(args.hiddenIfHasItem).trim()]) return false;
         }
         return true;
     }
@@ -511,11 +586,15 @@ function generateGame() {
 
     function hotspotDispatcher(hsDiv, args) {
         hsDiv.onclick = function() {
+            if(!isActionVisible(args)) return;
             if(args.type === 'selector') { openSelector(args, hsDiv); }
-            else if(args.type === 'msg') { executeAction({ type: 'msg', txt: args.txt }, hsDiv); }
-            else if(args.type === 'scene') { executeAction({ type: 'scene', target: args.target, transTxt: args.transTxt, transBtn: args.transBtn }, hsDiv); }
-            else if(args.type === 'pick') { executeAction({ type: 'pick', itemId: args.itemId, itemName: args.itemName, txt: args.txt }, hsDiv); }
+            else if(args.type === 'msg') { executeAction({ type: 'msg', txt: args.txt, sfxUrl: args.sfxUrl, sfxVolume: args.sfxVolume }, hsDiv); }
+            else if(args.type === 'scene') { executeAction({ type: 'scene', target: args.target, transTxt: args.transTxt, transBtn: args.transBtn, sfxUrl: args.sfxUrl, sfxVolume: args.sfxVolume }, hsDiv); }
+            else if(args.type === 'pick') { executeAction({ type: 'pick', itemId: args.itemId, itemName: args.itemName, txt: args.txt, sfxUrl: args.sfxUrl, sfxVolume: args.sfxVolume }, hsDiv); }
             else if(args.type === 'req') {
+                if(args.sfxUrl != null && String(args.sfxUrl).trim() !== '') {
+                    audioSys.playSFX(String(args.sfxUrl).trim(), args.sfxVolume);
+                }
                 if(inventaire[args.itemId]) {
                     hsDiv.style.background = "rgba(0,255,0,0.5)";
                     executeReward(args, hsDiv);
@@ -524,6 +603,9 @@ function generateGame() {
                 }
             }
             else if(args.type === 'pwd') {
+                if(args.sfxUrl != null && String(args.sfxUrl).trim() !== '') {
+                    audioSys.playSFX(String(args.sfxUrl).trim(), args.sfxVolume);
+                }
                 if(unlockedHotspots[args.id]) { executeReward(args, hsDiv); return; }
                 
                 var pwdBackdrop = document.createElement('div');
