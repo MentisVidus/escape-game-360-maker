@@ -12,6 +12,304 @@ let tempYaw = 0;
 // Variable pour le lecteur de prévisualisation (Preview)
 let scenePreviewViewer = null;
 
+// --- Bundle projet .escapegame (ZIP + project.json + assets/) : URLs blob: et ./assets/ ---
+window.bundleAssets = window.bundleAssets || new Map();
+window.bundleAssetPathBlobs = window.bundleAssetPathBlobs || new Map();
+var bundleTrackedObjectUrls = [];
+var bundleLocalMediaTargetEl = null;
+var bundleLocalMediaAccept = "*/*";
+
+function registerBundleBlobUrl(url) {
+    if (url && bundleTrackedObjectUrls.indexOf(url) < 0) bundleTrackedObjectUrls.push(url);
+}
+
+function revokeEditorBundleSession() {
+    bundleTrackedObjectUrls.forEach(function (u) {
+        try {
+            URL.revokeObjectURL(u);
+        } catch (e) {}
+    });
+    bundleTrackedObjectUrls = [];
+    window.bundleAssets.clear();
+    window.bundleAssetPathBlobs.clear();
+}
+
+function canonicalAssetRef(url) {
+    if (typeof url !== "string") return null;
+    var t = url.trim();
+    if (t.indexOf("\0") >= 0) return null;
+    if (t.startsWith("./assets/")) return t;
+    if (t.startsWith("assets/")) return "./" + t;
+    return null;
+}
+
+function getBlobOrFileForPortableUrl(url) {
+    if (typeof url !== "string") return null;
+    var t = url.trim();
+    if (t.startsWith("blob:")) {
+        if (!window.bundleAssets) return null;
+        return window.bundleAssets.get(t) || window.bundleAssets.get(url) || null;
+    }
+    var c = canonicalAssetRef(t);
+    if (c && window.bundleAssetPathBlobs && window.bundleAssetPathBlobs.has(c)) return window.bundleAssetPathBlobs.get(c);
+    return null;
+}
+
+function eachPortableMediaUrlInProject(project, visit) {
+    function V(u) {
+        if (u == null) return;
+        var s = String(u).trim();
+        if (s) visit(s);
+    }
+    if (project.globalMusic && project.globalMusic.url) V(project.globalMusic.url);
+    (project.scenes || []).forEach(function (scene) {
+        var media = scene.media || {};
+        V(media.panoramaUrl);
+        var amb = media.ambiance;
+        if (typeof amb === "string") V(amb);
+        else if (amb && amb.url) V(amb.url);
+        (scene.hotspots || []).forEach(function (hs) {
+            var app = hs.appearance || {};
+            if (app.ui_img) V(app.ui_img);
+            walkActionMediaUrls(hs.action, V);
+        });
+    });
+}
+
+function walkActionMediaUrls(action, V) {
+    if (!action) return;
+    if (action.sfx && action.sfx.url) V(action.sfx.url);
+    var p = action.payload;
+    if (!p) return;
+    if (p.nested && Array.isArray(p.nested.choices)) {
+        p.nested.choices.forEach(function (ch) {
+            walkActionMediaUrls(ch.action, V);
+        });
+    }
+    if (p.rewardAction) walkActionMediaUrls(p.rewardAction, V);
+}
+
+function rewritePortableUrlsInProjectClone(project, rewriteStr) {
+    function Rw(x) {
+        if (x == null) return x;
+        return rewriteStr(String(x));
+    }
+    if (project.globalMusic && project.globalMusic.url != null) project.globalMusic.url = Rw(project.globalMusic.url);
+    (project.scenes || []).forEach(function (scene) {
+        var media = scene.media || {};
+        if (media.panoramaUrl != null) media.panoramaUrl = Rw(media.panoramaUrl);
+        var amb = media.ambiance;
+        if (typeof amb === "string") scene.media.ambiance = Rw(amb);
+        else if (amb && typeof amb === "object" && amb.url != null) amb.url = Rw(amb.url);
+        (scene.hotspots || []).forEach(function (hs) {
+            var app = hs.appearance || {};
+            if (app.ui_img != null) app.ui_img = Rw(app.ui_img);
+            rewriteActionMediaUrls(hs.action, Rw);
+        });
+    });
+}
+
+function rewriteActionMediaUrls(action, Rw) {
+    if (!action) return;
+    if (action.sfx && action.sfx.url != null) action.sfx.url = Rw(action.sfx.url);
+    var p = action.payload;
+    if (!p) return;
+    if (p.nested && Array.isArray(p.nested.choices)) {
+        p.nested.choices.forEach(function (ch) {
+            rewriteActionMediaUrls(ch.action, Rw);
+        });
+    }
+    if (p.rewardAction) rewriteActionMediaUrls(p.rewardAction, Rw);
+}
+
+function sanitizeBundleFileName(name, fallback) {
+    var base = String(name || fallback || "asset")
+        .split(/[/\\]/)
+        .pop();
+    base = base.replace(/[^a-zA-Z0-9._-]+/g, "_");
+    if (!base || base === "." || base === "..") base = fallback || "asset.bin";
+    return base.slice(0, 120);
+}
+
+function uniqueNameInSet(desired, usedSet) {
+    var dot = desired.lastIndexOf(".");
+    var stem = dot > 0 ? desired.slice(0, dot) : desired;
+    var ext = dot > 0 ? desired.slice(dot) : "";
+    var name = desired;
+    var n = 0;
+    while (usedSet[name]) {
+        n++;
+        name = stem + "_" + n + ext;
+    }
+    usedSet[name] = true;
+    return name;
+}
+
+function deriveBundleNameHint(url, blob) {
+    if (blob instanceof File && blob.name) return blob.name;
+    var c = canonicalAssetRef(String(url || "").trim());
+    if (c) {
+        var seg = c.replace(/^\.\/assets\//, "").split("/");
+        return seg[seg.length - 1] || "asset.bin";
+    }
+    return "media.bin";
+}
+
+function isZipArrayBuffer(buf) {
+    if (!buf || buf.byteLength < 4) return false;
+    var a = new Uint8Array(buf, 0, 4);
+    return a[0] === 0x50 && a[1] === 0x4b;
+}
+
+function openBundleLocalMediaPicker(targetInput, accept) {
+    bundleLocalMediaTargetEl = targetInput;
+    bundleLocalMediaAccept = accept || "*/*";
+    var el = document.getElementById("bundle-media-file");
+    if (!el) return;
+    el.accept = bundleLocalMediaAccept;
+    el.value = "";
+    el.click();
+}
+
+function onBundleLocalMediaSelected(event) {
+    var inp = event.target;
+    var file = inp.files && inp.files[0];
+    var target = bundleLocalMediaTargetEl;
+    bundleLocalMediaTargetEl = null;
+    if (!file || !target) {
+        if (inp) inp.value = "";
+        return;
+    }
+    var old = (target.value || "").trim();
+    if (old.startsWith("blob:")) {
+        if (window.bundleAssets && window.bundleAssets.has(old)) window.bundleAssets.delete(old);
+        try {
+            URL.revokeObjectURL(old);
+        } catch (e) {}
+        var ix = bundleTrackedObjectUrls.indexOf(old);
+        if (ix >= 0) bundleTrackedObjectUrls.splice(ix, 1);
+    }
+    var url = URL.createObjectURL(file);
+    registerBundleBlobUrl(url);
+    window.bundleAssets.set(url, file);
+    target.value = url;
+    target.dispatchEvent(new Event("input", { bubbles: true }));
+    target.dispatchEvent(new Event("change", { bubbles: true }));
+    inp.value = "";
+}
+
+window.collectPortableBundleEmbeds = function (project) {
+    var out = [];
+    var seen = {};
+    eachPortableMediaUrlInProject(project, function (u) {
+        if (!u || seen[u]) return;
+        if (!u.startsWith("blob:") && !canonicalAssetRef(u)) return;
+        var blob = getBlobOrFileForPortableUrl(u);
+        if (!blob) return;
+        seen[u] = true;
+        out.push({ url: u, blob: blob, nameHint: deriveBundleNameHint(u, blob) });
+    });
+    return out;
+};
+
+async function mapZipAssetsToEditorSession(zip) {
+    var pathToBlobUrl = {};
+    var tasks = [];
+    zip.forEach(function (relPath, entry) {
+        if (entry.dir) return;
+        var norm = relPath.replace(/\\/g, "/");
+        if (!norm.startsWith("assets/") || norm === "assets/") return;
+        var inner = norm.slice("assets/".length);
+        if (!inner || inner.endsWith("/")) return;
+        tasks.push(
+            entry.async("blob").then(function (blob) {
+                var relKey = "./assets/" + inner;
+                window.bundleAssetPathBlobs.set(relKey, blob);
+                var baseName = inner.split("/").pop() || "asset.bin";
+                var f = new File([blob], baseName, { type: blob.type || "application/octet-stream" });
+                var blobUrl = URL.createObjectURL(blob);
+                registerBundleBlobUrl(blobUrl);
+                window.bundleAssets.set(blobUrl, f);
+                pathToBlobUrl[relKey] = blobUrl;
+            })
+        );
+    });
+    await Promise.all(tasks);
+    return pathToBlobUrl;
+}
+
+function rewriteLoadedProjectPathsToBlobUrls(project, pathToBlobUrl) {
+    function R(s) {
+        if (typeof s !== "string") return s;
+        var t = s.trim();
+        var c = canonicalAssetRef(t);
+        if (c && pathToBlobUrl[c]) return pathToBlobUrl[c];
+        return s;
+    }
+    rewritePortableUrlsInProjectClone(project, R);
+}
+
+async function saveProjectBundle() {
+    if (typeof JSZip === "undefined" || typeof saveAs === "undefined") {
+        alert(
+            "JSZip ou FileSaver.js n’est pas chargé. Vérifiez votre connexion (CDN), puis rechargez la page."
+        );
+        return;
+    }
+    try {
+        var project = JSON.parse(JSON.stringify(getCurrentProjectData()));
+        var neededUrls = [];
+        var seen = {};
+        eachPortableMediaUrlInProject(project, function (u) {
+            if (!u || seen[u]) return;
+            if (!u.startsWith("blob:") && !canonicalAssetRef(u)) return;
+            if (!getBlobOrFileForPortableUrl(u)) return;
+            seen[u] = true;
+            neededUrls.push(u);
+        });
+        var usedZipNames = {};
+        var urlToRelPath = {};
+        neededUrls.forEach(function (srcUrl) {
+            var blob = getBlobOrFileForPortableUrl(srcUrl);
+            if (!blob) return;
+            var hint = deriveBundleNameHint(srcUrl, blob);
+            var safe = sanitizeBundleFileName(hint, "asset.bin");
+            var finalName = uniqueNameInSet(safe, usedZipNames);
+            var rel = "./assets/" + finalName;
+            var tr = srcUrl.trim();
+            urlToRelPath[tr] = rel;
+            if (srcUrl !== tr) urlToRelPath[srcUrl] = rel;
+        });
+        rewritePortableUrlsInProjectClone(project, function (s) {
+            var t = typeof s === "string" ? s.trim() : "";
+            if (typeof s === "string" && urlToRelPath[s]) return urlToRelPath[s];
+            if (urlToRelPath[t]) return urlToRelPath[t];
+            return s;
+        });
+        var zip = new JSZip();
+        zip.file("project.json", JSON.stringify(project, null, 2));
+        var folder = zip.folder("assets");
+        neededUrls.forEach(function (u) {
+            var rel = urlToRelPath[u.trim()];
+            var blob = getBlobOrFileForPortableUrl(u);
+            if (!rel || !blob || !folder) return;
+            var base = rel.replace(/^\.\/assets\//, "");
+            folder.file(base, blob);
+        });
+        var outBlob = await zip.generateAsync({ type: "blob" });
+        var baseTitle = String(project.title || "EscapeGame")
+            .replace(/[\\/:*?"<>|]+/g, "_")
+            .trim()
+            .slice(0, 80);
+        saveAs(outBlob, (baseTitle || "EscapeGame") + ".escapegame");
+    } catch (e) {
+        console.error(e);
+        alert(
+            "Échec de la sauvegarde .escapegame : " + (e && e.message ? e.message : String(e))
+        );
+    }
+}
+
 function updateScenePreview() { /* hook réservé (ex: validation URL) ; champ .sc-img l'appelle au oninput */ }
 
 // --- FONCTIONS D'ERGONOMIE VISUELLE (Plier, Monter, Descendre) ---
@@ -115,8 +413,8 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
         <div id="scene_body_${sId}">
             <div class="row">
                 <div class="col"><label>ID court système (ex: cuisine) :</label><input type="text" class="sc-id" value="${scIdVal}"></div>
-                <div class="col"><label>Image 360 (ex: salle.jpg ou http...) :</label><input type="text" class="sc-img" value="${scImgVal}" oninput="updateScenePreview(this)"></div>
-                <div class="col col-wide"><label>🎵 Audio d'ambiance (URL mp3) :</label><input type="text" class="sc-audio" placeholder="Optionnel"></div>
+                <div class="col"><label>Image 360 (ex: salle.jpg ou http...) :</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-img" style="flex:1;min-width:0" value="${scImgVal}" oninput="updateScenePreview(this)"><button type="button" class="btn-icon" title="Choisir un fichier image local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'image/*,.jpg,.jpeg,.png,.webp')">📎</button></div></div>
+                <div class="col col-wide"><label>🎵 Audio d'ambiance (URL mp3) :</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-audio" style="flex:1;min-width:0" placeholder="Optionnel"><button type="button" class="btn-icon" title="Choisir un fichier audio local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'audio/*,.mp3,.ogg,.wav,.m4a')">📎</button></div></div>
             </div>
             <h4>Points d'interaction</h4>
             <div id="hs-container-${sId}"></div>
@@ -204,7 +502,7 @@ function addHotspot(sceneId, hsData = null) {
                     <div class="col"><label>Couleur Bordure:</label><input type="color" class="ui-brd-c" value="${uiBrdC}" oninput="buildCss(${hId})"></div>
                 </div>
                 <div class="row">
-                    <div class="col"><label>Image URL (optionnel):</label><input type="text" class="ui-img" value="${uiImg}" placeholder="ex: icone.png" oninput="buildCss(${hId})"></div>
+                    <div class="col"><label>Image URL (optionnel):</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="ui-img" style="flex:1;min-width:0" value="${uiImg}" placeholder="ex: icone.png" oninput="buildCss(${hId})"><button type="button" class="btn-icon" title="Fichier image local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'image/*')">📎</button></div></div>
                 </div>
             </div>
 
@@ -418,8 +716,8 @@ function openPicker(sceneLocalId, hId) {
     currentPickerHsId = hId; 
     document.getElementById('picker-modal').style.display = 'flex'; 
     let imgUrl = scImg; 
-    // Ajuste le chemin si l'image est locale
-    if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:')) imgUrl = "./" + imgUrl; 
+    // Ajuste le chemin si l'image est locale (pas blob:, data:, http)
+    if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:') && !imgUrl.startsWith('blob:')) imgUrl = "./" + imgUrl; 
     
     if(pickerViewer) pickerViewer.destroy(); 
     pickerViewer = pannellum.viewer('picker-panorama', { "type": "equirectangular", "panorama": imgUrl, "autoLoad": true, "showControls": false }); 
@@ -457,7 +755,7 @@ function previewScene(sceneLocalId) {
     document.getElementById('scene-preview-modal').style.display = 'flex'; 
     
     let imgUrl = scImg; 
-    if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:')) imgUrl = "./" + imgUrl; 
+    if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:') && !imgUrl.startsWith('blob:')) imgUrl = "./" + imgUrl; 
     
     let previewCSS = ""; 
     let hsArray = []; 
@@ -888,6 +1186,18 @@ function renderChoiceCardElement(ch, hId, depth) {
     is.className = "sel-opt-sfx";
     is.placeholder = "optionnel";
     is.value = ch.sfxUrl || "";
+    var sfxBtn = document.createElement("button");
+    sfxBtn.type = "button";
+    sfxBtn.className = "btn-icon";
+    sfxBtn.title = "Fichier audio local";
+    sfxBtn.textContent = "📎";
+    sfxBtn.onclick = function () {
+        openBundleLocalMediaPicker(is, "audio/*,.mp3,.ogg,.wav,.m4a");
+    };
+    var sfxRow = document.createElement("div");
+    sfxRow.style.cssText = "display:flex;gap:6px;align-items:center;flex-wrap:wrap;width:100%;";
+    sfxRow.appendChild(is);
+    sfxRow.appendChild(sfxBtn);
     var lsv = document.createElement("label");
     lsv.textContent = "Volume du son (0 à 1) :";
     var isv = document.createElement("input");
@@ -902,7 +1212,7 @@ function renderChoiceCardElement(ch, hId, depth) {
     det.appendChild(lh);
     det.appendChild(ih);
     det.appendChild(ls);
-    det.appendChild(is);
+    det.appendChild(sfxRow);
     det.appendChild(lsv);
     det.appendChild(isv);
     card.appendChild(det);
@@ -1376,89 +1686,122 @@ function actionV2ToLegacyHotspotData(hs) {
     return out;
 }
 
-function loadProject(event) {
-    const file = event.target.files[0]; 
-    if (!file) return; 
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const project = EditorCore.parseProjectJSON(e.target.result);
-            
-            // Nettoie l'interface actuelle
-            document.getElementById('scenes-container').innerHTML = ''; 
-            sceneIdCounter = 0; 
-            hsIdCounter = 0;
-            
-            // Restaure le titre
-            document.getElementById('gameTitle').value = project.title || "Mon Super Jeu";
-            
-            // --- RESTAURE L'INVENTAIRE ---
-            const useInv = project.useInv !== false;
-            document.getElementById('useInventory').checked = useInv;
-            // On affiche ou on cache le bloc d'inventaire selon s'il est coché ou non
-            document.getElementById('inv-settings-container').style.display = useInv ? 'flex' : 'none';
-            
-            if(useInv) { 
-                document.getElementById('inv-pos').value = project.invPos || "top-right"; 
-                document.getElementById('inv-icon').value = project.invIcon || "🎒"; 
-                document.getElementById('inv-bgc').value = project.invBgc || "#000000"; 
-                document.getElementById('inv-bga').value = project.invBga !== undefined ? project.invBga : "0.8"; 
-                document.getElementById('inv-color').value = project.invColor || "#ffffff"; 
-            }
-            
-            // --- RESTAURE LES POPUPS ---
-            const usePopup = project.useCustomPopup || false;
-            document.getElementById('useCustomPopup').checked = usePopup;
-			document.getElementById('popup-settings-container').style.display = usePopup ? 'flex' : 'none';
-            
-            if(usePopup) {
-                document.getElementById('pop-font').value = project.popFont || "Arial, sans-serif";
-                document.getElementById('pop-color').value = project.popColor || "#ffffff";
-                document.getElementById('pop-bgc').value = project.popBgc || "#000000";
-                document.getElementById('pop-bga').value = project.popBga !== undefined ? project.popBga : "0.9";
-                document.getElementById('pop-btn-bg').value = project.popBtnBg || "#27ae60";
-                document.getElementById('pop-btn-col').value = project.popBtnCol || "#ffffff";
-            }
+function applyLoadedProject(project) {
+    document.getElementById("scenes-container").innerHTML = "";
+    sceneIdCounter = 0;
+    hsIdCounter = 0;
 
-            // Restauration de l'audio global (Nouveau)
-            const useAudio = project.useGlobalAudio || false;
-            document.getElementById('useGlobalAudio').checked = useAudio;
-            document.getElementById('audio-settings-container').style.display = useAudio ? 'flex' : 'none';
-            var gm = project.globalMusic || {};
-            document.getElementById('globalAudioUrl').value = gm.url != null ? gm.url : project.globalAudioUrl || "";
-            // Restaure les scènes et les hotspots
-            project.scenes.forEach(scene => {
-                var scMedia = scene.media || {};
-                const sId = addScene(scene.id || "", scMedia.panoramaUrl || "salle.jpg", scene.title || "");
-				
-                // NOUVEAU : Restaure l'audio de la scène fraîchement créée
-                var scDiv = document.getElementById('scene_' + sId);
-                if (scDiv && scDiv.querySelector('.sc-audio')) {
-                    var amb = scMedia.ambiance || {};
-                    scDiv.querySelector('.sc-audio').value =
-                        amb.url != null ? amb.url : scMedia.ambianceUrl || "";
-                }
-				
-                (scene.hotspots || []).forEach(hs => { addHotspot(sId, actionV2ToLegacyHotspotData(hs)); });
-            });
-            if (typeof refreshAllSceneTargetSelects === "function") {
-                refreshAllSceneTargetSelects();
-            }
-            if (typeof initAllSceneIdStableFields === "function") {
-                initAllSceneIdStableFields();
-            }
-            
-            // === MISE À JOUR DE L'APERÇU VISUEL ===
-            updatePreview();
-            
-        } catch (err) {
+    document.getElementById("gameTitle").value = project.title || "Mon Super Jeu";
+
+    const useInv = project.useInv !== false;
+    document.getElementById("useInventory").checked = useInv;
+    document.getElementById("inv-settings-container").style.display = useInv ? "flex" : "none";
+
+    if (useInv) {
+        document.getElementById("inv-pos").value = project.invPos || "top-right";
+        document.getElementById("inv-icon").value = project.invIcon || "🎒";
+        document.getElementById("inv-bgc").value = project.invBgc || "#000000";
+        document.getElementById("inv-bga").value = project.invBga !== undefined ? project.invBga : "0.8";
+        document.getElementById("inv-color").value = project.invColor || "#ffffff";
+    }
+
+    const usePopup = project.useCustomPopup || false;
+    document.getElementById("useCustomPopup").checked = usePopup;
+    document.getElementById("popup-settings-container").style.display = usePopup ? "flex" : "none";
+
+    if (usePopup) {
+        document.getElementById("pop-font").value = project.popFont || "Arial, sans-serif";
+        document.getElementById("pop-color").value = project.popColor || "#ffffff";
+        document.getElementById("pop-bgc").value = project.popBgc || "#000000";
+        document.getElementById("pop-bga").value = project.popBga !== undefined ? project.popBga : "0.9";
+        document.getElementById("pop-btn-bg").value = project.popBtnBg || "#27ae60";
+        document.getElementById("pop-btn-col").value = project.popBtnCol || "#ffffff";
+    }
+
+    const useAudio = project.useGlobalAudio || false;
+    document.getElementById("useGlobalAudio").checked = useAudio;
+    document.getElementById("audio-settings-container").style.display = useAudio ? "flex" : "none";
+    var gm = project.globalMusic || {};
+    document.getElementById("globalAudioUrl").value = gm.url != null ? gm.url : project.globalAudioUrl || "";
+
+    project.scenes.forEach(function (scene) {
+        var scMedia = scene.media || {};
+        const sId = addScene(scene.id || "", scMedia.panoramaUrl || "salle.jpg", scene.title || "");
+
+        var scDiv = document.getElementById("scene_" + sId);
+        if (scDiv && scDiv.querySelector(".sc-audio")) {
+            var amb = scMedia.ambiance || {};
+            scDiv.querySelector(".sc-audio").value = amb.url != null ? amb.url : scMedia.ambianceUrl || "";
+        }
+
+        (scene.hotspots || []).forEach(function (hs) {
+            addHotspot(sId, actionV2ToLegacyHotspotData(hs));
+        });
+    });
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof initAllSceneIdStableFields === "function") {
+        initAllSceneIdStableFields();
+    }
+
+    updatePreview();
+}
+
+function loadProject(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const buf = e.target.result;
+        const inputEl = event.target;
+
+        function fail(err) {
             console.error(err);
-            alert("Fichier invalide ou erreur au chargement : " + (err && err.message ? err.message : String(err)));
+            alert(
+                "Fichier invalide ou erreur au chargement : " +
+                    (err && err.message ? err.message : String(err))
+            );
+            inputEl.value = "";
+        }
+
+        try {
+            if (isZipArrayBuffer(buf)) {
+                if (typeof JSZip === "undefined") {
+                    fail(new Error("JSZip n’est pas chargé (CDN). Rechargez la page."));
+                    return;
+                }
+                JSZip.loadAsync(buf)
+                    .then(function (zip) {
+                        var pj = zip.file("project.json");
+                        if (!pj) throw new Error("project.json introuvable dans l’archive .escapegame.");
+                        return pj.async("string").then(function (text) {
+                            return { zip: zip, text: text };
+                        });
+                    })
+                    .then(function (o) {
+                        var project = EditorCore.parseProjectJSON(o.text);
+                        revokeEditorBundleSession();
+                        return mapZipAssetsToEditorSession(o.zip).then(function (pathMap) {
+                            rewriteLoadedProjectPathsToBlobUrls(project, pathMap);
+                            applyLoadedProject(project);
+                            inputEl.value = "";
+                        });
+                    })
+                    .catch(fail);
+            } else {
+                var text = new TextDecoder("utf-8").decode(new Uint8Array(buf));
+                var project = EditorCore.parseProjectJSON(text);
+                revokeEditorBundleSession();
+                applyLoadedProject(project);
+                inputEl.value = "";
+            }
+        } catch (err) {
+            fail(err);
         }
     };
-    reader.readAsText(file); 
-    event.target.value = ''; // Réinitialise l'input de fichier
+    reader.readAsArrayBuffer(file);
 }
 
 // --- FONCTIONS DE MISE A JOUR D APERCU ---

@@ -39,10 +39,12 @@
     <!-- ========================================== -->
     <div class="top-toolbar">
         <button class="btn-save" onclick="saveProject()">💾 Save project (.json)</button>
-        <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Load project (.json)</button>
+        <button type="button" class="btn-save" onclick="void saveProjectBundle()" title="ZIP archive renamed: project.json + assets/ folder">💾 Save project (.escapegame)</button>
+        <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Load project (.json / .escapegame)</button>
         <button type="button" class="btn-load" onclick="openProjectMap()" title="Graph view of scenes and transitions">🗺️ Show map</button>
-        <!-- Hidden file input for “Load project” -->
-        <input type="file" id="file-import" style="display:none;" accept=".json" onchange="loadProject(event)">
+        <!-- JSON or portable bundle (.escapegame); separate input for local media pickers -->
+        <input type="file" id="file-import" style="display:none;" accept=".json,.escapegame,application/json,application/zip" onchange="loadProject(event)">
+        <input type="file" id="bundle-media-file" style="display:none;" onchange="onBundleLocalMediaSelected(event)">
     </div>
 
     <!-- Movable block (editor + map side panel): title + global settings -->
@@ -222,7 +224,10 @@
                     <div class="row" style="margin-bottom: 10px;">
                         <div class="col" style="flex: 1;">
                             <label>Audio file URL (.mp3, .ogg):</label>
-                            <input type="text" id="globalAudioUrl" placeholder="https://example.com/music.mp3" style="width: 100%;">
+                            <div style="display:flex;gap:6px;align-items:center;width:100%;">
+                            <input type="text" id="globalAudioUrl" placeholder="https://example.com/music.mp3" style="flex:1;min-width:0;">
+                            <button type="button" class="btn-icon" title="Pick a local audio file" onclick="openBundleLocalMediaPicker(document.getElementById('globalAudioUrl'), 'audio/*,.mp3,.ogg,.wav,.m4a')">📎</button>
+                            </div>
                         </div>
                     </div>
                     <small style="color: #7f8c8d;">This track starts when the game begins and loops.</small>

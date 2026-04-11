@@ -8,6 +8,44 @@ function patchPlayerHtmlForOffline(html) {
         .replace(/https:\/\/cdn\.jsdelivr\.net\/npm\/pannellum@2\.5\.7\/build\/pannellum\.js/g, "./lib/pannellum.js");
 }
 
+/** Prefix ./ for relative player paths; leave http(s), blob:, data: unchanged. */
+function playerRelMediaPathIfLocal(u) {
+    var s = String(u || "").trim();
+    if (!s) return s;
+    if (
+        s.startsWith("http://") ||
+        s.startsWith("https://") ||
+        s.startsWith("blob:") ||
+        s.startsWith("data:")
+    )
+        return s;
+    if (s.startsWith("./")) return s;
+    return "./" + s;
+}
+
+function sanitizeOfflineMediaBaseName(name, fallback) {
+    var base = String(name || fallback || "media")
+        .split(/[/\\]/)
+        .pop();
+    base = base.replace(/[^a-zA-Z0-9._-]+/g, "_");
+    if (!base || base === "." || base === "..") base = fallback || "media.bin";
+    return base.slice(0, 120);
+}
+
+function uniqueOfflineMediaName(desired, usedSet) {
+    var dot = desired.lastIndexOf(".");
+    var stem = dot > 0 ? desired.slice(0, dot) : desired;
+    var ext = dot > 0 ? desired.slice(dot) : "";
+    var name = desired;
+    var n = 0;
+    while (usedSet[name]) {
+        n++;
+        name = stem + "_" + n + ext;
+    }
+    usedSet[name] = true;
+    return name;
+}
+
 /** @returns {string} Full player HTML (Pannellum via CDN links). */
 function buildPlayerHtmlTemplate() {
     // 1. Globals from project v2
@@ -18,7 +56,9 @@ function buildPlayerHtmlTemplate() {
     const invIconVal = project.invIcon || "🎒";
 	const useGlobalAudio = !!project.useGlobalAudio;
 	const gm = project.globalMusic || {};
-	const globalMusicUrl = String(gm.url != null ? gm.url : project.globalAudioUrl || "").trim();
+	const globalMusicUrl = playerRelMediaPathIfLocal(
+		String(gm.url != null ? gm.url : project.globalAudioUrl || "").trim()
+	);
 	const globalMusicVol =
 		gm.volume !== undefined && !isNaN(Number(gm.volume))
 			? Math.max(0, Math.min(1, Number(gm.volume)))
@@ -156,7 +196,7 @@ function buildPlayerHtmlTemplate() {
     (project.scenes || []).forEach((scene, index) => {
         const scId = scene.id || ("scene_" + (index + 1));
         let scImg = (scene.media && scene.media.panoramaUrl) ? scene.media.panoramaUrl : "";
-        if (!String(scImg).startsWith('http')) scImg = "./" + scImg;
+        scImg = playerRelMediaPathIfLocal(scImg);
         if(index === 0) firstSceneId = scId;
 
         var amb = scene.media && scene.media.ambiance;
@@ -167,8 +207,7 @@ function buildPlayerHtmlTemplate() {
                   ? String(amb.url).trim()
                   : "";
         if (scAudioRaw) {
-            let scAudioUrl = scAudioRaw;
-            if (!scAudioUrl.startsWith("http")) scAudioUrl = "./" + scAudioUrl;
+            let scAudioUrl = playerRelMediaPathIfLocal(scAudioRaw);
             var ambVol =
                 amb && typeof amb === "object" && amb.volume !== undefined && !isNaN(Number(amb.volume))
                     ? Math.max(0, Math.min(1, Number(amb.volume)))
@@ -738,7 +777,25 @@ async function exportGameOfflineZip() {
         return;
     }
     try {
-        const html = patchPlayerHtmlForOffline(buildPlayerHtmlTemplate());
+        const htmlRaw = buildPlayerHtmlTemplate();
+        let html = patchPlayerHtmlForOffline(htmlRaw);
+        const project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
+        var embedList =
+            typeof window.collectPortableBundleEmbeds === "function"
+                ? window.collectPortableBundleEmbeds(project)
+                : [];
+        var mediaFilesToAdd = [];
+        if (embedList.length > 0) {
+            var usedMedia = {};
+            embedList.forEach(function (item) {
+                var base = uniqueOfflineMediaName(
+                    sanitizeOfflineMediaBaseName(item.nameHint, "media.bin"),
+                    usedMedia
+                );
+                mediaFilesToAdd.push({ name: base, blob: item.blob });
+                html = html.split(item.url).join("./media/" + base);
+            });
+        }
         const [cssText, jsText] = await Promise.all([
             fetch(OFFLINE_PANNELLUM_CDN_CSS).then(function (r) {
                 if (!r.ok) throw new Error("pannellum.css (" + r.status + ")");
@@ -751,11 +808,16 @@ async function exportGameOfflineZip() {
         ]);
         const zip = new JSZip();
         zip.file("index.html", html);
+        if (mediaFilesToAdd.length > 0) {
+            var mediaFolder = zip.folder("media");
+            mediaFilesToAdd.forEach(function (m) {
+                mediaFolder.file(m.name, m.blob);
+            });
+        }
         const lib = zip.folder("lib");
         lib.file("pannellum.css", cssText);
         lib.file("pannellum.js", jsText);
         const blob = await zip.generateAsync({ type: "blob" });
-        const project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
         const base = String(project.title || "EscapeGame")
             .replace(/[\\/:*?"<>|]+/g, "_")
             .trim()

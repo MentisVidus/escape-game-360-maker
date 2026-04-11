@@ -34,10 +34,12 @@
     <!-- ========================================== -->
     <div class="top-toolbar">
         <button class="btn-save" onclick="saveProject()">💾 Sauvegarder Projet (.json)</button>
-        <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Charger Projet (.json)</button>
+        <button type="button" class="btn-save" onclick="void saveProjectBundle()" title="Archive ZIP renommée : project.json + dossier assets/">💾 Sauvegarder le projet (.escapegame)</button>
+        <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Charger Projet (.json / .escapegame)</button>
         <button type="button" class="btn-load" onclick="openProjectMap()" title="Vue graphe des scènes et transitions">🗺️ Afficher la carte</button>
-        <!-- Input caché utilisé pour ouvrir la fenêtre de sélection de fichier -->
-        <input type="file" id="file-import" style="display:none;" accept=".json" onchange="loadProject(event)">
+        <!-- Imports : JSON classique ou bundle ZIP (.escapegame) ; médias locaux pour le bundle -->
+        <input type="file" id="file-import" style="display:none;" accept=".json,.escapegame,application/json,application/zip" onchange="loadProject(event)">
+        <input type="file" id="bundle-media-file" style="display:none;" onchange="onBundleLocalMediaSelected(event)">
     </div>
 
     <!-- Bloc déplaçable (éditeur + panneau latéral carte) : titre jeu + paramètres globaux -->
@@ -226,7 +228,10 @@
                     <div class="row" style="margin-bottom: 10px;">
                         <div class="col" style="flex: 1;">
                             <label>URL du fichier audio (.mp3, .ogg) :</label>
-                            <input type="text" id="globalAudioUrl" placeholder="https://exemple.com/musique.mp3" style="width: 100%;">
+                            <div style="display:flex;gap:6px;align-items:center;width:100%;">
+                            <input type="text" id="globalAudioUrl" placeholder="https://exemple.com/musique.mp3" style="flex:1;min-width:0;">
+                            <button type="button" class="btn-icon" title="Choisir un fichier audio local" onclick="openBundleLocalMediaPicker(document.getElementById('globalAudioUrl'), 'audio/*,.mp3,.ogg,.wav,.m4a')">📎</button>
+                            </div>
                         </div>
                     </div>
                     <small style="color: #7f8c8d;">Cette musique se lancera au démarrage du jeu et tournera en boucle.</small>
