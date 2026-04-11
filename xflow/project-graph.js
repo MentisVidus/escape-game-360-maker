@@ -282,6 +282,61 @@
         return hss[hotspotIndex] || null;
     }
 
+    function mountEditorGlobalSettingsInSidePanel() {
+        var root = document.getElementById("editor-global-root");
+        if (!root) return;
+        var en = document.documentElement.lang === "en";
+        var title = en ? "Global game settings" : "Paramètres généraux";
+        mountBlockInSidePanel(root, title);
+    }
+
+    function mountProjectMapSidePanelElement(el, titleText) {
+        if (!el) return;
+        var title = titleText;
+        if (!title) {
+            var en = document.documentElement.lang === "en";
+            var st = el.querySelector(".sc-title");
+            var sid = el.querySelector(".sc-id");
+            title =
+                (st && st.value.trim()) ||
+                (sid && sid.value.trim()) ||
+                (en ? "Scene" : "Scène");
+        }
+        mountBlockInSidePanel(el, title);
+    }
+
+    function filterProjectForNarrationSkeleton(project) {
+        var p;
+        try {
+            p = JSON.parse(JSON.stringify(project));
+        } catch (e) {
+            return project;
+        }
+        var scenes = p.scenes || [];
+        var validIds = {};
+        var si;
+        for (si = 0; si < scenes.length; si++) {
+            var s = scenes[si];
+            var id = s && s.id != null ? String(s.id).trim() : "";
+            if (id) validIds[id] = true;
+        }
+        function keepHotspot(hs) {
+            var ids = getTargetSceneIdsFromHotspot(hs);
+            var i;
+            for (i = 0; i < ids.length; i++) {
+                var t = (ids[i] || "").trim();
+                if (t && validIds[t]) return true;
+            }
+            return false;
+        }
+        for (si = 0; si < scenes.length; si++) {
+            var sc = scenes[si];
+            if (!sc || !Array.isArray(sc.hotspots)) continue;
+            sc.hotspots = sc.hotspots.filter(keepHotspot);
+        }
+        return p;
+    }
+
     function mountBlockInSidePanel(el, titleText) {
         restoreProjectMapSidePanelDomOnly();
         if (!el) return;
@@ -354,6 +409,36 @@
             refreshProjectMapGraphInPlace();
         });
         btn._projectMapSideCloseBound = true;
+    }
+
+    function ensureProjectMapFabButtons() {
+        var gear = document.getElementById("project-map-fab-settings");
+        var addSceneBtn = document.getElementById("project-map-fab-add-scene");
+        if (gear && !gear._projectMapFabBound) {
+            gear.addEventListener("click", function (ev) {
+                ev.preventDefault();
+                mountEditorGlobalSettingsInSidePanel();
+            });
+            gear._projectMapFabBound = true;
+        }
+        if (addSceneBtn && !addSceneBtn._projectMapFabAddBound) {
+            addSceneBtn.addEventListener("click", function (ev) {
+                ev.preventDefault();
+                if (typeof window.addSceneFromMap === "function") {
+                    window.addSceneFromMap();
+                }
+            });
+            addSceneBtn._projectMapFabAddBound = true;
+        }
+    }
+
+    function ensureProjectMapNarrationCheckbox() {
+        var cb = document.getElementById("project-map-narration-only");
+        if (!cb || cb._projectMapNarrationBound) return;
+        cb.addEventListener("change", function () {
+            refreshProjectMapGraphInPlace();
+        });
+        cb._projectMapNarrationBound = true;
     }
 
     /**
@@ -864,15 +949,18 @@
         }
         options = options || {};
         var viewMode = options.viewMode || "focus";
+        var narrEl = document.getElementById("project-map-narration-only");
+        var workProject =
+            narrEl && narrEl.checked ? filterProjectForNarrationSkeleton(project) : project;
 
         if (viewMode === "full") {
-            generateGraphFull(editor, project);
+            generateGraphFull(editor, workProject);
             window._projectMapActiveSceneKey = null;
             return;
         }
 
         if (viewMode === "tree") {
-            generateGraphTree(editor, project);
+            generateGraphTree(editor, workProject);
             window._projectMapActiveSceneKey = null;
             return;
         }
@@ -881,7 +969,7 @@
         if (key == null || key === "") {
             if (project.scenes.length > 0) key = sceneKey(project.scenes[0], 0);
         }
-        generateGraphFocus(editor, project, key);
+        generateGraphFocus(editor, workProject, key);
     }
 
     function ensureMapDblClickHandler() {
@@ -940,6 +1028,8 @@
         ensureMapDblClickHandler();
         ensureProjectMapDrawflowEvents();
         ensureProjectMapSideCloseButton();
+        ensureProjectMapFabButtons();
+        ensureProjectMapNarrationCheckbox();
         window._projectMapViewMode = "focus";
         window._projectMapActiveSceneKey =
             project.scenes && project.scenes.length > 0 ? sceneKey(project.scenes[0], 0) : null;
@@ -970,4 +1060,5 @@
     window.closeProjectMap = closeProjectMap;
     window.setProjectMapView = setProjectMapView;
     window.sceneKeyFromProjectScene = sceneKey;
+    window.mountProjectMapSidePanelElement = mountProjectMapSidePanelElement;
 })();

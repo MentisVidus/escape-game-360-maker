@@ -189,3 +189,149 @@
         .sel-opt-advanced summary { cursor: pointer; font-weight: 600; color: #7f8c8d; }
         .selector-form-wrap { margin-top: 8px; }
         .selector-json-hint { font-size: 13px; color: #555; margin: 8px 0; line-height: 1.4; }
+
+        /* Sous-sections repliables (inventaire / popups / audio) dans les paramètres globaux */
+        .global-settings-subsection {
+            background: #fdfefe;
+            padding: 12px 16px 16px;
+            border-radius: 8px;
+            border: 1px solid #d5dbdb;
+        }
+        .global-settings-subsection-head {
+            margin: -4px -8px 12px -8px;
+            padding: 8px 8px 10px;
+            border-bottom: 1px solid #d5dbdb;
+            background: #eaf2f8;
+            border-radius: 6px 6px 0 0;
+        }
+
+        /* Quill (WYSIWYG) dans les champs dynamiques */
+        .wysiwyg-wrap {
+            margin-bottom: 12px;
+        }
+        .wysiwyg-wrap .ql-toolbar {
+            border-radius: 4px 4px 0 0;
+            border-color: #bdc3c7;
+            background: #f8f9fa;
+        }
+        .wysiwyg-wrap .ql-container {
+            border-radius: 0 0 4px 4px;
+            border-color: #bdc3c7;
+            font-size: 14px;
+            min-height: 72px;
+            background: #fff;
+        }
+
+        /* Polices Quill (valeurs internes → stacks système, hors-ligne) */
+        .ql-font-arial { font-family: Arial, Helvetica, sans-serif; }
+        .ql-font-courier { font-family: "Courier New", Courier, monospace; }
+        .ql-font-times { font-family: "Times New Roman", Times, serif; }
+        .ql-font-impact { font-family: Impact, Haettenschweiler, "Arial Narrow Bold", fantasy; }
+        .ql-font-comic { font-family: "Comic Sans MS", "Comic Sans", cursive, sans-serif; }
+
+        .wysiwyg-wrap .ql-picker.ql-font { width: 148px; }
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label::before,
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-item::before {
+            content: none;
+        }
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before {
+            content: "Arial";
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="courier"]::before,
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="courier"]::before {
+            content: "Courier New";
+            font-family: "Courier New", Courier, monospace;
+        }
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="times"]::before,
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="times"]::before {
+            content: "Times New Roman";
+            font-family: "Times New Roman", Times, serif;
+        }
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="impact"]::before,
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="impact"]::before {
+            content: "Impact";
+            font-family: Impact, Haettenschweiler, fantasy;
+        }
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="comic"]::before,
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="comic"]::before {
+            content: "Comic Sans MS";
+            font-family: "Comic Sans MS", cursive, sans-serif;
+        }
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="false"]::before,
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="false"]::before,
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value=""]::before,
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value=""]::before,
+        .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label:not([data-value])::before {
+            content: "Défaut";
+        }
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="false"]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="false"]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value=""]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value=""]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-font .ql-picker-label:not([data-value])::before {
+            content: "Default";
+        }
+
+        /* Tailles Quill — rendu dans l’éditeur */
+        .wysiwyg-wrap .ql-editor .ql-size-small { font-size: 0.85em; }
+        .wysiwyg-wrap .ql-editor .ql-size-large { font-size: 1.5em; }
+        .wysiwyg-wrap .ql-editor .ql-size-huge { font-size: 2em; }
+
+        .wysiwyg-wrap .ql-picker.ql-size { width: 92px; }
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label::before,
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item::before {
+            content: none;
+        }
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="small"]::before,
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="small"]::before {
+            content: "Petit";
+        }
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="large"]::before,
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="large"]::before {
+            content: "Grand";
+        }
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="huge"]::before,
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="huge"]::before {
+            content: "Très grand";
+        }
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="false"]::before,
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="false"]::before,
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value=""]::before,
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value=""]::before,
+        html[lang="fr"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label:not([data-value])::before {
+            content: "Normal";
+        }
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item::before {
+            content: none;
+        }
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="small"]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="small"]::before {
+            content: "Small";
+        }
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="large"]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="large"]::before {
+            content: "Large";
+        }
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="huge"]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="huge"]::before {
+            content: "Huge";
+        }
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="false"]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="false"]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value=""]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value=""]::before,
+        html[lang="en"] .wysiwyg-wrap .ql-picker.ql-size .ql-picker-label:not([data-value])::before {
+            content: "Normal";
+        }
+
+        select.f-target,
+        select.sel-scene-target {
+            max-width: 100%;
+            min-width: 140px;
+            padding: 6px 8px;
+            border-radius: 4px;
+            border: 1px solid #bdc3c7;
+        }

@@ -17,6 +17,7 @@
     <!-- Editor UI styles (shared with editeur.html) -->
     <!-- ========================================== -->
     <link rel="stylesheet" href="css/editor.css">
+    <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.7/quill.snow.css" />
     <link rel="stylesheet" href="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.css" />
     <link rel="stylesheet" href="xflow/project-graph.css" />
     
@@ -43,6 +44,8 @@
         <input type="file" id="file-import" style="display:none;" accept=".json" onchange="loadProject(event)">
     </div>
 
+    <!-- Movable block (editor + map side panel): title + global settings -->
+    <div id="editor-global-root">
     <label>Game title:</label>
     <input type="text" id="gameTitle" value="My awesome game">
     
@@ -60,7 +63,14 @@
     <div style="display: flex; flex-direction: column; gap: 30px;"> <!-- Stack sections vertically -->
 
         <!-- Block 1: inventory settings + preview -->
-        <div style="background: #fdfefe; padding: 20px; border-radius: 8px; border: 1px solid #d5dbdb;">
+        <div class="global-settings-subsection">
+            <div class="scene-header global-settings-subsection-head">
+                <div class="scene-header-main">
+                    <button type="button" class="btn-icon" onclick="toggleCollapse('global-sub-inv-body', this)">▼</button>
+                    <h3 class="scene-block-heading" style="margin:0;">Inventory settings</h3>
+                </div>
+            </div>
+            <div id="global-sub-inv-body">
             <label style="font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 20px;">
                 <input type="checkbox" id="useInventory" checked onchange="document.getElementById('inv-settings-container').style.display = this.checked ? 'flex' : 'none'; updatePreview();" style="width: 20px; height: 20px;"> 
                 Enable inventory
@@ -118,11 +128,19 @@
                 </div>
 
             </div> <!-- /inv-settings-container -->
+            </div><!-- /global-sub-inv-body -->
         </div> <!-- /inventory block -->
 
 
         <!-- Block 2: dialog styling + preview -->
-        <div style="background: #fdfefe; padding: 20px; border-radius: 8px; border: 1px solid #d5dbdb;">
+        <div class="global-settings-subsection">
+            <div class="scene-header global-settings-subsection-head">
+                <div class="scene-header-main">
+                    <button type="button" class="btn-icon" onclick="toggleCollapse('global-sub-popup-body', this)">▼</button>
+                    <h3 class="scene-block-heading" style="margin:0;">Dialog popup styling</h3>
+                </div>
+            </div>
+            <div id="global-sub-popup-body">
             <label style="font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 20px;">
                 <input type="checkbox" id="useCustomPopup" onchange="document.getElementById('popup-settings-container').style.display = this.checked ? 'flex' : 'none'; updatePreview();" style="width: 20px; height: 20px;"> 
                 Customize dialog boxes
@@ -136,11 +154,11 @@
                         <div class="col">
                             <label>Font:</label>
                             <select id="pop-font" onchange="updatePreview()">
-                                <option value="Arial, sans-serif">Arial (modern / classic)</option>
-                                <option value="Courier, monospace">Courier New (typewriter / terminal)</option>
-                                <option value="Times, serif">Times New Roman (book / old document)</option>
-                                <option value="cursive, sans-serif">Comic Sans (handwritten / cartoon)</option>
-                                <option value="Impact, fantasy">Impact (poster / emphasis)</option>
+                                <option value="Arial, sans-serif" style="font-family: Arial, Helvetica, sans-serif;">Arial (modern / classic)</option>
+                                <option value="Courier, monospace" style="font-family: 'Courier New', Courier, monospace;">Courier New (typewriter / terminal)</option>
+                                <option value="Times, serif" style="font-family: 'Times New Roman', Times, serif;">Times New Roman (book / old document)</option>
+                                <option value="cursive, sans-serif" style="font-family: 'Comic Sans MS', cursive, sans-serif;">Comic Sans (handwritten / cartoon)</option>
+                                <option value="Impact, fantasy" style="font-family: Impact, Haettenschweiler, fantasy;">Impact (poster / emphasis)</option>
                             </select>
                         </div>
                         <div class="col">
@@ -179,11 +197,19 @@
                 </div>
 
             </div> <!-- /popup-settings-container -->
+            </div><!-- /global-sub-popup-body -->
         </div> <!-- /popup block -->
 
 
         <!-- Block 3: global background music -->
-        <div style="background: #fdfefe; padding: 20px; border-radius: 8px; border: 1px solid #d5dbdb;">
+        <div class="global-settings-subsection">
+            <div class="scene-header global-settings-subsection-head">
+                <div class="scene-header-main">
+                    <button type="button" class="btn-icon" onclick="toggleCollapse('global-sub-audio-body', this)">▼</button>
+                    <h3 class="scene-block-heading" style="margin:0;">Global audio</h3>
+                </div>
+            </div>
+            <div id="global-sub-audio-body">
             <label style="font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 20px;">
                 <input type="checkbox" id="useGlobalAudio" onchange="document.getElementById('audio-settings-container').style.display = this.checked ? 'flex' : 'none';" style="width: 20px; height: 20px;"> 
                 Enable audio (background music)
@@ -202,10 +228,12 @@
                 </div>
 
             </div> <!-- /audio-settings-container -->
+            </div><!-- /global-sub-audio-body -->
         </div> <!-- /audio block -->
     </div> <!-- /main column -->
 	</div>
 </div>
+    </div><!-- /editor-global-root -->
 
     <!-- ========================================== -->
     <!-- Scene list (injected by JS) & add / generate buttons -->
@@ -264,12 +292,15 @@
                 <button type="button" class="project-map-tool" data-project-map-view="full" onclick="setProjectMapView('full')">Full graph</button>
                 <button type="button" class="project-map-tool" data-project-map-view="tree" onclick="setProjectMapView('tree')">Acyclic view</button>
             </div>
+            <label class="project-map-narration-label"><input type="checkbox" id="project-map-narration-only"> Narration mode (transitions only)</label>
             <small class="project-map-toolbar-hint">Focus / tree: click a node to edit it in the right panel. Double-click a compact scene to center it.</small>
         </div>
         <button type="button" onclick="closeProjectMap()" style="background:#e74c3c;">Close</button>
     </div>
     <div id="project-map-body" class="project-map-body">
         <div id="project-map-canvas-wrap" class="project-map-canvas-wrap">
+            <button type="button" id="project-map-fab-settings" class="project-map-fab project-map-fab-settings" title="Global game settings">⚙</button>
+            <button type="button" id="project-map-fab-add-scene" class="project-map-fab project-map-fab-add-scene" title="New scene">+</button>
             <div id="project-drawflow"></div>
         </div>
         <aside id="project-map-side-panel" class="project-map-side-panel" aria-hidden="true">
@@ -287,6 +318,8 @@
 <!-- ========================================== -->
     <script src="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.js"></script>
     <script src="js/editor-core.js" defer></script>
+    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js" defer></script>
+    <script src="js/editor-quill-scenes.js" defer></script>
     <script src="js/editor-en-app.js" defer></script>
     <script src="js/editor-en-generate.js" defer></script>
     <script src="xflow/project-graph.js" defer></script>

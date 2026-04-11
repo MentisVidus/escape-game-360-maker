@@ -26,6 +26,53 @@ function toggleCollapse(bodyId, btn) {
         btn.innerHTML = '▶'; 
     }
 }
+
+/** From map: add scene then refresh graph if modal is open. */
+function addSceneFromMap() {
+    addScene();
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var last = blocks[blocks.length - 1];
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+    if (last && typeof window.mountProjectMapSidePanelElement === "function") {
+        window.mountProjectMapSidePanelElement(last);
+    }
+}
+window.addSceneFromMap = addSceneFromMap;
+
+/** Collapse or expand all hotspot main bodies in one scene. */
+function toggleAllHotspotsInScene(sceneNumericId) {
+    const wrap = document.getElementById("hs-container-" + sceneNumericId);
+    if (!wrap) return;
+    const blocks = wrap.querySelectorAll(":scope > .hotspot-block");
+    let anyExpanded = false;
+    blocks.forEach((hb) => {
+        const m = hb.id && hb.id.match(/^hs_(\d+)$/);
+        if (!m) return;
+        const body = document.getElementById("hs_body_" + m[1]);
+        if (body && body.style.display !== "none") anyExpanded = true;
+    });
+    const expand = !anyExpanded;
+    blocks.forEach((hb) => {
+        const m = hb.id && hb.id.match(/^hs_(\d+)$/);
+        if (!m) return;
+        const hId = m[1];
+        const body = document.getElementById("hs_body_" + hId);
+        const btn = hb.querySelector(".hs-block-header-main > .btn-icon");
+        if (!body || !btn) return;
+        if (expand) {
+            body.style.display = "";
+            btn.innerHTML = "▼";
+        } else {
+            body.style.display = "none";
+            btn.innerHTML = "▶";
+        }
+    });
+}
 // Move DOM node up among siblings
 function moveUp(elemId) { 
     const el = document.getElementById(elemId); 
@@ -56,11 +103,13 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
                 <input type="text" class="title-input sc-title" placeholder="Title / note (e.g. Kitchen)" value="${scTitleVal}">
             </div>
             <div class="scene-header-actions">
+                <button type="button" class="btn-icon" onclick="addHotspot(${sId})" title="Add hotspot">+</button>
+                <button type="button" class="btn-icon" onclick="toggleAllHotspotsInScene(${sId})" title="Collapse or expand all hotspots">⇕</button>
                 <button class="btn-icon" onclick="moveUp('scene_${sId}')" title="Move up">⬆️</button>
                 <button class="btn-icon" onclick="moveDown('scene_${sId}')" title="Move down">⬇️</button>
                 <button class="btn-icon" onclick="duplicateScene(${sId})" title="Duplicate entire scene">📑</button>
                 <button class="btn-preview-scene" onclick="previewScene(${sId})">👁️ Test</button>
-                <button class="btn-del" onclick="document.getElementById('scene_${sId}').remove()">X</button>
+                <button class="btn-del" onclick="var _sb=document.getElementById('scene_${sId}');if(_sb)_sb.remove();if(typeof refreshAllSceneTargetSelects==='function')refreshAllSceneTargetSelects();">X</button>
             </div>
         </div>
         <div id="scene_body_${sId}">
@@ -75,7 +124,13 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
         </div>
     </div>`;
     
-    document.getElementById('scenes-container').insertAdjacentHTML('beforeend', sceneHTML); 
+    document.getElementById('scenes-container').insertAdjacentHTML('beforeend', sceneHTML);
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof initAllSceneIdStableFields === "function") {
+        initAllSceneIdStableFields();
+    }
     return sId;
 }
 
@@ -202,12 +257,23 @@ function addHotspot(sceneId, hsData = null) {
         // Restore expert CSS mode if it was on
         if(hsData.expertMode) toggleExpertMode(hId, true); 
     }
+    var _fld = document.getElementById("fields_" + hId);
+    if (hsData && _fld && typeof destroyRichEditorsIn === "function") {
+        destroyRichEditorsIn(_fld);
+    }
+    if (_fld && typeof initRichEditorsIn === "function") {
+        initRichEditorsIn(_fld);
+    }
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
 }
 
 // --- Duplicate / export hotspot data ---
 // Serializes one hotspot for copy or JSON save
 function extractHotspotData(hId) {
     const hsDiv = document.getElementById(`hs_${hId}`);
+    if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(hsDiv);
     let hs = { 
         hsTitle: hsDiv.querySelector('.hs-title').value, 
         pitch: hsDiv.querySelector('.hs-pitch').value, 
@@ -277,6 +343,9 @@ function duplicateScene(sId) {
     sDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
         addHotspot(newSId, extractHotspotData(hsDiv.id.split('_')[1]));
     });
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
 }
 
 // --- CSS helpers (no-code + expert) ---
@@ -434,6 +503,7 @@ function getDefaultChoice() {
 
 function collectChoicesFromList(listEl) {
     if(!listEl) return [];
+    if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(listEl);
     var cards = Array.prototype.filter.call(listEl.children || [], function(el) {
         return el.classList && el.classList.contains("sel-choice-card");
     });
@@ -449,6 +519,7 @@ function getOwnChoiceField(card, selector) {
 }
 
 function cardToChoice(card) {
+    if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(card);
     var typeEl = getOwnChoiceField(card, ".sel-action-type");
     var type = typeEl ? typeEl.value : "msg";
     var labelEl = getOwnChoiceField(card, ".sel-label");
@@ -571,29 +642,49 @@ function selectorRebuildActionFields(card, ch, hsHotspotId) {
         var hb = card.closest(".hotspot-block");
         hsIdNum = hb ? parseInt(hb.id.replace("hs_", ""), 10) : NaN;
     }
+    if (typeof destroyRichEditorsIn === "function") destroyRichEditorsIn(container);
     container.innerHTML = "";
 
     if(type === "msg") {
         var l1 = document.createElement("label");
-        l1.textContent = "Message content (HTML):";
+        l1.textContent = "Message content:";
+        var wrap = document.createElement("div");
+        wrap.className = "wysiwyg-wrap";
         var ta = document.createElement("textarea");
-        ta.className = "sel-msg-txt";
+        ta.className = "sel-msg-txt editor-rich-text";
         ta.rows = 3;
         ta.value = ch.txt || "";
+        wrap.appendChild(ta);
         container.appendChild(l1);
-        container.appendChild(ta);
+        container.appendChild(wrap);
     } else if(type === "scene") {
         var r1 = document.createElement("div");
         r1.className = "row";
-        r1.innerHTML = "<div class=\"col\"><label>Target scene ID:</label><input type=\"text\" class=\"sel-scene-target\" value=\"\"></div>";
+        var col = document.createElement("div");
+        col.className = "col";
+        var lb0 = document.createElement("label");
+        lb0.textContent = "Target scene:";
+        col.appendChild(lb0);
+        if (typeof buildSceneTargetSelect === "function") {
+            col.insertAdjacentHTML("beforeend", buildSceneTargetSelect("sel-scene-target", ch.target || ""));
+        } else {
+            var inp = document.createElement("input");
+            inp.type = "text";
+            inp.className = "sel-scene-target";
+            inp.value = ch.target || "";
+            col.appendChild(inp);
+        }
+        r1.appendChild(col);
         container.appendChild(r1);
-        r1.querySelector(".sel-scene-target").value = ch.target || "";
         var l2 = document.createElement("label");
         l2.textContent = "Transition text:";
+        var w2 = document.createElement("div");
+        w2.className = "wysiwyg-wrap";
         var t2 = document.createElement("textarea");
-        t2.className = "sel-scene-trans";
+        t2.className = "sel-scene-trans editor-rich-text";
         t2.rows = 2;
         t2.value = ch.transTxt || "";
+        w2.appendChild(t2);
         var l3 = document.createElement("label");
         l3.textContent = "Button label:";
         var i3 = document.createElement("input");
@@ -601,7 +692,7 @@ function selectorRebuildActionFields(card, ch, hsHotspotId) {
         i3.className = "sel-scene-btn";
         i3.value = ch.transBtn || "Continue";
         container.appendChild(l2);
-        container.appendChild(t2);
+        container.appendChild(w2);
         container.appendChild(l3);
         container.appendChild(i3);
     } else if(type === "pick") {
@@ -612,13 +703,16 @@ function selectorRebuildActionFields(card, ch, hsHotspotId) {
         rp.querySelector(".sel-pick-id").value = ch.itemId || "";
         rp.querySelector(".sel-pick-name").value = ch.itemName || "";
         var lp = document.createElement("label");
-        lp.textContent = "Pickup message (HTML):";
+        lp.textContent = "Pickup message:";
+        var wp = document.createElement("div");
+        wp.className = "wysiwyg-wrap";
         var tp = document.createElement("textarea");
-        tp.className = "sel-pick-txt";
+        tp.className = "sel-pick-txt editor-rich-text";
         tp.rows = 2;
         tp.value = ch.txt || "";
+        wp.appendChild(tp);
         container.appendChild(lp);
-        container.appendChild(tp);
+        container.appendChild(wp);
         var advHidden = getOwnChoiceField(card, ".sel-opt-hidden");
         var pickIdInput = rp.querySelector(".sel-pick-id");
         if(advHidden) {
@@ -646,11 +740,14 @@ function selectorRebuildActionFields(card, ch, hsHotspotId) {
         it.className = "sel-nested-title";
         it.value = nest.title || "";
         var li = document.createElement("label");
-        li.textContent = "Introduction (HTML, optional):";
+        li.textContent = "Introduction (optional):";
+        var wi = document.createElement("div");
+        wi.className = "wysiwyg-wrap";
         var ti = document.createElement("textarea");
-        ti.className = "sel-nested-intro";
+        ti.className = "sel-nested-intro editor-rich-text";
         ti.rows = 2;
         ti.value = (nest.copy && nest.copy.bodyHtml) || nest.introHtml || "";
+        wi.appendChild(ti);
         var ld = document.createElement("label");
         ld.textContent = "Sub-choices layout:";
         var sd = document.createElement("select");
@@ -660,7 +757,7 @@ function selectorRebuildActionFields(card, ch, hsHotspotId) {
         nb.appendChild(lt);
         nb.appendChild(it);
         nb.appendChild(li);
-        nb.appendChild(ti);
+        nb.appendChild(wi);
         nb.appendChild(ld);
         nb.appendChild(sd);
         var nestedList = document.createElement("div");
@@ -676,6 +773,7 @@ function selectorRebuildActionFields(card, ch, hsHotspotId) {
         nb.appendChild(btnAdd);
         container.appendChild(nb);
     }
+    if (typeof initRichEditorsIn === "function") initRichEditorsIn(container);
 }
 
 function renderChoiceCardElement(ch, hId, depth) {
@@ -817,6 +915,7 @@ function initSelectorChoicesForm(hId) {
     var ta = hsDiv.querySelector(".f-sel-choices");
     var root = document.getElementById("sel_choices_root_" + hId);
     if(!ta || !root) return;
+    if (typeof destroyRichEditorsIn === "function") destroyRichEditorsIn(root);
     var arr;
     try { arr = JSON.parse(ta.value.trim()); } catch(e) {
         console.warn("f_sel_choices invalid JSON:", e);
@@ -863,37 +962,42 @@ function toggleSelectorJsonExpert(hId, forceExpert) {
 // --- Dynamic hotspot form fields by action type ---
 function updateHsFields(hId, opts) {
     opts = opts || {};
-    const type = document.querySelector(`#hs_${hId} .hs-type`).value; 
+    const type = document.querySelector(`#hs_${hId} .hs-type`).value;
     const container = document.getElementById(`fields_${hId}`);
-    
-    // Replace #fields_${hId} inner HTML
+    if (!container) return;
+    if (typeof destroyRichEditorsIn === "function") destroyRichEditorsIn(container);
+    var sceneSel =
+        typeof buildSceneTargetSelect === "function"
+            ? buildSceneTargetSelect("f-target")
+            : '<input type="text" class="f-target" value="scene_2">';
+
     if(type === 'msg') {
-        container.innerHTML = `<label>Text (HTML):</label><textarea class="f-txt" rows="3">Well done.</textarea>`;
+        container.innerHTML = `<label>Displayed text:</label><div class="wysiwyg-wrap"><textarea class="f-txt editor-rich-text" rows="3">Well done.</textarea></div>`;
     }
     else if(type === 'pick') {
-        container.innerHTML = `<div class="row"><div class="col"><label>Item ID:</label><input type="text" class="f-item-id" value="key"></div><div class="col"><label>Name:</label><input type="text" class="f-item-name" value="Golden key"></div></div><label>Narration:</label><textarea class="f-pick-msg" rows="2">You find <b>a key</b>.</textarea>`;
+        container.innerHTML = `<div class="row"><div class="col"><label>Item ID:</label><input type="text" class="f-item-id" value="key"></div><div class="col"><label>Name:</label><input type="text" class="f-item-name" value="Golden key"></div></div><label>Narration:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2">You find a key.</textarea></div>`;
     }
     else if(type === 'req') {
         container.innerHTML = `
         <label>Required item ID:</label><input type="text" class="f-item-id" value="key">
-        <label style="color:red;">If missing:</label><textarea class="f-ko" rows="2">Locked.</textarea>
+        <label style="color:red;">If missing:</label><div class="wysiwyg-wrap"><textarea class="f-ko editor-rich-text" rows="2">Locked.</textarea></div>
         <label style="margin-top:10px; color:#27ae60;"><b>If player has item:</b></label>
         <select class="f-req-action" onchange="document.getElementById('req_res_${hId}').className = 'res-' + this.value">
             <option value="scene">Change scene</option><option value="msg">Show message</option><option value="pick">Give new item</option>
         </select>
         <div id="req_res_${hId}" class="res-scene" style="margin-top:10px;">
             <style>#req_res_${hId} .s-scene, #req_res_${hId} .s-msg, #req_res_${hId} .s-pick { display: none; } #req_res_${hId}.res-scene .s-scene { display: block; } #req_res_${hId}.res-msg .s-msg { display: block; } #req_res_${hId}.res-pick .s-pick { display: block; }</style>
-            <div class="s-scene"><label>Go to scene (ID):</label><input type="text" class="f-target" value="scene_2"><label>Transition text:</label><textarea class="f-trans-txt" rows="2"></textarea><label>Button:</label><input type="text" class="f-trans-btn" value="Enter"></div>
-            <div class="s-msg"><label>Message:</label><textarea class="f-ok-msg" rows="2">Unlocked!</textarea></div>
-            <div class="s-pick"><div class="row"><div class="col"><label>New item ID:</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>New name:</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Find message:</label><textarea class="f-pick-msg" rows="2">Found!</textarea></div>
+            <div class="s-scene"><label>Go to scene:</label>${sceneSel}<label>Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="Enter"></div>
+            <div class="s-msg"><label>Message:</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2">Unlocked!</textarea></div></div>
+            <div class="s-pick"><div class="row"><div class="col"><label>New item ID:</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>New name:</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Find message:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2">Found!</textarea></div></div>
         </div>`;
     }
     else if(type === 'scene') {
-        container.innerHTML = `<label>Go to scene (ID):</label><input type="text" class="f-target" value="scene_2"><label style="color:#2980b9;">Transition text:</label><textarea class="f-trans-txt" rows="2"></textarea><label>Button:</label><input type="text" class="f-trans-btn" value="Continue">`;
+        container.innerHTML = `<label>Go to scene:</label>${sceneSel}<label style="color:#2980b9;">Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="Continue">`;
     }
     else if(type === 'pwd') {
         container.innerHTML = `
-        <label>Puzzle / question (HTML):</label><textarea class="f-enigme-txt" rows="2">Code:</textarea>
+        <label>Puzzle / question:</label><div class="wysiwyg-wrap"><textarea class="f-enigme-txt editor-rich-text" rows="2">Code:</textarea></div>
         <label>Expected answer:</label><input type="text" class="f-pwd" value="1234">
         <label style="margin-top:10px;"><b>When solved:</b></label>
         <select class="f-pwd-action" onchange="document.getElementById('pwd_res_${hId}').className = 'res-' + this.value">
@@ -901,16 +1005,16 @@ function updateHsFields(hId, opts) {
         </select>
         <div id="pwd_res_${hId}" class="res-scene" style="margin-top:10px;">
             <style>#pwd_res_${hId} .s-scene, #pwd_res_${hId} .s-msg, #pwd_res_${hId} .s-pick { display: none; } #pwd_res_${hId}.res-scene .s-scene { display: block; } #pwd_res_${hId}.res-msg .s-msg { display: block; } #pwd_res_${hId}.res-pick .s-pick { display: block; }</style>
-            <div class="s-scene"><label>Go to scene (ID):</label><input type="text" class="f-target" value="scene_2"><label>Transition text:</label><textarea class="f-trans-txt" rows="2"></textarea><label>Button:</label><input type="text" class="f-trans-btn" value="Enter"></div>
-            <div class="s-msg"><label>Message:</label><textarea class="f-ok-msg" rows="2">Unlocked!</textarea></div>
-            <div class="s-pick"><div class="row"><div class="col"><label>Item ID:</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Name:</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Find message:</label><textarea class="f-pick-msg" rows="2">Found.</textarea></div>
+            <div class="s-scene"><label>Go to scene:</label>${sceneSel}<label>Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="Enter"></div>
+            <div class="s-msg"><label>Message:</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2">Unlocked!</textarea></div></div>
+            <div class="s-pick"><div class="row"><div class="col"><label>Item ID:</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Name:</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Find message:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2">Found.</textarea></div></div>
         </div>`;
     }
     else if(type === 'selector') {
         var defaultSelJson = JSON.stringify(getDefaultSelectorChoices(), null, 2);
         container.innerHTML = `
         <label>Menu title:</label><input type="text" class="f-sel-title" value="Choose an action">
-        <label>Introduction (HTML, optional):</label><textarea class="f-sel-intro" rows="2"></textarea>
+        <label>Introduction (optional):</label><div class="wysiwyg-wrap"><textarea class="f-sel-intro editor-rich-text" rows="2"></textarea></div>
         <label>Choice layout:</label>
         <select class="f-sel-display">
             <option value="buttons" selected>Buttons</option>
@@ -935,6 +1039,7 @@ function updateHsFields(hId, opts) {
         <small style="color:#555;display:block;margin-top:10px;">Tip: per-choice visibility and sounds are under <b>Advanced options</b> on each line, or in the JSON.</small>`;
         if(!opts.deferSelectorInit) initSelectorChoicesForm(hId);
     }
+    if (typeof initRichEditorsIn === "function") initRichEditorsIn(container);
 }
 
 // --- Save / load project JSON ---
@@ -1030,6 +1135,7 @@ function legacyRewardToV2(kind, src) {
 }
 
 function hotspotDomToV2(hsDiv) {
+    if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(hsDiv);
     var hId = parseInt(hsDiv.id.replace("hs_", ""), 10);
     var type = hsDiv.querySelector(".hs-type").value;
     var legacy = {};
@@ -1098,6 +1204,10 @@ function hotspotDomToV2(hsDiv) {
 /** Export current editor state in schema v2 (unified action model). */
 function getCurrentProjectData() {
     if(!window.EditorCore) throw new Error("EditorCore not loaded.");
+    var _scRoot = document.getElementById("scenes-container");
+    if (_scRoot && typeof flushRichEditorsIn === "function") {
+        flushRichEditorsIn(_scRoot);
+    }
     let project = EditorCore.createEmptyProject();
     project.title = document.getElementById('gameTitle').value;
     project.useInv = document.getElementById('useInventory').checked;
@@ -1327,6 +1437,12 @@ function loadProject(event) {
 				
                 (scene.hotspots || []).forEach(hs => { addHotspot(sId, actionV2ToLegacyHotspotData(hs)); });
             });
+            if (typeof refreshAllSceneTargetSelects === "function") {
+                refreshAllSceneTargetSelects();
+            }
+            if (typeof initAllSceneIdStableFields === "function") {
+                initAllSceneIdStableFields();
+            }
             
             // Refresh inventory / popup previews
             updatePreview();
@@ -1400,5 +1516,9 @@ function updatePreview() {
         popBtn.style.backgroundColor = '#27ae60';
         popBtn.style.color = 'white';
         popBtn.style.fontFamily = 'sans-serif';
+    }
+
+    if (typeof updateQuillTheme === "function") {
+        updateQuillTheme();
     }
 }

@@ -2,10 +2,12 @@
 
 | File | Contents |
 |------|----------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Repository layout, editor vs generated player, JSON schema, Pannellum, audio, evolution ideas |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Layout, **JSON V2** / `EditorCore`, Drawflow map & side panel, **Quill**, Pannellum, audio, selector, roadmap pointers |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | FR/EN sync, how to change code safely |
-| [SELECTOR_SPEC.md](./SELECTOR_SPEC.md) | Spec cible + état d’implémentation du hotspot **`selector`** (menus, imbrication, SFX, éditeur) |
-| [PLAN_EDITEUR_NODAL.md](./PLAN_EDITEUR_NODAL.md) | Feuille de route : **schéma projet v2**, action unifiée, panneau latéral, graphe selector (Drawflow) |
-| [`js/editor-core.js`](../js/editor-core.js) | Noyau **headless** : `EditorCore` (schéma v2, action unifiée, sans DOM) |
+| [SELECTOR_SPEC.md](./SELECTOR_SPEC.md) | Spec + implementation status for hotspot **`selector`** (menus, nesting, SFX) |
+| [PLAN_EDITEUR_NODAL.md](./PLAN_EDITEUR_NODAL.md) | **Hybrid / nodal** vision — V2 & side panel **delivered**; selector-as-graph-node & React Flow = future; **ZIP offline** = next product priority |
+| [`js/editor-core.js`](../js/editor-core.js) | **Headless** core: `EditorCore`, schema V2, `payload.copy`, `{ url, volume }` audio, no DOM |
+| [`js/editor-quill-scenes.js`](../js/editor-quill-scenes.js) | Quill WYSIWYG, scene target selects, `updateQuillTheme()` |
+| [`xflow/project-graph.js`](../xflow/project-graph.js) | Drawflow project map (focus / full / tree), narration filter, side panel DOM mount |
 
 User-facing guide: [README.md](../README.md) in the repository root.
