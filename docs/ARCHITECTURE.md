@@ -8,26 +8,86 @@ This document is for **developers** and **AI assistants** working on the reposit
 |------|------|
 | [editeur.html](../editeur.html) | Main editor (French UI): markup + `<link>` / `<script src>`. |
 | [editor_en.html](../editor_en.html) | Same behavior, English UI; comments in English; default save as `project.json`. |
-| [css/editor.css](../css/editor.css) | Shared editor chrome (layout, buttons, modals, form controls). |
-| [js/editor-core.js](../js/editor-core.js) | **Headless** project model & unified action helpers (`EditorCore`) — no DOM; shared by HTML editor and future graph UI. |
-| [js/editeur-app.js](../js/editeur-app.js) | French editor: UI, scenes/hotspots, save/load, previews — everything except `generateGame`. |
+| [css/editor.css](../css/editor.css) | Shared editor chrome (layout, buttons, modals, form controls, **Quill** toolbar & font/size pickers). |
+| [js/editor-core.js](../js/editor-core.js) | **Headless** project model V2 & unified action helpers (`EditorCore`) — **no DOM**; normalization of `payload.copy`, audio `{ url, volume }`, `legacyV1` import. |
+| [js/editor-quill-scenes.js](../js/editor-quill-scenes.js) | Quill WYSIWYG for `.editor-rich-text`, scene-ID selects, **`updateQuillTheme()`** (popup colors + font sync), Font/Size whitelist registration. |
+| [js/editeur-app.js](../js/editeur-app.js) | French editor: UI, scenes/hotspots, save/load, previews, **`getCurrentProjectData()`**, map hooks — everything except `generateGame`. |
 | [js/editeur-generate.js](../js/editeur-generate.js) | French: `generateGame()` (player template) + `window.onload` boot. |
-| [js/editor-en-app.js](../js/editor-en-app.js) | English editor — same split as FR; mirrors `editeur-app.js`. |
+| [js/editor-en-app.js](../js/editor-en-app.js) | English editor — mirrors `editeur-app.js`. |
 | [js/editor-en-generate.js](../js/editor-en-generate.js) | English: `generateGame()` + boot; mirrors `editeur-generate.js`. |
+| [xflow/project-graph.js](../xflow/project-graph.js) | **Drawflow** map: build graph from project, views (focus / full / tree), narration filter, side panel **DOM mount**. |
 | [README.md](../README.md) | User-facing documentation (FR + EN). |
 
-There is **no build step**. Open either HTML file from disk or host statically (e.g. GitHub Pages). HTML files live at the repo root; assets use relative paths (`css/`, `js/`). Load order: **`*-app.js` then `*-generate.js`** (both `defer`); the second file defines `generateGame` and `window.onload`.
+There is **no build step**. Open either HTML file from disk or host statically (e.g. GitHub Pages). HTML files live at the repo root; assets use relative paths (`css/`, `js/`). Typical load order: **Drawflow** → **editor-core.js** → **Quill** → **editor-quill-scenes.js** → **`*-app.js`** → **`*-generate.js`** (see each HTML file for exact `defer` order).
+
+---
+
+## Headless architecture — JSON schema V2 (`EditorCore`)
+
+The editor is **decoupled** from any single UI surface: the **canonical model** is a JSON object with **`schemaVersion: 2`**, built and normalized by [`js/editor-core.js`](../js/editor-core.js) (`window.EditorCore`).
+
+- **No `document` in `editor-core.js`** — the same rules can back the classic form, the project map, or a future React Flow view.
+- **Unified `action`** on every hotspot and on every selector choice: `type`, `payload`, optional `sfx`, `visibility`.
+- **`payload.copy`** — narrative and UI copy in one place:
+  - **`bodyHtml`** — rich HTML (from Quill in the form); used for messages, transitions, pick text, riddles, failure messages, selector intros (`nested.copy`), etc.
+  - **`buttonLabel`** — e.g. transition button label for `scene` actions.
+- **Audio clips** — normalized to **`{ url: string, volume: number }`** (0–1) for global music, per-scene ambiance, and **`action.sfx`**.
+- **Legacy saves** without `schemaVersion` are treated as **V1** and normalized when loaded; new saves are **V2**.
+
+High-level flow:
+
+```mermaid
+flowchart LR
+  subgraph adapters [UI adapters]
+    F[Form DOM]
+    M[Drawflow map + side panel]
+  end
+  EC[EditorCore normalize / SCHEMA_VERSION 2]
+  F <--> EC
+  M <--> F
+  F --> S[saveProject JSON file]
+  S --> L[loadProject]
+  L --> F
+  F --> G[generateGame]
+  G --> P[index.html player]
+```
+
+---
+
+## Hybrid UI — Drawflow map & side panel
+
+The **project map** is a fullscreen modal using [Drawflow](https://github.com/jerosoler/Drawflow) ([`xflow/project-graph.js`](../xflow/project-graph.js)).
+
+- **Views**: **Focus** (active scene + compact targets, double-click to refocus), **Full** (BFS-style layout from the first scene), **Tree** (acyclic / “narrative” style flow with **alias** nodes for revisits).
+- **Narration mode**: optional filter (checkbox) to emphasize **scene transitions** in the graph.
+- **Side panel** (`#project-map-side-content`): when the user selects a scene or hotspot node, the corresponding **`.scene-block` or hotspot block is moved in the DOM** from the main list into the panel so the **same inputs and Quill instances** are used — no duplicate forms. On close, blocks are moved back to `#scenes-container` (or equivalent) in document order.
+
+The graph reads the current project via **`getCurrentProjectData()`** (same object as save). Renaming scene IDs is kept consistent with target `<select>`s (delegated listeners on `document.body` for `.sc-id` in `editor-quill-scenes.js`).
+
+Strategic note: **React Flow** (or similar) is a **long-term** alternative to Drawflow if the stack gains a bundler + React; **`EditorCore` + V2 JSON** would remain the logical source of truth. See [PLAN_EDITEUR_NODAL.md](./PLAN_EDITEUR_NODAL.md).
+
+---
+
+## No-code rich text — Quill.js
+
+Rich text fields use **Quill 1.x** (Snow theme), initialized by [`js/editor-quill-scenes.js`](../js/editor-quill-scenes.js) on `textarea.editor-rich-text` inside `.wysiwyg-wrap`.
+
+- **Toolbar**: headers, **font** (whitelist: Arial, Courier, Times, Impact, Comic + “default”), **size** (small / normal / large / huge), bold/italic/underline, lists, alignment, color, clean — **no image/video** embeds (keeps JSON light, no Base64 blobs).
+- **Theme sync**: **`updateQuillTheme()`** applies global **popup** settings (`#pop-bgc`, `#pop-bga`, `#pop-color`, `#useCustomPopup`, `#pop-font`) to **`.ql-editor`** via injected CSS; **`.ql-toolbar`** stays on a light background for contrast. Hooked to the same controls as the dialog preview (`updatePreview()`).
+- **Player output**: `generateGame()` injects minimal CSS for **Quill alignment** (`.ql-align-*`), **fonts** (`.ql-font-*`), and **sizes** (`.ql-size-*`) inside **`.play-html-rich`** wrappers so popup `text-align: center` does not break WYSIWYG alignment.
+
+---
 
 ## Editor shell vs generated player
 
-Each editor page loads:
+1. **Editor application** — `*-app.js` + `*-generate.js` in the browser tab; builds the form, map modals, saves JSON, calls `generateGame()`.
+2. **Generated output** — `generateGame()` builds a **string** (`htmlTemplate`) and triggers download of **`index.html`**: standalone player (Pannellum CDN today, optional future local bundle).
 
-1. **Editor application** — the `*-app.js` then `*-generate.js` pair runs in the browser tab; builds the form, preview modals, saves JSON, calls `generateGame()`.
-2. **Generated output** — not stored in the repo; `generateGame()` builds a **string** (`htmlTemplate`) and triggers download of **`index.html`**. That file is a **standalone player**: Pannellum + inventory + audio + hotspot logic.
+The **player** logic is embedded as a large template literal inside `generateGame()`. Changing gameplay requires editing that template (or extracting a shared script later).
 
-Important: the **player** code is embedded as a large template literal inside `generateGame()`. Changing gameplay requires editing that template (or later extracting it to a shared script).
+---
 
-## Data flow
+## Data flow (classic)
 
 ```
 Form DOM  →  saveProject()  →  projet.json / project.json
@@ -42,7 +102,6 @@ flowchart LR
     B --> C[project JSON file]
     C --> D[loadProject]
     D --> A
-
     A --> E[generateGame]
     E --> F[index.html download]
     F --> G[Standalone player]
@@ -50,33 +109,25 @@ flowchart LR
     G --> I[Inventory + dialogs + audio]
 ```
 
-- **First scene** in document order becomes Pannellum’s `firstScene` / start scene.
-- Scene **id** is the short id from `.sc-id` (not the internal `scene_<n>` block id). Pannellum scenes are keyed by that id.
+- **First scene** in document order becomes the player’s start scene.
+- Scene **id** is the short id from `.sc-id` (not only the internal `scene_<n>` wrapper id). Pannellum scenes are keyed by that id.
 
-## Project JSON (save file)
+---
 
-Top-level keys (see `saveProject()`):
+## Project JSON (save file) — V2 overview
 
-- `title`, `useInv`, `invPos`, `invIcon`, `invBgc`, `invBga`, `invColor`
-- `useCustomPopup`, `popFont`, `popColor`, `popBgc`, `popBga`, `popBtnBg`, `popBtnCol`
-- `useGlobalAudio`, `globalAudioUrl`
-- `scenes`: array of `{ scId, scImg, scTitle, scAudio, hotspots: [...] }`
+Saved files include **`schemaVersion: 2`** (via `EditorCore` / app serialization). Top-level keys include:
 
-Each hotspot object is produced by `extractHotspotData()` — dynamic field names use underscores (e.g. `f_trans_txt` from class `f-trans-txt`), plus `ui_*` for visual CSS editor, `expertMode`, `hsTitle`, `pitch`, `yaw`, `customCss`, `type`.
+- **Meta**: `title`, inventory flags and styling, **custom popup** flags and styling (`popFont`, colors, opacity, buttons), **global audio** (`globalMusic` / `useGlobalAudio` with `{ url, volume }` shape where applicable).
+- **`scenes`**: array of scene objects with **`id`**, **`media`** (e.g. `panoramaUrl`, **`ambiance`** as `{ url, volume }`), **`hotspots`**.
+
+Each hotspot carries a unified **`action`** (and legacy-oriented field names may still appear in older docs — the runtime path normalizes toward **`payload.copy`** and **`sfx`**).
 
 ### Hotspot `selector` in the project file
 
-- **`f_sel_title`**, **`f_sel_intro`**, **`f_sel_display`** (`buttons` \| `dropdown`) — champs éditeur classiques.
-- **`f_sel_choices`** — **chaîne JSON** (pas un tableau natif dans le fichier) : c’est le résultat de `JSON.stringify` du tableau `choices` (messages, scènes, pick, sous-menus via `actionType: "selector"` et objet **`nested`** avec `title`, `introHtml`, `choices`, `displayMode` optionnel).
-- **`selJsonExpertMode`** (optionnel) — si vrai, le textarea JSON des choix était déverrouillé en mode expert au moment de la sauvegarde (même idée que `expertMode` pour le CSS).
-
-### Selector : flux sauvegarde / chargement (éditeur)
-
-Pièges qui ont causé des bugs réels :
-
-1. **`appendChild(renderChoiceCardElement(...))`** — la carte est construite **avant** d’être dans le DOM : `card.closest(".hotspot-block")` est **`null`** pendant ce temps. L’id du hotspot (`hId`) doit être **passé en argument** aux fonctions qui en ont besoin (ex. `selectorRebuildActionFields(card, ch, hId)`), pas déduit du DOM seul.
-2. **Ordre au chargement** — ne pas appeler `initSelectorChoicesForm` **avant** d’avoir assigné `f_sel_choices` depuis le JSON (`updateHsFields(..., { deferSelectorInit: !!hsData })` puis init **une fois** les champs restaurés).
-3. **Sérialisation** — lire les champs **de la carte courante** uniquement (`getOwnChoiceField` / sélecteurs bornés comme `.sel-action-fields .sel-nested-list`) pour ne pas mélanger parent et sous-cartes (ex. fuite de `sfxUrl`).
+- Form fields **`f_sel_*`** map to nested **`action.type === "selector"`** with **`payload.nested`**: `copy.bodyHtml`, `choices[]`, `displayMode`, etc.
+- **`f_sel_choices`** may hold a **JSON string** of the choices array when using the structured form; expert JSON mode is supported.
+- Load/save ordering and **`deferSelectorInit`** are critical — see the mermaid and notes below (unchanged pitfalls).
 
 ```mermaid
 flowchart TD
@@ -102,22 +153,34 @@ flowchart TD
   end
 ```
 
+**Pitfalls**
+
+1. **`renderChoiceCardElement`** — pass **`hId`** explicitly when the card is not yet in the DOM (`closest('.hotspot-block')` may be null).
+2. **Load order** — do not call **`initSelectorChoicesForm`** before restoring **`f_sel_choices`** from JSON.
+3. **Serialization** — scope queries to the current card (avoid leaking `sfxUrl` between parent and nested cards).
+
+---
+
 ## Editor: main functions (reference)
 
 | Function | Purpose |
 |----------|---------|
 | `addScene` / `addHotspot` | Inject scene or hotspot blocks; defaults for new items. |
+| `getCurrentProjectData` | Build the **V2** project object from the DOM (used by save, map, generate). |
 | `extractHotspotData` | Serialize one hotspot for JSON or duplication. |
-| `duplicateHotspot` / `duplicateScene` | Copy helpers; scene duplicate copies ambient URL. |
+| `duplicateHotspot` / `duplicateScene` | Copy helpers. |
 | `buildCss` / `toggleExpertMode` | No-code CSS vs raw textarea. |
-| `openPicker` / `previewScene` | Fullscreen Pannellum for coordinates / scene preview (`#live-preview-styles`). |
-| `updateHsFields` | Swap dynamic fields by hotspot type (`msg`, `pick`, `req`, `pwd`, `scene`, `selector`). Option **`deferSelectorInit`** : ne pas initialiser le formulaire des choix tant que `f_sel_choices` n’est pas restauré (chargement JSON). |
-| Selector helpers (`*-app.js`) | `initSelectorChoicesForm`, `renderChoiceCardElement`, `selectorRebuildActionFields(card, ch, hId)`, `syncSelectorChoicesToTextarea`, mode expert JSON, etc. |
-| `saveProject` / `loadProject` | JSON persistence. |
-| `updatePreview` | Inventory + dialog preview widgets in global settings. |
-| `generateGame` | Read DOM → build `scenesConfig`, `sceneAudios`, CSS, inject into template → download. |
+| `openPicker` / `previewScene` | Fullscreen Pannellum for coordinates / scene preview. |
+| `updateHsFields` | Swap dynamic fields by hotspot type; **`deferSelectorInit`** on load. |
+| Selector helpers | `initSelectorChoicesForm`, `renderChoiceCardElement`, `syncSelectorChoicesToTextarea`, etc. |
+| `saveProject` / `loadProject` | JSON persistence (V2 + legacy load). |
+| `updatePreview` | Inventory + dialog preview; calls **`updateQuillTheme()`** when present. |
+| `generateGame` | Read project → build player template → download. |
+| `refreshProjectMapGraphInPlace` / `setProjectMapView` | Regenerate or switch map view (`project-graph.js`). |
 
-Hotspot **types** in the player are handled in `hotspotDispatcher` inside the generated script.
+Hotspot **types** in the player are handled in **`hotspotDispatcher`** inside the generated script.
+
+---
 
 ## Pannellum integration
 
@@ -126,54 +189,55 @@ Hotspot **types** in the player are handled in `hotspotDispatcher` inside the ge
 
 Hotspots use `createTooltipFunc` pointing to **`hotspotDispatcher`** (a real function in the player). The config is built with `JSON.stringify` then a string replace converts `"createTooltipFunc": "hotspotDispatcher"` to a **bare identifier** so the output is valid JavaScript.
 
-**Modales joueur** (`openSelector`, `afficherPopup`, énigme mot de passe) partagent le même **chrome** : overlay plein écran assombri (`rgba(0,0,0,0.82)`), `z-index: 10050`, panneau centré `max-width: 420px`, `border-radius: 8px`, ombre. Clic sur le fond : fermeture (pour `afficherPopup`, sans appeler `onConfirm`).
+**Player modals** (`openSelector`, `afficherPopup`, password riddle) share the same visual chrome: dimmed overlay, centered panel, rounded corners.
 
-Scene changes: player listens to **`scenechange`** and calls **`applySceneAmbiance(sceneId)`** so per-scene ambient audio stays aligned with the current room.
+Scene changes: player listens to **`scenechange`** and applies per-scene **ambiance** audio.
+
+---
 
 ## Audio (player)
 
-- **Music**: optional loop on `#audio-music`, URL from global settings; started after splash.
-- **Ambiance**: loop on `#audio-ambiance`; URL map `sceneAmbianceUrls` built from each scene’s `.sc-audio`; empty URL → stop and clear channel.
-- **SFX**: `#audio-sfx` ; `playSFX(url, relVol)` et **`stopSFX()`** (pause + reset de la source). Utilisé par les **choix selector** (`sfxUrl` / `sfxVolume` dans le JSON des choix) ; le son est **coupé** à la fermeture du selector ou au retour depuis la vue message inline.
-- **Selector + message** : les choix `msg` ouvrent une **vue message** dans la même modale (scroll), pas une `afficherPopup` séparée ; **pick** ouvre le panneau inventaire si l’inventaire est activé dans les paramètres globaux du jeu généré.
-- **Pick** : depuis un hotspot classique, la zone est masquée après ramassage ; depuis un **selector**, la zone **reste** (troisième argument `fromSelector` à `executeAction`) pour pouvoir rouvrir le menu.
+- **Music**: optional loop; URL from global settings; started after splash.
+- **Ambiance**: loop per scene from scene media **`{ url, volume }`** map; empty URL stops the channel.
+- **SFX**: one-shot channel; **`stopSFX()`** on selector close / back from inline message.
+- **Selector + message**: choice type `msg` shows inline scroll in the same overlay; **pick** may open inventory when enabled.
 
 Splash screen exists so audio can start after a **user gesture** (browser autoplay policies).
 
+---
+
 ## Notable DOM hooks
 
-- `#scenes-container` — all `.scene-block` elements.
+- `#scenes-container` — primary home for `.scene-block` elements (may be temporarily moved to the map side panel).
+- `#project-map-side-content` — side panel host during map edit.
 - `.sc-id`, `.sc-img`, `.sc-title`, `.sc-audio` per scene.
-- `.hotspot-block` / `.hs-pitch`, `.hs-yaw`, `.hs-type`, `.hs-custom-css`, `#fields_<id>`.
+- `.hotspot-block`, `.hs-pitch`, `.hs-yaw`, `.hs-type`, `#fields_<id>`, `.editor-rich-text` / `.wysiwyg-wrap`.
+
+---
 
 ## Hosting and CORS
 
 - **HTTPS URLs** for panoramas/audio are the most reliable when testing from `file://` is problematic.
 - Local relative paths (`./image.jpg`) work when the game is served from a proper origin (same folder as assets).
 
-## Evolutions (planned / discussed)
+---
 
-These are **not** fully implemented unless marked otherwise; listed so assistants know intent:
+## Roadmap (high level)
 
-- Split editor into `*.css` / `*.js` modules (same repo, still zero build or simple static hosting).
-- Optional **local Pannellum** bundle instead of CDN.
-- **SFX** per classic hotspot (URLs + volume) — *les choix selector ont déjà SFX ; pas les hotspots classiques hors selector*.
-- **Player** volume UI: master / music / ambiance / SFX; editor-side gain × player gain.
-- **Levels**: multiple generated HTML files + `localStorage` inventory handoff.
-- **Picked items persistence** when revisiting a scene (hide picked hotspots across visits).
-- i18n: today FR/EN = **two files**; a shared JSON string table could reduce duplication later.
+Aligned with [README.md](../README.md):
 
-## Hotspot `selector` (implémenté)
+- **Chemin A (next priority)** — **Offline `.zip` export**: bundle generated `index.html` with **local Pannellum** (and other assets) for distribution without CDN (ideal for **EPN** / locked-down networks).
+- **Chemin B (long term)** — **React Flow** (or similar) replacing Drawflow only if the project adopts a richer front-end stack; keep **`EditorCore` + V2** as the contract.
 
-Spécification détaillée et pistes restantes : [SELECTOR_SPEC.md](./SELECTOR_SPEC.md).
+Other ideas: SFX on classic hotspots, player volume UI, multi-level games + `localStorage` inventory handoff, picked-item persistence across revisits, i18n beyond dual HTML files.
 
-**État actuel** : type **`selector`** dans l’éditeur et le jeu généré ; menu modal unique avec historique ; choix `msg` / `scene` / `pick` / sous-menu (`nested`) ; `requiresItem` / `hiddenIfHasItem` ; `sfxUrl` / `sfxVolume` ; `displayMode` boutons ou liste déroulante ; formulaire structuré des choix + section JSON avancée (lecture seule + mode expert).
+---
 
-**Architecture runtime** (inchangée par rapport au plan initial) :
+## Hotspot `selector` (implemented)
 
-1. `hotspotDispatcher` — si `type === 'selector'` → `openSelector`, sinon actions classiques.
-2. **`executeAction`** — `msg` / `scene` / `pick` (et chemins req/pwd via `executeReward`).
-3. **`openSelector`** — une seule modale ; sous-niveaux = remplacement du contenu + pile logique (bouton Retour).
+Full spec: [SELECTOR_SPEC.md](./SELECTOR_SPEC.md).
+
+**Nodal plan (delivered vs future)**: [PLAN_EDITEUR_NODAL.md](./PLAN_EDITEUR_NODAL.md).
 
 ```mermaid
 flowchart TD
@@ -186,13 +250,8 @@ flowchart TD
     F -->|selector nested| D
 ```
 
-### Évolutions encore ouvertes (selector / éditeur)
-
-- Feuille de route **éditeur nodal** + **schéma projet v2** (action unifiée, panneau latéral, selectors dans Drawflow) : [PLAN_EDITEUR_NODAL.md](./PLAN_EDITEUR_NODAL.md).
-- Profondeur d’imbrication côté **éditeur** plafonnée (UX) ; le moteur accepte une structure JSON plus profonde si éditée à la main.
-- Types de choix **`req`** / **`pwd`** dans le selector (voir spec).
-- Refactor « modules » player (`player.js`) — toujours dans les idées d’évolution globales.
+---
 
 ## Versioning
 
-Feature list for **non-developers** is maintained in README (bump version there when you ship meaningful changes). This file does not duplicate marketing version numbers unless useful for debugging.
+User-facing **feature list** and **release notes** live in the root [README.md](../README.md). This file tracks **technical** structure and extension points for contributors and AI assistants.

@@ -217,6 +217,19 @@ function generateGame() {
         #panorama { width: 100%; height: 100%; } 
         /* Injection du CSS généré pour les hotspots */
         ${customStylesCSS}
+        /* Contenu riche (Quill) : alignements + base gauche sous popups centrées */
+        .ql-align-center { text-align: center !important; }
+        .ql-align-right { text-align: right !important; }
+        .ql-align-justify { text-align: justify !important; }
+        .play-html-rich { text-align: left; }
+        .ql-font-arial { font-family: Arial, Helvetica, sans-serif; }
+        .ql-font-courier { font-family: "Courier New", Courier, monospace; }
+        .ql-font-times { font-family: "Times New Roman", Times, serif; }
+        .ql-font-impact { font-family: Impact, Haettenschweiler, "Arial Narrow Bold", fantasy; }
+        .ql-font-comic { font-family: "Comic Sans MS", "Comic Sans", cursive, sans-serif; }
+        .ql-size-small { font-size: 0.85em !important; }
+        .ql-size-large { font-size: 1.5em !important; }
+        .ql-size-huge { font-size: 2em !important; }
         
         /* Styles de l'inventaire */
         #inv-container { position: absolute; ${invPosCSS} z-index: 9999; display: ${hasInv ? 'flex' : 'none'}; flex-direction: column; align-items: ${alignItems}; }
@@ -493,7 +506,8 @@ function generateGame() {
             hMsg.textContent = 'Message';
             inner.appendChild(hMsg);
             var scroll = document.createElement('div');
-            scroll.style.cssText = 'max-height:min(55vh, 420px); overflow:auto; text-align:left; padding:8px; font-size:0.95em; line-height:1.45;';
+            scroll.className = 'play-html-rich';
+            scroll.style.cssText = 'max-height:min(55vh, 420px); overflow:auto; padding:8px; font-size:0.95em; line-height:1.45;';
             scroll.innerHTML = level.bodyHtml || '';
             inner.appendChild(scroll);
             return;
@@ -522,6 +536,7 @@ function generateGame() {
         inner.appendChild(h);
         if(level.introHtml) {
             var intro = document.createElement('div');
+            intro.className = 'play-html-rich';
             intro.style.cssText = 'margin-bottom:16px;font-size:0.95em;';
             intro.innerHTML = level.introHtml;
             inner.appendChild(intro);
@@ -614,7 +629,7 @@ function generateGame() {
                 var msg = document.createElement('div');
                 msg.style.cssText = 'background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;';
                 msg.onclick = function(e){ e.stopPropagation(); };
-                msg.innerHTML = args.enigmeTxt + "<br><br>";
+                msg.innerHTML = "<div class='play-html-rich'>" + args.enigmeTxt + "</div><br><br>";
                 
                 var inp = document.createElement('input'); 
                 inp.type = "text"; 
@@ -675,7 +690,7 @@ function generateGame() {
         var msg = document.createElement('div');
         msg.style.cssText = 'background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;max-height:85vh;overflow:auto;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;';
         msg.onclick = function(e){ e.stopPropagation(); };
-        msg.innerHTML = (titre!=="" ? "<h3 style='margin-top:0;color:inherit;opacity:0.8;'>" + titre + "</h3>" : "") + texte + "<br>";
+        msg.innerHTML = (titre!=="" ? "<h3 style='margin-top:0;color:inherit;opacity:0.8;'>" + titre + "</h3>" : "") + "<div class='play-html-rich'>" + texte + "</div><br>";
         
         var btn = document.createElement('button'); 
         btn.innerHTML = btnTxt; 
