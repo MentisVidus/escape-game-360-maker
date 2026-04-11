@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PoC Drawflow — Scène / Hotspot</title>
+  <link rel="stylesheet" href="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.css" />
+  <link rel="stylesheet" href="poc.css" />
+</head>
+<body>
+  <header class="xflow-poc-header">
+    <h1>xflow — PoC Drawflow (Vanilla JS)</h1>
+    <p>
+      Deux scènes et deux hotspots factices, reliés par des traits. Cliquez un nœud : le panneau à droite simule
+      l’ouverture du détail (plus tard = même formulaire que dans l’éditeur).
+    </p>
+  </header>
+  <main class="xflow-poc-main">
+    <div id="drawflow" aria-label="Canvas graphe"></div>
+    <aside class="xflow-panel" id="side-panel">
+      <h2>Détail du nœud</h2>
+      <p id="panel-empty" class="xflow-panel-empty">
+        Sélectionnez un nœud sur le graphe pour afficher ses métadonnées (simulation du futur panneau d’édition).
+      </p>
+      <dl id="panel-detail" class="xflow-panel-detail" style="display: none">
+        <dt>Type</dt>
+        <dd id="detail-kind"></dd>
+        <dt>Référence (factice)</dt>
+        <dd><code id="detail-ref"></code></dd>
+        <dt>Libellé</dt>
+        <dd id="detail-label"></dd>
+        <dt>Intégration</dt>
+        <dd id="detail-hint" style="font-size: 0.85rem; color: #9aa0a6"></dd>
+      </dl>
+    </aside>
+  </main>
+  <script src="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.js"></script>
+  <script src="poc.js"></script>
+</body>
+</html>

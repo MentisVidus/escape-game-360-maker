@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <!--
   English UI mirror of editeur.html — keep game logic and form structure in sync.
   Comments in this file are in English for contributors and non–French-speaking readers.
@@ -17,6 +17,8 @@
     <!-- Editor UI styles (shared with editeur.html) -->
     <!-- ========================================== -->
     <link rel="stylesheet" href="css/editor.css">
+    <link rel="stylesheet" href="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.css" />
+    <link rel="stylesheet" href="xflow/project-graph.css" />
     
     <!-- Injected CSS for live scene preview (hotspot outlines) -->
     <style id="live-preview-styles"></style>
@@ -36,6 +38,7 @@
     <div class="top-toolbar">
         <button class="btn-save" onclick="saveProject()">💾 Save project (.json)</button>
         <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Load project (.json)</button>
+        <button type="button" class="btn-load" onclick="openProjectMap()" title="Graph view of scenes and transitions">🗺️ Show map</button>
         <!-- Hidden file input for “Load project” -->
         <input type="file" id="file-import" style="display:none;" accept=".json" onchange="loadProject(event)">
     </div>
@@ -251,10 +254,41 @@
     <div id="scene-preview-panorama" style="flex-grow:1; width:100%;"></div>
 </div>
 
+<!-- Project graph (Drawflow) — read-only from current project -->
+<div id="project-map-modal" class="modal-fullscreen" style="display:none;">
+    <div class="modal-header">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;flex:1;">
+            <span>🗺️ <b>Project map</b></span>
+            <div id="project-map-toolbar" class="project-map-toolbar" role="tablist" aria-label="Map display mode">
+                <button type="button" class="project-map-tool active" data-project-map-view="focus" onclick="setProjectMapView('focus')">Focus view</button>
+                <button type="button" class="project-map-tool" data-project-map-view="full" onclick="setProjectMapView('full')">Full graph</button>
+                <button type="button" class="project-map-tool" data-project-map-view="tree" onclick="setProjectMapView('tree')">Acyclic view</button>
+            </div>
+            <small class="project-map-toolbar-hint">Focus / tree: click a node to edit it in the right panel. Double-click a compact scene to center it.</small>
+        </div>
+        <button type="button" onclick="closeProjectMap()" style="background:#e74c3c;">Close</button>
+    </div>
+    <div id="project-map-body" class="project-map-body">
+        <div id="project-map-canvas-wrap" class="project-map-canvas-wrap">
+            <div id="project-drawflow"></div>
+        </div>
+        <aside id="project-map-side-panel" class="project-map-side-panel" aria-hidden="true">
+            <div class="project-map-side-panel-header">
+                <span id="project-map-side-title" class="project-map-side-title">Edit</span>
+                <button type="button" id="project-map-side-close" class="project-map-side-close">Close panel</button>
+            </div>
+            <div id="project-map-side-content" class="project-map-side-content"></div>
+        </aside>
+    </div>
+</div>
+
 <!-- ========================================== -->
 <!-- Editor application script -->
 <!-- ========================================== -->
+    <script src="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.js"></script>
+    <script src="js/editor-core.js" defer></script>
     <script src="js/editor-en-app.js" defer></script>
     <script src="js/editor-en-generate.js" defer></script>
+    <script src="xflow/project-graph.js" defer></script>
 </body>
 </html>

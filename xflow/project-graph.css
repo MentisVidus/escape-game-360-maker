@@ -1,0 +1,288 @@
+/* Vue carte (Drawflow) — styles des nœuds dans l’éditeur */
+
+/* Barre de modes (Focus / Complète / Acyclique) */
+.project-map-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.project-map-tool {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #5d6d7e;
+    background: #34495e;
+    color: #ecf0f1;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.project-map-tool:hover {
+    background: #3d566e;
+}
+
+.project-map-tool.active {
+    background: #1abc9c;
+    border-color: #16a085;
+    color: #0b1f1a;
+    font-weight: 600;
+}
+
+.project-map-toolbar-hint {
+    opacity: 0.85;
+    font-weight: normal;
+    font-size: 12px;
+    color: #bdc3c7;
+    max-width: 360px;
+    line-height: 1.35;
+}
+
+/* Modale carte : colonne header + corps (canvas + panneau latéral) */
+#project-map-modal.modal-fullscreen {
+    flex-direction: column;
+}
+
+.project-map-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: row;
+    align-items: stretch;
+}
+
+.project-map-body.project-map-side-open .project-map-canvas-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
+.project-map-canvas-wrap {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    transition: flex-basis 0.2s ease;
+}
+
+#project-drawflow {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    background: #2b303b;
+    background-image: radial-gradient(circle, #3d4450 1px, transparent 1px);
+    background-size: 16px 16px;
+}
+
+/* Panneau latéral Chantier 2 — édition DOM (scène / hotspot) */
+.project-map-side-panel {
+    flex: 0 0 0;
+    width: 0;
+    max-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #1e2229;
+    border-left: 1px solid #3d4450;
+    box-shadow: -6px 0 24px rgba(0, 0, 0, 0.35);
+    transition: flex-basis 0.22s ease, max-width 0.22s ease, width 0.22s ease;
+}
+
+.project-map-side-panel.is-open {
+    flex: 0 0 min(440px, 44vw);
+    width: min(440px, 44vw);
+    max-width: min(440px, 44vw);
+}
+
+.project-map-side-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #252a33;
+    border-bottom: 1px solid #3d4450;
+    flex-shrink: 0;
+}
+
+.project-map-side-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #ecf0f1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-map-side-close {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #5d6d7e;
+    background: #34495e;
+    color: #ecf0f1;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.project-map-side-close:hover {
+    background: #3d566e;
+}
+
+.project-map-side-content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px;
+    color: #2c3e50;
+    background: #f5f6f8;
+}
+
+/* Blocs éditeur déplacés dans le panneau : lisibles sur fond clair */
+.project-map-side-content .scene-block,
+.project-map-side-content .hotspot-block {
+    max-width: 100%;
+}
+
+.xflow-node-scene .xflow-node-title,
+.xflow-node-hotspot .xflow-node-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.85;
+    margin-bottom: 6px;
+}
+
+.xflow-node-scene .xflow-node-sub {
+    font-size: 0.72rem;
+    opacity: 0.9;
+    margin-top: 4px;
+    word-break: break-word;
+}
+
+.xflow-node-scene .xflow-node-body {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.xflow-node-hotspot .xflow-node-body {
+    font-size: 0.9rem;
+}
+
+.xflow-node-scene {
+    min-width: 160px;
+    max-width: 220px;
+    padding: 10px 12px;
+    background: linear-gradient(145deg, #1e3d32, #152e28);
+    border: 1px solid #2d6a4f;
+    border-radius: 8px;
+    color: #d8f3dc;
+}
+
+/* Scène au centre du mode focus (classe sur le wrapper Drawflow) */
+.drawflow-node.xflow-node-scene-active .xflow-node-scene {
+    box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.5), 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* Cible repliée — double-clic pour naviguer */
+.drawflow-node.xflow-node-scene-collapsed {
+    cursor: pointer;
+}
+
+.drawflow-node.xflow-node-scene-collapsed .xflow-node-scene {
+    opacity: 0.92;
+    border-style: dashed;
+    border-color: #52b788;
+    max-width: 200px;
+}
+
+.xflow-node-collapsed-hint {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 0.68rem;
+    font-style: italic;
+    opacity: 0.88;
+}
+
+/* Vue acyclique — scène dans le flux */
+.drawflow-node.xflow-node-tree-scene .xflow-node-scene {
+    border-color: #3498db;
+}
+
+/* Vue complète — léger repère de cellule (optionnel) */
+.drawflow-node.xflow-node-full-scene .xflow-node-scene {
+    box-shadow: 0 0 0 1px rgba(52, 152, 219, 0.25);
+}
+
+/*
+ * Nœud « renvoi » : Drawflow met background:#0ff et bordure sur .drawflow-node — tout retirer
+ * pour ne laisser que la pilule (.xflow-node-redirect-inner).
+ */
+.drawflow .drawflow-node.xflow-node-redirect {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+}
+
+.drawflow .drawflow-node.xflow-node-redirect .drawflow_content_node {
+    width: auto !important;
+    display: block;
+}
+
+/* Pilule : fond violet opaque, texte blanc (lisible sur grille sombre) */
+.xflow-node-redirect-inner {
+    min-width: 120px;
+    max-width: 200px;
+    padding: 12px 18px;
+    background: #8e44ad;
+    border: 2px dashed rgba(255, 255, 255, 0.75);
+    border-radius: 999px;
+    color: #ffffff;
+    text-align: center;
+}
+
+.xflow-node-redirect-inner .xflow-node-title {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+    color: rgba(255, 255, 255, 0.92);
+    opacity: 1;
+}
+
+.xflow-node-redirect-inner .xflow-node-body {
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #ffffff;
+}
+
+.xflow-node-redirect-inner .xflow-node-sub {
+    margin-top: 6px;
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.88);
+    opacity: 1;
+}
+
+.xflow-node-redirect-inner .xflow-node-sub code {
+    color: rgba(255, 255, 255, 0.95);
+    background: rgba(0, 0, 0, 0.2);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+.xflow-node-hotspot {
+    min-width: 170px;
+    max-width: 240px;
+    padding: 10px 12px;
+    background: linear-gradient(145deg, #3d2e1e, #2d2218);
+    border: 1px solid #bc6c25;
+    border-radius: 8px;
+    color: #ffe8d6;
+}

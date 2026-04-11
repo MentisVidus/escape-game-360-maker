@@ -50,12 +50,12 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
     const sceneHTML = `
     <div class="scene-block" id="scene_${sId}">
         <div class="scene-header">
-            <div style="display:flex; align-items:center;">
+            <div class="scene-header-main">
                 <button class="btn-icon" onclick="toggleCollapse('scene_body_${sId}', this)">▼</button>
-                <h3 style="margin:0;">🎬 Scene ${sId}</h3>
+                <h3 class="scene-block-heading">🎬 Scene ${sId}</h3>
                 <input type="text" class="title-input sc-title" placeholder="Title / note (e.g. Kitchen)" value="${scTitleVal}">
             </div>
-            <div>
+            <div class="scene-header-actions">
                 <button class="btn-icon" onclick="moveUp('scene_${sId}')" title="Move up">⬆️</button>
                 <button class="btn-icon" onclick="moveDown('scene_${sId}')" title="Move down">⬇️</button>
                 <button class="btn-icon" onclick="duplicateScene(${sId})" title="Duplicate entire scene">📑</button>
@@ -67,7 +67,7 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
             <div class="row">
                 <div class="col"><label>Short scene ID (e.g. kitchen):</label><input type="text" class="sc-id" value="${scIdVal}"></div>
                 <div class="col"><label>360° image (e.g. room.jpg or http...):</label><input type="text" class="sc-img" value="${scImgVal}" oninput="updateScenePreview(this)"></div>
-                <div class="col" style="flex: 1; min-width: 200px;"><label>🎵 Ambient audio (mp3 URL):</label><input type="text" class="sc-audio" placeholder="Optional"></div>
+                <div class="col col-wide"><label>🎵 Ambient audio (mp3 URL):</label><input type="text" class="sc-audio" placeholder="Optional"></div>
             </div>
             <h4>Hotspots</h4>
             <div id="hs-container-${sId}"></div>
@@ -105,13 +105,13 @@ function addHotspot(sceneId, hsData = null) {
     // Build hotspot DOM template
     const hsHTML = `
     <div class="hotspot-block" id="hs_${hId}">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; background:#e8f8f5; padding:8px; border-radius:5px;">
-            <div style="display:flex; align-items:center;">
+        <div class="hs-block-header">
+            <div class="hs-block-header-main">
                 <button class="btn-icon" onclick="toggleCollapse('hs_body_${hId}', this)">▼</button>
-                <b>Hotspot ${hId}</b>
+                <b class="hs-block-id">Hotspot ${hId}</b>
                 <input type="text" class="title-input hs-title" placeholder="Note (e.g. Blue door)" value="${hsTitleVal}">
             </div>
-            <div>
+            <div class="hs-block-header-actions">
                 <button class="btn-icon" onclick="moveUp('hs_${hId}')" title="Move up">⬆️</button>
                 <button class="btn-icon" onclick="moveDown('hs_${hId}')" title="Move down">⬇️</button>
                 <button class="btn-icon" onclick="duplicateHotspot(${sceneId}, ${hId})" title="Duplicate hotspot">📑</button>
@@ -153,16 +153,16 @@ function addHotspot(sceneId, hsData = null) {
             </div>
 
             <!-- Expert CSS textarea -->
-            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:15px;">
-                <label>Generated CSS:</label>
-                <button class="btn-icon" style="background:#7f8c8d; margin-bottom:5px;" onclick="toggleExpertMode(${hId})">🧑‍💻 Expert mode (free CSS)</button>
+            <div class="editor-row-spread">
+                <label class="editor-row-spread-label">Generated CSS:</label>
+                <button type="button" class="btn-icon btn-expert-css" onclick="toggleExpertMode(${hId})">🧑‍💻 Expert mode (free CSS)</button>
             </div>
             <textarea class="css-editor hs-custom-css" id="css_text_${hId}" rows="2" readonly>${customCss}</textarea>
                 </div>
             </div>
             
             <!-- Hotspot action type -->
-            <label style="margin-top:10px;">On click:</label>
+            <label class="editor-field-label">On click:</label>
             <select class="hs-type" onchange="updateHsFields(${hId})">
                 <option value="msg">Show message</option>
                 <option value="pick">Pick up item</option>
@@ -650,7 +650,7 @@ function selectorRebuildActionFields(card, ch, hsHotspotId) {
         var ti = document.createElement("textarea");
         ti.className = "sel-nested-intro";
         ti.rows = 2;
-        ti.value = nest.introHtml || "";
+        ti.value = (nest.copy && nest.copy.bodyHtml) || nest.introHtml || "";
         var ld = document.createElement("label");
         ld.textContent = "Sub-choices layout:";
         var sd = document.createElement("select");
@@ -925,9 +925,9 @@ function updateHsFields(hId, opts) {
             <button type="button" class="editor-collapse-header" onclick="toggleCollapse('sel_json_wrap_${hId}', this)">▶ Advanced JSON (technical reference)</button>
             <div id="sel_json_wrap_${hId}" style="display:none">
                 <p class="selector-json-hint">The game reads this JSON array. Usually the form above is enough; open this section to <b>view</b> or <b>copy</b> the structure. Expert mode unlocks hand-editing (like free CSS).</p>
-                <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:8px;">
-                    <label style="margin:0;">Choices JSON data</label>
-                    <button type="button" class="btn-icon btn-sel-json-expert" style="background:#7f8c8d;" onclick="toggleSelectorJsonExpert(${hId})">🧑‍💻 JSON expert mode</button>
+                <div class="editor-row-spread">
+                    <label class="editor-row-spread-label">Choices JSON data</label>
+                    <button type="button" class="btn-icon btn-sel-json-expert" onclick="toggleSelectorJsonExpert(${hId})">🧑‍💻 JSON expert mode</button>
                 </div>
                 <textarea class="f-sel-choices css-editor" rows="12" readonly style="font-family:Consolas,monospace;font-size:12px;">${defaultSelJson}</textarea>
             </div>
@@ -938,43 +938,210 @@ function updateHsFields(hId, opts) {
 }
 
 // --- Save / load project JSON ---
-function saveProject() {
-    // Collect editor state into one object
-    let project = { 
-        title: document.getElementById('gameTitle').value, 
-        useInv: document.getElementById('useInventory').checked, 
-        invPos: document.getElementById('inv-pos').value, 
-        invIcon: document.getElementById('inv-icon').value, 
-        invBgc: document.getElementById('inv-bgc').value, 
-        invBga: document.getElementById('inv-bga').value, 
-        invColor: document.getElementById('inv-color').value, 
-        useCustomPopup: document.getElementById('useCustomPopup').checked,
-        useGlobalAudio: document.getElementById('useGlobalAudio').checked,
-        globalAudioUrl: document.getElementById('globalAudioUrl').value,
-        popFont: document.getElementById('pop-font').value,
-        popColor: document.getElementById('pop-color').value,
-        popBgc: document.getElementById('pop-bgc').value,
-        popBga: document.getElementById('pop-bga').value,
-        popBtnBg: document.getElementById('pop-btn-bg').value,
-        popBtnCol: document.getElementById('pop-btn-col').value,
-        scenes: [] 
+
+function selectorChoicesFromTextarea(hsDiv, hId) {
+    var ta = hsDiv.querySelector(".f-sel-choices");
+    if(!ta) return [];
+    if(ta.hasAttribute("readonly")) syncSelectorChoicesToTextarea(hId);
+    var arr = [];
+    try { arr = JSON.parse(ta.value || "[]"); } catch(e) { arr = []; }
+    if(!Array.isArray(arr)) arr = [];
+    return arr;
+}
+
+function selectorChoiceLegacyToV2(ch, idx) {
+    var out = {
+        id: (ch.id && String(ch.id).trim()) || ("choice_" + (idx + 1)),
+        label: (ch.label && String(ch.label).trim()) || "Option",
+        action: legacyActionToV2(ch.actionType || "msg", ch)
     };
-    
-    // All scenes and nested hotspots
-    document.querySelectorAll('.scene-block').forEach(sceneDiv => {
-        let scene = { 
-			scId: sceneDiv.querySelector('.sc-id').value,
-			scImg: sceneDiv.querySelector('.sc-img').value,
-			scTitle: sceneDiv.querySelector('.sc-title').value,
-			scAudio: sceneDiv.querySelector('.sc-audio') ? sceneDiv.querySelector('.sc-audio').value : "",
-			hotspots: [] 
+    return out;
+}
+
+function legacyActionToV2(type, source) {
+    if(!window.EditorCore) throw new Error("EditorCore unavailable (js/editor-core.js).");
+    var src = source || {};
+    var action = EditorCore.createDefaultAction(type || "msg");
+    var p = action.payload;
+
+    if(src.requiresItem) action.visibility.requiresItem = String(src.requiresItem).trim();
+    if(src.hiddenIfHasItem) action.visibility.hiddenIfHasItem = String(src.hiddenIfHasItem).trim();
+    if(src.sfxUrl) action.sfx.url = String(src.sfxUrl).trim();
+    if(src.sfxVolume !== undefined && src.sfxVolume !== null && src.sfxVolume !== "") {
+        var v = parseFloat(src.sfxVolume);
+        if(!isNaN(v)) action.sfx.volume = v;
+    }
+
+    if(action.type === "msg") {
+        p.copy.bodyHtml = src.txt || "";
+    } else if(action.type === "scene") {
+        p.target = src.target || "";
+        p.copy.bodyHtml = src.transTxt || "";
+        p.copy.buttonLabel = src.transBtn || "Continue";
+    } else if(action.type === "pick") {
+        p.itemId = src.itemId || "";
+        p.itemName = src.itemName || "";
+        p.copy.bodyHtml = src.txt || "";
+    } else if(action.type === "req") {
+        p.itemId = src.itemId || "";
+        p.copy.bodyHtml = src.ko || "";
+        p.rewardAction = legacyRewardToV2(src.f_req_action || src.reqAction || "scene", src);
+    } else if(action.type === "pwd") {
+        p.copy.bodyHtml = src.enigmeTxt || src.enigme_txt || src.f_enigme_txt || "";
+        p.answer = src.pwd || src.f_pwd || "";
+        p.rewardAction = legacyRewardToV2(src.f_pwd_action || src.pwdAction || "scene", src);
+    } else if(action.type === "selector") {
+        var nested = src.nested || {};
+        var intro =
+            (nested.copy && nested.copy.bodyHtml != null ? nested.copy.bodyHtml : null) ||
+            nested.introHtml ||
+            "";
+        p.nested = {
+            title: nested.title || "",
+            copy: {
+                bodyHtml: String(intro || ""),
+                buttonLabel: String((nested.copy && nested.copy.buttonLabel) || "")
+            },
+            displayMode: nested.displayMode === "dropdown" ? "dropdown" : "buttons",
+            choices: (Array.isArray(nested.choices) ? nested.choices : []).map(function(ch, idx) {
+                return selectorChoiceLegacyToV2(ch || {}, idx);
+            })
         };
-        // Hotspots for this scene
-        sceneDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => { 
-            scene.hotspots.push(extractHotspotData(hsDiv.id.split('_')[1])); 
+    }
+    return action;
+}
+
+function legacyRewardToV2(kind, src) {
+    if(kind === "msg") {
+        return legacyActionToV2("msg", { txt: src.f_ok_msg || src.okMsg || src.ok_msg || "" });
+    }
+    if(kind === "pick") {
+        return legacyActionToV2("pick", {
+            itemId: src.f_pick_id || src.pickId || "",
+            itemName: src.f_pick_name || src.pickName || "",
+            txt: src.f_pick_msg || src.pickMsg || ""
+        });
+    }
+    return legacyActionToV2("scene", {
+        target: src.f_target || src.target || "",
+        transTxt: src.f_trans_txt || src.transTxt || "",
+        transBtn: src.f_trans_btn || src.transBtn || "Continue"
+    });
+}
+
+function hotspotDomToV2(hsDiv) {
+    var hId = parseInt(hsDiv.id.replace("hs_", ""), 10);
+    var type = hsDiv.querySelector(".hs-type").value;
+    var legacy = {};
+    if(type === "msg") {
+        legacy.txt = (hsDiv.querySelector(".f-txt") || { value: "" }).value;
+    } else if(type === "scene") {
+        legacy.target = (hsDiv.querySelector(".f-target") || { value: "" }).value;
+        legacy.transTxt = (hsDiv.querySelector(".f-trans-txt") || { value: "" }).value;
+        legacy.transBtn = (hsDiv.querySelector(".f-trans-btn") || { value: "Continue" }).value;
+    } else if(type === "pick") {
+        legacy.itemId = (hsDiv.querySelector(".f-item-id") || { value: "" }).value;
+        legacy.itemName = (hsDiv.querySelector(".f-item-name") || { value: "" }).value;
+        legacy.txt = (hsDiv.querySelector(".f-pick-msg") || { value: "" }).value;
+    } else if(type === "req") {
+        legacy.itemId = (hsDiv.querySelector(".f-item-id") || { value: "" }).value;
+        legacy.ko = (hsDiv.querySelector(".f-ko") || { value: "" }).value;
+        legacy.f_req_action = (hsDiv.querySelector(".f-req-action") || { value: "scene" }).value;
+        legacy.f_target = (hsDiv.querySelector(".f-target") || { value: "" }).value;
+        legacy.f_trans_txt = (hsDiv.querySelector(".f-trans-txt") || { value: "" }).value;
+        legacy.f_trans_btn = (hsDiv.querySelector(".f-trans-btn") || { value: "Continue" }).value;
+        legacy.f_ok_msg = (hsDiv.querySelector(".f-ok-msg") || { value: "" }).value;
+        legacy.f_pick_id = (hsDiv.querySelector(".f-pick-id") || { value: "" }).value;
+        legacy.f_pick_name = (hsDiv.querySelector(".f-pick-name") || { value: "" }).value;
+        legacy.f_pick_msg = (hsDiv.querySelector(".f-pick-msg") || { value: "" }).value;
+    } else if(type === "pwd") {
+        legacy.enigmeTxt = (hsDiv.querySelector(".f-enigme-txt") || { value: "" }).value;
+        legacy.pwd = (hsDiv.querySelector(".f-pwd") || { value: "" }).value;
+        legacy.f_pwd_action = (hsDiv.querySelector(".f-pwd-action") || { value: "scene" }).value;
+        legacy.f_target = (hsDiv.querySelector(".f-target") || { value: "" }).value;
+        legacy.f_trans_txt = (hsDiv.querySelector(".f-trans-txt") || { value: "" }).value;
+        legacy.f_trans_btn = (hsDiv.querySelector(".f-trans-btn") || { value: "Continue" }).value;
+        legacy.f_ok_msg = (hsDiv.querySelector(".f-ok-msg") || { value: "" }).value;
+        legacy.f_pick_id = (hsDiv.querySelector(".f-pick-id") || { value: "" }).value;
+        legacy.f_pick_name = (hsDiv.querySelector(".f-pick-name") || { value: "" }).value;
+        legacy.f_pick_msg = (hsDiv.querySelector(".f-pick-msg") || { value: "" }).value;
+    } else if(type === "selector") {
+        legacy.nested = {
+            title: (hsDiv.querySelector(".f-sel-title") || { value: "" }).value,
+            introHtml: (hsDiv.querySelector(".f-sel-intro") || { value: "" }).value,
+            displayMode: (hsDiv.querySelector(".f-sel-display") || { value: "buttons" }).value,
+            choices: selectorChoicesFromTextarea(hsDiv, hId)
+        };
+    }
+
+    return {
+        id: hsDiv.id,
+        title: (hsDiv.querySelector(".hs-title") || { value: "" }).value,
+        pitch: parseFloat((hsDiv.querySelector(".hs-pitch") || { value: "0" }).value || "0"),
+        yaw: parseFloat((hsDiv.querySelector(".hs-yaw") || { value: "0" }).value || "0"),
+        customCss: (hsDiv.querySelector(".hs-custom-css") || { value: "" }).value,
+        appearance: {
+            ui_w: (hsDiv.querySelector(".ui-w") || { value: "" }).value,
+            ui_h: (hsDiv.querySelector(".ui-h") || { value: "" }).value,
+            ui_shape: (hsDiv.querySelector(".ui-shape") || { value: "" }).value,
+            ui_bgc: (hsDiv.querySelector(".ui-bgc") || { value: "" }).value,
+            ui_bga: (hsDiv.querySelector(".ui-bga") || { value: "" }).value,
+            ui_img: (hsDiv.querySelector(".ui-img") || { value: "" }).value,
+            ui_brd_style: (hsDiv.querySelector(".ui-brd-style") || { value: "" }).value,
+            ui_brd_w: (hsDiv.querySelector(".ui-brd-w") || { value: "" }).value,
+            ui_brd_c: (hsDiv.querySelector(".ui-brd-c") || { value: "" }).value
+        },
+        action: legacyActionToV2(type, legacy)
+    };
+}
+
+/** Export current editor state in schema v2 (unified action model). */
+function getCurrentProjectData() {
+    if(!window.EditorCore) throw new Error("EditorCore not loaded.");
+    let project = EditorCore.createEmptyProject();
+    project.title = document.getElementById('gameTitle').value;
+    project.useInv = document.getElementById('useInventory').checked;
+    project.invPos = document.getElementById('inv-pos').value;
+    project.invIcon = document.getElementById('inv-icon').value;
+    project.invBgc = document.getElementById('inv-bgc').value;
+    project.invBga = parseFloat(document.getElementById('inv-bga').value || "0.8");
+    project.invColor = document.getElementById('inv-color').value;
+    project.useCustomPopup = document.getElementById('useCustomPopup').checked;
+    project.useGlobalAudio = document.getElementById('useGlobalAudio').checked;
+    project.globalMusic = {
+        url: document.getElementById('globalAudioUrl').value,
+        volume: 0.5
+    };
+    project.popFont = document.getElementById('pop-font').value;
+    project.popColor = document.getElementById('pop-color').value;
+    project.popBgc = document.getElementById('pop-bgc').value;
+    project.popBga = parseFloat(document.getElementById('pop-bga').value || "0.9");
+    project.popBtnBg = document.getElementById('pop-btn-bg').value;
+    project.popBtnCol = document.getElementById('pop-btn-col').value;
+
+    document.querySelectorAll('.scene-block').forEach(sceneDiv => {
+        let scene = {
+            id: (sceneDiv.querySelector('.sc-id') || { value: "" }).value.trim(),
+            title: (sceneDiv.querySelector('.sc-title') || { value: "" }).value,
+            media: {
+                panoramaUrl: (sceneDiv.querySelector('.sc-img') || { value: "" }).value,
+                ambiance: {
+                    url: sceneDiv.querySelector('.sc-audio') ? sceneDiv.querySelector('.sc-audio').value : "",
+                    volume: 1
+                }
+            },
+            hotspots: []
+        };
+        sceneDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
+            scene.hotspots.push(hotspotDomToV2(hsDiv));
         });
         project.scenes.push(scene);
     });
+    return project;
+}
+
+function saveProject() {
+    const project = getCurrentProjectData();
     
     // Trigger browser download
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
@@ -986,6 +1153,114 @@ function saveProject() {
     document.body.removeChild(lien);
 }
 
+function actionV2ToLegacyChoice(action, label, idx) {
+    var a = action || EditorCore.createDefaultAction("msg");
+    var p = a.payload || {};
+    var out = { label: label || ("Option " + (idx + 1)), actionType: a.type || "msg" };
+    var c = p.copy || {};
+    if(a.type === "msg") {
+        out.txt = c.bodyHtml || "";
+    } else if(a.type === "scene") {
+        out.target = p.target || "";
+        out.transTxt = c.bodyHtml || "";
+        out.transBtn = c.buttonLabel || "Continue";
+    } else if(a.type === "pick") {
+        out.itemId = p.itemId || "";
+        out.itemName = p.itemName || "";
+        out.txt = c.bodyHtml || "";
+    } else if(a.type === "selector") {
+        var n = p.nested || {};
+        var nc = n.copy || {};
+        out.nested = {
+            title: n.title || "",
+            introHtml: nc.bodyHtml || "",
+            displayMode: n.displayMode === "dropdown" ? "dropdown" : "buttons",
+            choices: (Array.isArray(n.choices) ? n.choices : []).map(function(ch, i) {
+                return actionV2ToLegacyChoice(ch.action, ch.label, i);
+            })
+        };
+    }
+    if(a.visibility && a.visibility.requiresItem) out.requiresItem = a.visibility.requiresItem;
+    if(a.visibility && a.visibility.hiddenIfHasItem) out.hiddenIfHasItem = a.visibility.hiddenIfHasItem;
+    if(a.sfx && a.sfx.url) out.sfxUrl = a.sfx.url;
+    if(a.sfx && a.sfx.volume !== undefined) out.sfxVolume = a.sfx.volume;
+    return out;
+}
+
+function actionV2ToLegacyHotspotData(hs) {
+    var a = hs.action || EditorCore.createDefaultAction("msg");
+    var p = a.payload || {};
+    var out = {
+        hsTitle: hs.title || "",
+        pitch: hs.pitch != null ? hs.pitch : 0,
+        yaw: hs.yaw != null ? hs.yaw : 0,
+        customCss: hs.customCss || "",
+        type: a.type || "msg"
+    };
+    var app = hs.appearance || {};
+    if(app.ui_w !== undefined) {
+        out.ui_w = app.ui_w; out.ui_h = app.ui_h; out.ui_shape = app.ui_shape;
+        out.ui_bgc = app.ui_bgc; out.ui_bga = app.ui_bga; out.ui_img = app.ui_img;
+        out.ui_brd_style = app.ui_brd_style; out.ui_brd_w = app.ui_brd_w; out.ui_brd_c = app.ui_brd_c;
+    }
+    var pc = p.copy || {};
+    if(a.type === "msg") {
+        out.f_txt = pc.bodyHtml || "";
+    } else if(a.type === "scene") {
+        out.f_target = p.target || "";
+        out.f_trans_txt = pc.bodyHtml || "";
+        out.f_trans_btn = pc.buttonLabel || "Continue";
+    } else if(a.type === "pick") {
+        out.f_item_id = p.itemId || "";
+        out.f_item_name = p.itemName || "";
+        out.f_pick_msg = pc.bodyHtml || "";
+    } else if(a.type === "req") {
+        out.f_item_id = p.itemId || "";
+        out.f_ko = pc.bodyHtml || "";
+        var r = p.rewardAction || EditorCore.createDefaultAction("scene");
+        var rc = (r.payload && r.payload.copy) || {};
+        out.f_req_action = r.type || "scene";
+        if(r.type === "scene") {
+            out.f_target = (r.payload && r.payload.target) || "";
+            out.f_trans_txt = rc.bodyHtml || "";
+            out.f_trans_btn = rc.buttonLabel || "Continue";
+        } else if(r.type === "msg") {
+            out.f_ok_msg = rc.bodyHtml || "";
+        } else if(r.type === "pick") {
+            out.f_pick_id = (r.payload && r.payload.itemId) || "";
+            out.f_pick_name = (r.payload && r.payload.itemName) || "";
+            out.f_pick_msg = rc.bodyHtml || "";
+        }
+    } else if(a.type === "pwd") {
+        out.f_enigme_txt = pc.bodyHtml || "";
+        out.f_pwd = p.answer || "";
+        var rp = p.rewardAction || EditorCore.createDefaultAction("scene");
+        var rpc = (rp.payload && rp.payload.copy) || {};
+        out.f_pwd_action = rp.type || "scene";
+        if(rp.type === "scene") {
+            out.f_target = (rp.payload && rp.payload.target) || "";
+            out.f_trans_txt = rpc.bodyHtml || "";
+            out.f_trans_btn = rpc.buttonLabel || "Continue";
+        } else if(rp.type === "msg") {
+            out.f_ok_msg = rpc.bodyHtml || "";
+        } else if(rp.type === "pick") {
+            out.f_pick_id = (rp.payload && rp.payload.itemId) || "";
+            out.f_pick_name = (rp.payload && rp.payload.itemName) || "";
+            out.f_pick_msg = rpc.bodyHtml || "";
+        }
+    } else if(a.type === "selector") {
+        var n = p.nested || {};
+        var ncopy = n.copy || {};
+        out.f_sel_title = n.title || "";
+        out.f_sel_intro = ncopy.bodyHtml || "";
+        out.f_sel_display = n.displayMode === "dropdown" ? "dropdown" : "buttons";
+        out.f_sel_choices = JSON.stringify((Array.isArray(n.choices) ? n.choices : []).map(function(c, i) {
+            return actionV2ToLegacyChoice(c.action, c.label, i);
+        }), null, 2);
+    }
+    return out;
+}
+
 function loadProject(event) {
     const file = event.target.files[0]; 
     if (!file) return; 
@@ -993,7 +1268,7 @@ function loadProject(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            const project = JSON.parse(e.target.result);
+            const project = EditorCore.parseProjectJSON(e.target.result);
             
             // Reset UI
             document.getElementById('scenes-container').innerHTML = ''; 
@@ -1035,18 +1310,22 @@ function loadProject(event) {
             const useAudio = project.useGlobalAudio || false;
             document.getElementById('useGlobalAudio').checked = useAudio;
             document.getElementById('audio-settings-container').style.display = useAudio ? 'flex' : 'none';
-            document.getElementById('globalAudioUrl').value = project.globalAudioUrl || "";
+            var gm = project.globalMusic || {};
+            document.getElementById('globalAudioUrl').value = gm.url != null ? gm.url : project.globalAudioUrl || "";
             // Scenes + hotspots (+ per-scene ambient URL)
-            project.scenes.forEach(scene => { 
-                const sId = addScene(scene.scId, scene.scImg, scene.scTitle);
+            project.scenes.forEach(scene => {
+                var scMedia = scene.media || {};
+                const sId = addScene(scene.id || "", scMedia.panoramaUrl || "room.jpg", scene.title || "");
 				
                 // Scene ambient audio field
                 var scDiv = document.getElementById('scene_' + sId);
                 if (scDiv && scDiv.querySelector('.sc-audio')) {
-                    scDiv.querySelector('.sc-audio').value = scene.scAudio || "";
+                    var amb = scMedia.ambiance || {};
+                    scDiv.querySelector('.sc-audio').value =
+                        amb.url != null ? amb.url : scMedia.ambianceUrl || "";
                 }
 				
-                scene.hotspots.forEach(hs => { addHotspot(sId, hs); }); 
+                (scene.hotspots || []).forEach(hs => { addHotspot(sId, actionV2ToLegacyHotspotData(hs)); });
             });
             
             // Refresh inventory / popup previews
