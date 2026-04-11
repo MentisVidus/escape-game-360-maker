@@ -5,15 +5,16 @@
     <title>Créateur d'Escape Game 360 - EPN</title>
     
     <!-- Importation de la bibliothèque Pannellum pour afficher les images 360 -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css">
-    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css" integrity="sha512-ZP66YMS+vZxnqqq80JOEltcxGuvWTYRrGXeZk2Rw0Lp/FtnHJ8Stcji6FjKKfa6aII6DkBY1Z4+3w5aqXuv8Tw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js" integrity="sha512-zK8emCYiGe3Pq/lowOjAd1NhmfGymEsVWxABVmSbnrtRWOjXXC8tSe/oSxOUjKBy5GIPeopqmPfF4KCyfpTgXg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     
     <!-- ========================================== -->
     <!-- STYLES CSS DE L'INTERFACE DE L'ÉDITEUR     -->
     <!-- ========================================== -->
     <link rel="stylesheet" href="css/editor.css">
-    <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.7/quill.snow.css" />
-    <link rel="stylesheet" href="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.css" />
+    <!-- cdnjs (pas cdn.quilljs.com) : en-têtes CORS compatibles file:// + SRI -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.css" integrity="sha512-XMxqcAfuPHOh2Kz0Z3oDynUcLgyKP6B1NCKUTxyVbM02u1ZrygDcLddKw7KpN/SGmdw8raHbKgaIHP7+bEfGYw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.css" integrity="sha512-GTNFMKejVzflYCjpOETNHO0QkDLuSQA8uv+edsDWiHgz+dw3XjA4Xz2RulzhJTzzQxt4nOAdSzjAcBadGIIALw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="xflow/project-graph.css" />
     
     <!-- Balise style utilisée pour injecter le CSS lors de l'aperçu Live d'une scène -->
@@ -324,11 +325,11 @@
 <!-- ========================================== -->
 <!-- SCRIPTS JAVASCRIPT (Logique de l'éditeur)  -->
 <!-- ========================================== -->
-    <script src="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer></script>
+    <script src="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.js" integrity="sha512-zOcvRrIUE8bSYF8XUziL2dMKfxPM/gyvRqt0AojE9q/6zKXzIOocxrMn08a9KMZi1tqdSgqD4Z6FmcU167QfVA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" integrity="sha512-Qlv6VSKh1gDKGoJbnyA5RMXYcvnpIqhO++MhIM2fStMcGT9i2T//tSwYFlcyoRRDcDZ+TYHpH8azBBCyhpSeqw==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
     <script src="js/editor-core.js" defer></script>
-    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js" integrity="sha512-P2W2rr8ikUPfa31PLBo5bcBQrsa+TNj8jiKadtaIrHQGMo6hQM6RdPjQYxlNguwHz8AwSQ28VkBK6kHBLgd/8g==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
     <script src="js/editor-quill-scenes.js" defer></script>
     <script src="js/editeur-app.js" defer></script>
     <script src="js/editeur-generate.js" defer></script>
