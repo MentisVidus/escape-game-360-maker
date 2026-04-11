@@ -11,6 +11,19 @@
         /* Bouton principal de génération du jeu */
         .btn-generate { background: #27ae60; width: 100%; font-size: 20px; margin-top: 30px; padding: 15px; }
         .btn-generate:hover { background: #2ecc71; }
+        .btn-export-offline {
+            background: #16a085;
+            width: 100%;
+            font-size: 17px;
+            margin-top: 12px;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-export-offline:hover { background: #1abc9c; }
         
         /* Blocs visuels (Scènes et Hotspots) — fluides : panneau latéral carte, petits écrans */
         .scene-block, .hotspot-block {

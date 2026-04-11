@@ -247,6 +247,7 @@
     
     <button class="btn-add-scene" onclick="addScene()">+ AJOUTER UNE NOUVELLE SCÈNE</button>
     <button class="btn-generate" onclick="generateGame()">🚀 GÉNÉRER MON JEU (INDEX.HTML)</button>
+    <button type="button" class="btn-export-offline" onclick="void exportGameOfflineZip()">📦 Exporter le jeu complet (.ZIP hors-ligne)</button>
 
     <!-- CRÉDITS ET LICENCE -->
     <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 13px; color: #7f8c8d; line-height: 1.5;">
@@ -324,6 +325,8 @@
 <!-- SCRIPTS JAVASCRIPT (Logique de l'éditeur)  -->
 <!-- ========================================== -->
     <script src="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js" defer></script>
     <script src="js/editor-core.js" defer></script>
     <script src="https://cdn.quilljs.com/1.3.7/quill.min.js" defer></script>
     <script src="js/editor-quill-scenes.js" defer></script>
