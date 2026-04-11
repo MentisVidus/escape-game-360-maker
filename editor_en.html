@@ -264,11 +264,22 @@
                 <button type="button" class="project-map-tool" data-project-map-view="full" onclick="setProjectMapView('full')">Full graph</button>
                 <button type="button" class="project-map-tool" data-project-map-view="tree" onclick="setProjectMapView('tree')">Acyclic view</button>
             </div>
-            <small class="project-map-toolbar-hint">Focus: double-click a compact scene to center it.</small>
+            <small class="project-map-toolbar-hint">Focus / tree: click a node to edit it in the right panel. Double-click a compact scene to center it.</small>
         </div>
         <button type="button" onclick="closeProjectMap()" style="background:#e74c3c;">Close</button>
     </div>
-    <div id="project-drawflow"></div>
+    <div id="project-map-body" class="project-map-body">
+        <div id="project-map-canvas-wrap" class="project-map-canvas-wrap">
+            <div id="project-drawflow"></div>
+        </div>
+        <aside id="project-map-side-panel" class="project-map-side-panel" aria-hidden="true">
+            <div class="project-map-side-panel-header">
+                <span id="project-map-side-title" class="project-map-side-title">Edit</span>
+                <button type="button" id="project-map-side-close" class="project-map-side-close">Close panel</button>
+            </div>
+            <div id="project-map-side-content" class="project-map-side-content"></div>
+        </aside>
+    </div>
 </div>
 
 <!-- ========================================== -->

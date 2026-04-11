@@ -34,8 +34,35 @@
     font-weight: normal;
     font-size: 12px;
     color: #bdc3c7;
-    max-width: 280px;
+    max-width: 360px;
     line-height: 1.35;
+}
+
+/* Modale carte : colonne header + corps (canvas + panneau latéral) */
+#project-map-modal.modal-fullscreen {
+    flex-direction: column;
+}
+
+.project-map-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: row;
+    align-items: stretch;
+}
+
+.project-map-body.project-map-side-open .project-map-canvas-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
+.project-map-canvas-wrap {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    transition: flex-basis 0.2s ease;
 }
 
 #project-drawflow {
@@ -45,6 +72,76 @@
     background: #2b303b;
     background-image: radial-gradient(circle, #3d4450 1px, transparent 1px);
     background-size: 16px 16px;
+}
+
+/* Panneau latéral Chantier 2 — édition DOM (scène / hotspot) */
+.project-map-side-panel {
+    flex: 0 0 0;
+    width: 0;
+    max-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #1e2229;
+    border-left: 1px solid #3d4450;
+    box-shadow: -6px 0 24px rgba(0, 0, 0, 0.35);
+    transition: flex-basis 0.22s ease, max-width 0.22s ease, width 0.22s ease;
+}
+
+.project-map-side-panel.is-open {
+    flex: 0 0 min(440px, 44vw);
+    width: min(440px, 44vw);
+    max-width: min(440px, 44vw);
+}
+
+.project-map-side-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #252a33;
+    border-bottom: 1px solid #3d4450;
+    flex-shrink: 0;
+}
+
+.project-map-side-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #ecf0f1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-map-side-close {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #5d6d7e;
+    background: #34495e;
+    color: #ecf0f1;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.project-map-side-close:hover {
+    background: #3d566e;
+}
+
+.project-map-side-content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px;
+    color: #2c3e50;
+    background: #f5f6f8;
+}
+
+/* Blocs éditeur déplacés dans le panneau : lisibles sur fond clair */
+.project-map-side-content .scene-block,
+.project-map-side-content .hotspot-block {
+    max-width: 100%;
 }
 
 .xflow-node-scene .xflow-node-title,

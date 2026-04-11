@@ -50,12 +50,12 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
     const sceneHTML = `
     <div class="scene-block" id="scene_${sId}">
         <div class="scene-header">
-            <div style="display:flex; align-items:center;">
+            <div class="scene-header-main">
                 <button class="btn-icon" onclick="toggleCollapse('scene_body_${sId}', this)">▼</button>
-                <h3 style="margin:0;">🎬 Scène ${sId}</h3>
+                <h3 class="scene-block-heading">🎬 Scène ${sId}</h3>
                 <input type="text" class="title-input sc-title" placeholder="Titre/Note (ex: Cuisine)" value="${scTitleVal}">
             </div>
-            <div>
+            <div class="scene-header-actions">
                 <button class="btn-icon" onclick="moveUp('scene_${sId}')" title="Monter">⬆️</button>
                 <button class="btn-icon" onclick="moveDown('scene_${sId}')" title="Descendre">⬇️</button>
                 <button class="btn-icon" onclick="duplicateScene(${sId})" title="Dupliquer la scène entière">📑</button>
@@ -67,7 +67,7 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
             <div class="row">
                 <div class="col"><label>ID court système (ex: cuisine) :</label><input type="text" class="sc-id" value="${scIdVal}"></div>
                 <div class="col"><label>Image 360 (ex: salle.jpg ou http...) :</label><input type="text" class="sc-img" value="${scImgVal}" oninput="updateScenePreview(this)"></div>
-                <div class="col" style="flex: 1; min-width: 200px;"><label>🎵 Audio d'ambiance (URL mp3) :</label><input type="text" class="sc-audio" placeholder="Optionnel"></div>
+                <div class="col col-wide"><label>🎵 Audio d'ambiance (URL mp3) :</label><input type="text" class="sc-audio" placeholder="Optionnel"></div>
             </div>
             <h4>Points d'interaction</h4>
             <div id="hs-container-${sId}"></div>
@@ -106,13 +106,13 @@ function addHotspot(sceneId, hsData = null) {
     // Création du bloc HTML du hotspot
     const hsHTML = `
     <div class="hotspot-block" id="hs_${hId}">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; background:#e8f8f5; padding:8px; border-radius:5px;">
-            <div style="display:flex; align-items:center;">
+        <div class="hs-block-header">
+            <div class="hs-block-header-main">
                 <button class="btn-icon" onclick="toggleCollapse('hs_body_${hId}', this)">▼</button>
-                <b>Hotspot ${hId}</b>
+                <b class="hs-block-id">Hotspot ${hId}</b>
                 <input type="text" class="title-input hs-title" placeholder="Note (ex: Porte Bleue)" value="${hsTitleVal}">
             </div>
-            <div>
+            <div class="hs-block-header-actions">
                 <button class="btn-icon" onclick="moveUp('hs_${hId}')" title="Monter">⬆️</button>
                 <button class="btn-icon" onclick="moveDown('hs_${hId}')" title="Descendre">⬇️</button>
                 <button class="btn-icon" onclick="duplicateHotspot(${sceneId}, ${hId})" title="Dupliquer le hotspot">📑</button>
@@ -154,16 +154,16 @@ function addHotspot(sceneId, hsData = null) {
             </div>
 
             <!-- Éditeur de code CSS libre -->
-            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:15px;">
-                <label>Code CSS généré :</label>
-                <button class="btn-icon" style="background:#7f8c8d; margin-bottom:5px;" onclick="toggleExpertMode(${hId})">🧑‍💻 Mode Expert (CSS Libre)</button>
+            <div class="editor-row-spread">
+                <label class="editor-row-spread-label">Code CSS généré :</label>
+                <button type="button" class="btn-icon btn-expert-css" onclick="toggleExpertMode(${hId})">🧑‍💻 Mode Expert (CSS Libre)</button>
             </div>
             <textarea class="css-editor hs-custom-css" id="css_text_${hId}" rows="2" readonly>${customCss}</textarea>
                 </div>
             </div>
             
             <!-- Type d'action du Hotspot -->
-            <label style="margin-top:10px;">Action au clic :</label>
+            <label class="editor-field-label">Action au clic :</label>
             <select class="hs-type" onchange="updateHsFields(${hId})">
                 <option value="msg">Afficher message</option>
                 <option value="pick">Ramasser objet</option>
@@ -928,9 +928,9 @@ function updateHsFields(hId, opts) {
             <button type="button" class="editor-collapse-header" onclick="toggleCollapse('sel_json_wrap_${hId}', this)">▶ JSON avancé (référence technique)</button>
             <div id="sel_json_wrap_${hId}" style="display:none">
                 <p class="selector-json-hint">Le jeu lit ce tableau JSON. En usage courant, le formulaire ci-dessus suffit ; ouvrez cette zone pour <b>voir</b> ou <b>copier</b> la structure. Le mode expert permet de modifier le JSON à la main (comme le CSS en mode expert).</p>
-                <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:8px;">
-                    <label style="margin:0;">Données JSON des choix</label>
-                    <button type="button" class="btn-icon btn-sel-json-expert" style="background:#7f8c8d;" onclick="toggleSelectorJsonExpert(${hId})">🧑‍💻 Mode expert JSON</button>
+                <div class="editor-row-spread">
+                    <label class="editor-row-spread-label">Données JSON des choix</label>
+                    <button type="button" class="btn-icon btn-sel-json-expert" onclick="toggleSelectorJsonExpert(${hId})">🧑‍💻 Mode expert JSON</button>
                 </div>
                 <textarea class="f-sel-choices css-editor" rows="12" readonly style="font-family:Consolas,monospace;font-size:12px;">${defaultSelJson}</textarea>
             </div>

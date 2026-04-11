@@ -7,35 +7,67 @@
 (function () {
     "use strict";
 
+    var SELECTOR_GRAPH_MAX_DEPTH = 48;
+
     /**
-     * Cible de transition (schéma V2 : hs.action.type + payload / rewardAction).
-     * Compat. formulaire legacy : f_target, f_req_action, type racine.
+     * Accumule les IDs de scènes cibles depuis une action V2 (récursif pour selector).
      */
-    function getTargetSceneIdFromHotspot(hs) {
-        if (!hs) return null;
+    function collectTargetSceneIdsFromAction(action, hsLegacy, outMap, depthLeft) {
+        if (!action || typeof action !== "object" || depthLeft <= 0) return;
+        var p = action.payload || {};
+        var t = action.type;
+        if (t === "scene") {
+            var v = (p.target || (hsLegacy && hsLegacy.f_target) || "").trim();
+            if (v) outMap[v] = true;
+            return;
+        }
+        if (t === "req") {
+            var rr = p.rewardAction || {};
+            if ((rr.type || (hsLegacy && hsLegacy.f_req_action)) !== "scene") return;
+            var r = ((rr.payload && rr.payload.target) || (hsLegacy && hsLegacy.f_target) || "").trim();
+            if (r) outMap[r] = true;
+            return;
+        }
+        if (t === "pwd") {
+            var rp = p.rewardAction || {};
+            if ((rp.type || (hsLegacy && hsLegacy.f_pwd_action)) !== "scene") return;
+            var pt = ((rp.payload && rp.payload.target) || (hsLegacy && hsLegacy.f_target) || "").trim();
+            if (pt) outMap[pt] = true;
+            return;
+        }
+        if (t === "selector") {
+            var nested = p.nested || {};
+            var choices = Array.isArray(nested.choices) ? nested.choices : [];
+            for (var ci = 0; ci < choices.length; ci++) {
+                var ch = choices[ci];
+                if (ch && ch.action) {
+                    collectTargetSceneIdsFromAction(ch.action, null, outMap, depthLeft - 1);
+                }
+            }
+        }
+    }
+
+    /**
+     * Toutes les scènes atteignables depuis un hotspot (direct + choix de selector imbriqués).
+     * @returns {string[]}
+     */
+    function getTargetSceneIdsFromHotspot(hs) {
+        var out = {};
+        if (!hs) return [];
         var a = hs.action;
         if (!a || typeof a !== "object") {
             a = hs;
         }
-        var p = a.payload || {};
-        var t = a.type;
-        if (t === "scene") {
-            var v = (p.target || hs.f_target || "").trim();
-            return v || null;
-        }
-        if (t === "req") {
-            var rr = p.rewardAction || {};
-            if ((rr.type || hs.f_req_action) !== "scene") return null;
-            var r = ((rr.payload && rr.payload.target) || hs.f_target || "").trim();
-            return r || null;
-        }
-        if (t === "pwd") {
-            var rp = p.rewardAction || {};
-            if ((rp.type || hs.f_pwd_action) !== "scene") return null;
-            var pt = ((rp.payload && rp.payload.target) || hs.f_target || "").trim();
-            return pt || null;
-        }
-        return null;
+        collectTargetSceneIdsFromAction(a, hs, out, SELECTOR_GRAPH_MAX_DEPTH);
+        return Object.keys(out);
+    }
+
+    /**
+     * Première cible (compat. ancien code) — préférer getTargetSceneIdsFromHotspot pour le graphe.
+     */
+    function getTargetSceneIdFromHotspot(hs) {
+        var ids = getTargetSceneIdsFromHotspot(hs);
+        return ids.length ? ids[0] : null;
     }
 
     function escapeHtml(s) {
@@ -169,6 +201,161 @@
         );
     }
 
+    /** @type {{ parent: Node, nextSibling: Node|null, el: HTMLElement }|null} */
+    var _projectMapPanelStash = null;
+    /** Après nodeUnselected : rafraîchir le graphe au prochain tick si aucun nodeSelected n’annule (évite le cas A→B). */
+    var _projectMapGraphRefreshPending = false;
+
+    function restoreProjectMapSidePanelDomOnly() {
+        if (_projectMapPanelStash && _projectMapPanelStash.el && _projectMapPanelStash.parent) {
+            try {
+                _projectMapPanelStash.parent.insertBefore(
+                    _projectMapPanelStash.el,
+                    _projectMapPanelStash.nextSibling
+                );
+            } catch (e) {
+                _projectMapPanelStash.parent.appendChild(_projectMapPanelStash.el);
+            }
+        }
+        _projectMapPanelStash = null;
+        var content = document.getElementById("project-map-side-content");
+        if (content) {
+            while (content.firstChild) {
+                content.removeChild(content.firstChild);
+            }
+        }
+        var panel = document.getElementById("project-map-side-panel");
+        if (panel) {
+            panel.classList.remove("is-open");
+            panel.setAttribute("aria-hidden", "true");
+        }
+        var body = document.getElementById("project-map-body");
+        if (body) body.classList.remove("project-map-side-open");
+    }
+
+    /**
+     * Regénère le graphe (même mode / même scène focus) après édition dans le panneau.
+     */
+    function refreshProjectMapGraphInPlace() {
+        var ed = window._projectMapEditor;
+        if (!ed || typeof getCurrentProjectData !== "function") return;
+        var modal = document.getElementById("project-map-modal");
+        if (!modal || modal.style.display === "none") return;
+        restoreProjectMapSidePanelDomOnly();
+        var project = getCurrentProjectData();
+        var mode = window._projectMapViewMode || "focus";
+        var opts = { viewMode: mode };
+        if (mode === "focus") {
+            var k = window._projectMapActiveSceneKey;
+            if ((k == null || k === "") && project.scenes && project.scenes.length > 0) {
+                k = sceneKey(project.scenes[0], 0);
+            }
+            opts.activeSceneKey = k;
+        }
+        ed.clear();
+        generateGraphFromJson(ed, project, opts, true);
+        updateProjectMapToolbar(mode);
+    }
+
+    function scheduleProjectMapGraphRefreshAfterDeselect() {
+        _projectMapGraphRefreshPending = true;
+        setTimeout(function () {
+            if (!_projectMapGraphRefreshPending) return;
+            _projectMapGraphRefreshPending = false;
+            refreshProjectMapGraphInPlace();
+        }, 0);
+    }
+
+    function findSceneBlockByIndex(sceneIndex) {
+        var container = document.getElementById("scenes-container");
+        if (!container || typeof sceneIndex !== "number" || sceneIndex < 0) return null;
+        var blocks = container.querySelectorAll(":scope > .scene-block");
+        return blocks[sceneIndex] || null;
+    }
+
+    function findHotspotBlockByIndices(sceneIndex, hotspotIndex) {
+        var sceneEl = findSceneBlockByIndex(sceneIndex);
+        if (!sceneEl || typeof hotspotIndex !== "number" || hotspotIndex < 0) return null;
+        var wrap = sceneEl.querySelector('[id^="hs-container-"]');
+        if (!wrap) return null;
+        var hss = wrap.querySelectorAll(":scope > .hotspot-block");
+        return hss[hotspotIndex] || null;
+    }
+
+    function mountBlockInSidePanel(el, titleText) {
+        restoreProjectMapSidePanelDomOnly();
+        if (!el) return;
+        var parent = el.parentNode;
+        var nextSibling = el.nextSibling;
+        _projectMapPanelStash = { parent: parent, nextSibling: nextSibling, el: el };
+        var content = document.getElementById("project-map-side-content");
+        var panel = document.getElementById("project-map-side-panel");
+        var titleEl = document.getElementById("project-map-side-title");
+        if (titleEl) titleEl.textContent = titleText || "";
+        if (content) content.appendChild(el);
+        if (panel) {
+            panel.classList.add("is-open");
+            panel.setAttribute("aria-hidden", "false");
+        }
+        var body = document.getElementById("project-map-body");
+        if (body) body.classList.add("project-map-side-open");
+    }
+
+    function onProjectMapNodeSelected(nodeId) {
+        var mode = window._projectMapViewMode;
+        if (mode !== "focus" && mode !== "tree") return;
+
+        var ed = window._projectMapEditor;
+        if (!ed || typeof ed.getNodeFromId !== "function") return;
+        var node = ed.getNodeFromId(String(nodeId));
+        if (!node || !node.data) return;
+        var d = node.data;
+        if (d.kind === "redirect") return;
+
+        var el = null;
+        var title = "";
+        var en = document.documentElement.lang === "en";
+        if (d.kind === "scene" && typeof d.sceneIndex === "number") {
+            el = findSceneBlockByIndex(d.sceneIndex);
+            title = d.label || (en ? "Scene" : "Scène");
+        } else if (
+            d.kind === "hotspot" &&
+            typeof d.sceneIndex === "number" &&
+            typeof d.hotspotIndex === "number"
+        ) {
+            el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex);
+            title = d.label || "Hotspot";
+        }
+        if (!el) return;
+        mountBlockInSidePanel(el, title);
+    }
+
+    function ensureProjectMapDrawflowEvents() {
+        var ed = window._projectMapEditor;
+        if (!ed || window._projectMapDrawflowEventsBound) return;
+        if (typeof ed.on === "function") {
+            ed.on("nodeSelected", function (id) {
+                _projectMapGraphRefreshPending = false;
+                onProjectMapNodeSelected(id);
+            });
+            ed.on("nodeUnselected", function () {
+                restoreProjectMapSidePanelDomOnly();
+                scheduleProjectMapGraphRefreshAfterDeselect();
+            });
+        }
+        window._projectMapDrawflowEventsBound = true;
+    }
+
+    function ensureProjectMapSideCloseButton() {
+        var btn = document.getElementById("project-map-side-close");
+        if (!btn || btn._projectMapSideCloseBound) return;
+        btn.addEventListener("click", function () {
+            restoreProjectMapSidePanelDomOnly();
+            refreshProjectMapGraphInPlace();
+        });
+        btn._projectMapSideCloseBound = true;
+    }
+
     /**
      * Positions pour la vue complète : BFS depuis la 1re scène = « profondeur » (flux gauche → droite).
      * Scènes non atteignables depuis l’entrée : colonne supplémentaire après le max.
@@ -195,9 +382,12 @@
             if (!meta) continue;
             var hsList = Array.isArray(meta.scene.hotspots) ? meta.scene.hotspots : [];
             for (var hi = 0; hi < hsList.length; hi++) {
-                var t = getTargetSceneIdFromHotspot(hsList[hi]);
-                if (t && findSceneByKey(project, t) && !visited.has(t)) {
-                    queue.push({ key: t, level: lv + 1 });
+                var tids = getTargetSceneIdsFromHotspot(hsList[hi]);
+                for (var ti = 0; ti < tids.length; ti++) {
+                    var t = tids[ti];
+                    if (t && findSceneByKey(project, t) && !visited.has(t)) {
+                        queue.push({ key: t, level: lv + 1 });
+                    }
                 }
             }
         }
@@ -269,6 +459,7 @@
                 kind: "scene",
                 scId: sceneIdLabel(scene),
                 sceneKey: sk,
+                sceneIndex: si,
                 label: title,
                 viewMode: "full"
             };
@@ -297,6 +488,8 @@
                     kind: "hotspot",
                     parentSceneKey: sk,
                     parentScId: sceneIdLabel(scene),
+                    sceneIndex: si,
+                    hotspotIndex: hi,
                     index: hi,
                     type: at,
                     label: label
@@ -311,8 +504,9 @@
                     console.warn("[Map] Scene → hotspot connection:", e);
                 }
 
-                var targetId = getTargetSceneIdFromHotspot(hs);
-                if (targetId) {
+                var targetIds = getTargetSceneIdsFromHotspot(hs);
+                for (var tj = 0; tj < targetIds.length; tj++) {
+                    var targetId = targetIds[tj];
                     var targetNid = sceneKeyToDrawflowId[targetId];
                     if (targetNid !== undefined) {
                         try {
@@ -359,6 +553,7 @@
             kind: "scene",
             scId: sceneIdLabel(activeScene),
             sceneKey: activeKey,
+            sceneIndex: resolved.index,
             label: activeTitle,
             viewMode: "active"
         };
@@ -377,10 +572,13 @@
         var hotspots = Array.isArray(activeScene.hotspots) ? activeScene.hotspots : [];
         var uniqueTargets = [];
         hotspots.forEach(function (hs) {
-            var tid = getTargetSceneIdFromHotspot(hs);
-            if (!tid || tid === activeKey) return;
-            if (uniqueTargets.indexOf(tid) !== -1) return;
-            if (findSceneByKey(project, tid)) uniqueTargets.push(tid);
+            var tids = getTargetSceneIdsFromHotspot(hs);
+            for (var ut = 0; ut < tids.length; ut++) {
+                var tid = tids[ut];
+                if (!tid || tid === activeKey) continue;
+                if (uniqueTargets.indexOf(tid) !== -1) continue;
+                if (findSceneByKey(project, tid)) uniqueTargets.push(tid);
+            }
         });
 
         uniqueTargets.forEach(function (tid, ti) {
@@ -392,6 +590,7 @@
                 kind: "scene",
                 scId: sceneIdLabel(meta.scene),
                 sceneKey: tid,
+                sceneIndex: meta.index,
                 label: tTitle,
                 viewMode: "collapsed"
             };
@@ -417,6 +616,8 @@
                 kind: "hotspot",
                 parentSceneKey: activeKey,
                 parentScId: sceneIdLabel(activeScene),
+                sceneIndex: resolved.index,
+                hotspotIndex: hi,
                 index: hi,
                 type: at,
                 label: label
@@ -430,8 +631,9 @@
                 console.warn("[Map] Scene → hotspot connection:", e);
             }
 
-            var targetId = getTargetSceneIdFromHotspot(hs);
-            if (targetId) {
+            var targetIds = getTargetSceneIdsFromHotspot(hs);
+            for (var tk = 0; tk < targetIds.length; tk++) {
+                var targetId = targetIds[tk];
                 var targetNid = sceneKeyToDrawflowId[targetId];
                 if (targetNid !== undefined) {
                     try {
@@ -460,6 +662,7 @@
         var HOTSPOT_DX = 230;
         var SUBTREE_GAP = 72;
         var REDIRECT_DX = 380;
+        var TARGET_STAGGER_Y = 88;
 
         var visitedFull = new Set();
 
@@ -503,6 +706,7 @@
                 kind: "scene",
                 scId: sceneIdLabel(meta.scene),
                 sceneKey: sk,
+                sceneIndex: meta.index,
                 label: title,
                 viewMode: "tree"
             };
@@ -531,6 +735,8 @@
                     kind: "hotspot",
                     parentSceneKey: sk,
                     parentScId: sceneIdLabel(meta.scene),
+                    sceneIndex: meta.index,
+                    hotspotIndex: i,
                     index: i,
                     type: at,
                     label: label,
@@ -553,47 +759,53 @@
                     console.warn("[Map tree] Scene → hotspot:", e);
                 }
 
-                var target = getTargetSceneIdFromHotspot(hs);
-                if (!target) {
+                var targets = getTargetSceneIdsFromHotspot(hs);
+                if (targets.length === 0) {
                     subtreeRight = Math.max(subtreeRight, x + HOTSPOT_DX + 200);
                     return;
                 }
 
-                if (!visitedFull.has(target)) {
-                    var sub = placeScene(target, nextChildX, hy);
-                    if (sub.rootSceneNid != null) {
-                        try {
-                            editor.addConnection(hsNid, sub.rootSceneNid, "output_1", "input_1");
-                        } catch (e3) {
-                            console.warn("[Map tree] Hotspot → target scene:", e3);
+                var branchX = nextChildX;
+                for (var tg = 0; tg < targets.length; tg++) {
+                    var target = targets[tg];
+                    var yBranch = hy + tg * TARGET_STAGGER_Y;
+                    if (!visitedFull.has(target)) {
+                        var sub = placeScene(target, branchX, yBranch);
+                        if (sub.rootSceneNid != null) {
+                            try {
+                                editor.addConnection(hsNid, sub.rootSceneNid, "output_1", "input_1");
+                            } catch (e3) {
+                                console.warn("[Map tree] Hotspot → target scene:", e3);
+                            }
                         }
+                        branchX = sub.right + SUBTREE_GAP;
+                        subtreeRight = Math.max(subtreeRight, sub.right);
+                    } else {
+                        var redHtml = redirectNodeHtml(target);
+                        var redData = {
+                            kind: "redirect",
+                            targetSceneKey: target,
+                            viewMode: "tree"
+                        };
+                        var redNid = editor.addNode(
+                            "redirect",
+                            1,
+                            0,
+                            x + REDIRECT_DX,
+                            yBranch,
+                            "xflow-node-redirect",
+                            redData,
+                            redHtml
+                        );
+                        try {
+                            editor.addConnection(hsNid, redNid, "output_1", "input_1");
+                        } catch (e2) {
+                            console.warn("[Map tree] Hotspot → redirect:", e2);
+                        }
+                        subtreeRight = Math.max(subtreeRight, x + REDIRECT_DX + 200);
                     }
-                    nextChildX = sub.right + SUBTREE_GAP;
-                    subtreeRight = Math.max(subtreeRight, sub.right);
-                } else {
-                    var redHtml = redirectNodeHtml(target);
-                    var redData = {
-                        kind: "redirect",
-                        targetSceneKey: target,
-                        viewMode: "tree"
-                    };
-                    var redNid = editor.addNode(
-                        "redirect",
-                        1,
-                        0,
-                        x + REDIRECT_DX,
-                        hy,
-                        "xflow-node-redirect",
-                        redData,
-                        redHtml
-                    );
-                    try {
-                        editor.addConnection(hsNid, redNid, "output_1", "input_1");
-                    } catch (e2) {
-                        console.warn("[Map tree] Hotspot → redirect:", e2);
-                    }
-                    subtreeRight = Math.max(subtreeRight, x + REDIRECT_DX + 200);
                 }
+                nextChildX = branchX;
             });
 
             return { right: subtreeRight, rootSceneNid: sceneNid };
@@ -645,8 +857,11 @@
      * @param {string} [options.viewMode] — 'focus' (défaut) | 'full' | 'tree'
      * @param {string} [options.activeSceneKey] — mode focus uniquement
      */
-    function generateGraphFromJson(editor, project, options) {
+    function generateGraphFromJson(editor, project, options, skipDomRestore) {
         if (!editor || !project || !Array.isArray(project.scenes)) return;
+        if (!skipDomRestore) {
+            restoreProjectMapSidePanelDomOnly();
+        }
         options = options || {};
         var viewMode = options.viewMode || "focus";
 
@@ -723,6 +938,8 @@
         }
 
         ensureMapDblClickHandler();
+        ensureProjectMapDrawflowEvents();
+        ensureProjectMapSideCloseButton();
         window._projectMapViewMode = "focus";
         window._projectMapActiveSceneKey =
             project.scenes && project.scenes.length > 0 ? sceneKey(project.scenes[0], 0) : null;
@@ -734,11 +951,20 @@
     }
 
     function closeProjectMap() {
+        restoreProjectMapSidePanelDomOnly();
         var modal = document.getElementById("project-map-modal");
         if (modal) modal.style.display = "none";
     }
 
+    function closeProjectMapSidePanel() {
+        restoreProjectMapSidePanelDomOnly();
+        refreshProjectMapGraphInPlace();
+    }
+
     window.getTargetSceneIdFromHotspot = getTargetSceneIdFromHotspot;
+    window.getTargetSceneIdsFromHotspot = getTargetSceneIdsFromHotspot;
+    window.closeProjectMapSidePanel = closeProjectMapSidePanel;
+    window.refreshProjectMapGraphInPlace = refreshProjectMapGraphInPlace;
     window.generateGraphFromJson = generateGraphFromJson;
     window.openProjectMap = openProjectMap;
     window.closeProjectMap = closeProjectMap;

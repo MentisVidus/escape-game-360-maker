@@ -271,11 +271,22 @@
                 <button type="button" class="project-map-tool" data-project-map-view="full" onclick="setProjectMapView('full')">Vue complète</button>
                 <button type="button" class="project-map-tool" data-project-map-view="tree" onclick="setProjectMapView('tree')">Vue acyclique</button>
             </div>
-            <small class="project-map-toolbar-hint">Focus : double-clic sur une scène compacte pour y centrer.</small>
+            <small class="project-map-toolbar-hint">Focus / acyclique : clic sur un nœud pour l’éditer dans le panneau de droite. Double-clic sur une scène compacte pour y centrer.</small>
         </div>
         <button type="button" onclick="closeProjectMap()" style="background:#e74c3c;">Fermer</button>
     </div>
-    <div id="project-drawflow"></div>
+    <div id="project-map-body" class="project-map-body">
+        <div id="project-map-canvas-wrap" class="project-map-canvas-wrap">
+            <div id="project-drawflow"></div>
+        </div>
+        <aside id="project-map-side-panel" class="project-map-side-panel" aria-hidden="true">
+            <div class="project-map-side-panel-header">
+                <span id="project-map-side-title" class="project-map-side-title">Édition</span>
+                <button type="button" id="project-map-side-close" class="project-map-side-close">Fermer le panneau</button>
+            </div>
+            <div id="project-map-side-content" class="project-map-side-content"></div>
+        </aside>
+    </div>
 </div>
 
 <!-- ========================================== -->
