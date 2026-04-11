@@ -1,6 +1,15 @@
-﻿// --- Build standalone player HTML (index.html) ---
-// Reads the form and emits one self-contained file (Pannellum + game logic).
-function generateGame() {
+﻿// --- Player HTML (index.html) or offline ZIP (Pannellum vendored under lib/) ---
+var OFFLINE_PANNELLUM_CDN_CSS = "https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css";
+var OFFLINE_PANNELLUM_CDN_JS = "https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js";
+
+function patchPlayerHtmlForOffline(html) {
+    return String(html)
+        .replace(/https:\/\/cdn\.jsdelivr\.net\/npm\/pannellum@2\.5\.7\/build\/pannellum\.css/g, "./lib/pannellum.css")
+        .replace(/https:\/\/cdn\.jsdelivr\.net\/npm\/pannellum@2\.5\.7\/build\/pannellum\.js/g, "./lib/pannellum.js");
+}
+
+/** @returns {string} Full player HTML (Pannellum via CDN links). */
+function buildPlayerHtmlTemplate() {
     // 1. Globals from project v2
     const project = getCurrentProjectData();
     const title = project.title || "My awesome game";
@@ -708,14 +717,58 @@ function generateGame() {
 </body>
 </html>`;
 
-    // 5. Download index.html
-    const blob = new Blob([htmlTemplate], { type: "text/html;charset=utf-8" }); 
-    const lien = document.createElement("a"); 
-    lien.href = URL.createObjectURL(blob); 
-    lien.download = "index.html"; 
-    document.body.appendChild(lien); 
-    lien.click(); 
+    return htmlTemplate;
+}
+
+function generateGame() {
+    const htmlTemplate = buildPlayerHtmlTemplate();
+    const blob = new Blob([htmlTemplate], { type: "text/html;charset=utf-8" });
+    const lien = document.createElement("a");
+    lien.href = URL.createObjectURL(blob);
+    lien.download = "index.html";
+    document.body.appendChild(lien);
+    lien.click();
     document.body.removeChild(lien);
+}
+
+/** ZIP: index.html + lib/pannellum.{css,js} — fetch requires network once; bundle works offline. */
+async function exportGameOfflineZip() {
+    if (typeof JSZip === "undefined" || typeof saveAs === "undefined") {
+        alert("JSZip or FileSaver.js failed to load. Check your network (CDN) and reload the page.");
+        return;
+    }
+    try {
+        const html = patchPlayerHtmlForOffline(buildPlayerHtmlTemplate());
+        const [cssText, jsText] = await Promise.all([
+            fetch(OFFLINE_PANNELLUM_CDN_CSS).then(function (r) {
+                if (!r.ok) throw new Error("pannellum.css (" + r.status + ")");
+                return r.text();
+            }),
+            fetch(OFFLINE_PANNELLUM_CDN_JS).then(function (r) {
+                if (!r.ok) throw new Error("pannellum.js (" + r.status + ")");
+                return r.text();
+            }),
+        ]);
+        const zip = new JSZip();
+        zip.file("index.html", html);
+        const lib = zip.folder("lib");
+        lib.file("pannellum.css", cssText);
+        lib.file("pannellum.js", jsText);
+        const blob = await zip.generateAsync({ type: "blob" });
+        const project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
+        const base = String(project.title || "EscapeGame")
+            .replace(/[\\/:*?"<>|]+/g, "_")
+            .trim()
+            .slice(0, 80);
+        saveAs(blob, (base || "EscapeGame") + "_Complet.zip");
+    } catch (e) {
+        console.error(e);
+        alert(
+            "ZIP export failed: " +
+                (e && e.message ? e.message : String(e)) +
+                "\n\nA network connection is needed once to download Pannellum; retry or check blockers."
+        );
+    }
 }
 
 // Boot: one empty scene + preview refresh

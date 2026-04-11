@@ -1,6 +1,20 @@
-﻿// --- LA GRANDE FONCTION : GÉNÉRATION DU JEU (Création de index.html) ---
-// Cette fonction lit tout le formulaire et fabrique le code du jeu final
-function generateGame() {
+﻿// --- GÉNÉRATION DU JEU (index.html ou ZIP hors-ligne) ---
+// Fabrique le HTML du joueur ; `generateGame` télécharge seul l'HTML, `exportGameOfflineZip` empaquette Pannellum local.
+
+/** URLs CDN Pannellum (identiques aux balises du template joueur). */
+var OFFLINE_PANNELLUM_CDN_CSS = "https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css";
+var OFFLINE_PANNELLUM_CDN_JS = "https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js";
+
+function patchPlayerHtmlForOffline(html) {
+    return String(html)
+        .replace(/https:\/\/cdn\.jsdelivr\.net\/npm\/pannellum@2\.5\.7\/build\/pannellum\.css/g, "./lib/pannellum.css")
+        .replace(/https:\/\/cdn\.jsdelivr\.net\/npm\/pannellum@2\.5\.7\/build\/pannellum\.js/g, "./lib/pannellum.js");
+}
+
+/**
+ * @returns {string} HTML complet du joueur (liens Pannellum CDN).
+ */
+function buildPlayerHtmlTemplate() {
     // 1. Paramètres globaux depuis le projet v2
     const project = getCurrentProjectData();
     const title = project.title || "Mon Super Jeu";
@@ -708,14 +722,64 @@ function generateGame() {
 </body>
 </html>`;
 
-    // 5. Téléchargement du fichier généré
-    const blob = new Blob([htmlTemplate], { type: "text/html;charset=utf-8" }); 
-    const lien = document.createElement("a"); 
-    lien.href = URL.createObjectURL(blob); 
-    lien.download = "index.html"; 
-    document.body.appendChild(lien); 
-    lien.click(); 
+    return htmlTemplate;
+}
+
+function generateGame() {
+    const htmlTemplate = buildPlayerHtmlTemplate();
+    const blob = new Blob([htmlTemplate], { type: "text/html;charset=utf-8" });
+    const lien = document.createElement("a");
+    lien.href = URL.createObjectURL(blob);
+    lien.download = "index.html";
+    document.body.appendChild(lien);
+    lien.click();
     document.body.removeChild(lien);
+}
+
+/**
+ * Télécharge une archive ZIP : index.html + lib/pannellum.css + lib/pannellum.js (Pannellum récupéré par fetch sur le CDN éditeur).
+ * Nécessite une connexion au moment de l’export pour télécharger les libs ; le package final est autonome hors-ligne.
+ */
+async function exportGameOfflineZip() {
+    if (typeof JSZip === "undefined" || typeof saveAs === "undefined") {
+        alert(
+            "JSZip ou FileSaver.js n’est pas chargé. Vérifiez votre connexion Internet (CDN), puis rechargez la page."
+        );
+        return;
+    }
+    try {
+        const htmlRaw = buildPlayerHtmlTemplate();
+        const html = patchPlayerHtmlForOffline(htmlRaw);
+        const [cssText, jsText] = await Promise.all([
+            fetch(OFFLINE_PANNELLUM_CDN_CSS).then(function (r) {
+                if (!r.ok) throw new Error("pannellum.css (" + r.status + ")");
+                return r.text();
+            }),
+            fetch(OFFLINE_PANNELLUM_CDN_JS).then(function (r) {
+                if (!r.ok) throw new Error("pannellum.js (" + r.status + ")");
+                return r.text();
+            }),
+        ]);
+        const zip = new JSZip();
+        zip.file("index.html", html);
+        const lib = zip.folder("lib");
+        lib.file("pannellum.css", cssText);
+        lib.file("pannellum.js", jsText);
+        const blob = await zip.generateAsync({ type: "blob" });
+        const project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
+        const base = String(project.title || "EscapeGame")
+            .replace(/[\\/:*?"<>|]+/g, "_")
+            .trim()
+            .slice(0, 80);
+        saveAs(blob, (base || "EscapeGame") + "_Complet.zip");
+    } catch (e) {
+        console.error(e);
+        alert(
+            "Échec de l’export ZIP : " +
+                (e && e.message ? e.message : String(e)) +
+                "\n\nUne connexion est nécessaire pour récupérer Pannellum une fois ; réessayez ou vérifiez les bloqueurs."
+        );
+    }
 }
 
 // Au lancement de l'éditeur, on crée directement une première scène vide
