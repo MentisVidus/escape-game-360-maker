@@ -836,6 +836,12 @@ async function exportGameWebZip() {
                 mediaFilesToAdd.push({ name: mediaBase, blob: item.blob });
             }
         }
+        if (/blob:/.test(html)) {
+            alert(
+                "ZIP export: blob:… URLs are still present in index.html (local media missing from this session or not handled by the exporter). " +
+                    "The media/ folder does not include those files — the build will be incomplete. Reload media in the editor, prefer the .escapegame bundle, then export again."
+            );
+        }
         const [cssText, jsText] = await Promise.all([
             fetch(OFFLINE_PANNELLUM_CDN_CSS).then(function (r) {
                 if (!r.ok) throw new Error("pannellum.css (" + r.status + ")");

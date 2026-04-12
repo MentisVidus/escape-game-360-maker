@@ -61,10 +61,19 @@ function eachPortableMediaUrlInProject(project, visit) {
         var s = String(u).trim();
         if (s) visit(s);
     }
+    function VifUrlLike(u) {
+        if (u == null) return;
+        var s = String(u).trim();
+        if (!s) return;
+        if (/^(https?:|blob:|data:|\.\/)/i.test(s)) V(s);
+    }
     if (project.globalMusic && project.globalMusic.url) V(project.globalMusic.url);
+    if (project.globalAudioUrl) V(project.globalAudioUrl);
+    VifUrlLike(project.invIcon);
     (project.scenes || []).forEach(function (scene) {
         var media = scene.media || {};
         V(media.panoramaUrl);
+        if (media.ambianceUrl != null) V(media.ambianceUrl);
         var amb = media.ambiance;
         if (typeof amb === "string") V(amb);
         else if (amb && amb.url) V(amb.url);
@@ -95,9 +104,14 @@ function rewritePortableUrlsInProjectClone(project, rewriteStr) {
         return rewriteStr(String(x));
     }
     if (project.globalMusic && project.globalMusic.url != null) project.globalMusic.url = Rw(project.globalMusic.url);
+    if (project.globalAudioUrl != null) project.globalAudioUrl = Rw(project.globalAudioUrl);
+    if (project.invIcon != null && /^(https?:|blob:|data:|\.\/)/i.test(String(project.invIcon).trim())) {
+        project.invIcon = Rw(project.invIcon);
+    }
     (project.scenes || []).forEach(function (scene) {
         var media = scene.media || {};
         if (media.panoramaUrl != null) media.panoramaUrl = Rw(media.panoramaUrl);
+        if (media.ambianceUrl != null) media.ambianceUrl = Rw(media.ambianceUrl);
         var amb = media.ambiance;
         if (typeof amb === "string") scene.media.ambiance = Rw(amb);
         else if (amb && typeof amb === "object" && amb.url != null) amb.url = Rw(amb.url);

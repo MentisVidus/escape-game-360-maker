@@ -843,6 +843,12 @@ async function exportGameWebZip() {
                 mediaFilesToAdd.push({ name: mediaBase, blob: item.blob });
             }
         }
+        if (/blob:/.test(html)) {
+            alert(
+                "Export ZIP : des adresses blob:… restent dans index.html (média local introuvable dans la session ou non pris en charge par l’export). " +
+                    "Le dossier media/ ne contient pas ces fichiers — le jeu sera incomplet. Rechargez les médias dans l’éditeur, préférez le bundle .escapegame, puis réexportez."
+            );
+        }
         const [cssText, jsText] = await Promise.all([
             fetch(OFFLINE_PANNELLUM_CDN_CSS).then(function (r) {
                 if (!r.ok) throw new Error("pannellum.css (" + r.status + ")");
