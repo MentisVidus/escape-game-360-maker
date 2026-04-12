@@ -871,12 +871,12 @@ async function exportGameWebZip() {
             var usedMedia = {};
             for (var ei = 0; ei < embedList.length; ei++) {
                 var item = embedList[ei];
-                var base = uniqueOfflineMediaName(
+                var mediaBase = uniqueOfflineMediaName(
                     sanitizeOfflineMediaBaseName(item.nameHint, "media.bin"),
                     usedMedia
                 );
-                html = html.split(item.url).join("./media/" + base);
-                mediaFilesToAdd.push({ name: base, blob: item.blob });
+                html = html.split(item.url).join("./media/" + mediaBase);
+                mediaFilesToAdd.push({ name: mediaBase, blob: item.blob });
             }
         }
         const [cssText, jsText] = await Promise.all([
@@ -900,12 +900,12 @@ async function exportGameWebZip() {
         const lib = zip.folder("lib");
         lib.file("pannellum.css", cssText);
         lib.file("pannellum.js", jsText);
-        const blob = await zip.generateAsync({ type: "blob" });
-        const base = String(project.title || "EscapeGame")
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const downloadBase = String(project.title || "EscapeGame")
             .replace(/[\\/:*?"<>|]+/g, "_")
             .trim()
             .slice(0, 80);
-        saveAs(blob, (base || "EscapeGame") + "_Web.zip");
+        saveAs(zipBlob, (downloadBase || "EscapeGame") + "_Web.zip");
     } catch (e) {
         console.error(e);
         alert(
@@ -941,17 +941,17 @@ async function exportGameOfflineZip() {
             var usedMedia = {};
             for (var ei = 0; ei < embedList.length; ei++) {
                 var item = embedList[ei];
-                var base = uniqueOfflineMediaName(
+                var mediaBase = uniqueOfflineMediaName(
                     sanitizeOfflineMediaBaseName(item.nameHint, "media.bin"),
                     usedMedia
                 );
-                var relPath = "./media/" + base;
+                var relPath = "./media/" + mediaBase;
                 html = html.split(item.url).join(relPath);
                 if (isOfflineZipImageBlob(item.blob, item.nameHint)) {
                     var dataUrl = await readBlobAsDataURL(item.blob);
-                    imageManifest[base] = dataUrl;
+                    imageManifest[mediaBase] = dataUrl;
                 } else {
-                    mediaFilesToAdd.push({ name: base, blob: item.blob });
+                    mediaFilesToAdd.push({ name: mediaBase, blob: item.blob });
                 }
             }
             var imgKeys = Object.keys(imageManifest);
@@ -984,12 +984,12 @@ async function exportGameOfflineZip() {
         const lib = zip.folder("lib");
         lib.file("pannellum.css", cssText);
         lib.file("pannellum.js", jsText);
-        const blob = await zip.generateAsync({ type: "blob" });
-        const base = String(project.title || "EscapeGame")
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const downloadBase = String(project.title || "EscapeGame")
             .replace(/[\\/:*?"<>|]+/g, "_")
             .trim()
             .slice(0, 80);
-        saveAs(blob, (base || "EscapeGame") + "_Complet.zip");
+        saveAs(zipBlob, (downloadBase || "EscapeGame") + "_Complet.zip");
     } catch (e) {
         console.error(e);
         alert(
