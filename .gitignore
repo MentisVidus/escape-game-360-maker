@@ -12,4 +12,3 @@ node_modules/
 # Décommentez si vous ne voulez pas versionner certains dossiers :
 # dist/
 # *.local.json
-local-work/

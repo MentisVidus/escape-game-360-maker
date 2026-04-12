@@ -32,6 +32,7 @@ alwaysApply: true
 - `docs/PLAN_EDITEUR_NODAL.md` — état livré V2 / hybride, suite (bundle, React long terme).
 - `docs/SELECTOR_SPEC.md` — menus à choix, imbrication, SFX.
 - `docs/CONTRIBUTING.md` — synchro FR/EN.
+- `docs/todo.md` — backlog court (tâches / bugs repérés en test), distinct des specs ; voir aussi `.cursor/rules/todo.mdc`.
 
 ## Pièges connus (selector)
 - **`updateHsFields(hId, { deferSelectorInit: !!hsData })`** au chargement : ne pas appeler `initSelectorChoicesForm` avant d’avoir injecté **`f_sel_choices`** depuis le JSON.
