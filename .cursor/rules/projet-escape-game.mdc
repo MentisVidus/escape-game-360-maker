@@ -14,6 +14,7 @@ alwaysApply: true
 - **Quill** 1.3.7 — charger depuis **cdnjs.cloudflare.com**, **pas** `cdn.quilljs.com` : avec `crossorigin="anonymous"` + SRI, `cdn.quilljs.com` ne renvoie pas les en-têtes CORS → blocage en **`file://`**.
 - **Drawflow** 0.0.59 (unpkg) — carte projet.
 - **JSZip** 3.10.1 + **FileSaver.js** 2.0.5 (cdnjs) — export ZIP.
+- **`vendor/README.md`** — copies optionnelles des mêmes libs (Pannellum, Quill, Drawflow, JSZip, FileSaver) pour héberger les binaires dans le dépôt ; les HTML pointent toujours vers les CDN par défaut.
 - **SRI** : `integrity` (sha512 depuis l’API cdnjs ou calcul sur l’URL exacte) + `crossorigin="anonymous"` + `referrerpolicy="no-referrer"`.  
   **Ne pas** encoder `+` ou `/` du Base64 en entités HTML (`&#43;`, `&#47;`) dans `integrity` — la vérification SRI échoue et les scripts/CSS ne se chargent pas.  
   **OneDrive** peut parfois altérer les `+` dans les fichiers : si Quill « disparaît », vérifier les hashes à la main (API cdnjs).
@@ -22,7 +23,7 @@ alwaysApply: true
 - **`js/editor-core.js`** — **Headless uniquement** : pas de `document`. `EditorCore`, `schemaVersion: 2`, normalisation des **actions unifiées**, **`payload.copy`** (`bodyHtml`, `buttonLabel`), audio **`{ url, volume }`**, branche **legacy V1** à l’import. **Ce n’est pas** la gestion des scènes dans le DOM.
 - **`js/editeur-app.js`** / **`js/editor-en-app.js`** — UI, formulaires, `getCurrentProjectData()`, `saveProject` / `loadProject`, hotspots, selector, previews. **Garder FR et EN alignés** (voir `docs/CONTRIBUTING.md`).
 - **`js/editor-quill-scenes.js`** — Quill sur `.editor-rich-text`, listes `f-target` / `sel-scene-target`, **`updateQuillTheme()`** (sync couleurs + police popups), enregistrement **Font** / **Size** Quill, **délégation `blur`/`change`/`focusin` sur `document.body` pour `.sc-id`** (panneau latéral carte : les blocs ne sont plus dans `#scenes-container`).
-- **`js/editeur-generate.js`** / **`js/editor-en-generate.js`** — `buildPlayerHtmlTemplate()` (HTML joueur), `generateGame()`, `exportGameOfflineZip()` ; adaptateurs **V2 → runtime joueur** (`choiceV2ToLegacy`, `actionV2ToPlayerArgs`, …). Le joueur est un **gros template literal** dans `generateGame()`.
+- **`js/editeur-generate.js`** / **`js/editor-en-generate.js`** — `buildPlayerHtmlTemplate()` (HTML joueur), `generateGame()`, `exportGameWebZip()`, `exportGameStandaloneHtml()` ; adaptateurs **V2 → runtime joueur** (`choiceV2ToLegacy`, `actionV2ToPlayerArgs`, …). Le joueur est un **gros template literal** dans `generateGame()`.
 - **`xflow/project-graph.js`** — Drawflow : vues **focus** / **full** / **tree**, filtre narration, panneau latéral (**montage DOM** des `.scene-block` / hotspots dans `#project-map-side-content`).
 - **`css/editor.css`** — Chrome éditeur + styles Quill (`.ql-font-*`, tailles, labels picker FR/EN).
 
@@ -46,7 +47,7 @@ alwaysApply: true
 
 ## Chantiers référence
 - **C1–C3** — Éditeur de base, audio, carte Drawflow + panneau latéral + Quill + thème popups.
-- **C4** — Export **`exportGameOfflineZip()`** : `index.html` avec `./lib/pannellum.{css,js}` + fetch des binaires au moment de l’export (connexion requise une fois ; paquet final hors-ligne pour la lib 360°). Médias panoramas/audio **hors** ZIP pour l’instant (chemins relatifs à copier à la main).
+- **C4** — Export **ZIP Web** (`exportGameWebZip`) : `index.html` + `./lib/pannellum.{css,js}` + `media/` (fetch Pannellum une fois à l’export) + utilitaires locaux (`jouer_hors_ligne.bat` / `Lisez-moi.txt`, miroir EN). Export **HTML autonome** (`exportGameStandaloneHtml`) : un seul `.html` avec Pannellum et médias bundle inline (double-clic, pas de CORS).
 
 ## Chantier cible : C5 — Bundle `.escapegame` (ZIP)
 *(Résumé issu de ta spec — à implémenter sans régression.)*
