@@ -1,4 +1,4 @@
-﻿// --- Player HTML (index.html) or ZIP exports: `exportGameWebZip` (hosting ZIP) / `exportGameStandaloneHtml` (single self-contained HTML) ---
+﻿// --- Player HTML (index.html alone or `exportGameWebZip` hosting ZIP) ---
 var OFFLINE_PANNELLUM_CDN_CSS = "https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css";
 var OFFLINE_PANNELLUM_CDN_JS = "https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.js";
 
@@ -46,57 +46,6 @@ function uniqueOfflineMediaName(desired, usedSet) {
     return name;
 }
 
-function isOfflineZipImageBlob(blob, nameHint) {
-    var t = blob && blob.type ? String(blob.type) : "";
-    if (t.indexOf("image/") === 0) return true;
-    return /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(String(nameHint || ""));
-}
-
-function readBlobAsDataURL(blob) {
-    return new Promise(function (resolve, reject) {
-        var r = new FileReader();
-        r.onload = function () {
-            resolve(r.result);
-        };
-        r.onerror = function () {
-            reject(r.error || new Error("FileReader"));
-        };
-        r.readAsDataURL(blob);
-    });
-}
-
-function escapeScriptBodyForHtmlScriptTag(jsText) {
-    return String(jsText || "").replace(/<\/script>/gi, "<\\/script>");
-}
-
-function inlinePannellumCdnIntoPlayerHtml(html, cssText, jsText) {
-    var css = String(cssText || "");
-    var js = escapeScriptBodyForHtmlScriptTag(jsText);
-    html = html.replace(
-        /<link rel="stylesheet" href="https:\/\/cdn\.jsdelivr\.net\/npm\/pannellum@2\.5\.7\/build\/pannellum\.css"\s*>/i,
-        "<style>\n" + css + "\n</style>"
-    );
-    html = html.replace(
-        /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/pannellum@2\.5\.7\/build\/pannellum\.js">\s*<\/script>/i,
-        "<script>\n" + js + "\n</script>"
-    );
-    return html;
-}
-
-function expandBundleMediaPathsToDataUrls(html, mediaMap) {
-    if (!mediaMap) return html;
-    var keys = Object.keys(mediaMap).sort(function (a, b) {
-        return b.length - a.length;
-    });
-    for (var i = 0; i < keys.length; i++) {
-        var k = keys[i];
-        var v = mediaMap[k];
-        if (v == null) continue;
-        html = html.split("./media/" + k).join(v);
-    }
-    return html;
-}
-
 var WEB_ZIP_BAT_WINDOWS_EN =
     "@echo off\r\n" +
     "echo Starting local server for the escape game...\r\n" +
@@ -123,48 +72,8 @@ var WEB_ZIP_README_EN =
     "--- Web hosting ---\r\n" +
     "Upload the full ZIP contents (index.html, lib/, media/) to your host or GitHub Pages.\r\n";
 
-function injectOfflineZipImageDataUrlsInHtml(html, fileName, dataUrl) {
-    if (!fileName || dataUrl == null) return html;
-    var d = String(dataUrl);
-    var escSingle = d.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-    var escAttr = d.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-    var escDouble = d.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    html = html.split("url('./media/" + fileName + "')").join("url('" + escSingle + "')");
-    html = html.split('url("./media/' + fileName + '")').join('url("' + escDouble + '")');
-    html = html.split('src="./media/' + fileName + '"').join('src="' + escAttr + '"');
-    html = html.split("src='./media/" + fileName + "'").join('src="' + escAttr + '"');
-    return html;
-}
-
-/**
- * @param {object} [opts]
- * @param {boolean} [opts.bundleMediaExport] — Bundle media (./media/… paths): GAME_MEDIA_ASSETS placeholder + panorama resolution (standalone HTML export).
- * @returns {string} Full player HTML (Pannellum via CDN links).
- */
-function buildPlayerHtmlTemplate(opts) {
-    opts = opts || {};
-    var bundleMediaExport = !!opts.bundleMediaExport;
-    var bundleMediaHeadScript = bundleMediaExport
-        ? '    <script>/*__GAME_MEDIA_ASSETS_PLACEHOLDER__*/<\\/script>\n'
-        : "";
-    var bundleMediaPlayerRelFn = bundleMediaExport
-        ? `
-    function playerRelMediaPathIfLocal(url) {
-        var s = String(url || "").trim();
-        if (!s) return s;
-        if (s.startsWith("http://") || s.startsWith("https://") || s.startsWith("blob:") || s.startsWith("data:")) return s;
-        var mediaP = "./media/";
-        if (s.startsWith(mediaP)) {
-            var fn = s.slice(mediaP.length);
-            var M = typeof window !== "undefined" ? window.GAME_MEDIA_ASSETS : undefined;
-            if (M != null && typeof M === "object" && Object.prototype.hasOwnProperty.call(M, fn)) return M[fn];
-            return s;
-        }
-        if (s.startsWith("./")) return s;
-        return "./" + s;
-    }
-`
-        : "";
+/** @returns {string} Full player HTML (Pannellum via CDN links). */
+function buildPlayerHtmlTemplate() {
     // 1. Globals from project v2
     const project = getCurrentProjectData();
     const title = project.title || "My awesome game";
@@ -404,7 +313,7 @@ function buildPlayerHtmlTemplate(opts) {
         #inv-panel h3 { margin: 0 0 10px 0; border-bottom: 1px solid #555; padding-bottom: 5px; } 
         #inv-list { margin: 0; padding: 0; list-style-type: none; line-height: 1.5; }
     </style>
-${bundleMediaHeadScript}</head>
+</head>
 <body>
     <!-- Audio: music, ambient (per scene), SFX slot -->
     <audio id="audio-music" loop></audio>
@@ -430,7 +339,6 @@ ${bundleMediaHeadScript}</head>
     <div id="panorama"></div>
 
 <script>
-${bundleMediaPlayerRelFn}
     // Player state
     var inventaire = {}; 
     var unlockedHotspots = {};
@@ -504,23 +412,10 @@ ${bundleMediaPlayerRelFn}
         document.getElementById('start-screen').style.display = 'none';
         
         // Pannellum viewer
-        ${
-            bundleMediaExport
-                ? `var __scenesForViewer = ${jsonScenes};
-        for (var __k in __scenesForViewer) {
-            if (__scenesForViewer[__k] && __scenesForViewer[__k].panorama != null) {
-                __scenesForViewer[__k].panorama = playerRelMediaPathIfLocal(__scenesForViewer[__k].panorama);
-            }
-        }
         viewer = pannellum.viewer('panorama', { 
             "default": { "firstScene": "${firstSceneId}", "sceneFadeDuration": 1500, "autoLoad": true, "showFullscreenCtrl": false }, 
-            "scenes": __scenesForViewer 
-        });`
-                : `viewer = pannellum.viewer('panorama', { 
-            "default": { "firstScene": "${firstSceneId}", "sceneFadeDuration": 1500, "autoLoad": true, "showFullscreenCtrl": false }, 
             "scenes": ${jsonScenes} 
-        });`
-        }
+        });
 
         viewer.on('scenechange', function(sceneId) {
             var sid = (sceneId != null && sceneId !== '') ? sceneId : viewer.getScene();
@@ -891,6 +786,19 @@ ${bundleMediaPlayerRelFn}
 }
 
 function generateGame() {
+    var project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
+    var embedList =
+        typeof window.collectPortableBundleEmbeds === "function"
+            ? window.collectPortableBundleEmbeds(project)
+            : [];
+    if (embedList.length > 0) {
+        var proceed = window.confirm(
+            "This project references local media (.escapegame bundle or imported files): blob:… URLs in index.html only work in this browser session and are not shareable.\n\n" +
+                "For a playable build elsewhere, use the Web ZIP export (media/ folder) or public https://… URLs for all media.\n\n" +
+                "Download index.html anyway? (Most useful when you only changed copy/hotspots and will drop the file back into an already extracted pack.)"
+        );
+        if (!proceed) return;
+    }
     const htmlTemplate = buildPlayerHtmlTemplate();
     const blob = new Blob([htmlTemplate], { type: "text/html;charset=utf-8" });
     const lien = document.createElement("a");
@@ -961,68 +869,6 @@ async function exportGameWebZip() {
         console.error(e);
         alert(
             "ZIP export (web hosting) failed: " +
-                (e && e.message ? e.message : String(e)) +
-                "\n\nA network connection is needed once to download Pannellum; retry or check blockers."
-        );
-    }
-}
-
-/** Single HTML file: Pannellum + bundle media as Base64 inline (double-click, offline, no CORS). Needs network once to fetch Pannellum from CDN. */
-async function exportGameStandaloneHtml() {
-    if (typeof saveAs === "undefined") {
-        alert("FileSaver.js failed to load. Check your network (CDN) and reload the page.");
-        return;
-    }
-    try {
-        var htmlRaw = buildPlayerHtmlTemplate({ bundleMediaExport: true });
-        var html = String(htmlRaw);
-        const project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
-        var embedList =
-            typeof window.collectPortableBundleEmbeds === "function"
-                ? window.collectPortableBundleEmbeds(project)
-                : [];
-        var mediaMap = {};
-        if (embedList.length > 0) {
-            var usedMedia = {};
-            for (var ei = 0; ei < embedList.length; ei++) {
-                var item = embedList[ei];
-                var mediaBase = uniqueOfflineMediaName(
-                    sanitizeOfflineMediaBaseName(item.nameHint, "media.bin"),
-                    usedMedia
-                );
-                html = html.split(item.url).join("./media/" + mediaBase);
-                mediaMap[mediaBase] = await readBlobAsDataURL(item.blob);
-                if (isOfflineZipImageBlob(item.blob, item.nameHint)) {
-                    html = injectOfflineZipImageDataUrlsInHtml(html, mediaBase, mediaMap[mediaBase]);
-                }
-            }
-        }
-        html = expandBundleMediaPathsToDataUrls(html, mediaMap);
-        html = html.replace(
-            /\/\*__GAME_MEDIA_ASSETS_PLACEHOLDER__\*\//,
-            "window.GAME_MEDIA_ASSETS = " + JSON.stringify(mediaMap) + ";"
-        );
-        const [cssText, jsText] = await Promise.all([
-            fetch(OFFLINE_PANNELLUM_CDN_CSS).then(function (r) {
-                if (!r.ok) throw new Error("pannellum.css (" + r.status + ")");
-                return r.text();
-            }),
-            fetch(OFFLINE_PANNELLUM_CDN_JS).then(function (r) {
-                if (!r.ok) throw new Error("pannellum.js (" + r.status + ")");
-                return r.text();
-            }),
-        ]);
-        html = inlinePannellumCdnIntoPlayerHtml(html, cssText, jsText);
-        var outBlob = new Blob([html], { type: "text/html;charset=utf-8" });
-        const downloadBase = String(project.title || "Game")
-            .replace(/[\\/:*?"<>|]+/g, "_")
-            .trim()
-            .slice(0, 80);
-        saveAs(outBlob, (downloadBase || "Game") + "_Standalone.html");
-    } catch (e) {
-        console.error(e);
-        alert(
-            "Standalone HTML export failed: " +
                 (e && e.message ? e.message : String(e)) +
                 "\n\nA network connection is needed once to download Pannellum; retry or check blockers."
         );

@@ -23,7 +23,7 @@ alwaysApply: true
 - **`js/editor-core.js`** — **Headless uniquement** : pas de `document`. `EditorCore`, `schemaVersion: 2`, normalisation des **actions unifiées**, **`payload.copy`** (`bodyHtml`, `buttonLabel`), audio **`{ url, volume }`**, branche **legacy V1** à l’import. **Ce n’est pas** la gestion des scènes dans le DOM.
 - **`js/editeur-app.js`** / **`js/editor-en-app.js`** — UI, formulaires, `getCurrentProjectData()`, `saveProject` / `loadProject`, hotspots, selector, previews. **Garder FR et EN alignés** (voir `docs/CONTRIBUTING.md`).
 - **`js/editor-quill-scenes.js`** — Quill sur `.editor-rich-text`, listes `f-target` / `sel-scene-target`, **`updateQuillTheme()`** (sync couleurs + police popups), enregistrement **Font** / **Size** Quill, **délégation `blur`/`change`/`focusin` sur `document.body` pour `.sc-id`** (panneau latéral carte : les blocs ne sont plus dans `#scenes-container`).
-- **`js/editeur-generate.js`** / **`js/editor-en-generate.js`** — `buildPlayerHtmlTemplate()` (HTML joueur), `generateGame()`, `exportGameWebZip()`, `exportGameStandaloneHtml()` ; adaptateurs **V2 → runtime joueur** (`choiceV2ToLegacy`, `actionV2ToPlayerArgs`, …). Le joueur est un **gros template literal** dans `generateGame()`.
+- **`js/editeur-generate.js`** / **`js/editor-en-generate.js`** — `buildPlayerHtmlTemplate()` (HTML joueur), `generateGame()` (avertissement si médias locaux), `exportGameWebZip()` ; adaptateurs **V2 → runtime joueur** (`choiceV2ToLegacy`, `actionV2ToPlayerArgs`, …). Le joueur est un **gros template literal** dans `generateGame()`.
 - **`xflow/project-graph.js`** — Drawflow : vues **focus** / **full** / **tree**, filtre narration, panneau latéral (**montage DOM** des `.scene-block` / hotspots dans `#project-map-side-content`).
 - **`css/editor.css`** — Chrome éditeur + styles Quill (`.ql-font-*`, tailles, labels picker FR/EN).
 
@@ -47,7 +47,7 @@ alwaysApply: true
 
 ## Chantiers référence
 - **C1–C3** — Éditeur de base, audio, carte Drawflow + panneau latéral + Quill + thème popups.
-- **C4** — Export **ZIP Web** (`exportGameWebZip`) : `index.html` + `./lib/pannellum.{css,js}` + `media/` (fetch Pannellum une fois à l’export) + utilitaires locaux (`jouer_hors_ligne.bat` / `Lisez-moi.txt`, miroir EN). Export **HTML autonome** (`exportGameStandaloneHtml`) : un seul `.html` avec Pannellum et médias bundle inline (double-clic, pas de CORS).
+- **C4** — Export **ZIP Web** (`exportGameWebZip`) : `index.html` + `./lib/pannellum.{css,js}` + `media/` (fetch Pannellum une fois à l’export) + utilitaires locaux (`jouer_hors_ligne.bat` / `Lisez-moi.txt`, miroir EN). `generateGame()` télécharge seul `index.html` (CDN Pannellum + URLs du projet) ; **confirm** si médias bundle / `blob:` (`collectPortableBundleEmbeds`).
 
 ## Chantier cible : C5 — Bundle `.escapegame` (ZIP)
 *(Résumé issu de ta spec — à implémenter sans régression.)*
