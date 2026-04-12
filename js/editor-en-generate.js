@@ -80,7 +80,7 @@ function injectOfflineZipImageDataUrlsInHtml(html, fileName, dataUrl) {
 
 /**
  * @param {object} [opts]
- * @param {boolean} [opts.offlineZipExport] — Offline ZIP: media-images.js + runtime panorama resolution (file:// / WebGL).
+ * @param {boolean} [opts.offlineZipExport] — Offline ZIP: placeholder script tag (inlined on export) + panorama resolution via GAME_IMAGE_ASSETS.
  * @returns {string} Full player HTML (Pannellum via CDN links).
  */
 function buildPlayerHtmlTemplate(opts) {
@@ -907,7 +907,7 @@ async function exportGameWebZip() {
     }
 }
 
-/** ZIP for offline use (file://): Base64 images in media-images.js + Pannellum under lib/. */
+/** ZIP for offline use (file://): Base64 images inlined in index.html + Pannellum under lib/. */
 async function exportGameOfflineZip() {
     if (typeof JSZip === "undefined" || typeof saveAs === "undefined") {
         alert("JSZip or FileSaver.js failed to load. Check your network (CDN) and reload the page.");
@@ -955,11 +955,15 @@ async function exportGameOfflineZip() {
                 return r.text();
             }),
         ]);
-        const zip = new JSZip();
-        zip.file(
-            "media-images.js",
-            "window.GAME_IMAGE_ASSETS = " + JSON.stringify(imageManifest) + ";\n"
+        var inlineImageAssetsScript =
+            "<script>\nwindow.GAME_IMAGE_ASSETS = " +
+            JSON.stringify(imageManifest) +
+            ";\n</script>\n";
+        html = html.replace(
+            /<script\s+src=["']\.\/media-images\.js["']\s*>\s*<\/script>\s*/i,
+            inlineImageAssetsScript
         );
+        const zip = new JSZip();
         zip.file("index.html", html);
         if (mediaFilesToAdd.length > 0) {
             var mediaFolder = zip.folder("media");

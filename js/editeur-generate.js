@@ -85,7 +85,7 @@ function injectOfflineZipImageDataUrlsInHtml(html, fileName, dataUrl) {
 
 /**
  * @param {object} [opts]
- * @param {boolean} [opts.offlineZipExport] — ZIP joueur : script media-images.js + résolution runtime des panoramas via GAME_IMAGE_ASSETS (file:// / WebGL).
+ * @param {boolean} [opts.offlineZipExport] — ZIP hors-ligne : balise <script src="./media-images.js"> (remplacée par script inline à l’export) + résolution panoramas via GAME_IMAGE_ASSETS.
  * @returns {string} HTML complet du joueur (liens Pannellum CDN).
  */
 function buildPlayerHtmlTemplate(opts) {
@@ -917,7 +917,7 @@ async function exportGameWebZip() {
 }
 
 /**
- * ZIP pour usage hors-ligne (file://) : images en Base64 dans media-images.js + Pannellum sous lib/.
+ * ZIP pour usage hors-ligne (file://) : images en Base64 inline dans index.html + Pannellum sous lib/.
  * Nécessite une connexion au moment de l’export pour télécharger les libs.
  */
 async function exportGameOfflineZip() {
@@ -969,11 +969,15 @@ async function exportGameOfflineZip() {
                 return r.text();
             }),
         ]);
-        const zip = new JSZip();
-        zip.file(
-            "media-images.js",
-            "window.GAME_IMAGE_ASSETS = " + JSON.stringify(imageManifest) + ";\n"
+        var inlineImageAssetsScript =
+            "<script>\nwindow.GAME_IMAGE_ASSETS = " +
+            JSON.stringify(imageManifest) +
+            ";\n</script>\n";
+        html = html.replace(
+            /<script\s+src=["']\.\/media-images\.js["']\s*>\s*<\/script>\s*/i,
+            inlineImageAssetsScript
         );
+        const zip = new JSZip();
         zip.file("index.html", html);
         if (mediaFilesToAdd.length > 0) {
             var mediaFolder = zip.folder("media");
