@@ -10,14 +10,14 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 
 - **Export ZIP + médias mixtes** — extension de `eachPortableMediaUrlInProject` / `rewritePortableUrlsInProjectClone` (FR + EN) : `globalAudioUrl`, `invIcon` (URL), `media.ambianceUrl` (legacy). Alerte si des `blob:` subsistent dans `index.html` après remplacement (export ZIP).
 - **README — tests localhost** — rechargement forcé / cache (`Ctrl+F5`, etc.) ajouté dans les conseils FR + EN.
+- **Sauvegarde `.json` + médias locaux** — `saveProject()` : `confirm` si `collectPortableBundleEmbeds` non vide ; recommande **`.escapegame`** (FR + EN).
 
 ---
 
 ## Phase suivante (éditeur / UX audio)
 
 1. **Volume par type de source** — aujourd’hui volume dédié surtout côté **SFX** (selector) ; étendre **ambiance** et **musique globale** (sliders ou logique alignée sur les SFX), côté formulaire + schéma déjà `{ url, volume }` où c’est pertinent.
-2. **Avertissement à la sauvegarde `.json`** si `collectPortableBundleEmbeds` non vide — rappeler que les binaires ne sont pas dans le JSON ; proposer **`.escapegame`**. Garder le bouton JSON.
-3. **Placeholder scène (grille PNG)** — après commit sur `main`, remplacer toute URL locale par l’URL **raw GitHub** ou **jsDelivr** du fichier dans `media/` (GitHub accepte sans problème les petits PNG).
+2. **Placeholder scène (grille PNG)** — après commit sur `main`, remplacer toute URL locale par l’URL **raw GitHub** ou **jsDelivr** du fichier dans `media/` (GitHub accepte sans problème les petits PNG).
 
 ---
 

@@ -1572,7 +1572,20 @@ function getCurrentProjectData() {
 
 function saveProject() {
     const project = getCurrentProjectData();
-    
+    var embedList =
+        typeof window.collectPortableBundleEmbeds === "function"
+            ? window.collectPortableBundleEmbeds(project)
+            : [];
+    if (embedList.length > 0) {
+        var proceed = window.confirm(
+            "This project references local media (.escapegame bundle or imported files). " +
+                "The JSON file does not embed binaries — after you reload, those media will be missing.\n\n" +
+                "Use “Save project (.escapegame)” to keep files inside the archive.\n\n" +
+                "Download the JSON anyway?"
+        );
+        if (!proceed) return;
+    }
+
     // Trigger browser download
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
     const lien = document.createElement("a"); 
