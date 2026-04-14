@@ -430,6 +430,9 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
                 <div class="col"><label>Image 360 (ex: salle.jpg ou http...) :</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-img" style="flex:1;min-width:0" value="${scImgVal}" oninput="updateScenePreview(this)"><button type="button" class="btn-icon" title="Choisir un fichier image local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'image/*,.jpg,.jpeg,.png,.webp')">📎</button></div></div>
                 <div class="col col-wide"><label>🎵 Audio d'ambiance (URL mp3) :</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-audio" style="flex:1;min-width:0" placeholder="Optionnel"><button type="button" class="btn-icon" title="Choisir un fichier audio local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'audio/*,.mp3,.ogg,.wav,.m4a')">📎</button></div></div>
             </div>
+            <div class="row">
+                <div class="col col-wide"><label>Volume ambiance (0 à 1) :</label><input type="range" class="sc-audio-vol" min="0" max="1" step="0.05" value="1" style="width:100%;max-width:320px;" title="Volume relatif de l’ambiance dans le mix audio du joueur"></div>
+            </div>
             <h4>Points d'interaction</h4>
             <div id="hs-container-${sId}"></div>
             <button class="btn-add-hs" onclick="addHotspot(${sId})">+ Ajouter un point d'interaction</button>
@@ -454,10 +457,10 @@ function addHotspot(sceneId, hsData = null) {
     
     // Définition des valeurs par défaut du Hotspot
     let pitch = 0, yaw = 0, type = 'msg', hsTitleVal = "";
-    let customCss = "width: 120px; height: 250px; background: rgba(255,0,0,0.2); border-radius: 0px; cursor: pointer; display: flex; align-items: center; justify-content: center;";
+    let customCss = "width: 120px; height: 120px; background: rgba(255,0,0,0.2); border-radius: 0px; cursor: pointer; display: flex; align-items: center; justify-content: center;";
     
     // Valeurs par défaut pour l'interface No-Code (UI)
-    let uiW = 120, uiH = 250, uiShape = "0px", uiBgc = "#ff0000", uiBga = "0.2", uiImg = "";
+    let uiW = 120, uiH = 120, uiShape = "0px", uiBgc = "#ff0000", uiBga = "0.2", uiImg = "";
     let uiBrdStyle = "none", uiBrdW = 2, uiBrdC = "#ffffff";
 
     // Si des données sont fournies (ex: chargement JSON ou duplication), on écrase les valeurs par défaut
@@ -651,6 +654,9 @@ function duplicateScene(sId) {
     const newScDiv = document.getElementById('scene_' + newSId);
     if (newScDiv && newScDiv.querySelector('.sc-audio') && sDiv.querySelector('.sc-audio')) {
         newScDiv.querySelector('.sc-audio').value = sDiv.querySelector('.sc-audio').value;
+    }
+    if (newScDiv && newScDiv.querySelector('.sc-audio-vol') && sDiv.querySelector('.sc-audio-vol')) {
+        newScDiv.querySelector('.sc-audio-vol').value = sDiv.querySelector('.sc-audio-vol').value;
     }
 
     // Copie chaque hotspot de l'ancienne scène dans la nouvelle
@@ -1547,9 +1553,15 @@ function getCurrentProjectData() {
     project.invColor = document.getElementById('inv-color').value;
     project.useCustomPopup = document.getElementById('useCustomPopup').checked;
     project.useGlobalAudio = document.getElementById('useGlobalAudio').checked;
+    var globalVolEl = document.getElementById("globalAudioVol");
+    var gMusicVol = 0.5;
+    if (globalVolEl) {
+        var gv = parseFloat(globalVolEl.value);
+        gMusicVol = isNaN(gv) ? 0.5 : Math.max(0, Math.min(1, gv));
+    }
     project.globalMusic = {
         url: document.getElementById('globalAudioUrl').value,
-        volume: 0.5
+        volume: gMusicVol
     };
     project.popFont = document.getElementById('pop-font').value;
     project.popColor = document.getElementById('pop-color').value;
@@ -1566,7 +1578,12 @@ function getCurrentProjectData() {
                 panoramaUrl: (sceneDiv.querySelector('.sc-img') || { value: "" }).value,
                 ambiance: {
                     url: sceneDiv.querySelector('.sc-audio') ? sceneDiv.querySelector('.sc-audio').value : "",
-                    volume: 1
+                    volume: (function () {
+                        var el = sceneDiv.querySelector(".sc-audio-vol");
+                        if (!el) return 1;
+                        var av = parseFloat(el.value);
+                        return isNaN(av) ? 1 : Math.max(0, Math.min(1, av));
+                    })()
                 }
             },
             hotspots: []
@@ -1750,6 +1767,16 @@ function applyLoadedProject(project) {
     document.getElementById("audio-settings-container").style.display = useAudio ? "flex" : "none";
     var gm = project.globalMusic || {};
     document.getElementById("globalAudioUrl").value = gm.url != null ? gm.url : project.globalAudioUrl || "";
+    var gVolEl = document.getElementById("globalAudioVol");
+    if (gVolEl) {
+        var gv =
+            gm.volume !== undefined && gm.volume !== null && !isNaN(Number(gm.volume))
+                ? Number(gm.volume)
+                : 0.5;
+        gVolEl.value = String(Math.max(0, Math.min(1, gv)));
+        var gVolDisp = document.getElementById("globalAudioVolVal");
+        if (gVolDisp) gVolDisp.textContent = Number(gVolEl.value).toFixed(2);
+    }
 
     project.scenes.forEach(function (scene) {
         var scMedia = scene.media || {};
@@ -1759,6 +1786,14 @@ function applyLoadedProject(project) {
         if (scDiv && scDiv.querySelector(".sc-audio")) {
             var amb = scMedia.ambiance || {};
             scDiv.querySelector(".sc-audio").value = amb.url != null ? amb.url : scMedia.ambianceUrl || "";
+            var avEl = scDiv.querySelector(".sc-audio-vol");
+            if (avEl) {
+                var av =
+                    amb.volume !== undefined && amb.volume !== null && !isNaN(Number(amb.volume))
+                        ? Number(amb.volume)
+                        : 1;
+                avEl.value = String(Math.max(0, Math.min(1, av)));
+            }
         }
 
         (scene.hotspots || []).forEach(function (hs) {

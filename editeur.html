@@ -234,6 +234,15 @@
                             </div>
                         </div>
                     </div>
+                    <div class="row" style="margin-bottom: 10px;">
+                        <div class="col" style="flex: 1;">
+                            <label for="globalAudioVol">Volume musique (0 à 1) :</label>
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                <input type="range" id="globalAudioVol" min="0" max="1" step="0.05" value="0.5" style="flex:1;min-width:160px;max-width:320px;" oninput="var v=document.getElementById('globalAudioVolVal');if(v)v.textContent=Number(this.value).toFixed(2);">
+                                <span id="globalAudioVolVal" style="min-width:2.5em;font-variant-numeric:tabular-nums;">0.50</span>
+                            </div>
+                        </div>
+                    </div>
                     <small style="color: #7f8c8d;">Cette musique se lancera au démarrage du jeu et tournera en boucle.</small>
                 </div>
 

@@ -13,19 +13,13 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 - **Sauvegarde `.json` + médias locaux** — `saveProject()` : `confirm` si `collectPortableBundleEmbeds` non vide ; recommande **`.escapegame`** (FR + EN).
 - **SFX selector (sous-menu → scène / pick)** — `choiceToPayload` inclut `sfxUrl` / `sfxVolume` ; `closeSelectorOverlay(false)` avant `executeAction` pour ne pas appeler `stopSFX()` et couper le son ; joueur FR+EN (`editeur-generate.js` / `editor-en-generate.js`).
 - **Quill au rechargement projet / bundle** — chargement du HTML via `ql-editor` + `update(api)` plutôt que seul `dangerouslyPasteHTML` ; synchro textarea sur `text-change` réservée au source **user** + recopie explicite après init (`js/editor-quill-scenes.js`).
+- **Volume musique / ambiance + défaut hotspot 120×120** — curseurs `globalAudioVol` + `sc-audio-vol` (FR/EN `editeur.html` / `editor_en.html`, `editeur-app.js` / `editor-en-app.js`) ; schéma déjà `{ url, volume }` ; joueur inchangé (`editeur-generate.js` lisait déjà les volumes). Hotspot neuf : **120×120** px (CSS + UI no-code).
 
 ---
 
 ## Phase suivante (éditeur / UX audio)
 
-1. **Volume par type de source** — aujourd’hui volume dédié surtout côté **SFX** (selector) ; étendre **ambiance** et **musique globale** (sliders ou logique alignée sur les SFX), côté formulaire + schéma déjà `{ url, volume }` où c’est pertinent.
-2. **Placeholder scène (grille PNG)** — après commit sur `main`, remplacer toute URL locale par l’URL **raw GitHub** ou **jsDelivr** du fichier dans `media/` (GitHub accepte sans problème les petits PNG).
-
----
-
-## Petits réglages produit
-
-6. **Taille par défaut des hotspots** — passer **120×120** px (valeurs par défaut à la création / template hotspot).
+1. **Placeholder scène (grille PNG)** — après commit sur `main`, remplacer toute URL locale par l’URL **raw GitHub** ou **jsDelivr** du fichier dans `media/` (GitHub accepte sans problème les petits PNG).
 
 ---
 
