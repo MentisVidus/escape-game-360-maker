@@ -3,7 +3,7 @@
 Document pour le hotspot **`selector`** (menu de choix, sous-menus, options conditionnelles, SFX par choix).  
 **La plupart du comportement décrit ci-dessous est implémenté** (éditeur FR/EN + jeu généré) ; les paragraphes marqués *roadmap* ou *à trancher* restent des pistes.
 
-Pour le contexte général du projet et le **flux sauvegarde / chargement** (avec diagramme), voir [ARCHITECTURE.md](./ARCHITECTURE.md) (section *Hotspot `selector` in the project file* et *Selector : flux sauvegarde / chargement*).
+Pour le contexte général du projet et le **flux sauvegarde / chargement** (avec diagramme), voir [ARCHITECTURE.md](./ARCHITECTURE.md) (section *Hotspot `selector` in the project file* et *Selector : flux sauvegarde / chargement*). Pour les **médias locaux** (fichiers attachés au projet), le **bundle `.escapegame`** et l’**export ZIP Web**, voir les sections *Portable project bundle* et *Web ZIP export* dans le même fichier.
 
 ---
 

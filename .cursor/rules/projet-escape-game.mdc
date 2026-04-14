@@ -20,8 +20,8 @@ alwaysApply: true
   **OneDrive** peut parfois altérer les `+` dans les fichiers : si Quill « disparaît », vérifier les hashes à la main (API cdnjs).
 
 ## Architecture données (V2 — à ne pas casser)
-- **`js/editor-core.js`** — **Headless uniquement** : pas de `document`. `EditorCore`, `schemaVersion: 2`, normalisation des **actions unifiées**, **`payload.copy`** (`bodyHtml`, `buttonLabel`), audio **`{ url, volume }`**, branche **legacy V1** à l’import. **Ce n’est pas** la gestion des scènes dans le DOM.
-- **`js/editeur-app.js`** / **`js/editor-en-app.js`** — UI, formulaires, `getCurrentProjectData()`, `saveProject` / `loadProject`, hotspots, selector, previews. **Garder FR et EN alignés** (voir `docs/CONTRIBUTING.md`).
+- **`js/editor-core.js`** — **Headless uniquement** : pas de `document`. `EditorCore`, `schemaVersion: 2`, normalisation des **actions unifiées**, **`payload.copy`** (`bodyHtml`, `buttonLabel`), audio **`{ url, volume }`**, **`DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL`**, branche **legacy V1** à l’import. **Ce n’est pas** la gestion des scènes dans le DOM.
+- **`js/editeur-app.js`** / **`js/editor-en-app.js`** — UI, formulaires, `getCurrentProjectData()`, `saveProject` / `loadProject` (`.json` / **`.escapegame`**), `saveProjectBundle`, hotspots, selector, previews. **Garder FR et EN alignés** (voir `docs/CONTRIBUTING.md`).
 - **`js/editor-quill-scenes.js`** — Quill sur `.editor-rich-text`, listes `f-target` / `sel-scene-target`, **`updateQuillTheme()`** (sync couleurs + police popups), enregistrement **Font** / **Size** Quill, **délégation `blur`/`change`/`focusin` sur `document.body` pour `.sc-id`** (panneau latéral carte : les blocs ne sont plus dans `#scenes-container`).
 - **`js/editeur-generate.js`** / **`js/editor-en-generate.js`** — `buildPlayerHtmlTemplate()` (HTML joueur), `generateGame()` (avertissement si médias locaux), `exportGameWebZip()` ; adaptateurs **V2 → runtime joueur** (`choiceV2ToLegacy`, `actionV2ToPlayerArgs`, …). Le joueur est un **gros template literal** dans `generateGame()`.
 - **`xflow/project-graph.js`** — Drawflow : vues **focus** / **full** / **tree**, filtre narration, panneau latéral (**montage DOM** des `.scene-block` / hotspots dans `#project-map-side-content`).
@@ -50,12 +50,10 @@ alwaysApply: true
 - **C1–C3** — Éditeur de base, audio, carte Drawflow + panneau latéral + Quill + thème popups.
 - **C4** — Export **ZIP Web** (`exportGameWebZip`) : `index.html` + `./lib/pannellum.{css,js}` + `media/` (fetch Pannellum une fois à l’export) + utilitaires locaux (`jouer_hors_ligne.bat` / `Lisez-moi.txt`, miroir EN). `generateGame()` télécharge seul `index.html` (CDN Pannellum + URLs du projet) ; **confirm** si médias bundle / `blob:` (`collectPortableBundleEmbeds`).
 
-## Chantier cible : C5 — Bundle `.escapegame` (ZIP)
-*(Résumé issu de ta spec — à implémenter sans régression.)*
-- Problème : médias en URLs texte ; lourdeur / CORS en `file://` si chemins locaux bruts.
-- Cible : ZIP avec **`project.json`** (chemins `./assets/...`) + dossier **`assets/`**.
-- Workflow : sauvegarde bundle → chargement (ZIP, `blob:` pour médias) → export joueur qui réutilise les fichiers. **Rétrocompat** : anciens `.json` seuls continuent de charger.
-- API : `FileReader`, `URL.createObjectURL()` ; pas de `fetch` sur `file://` pour les médias locaux.
+## Chantier C5 — Bundle `.escapegame` (ZIP) — **livré**
+- ZIP **`project.json`** + **`assets/`** ; chargement éditeur avec **`blob:`** pour la session ; **rétrocompat** `.json` seul.
+- Export joueur : **`exportGameWebZip()`** réécrit les chemins vers **`media/`** ; **`generateGame()`** seul reste adapté au CDN + URLs du projet.
+- API : `FileReader`, `URL.createObjectURL()` ; pas de `fetch` sur `file://` pour les médias locaux bruts.
 
 ## Conventions Git (si dépôt Git actif)
 - Branches `feat/...` depuis `main` ; commits FR clairs ; PR par chantier ; pas de push direct sur `main` si politique d’équipe.

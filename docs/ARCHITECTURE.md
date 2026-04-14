@@ -11,10 +11,10 @@ This document is for **developers** and **AI assistants** working on the reposit
 | [css/editor.css](../css/editor.css) | Shared editor chrome (layout, buttons, modals, form controls, **Quill** toolbar & font/size pickers). |
 | [js/editor-core.js](../js/editor-core.js) | **Headless** project model V2 & unified action helpers (`EditorCore`) — **no DOM**; normalization of `payload.copy`, audio `{ url, volume }`, `legacyV1` import, **`DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL`** (jsDelivr grid PNG for new scenes). |
 | [js/editor-quill-scenes.js](../js/editor-quill-scenes.js) | Quill WYSIWYG for `.editor-rich-text`, scene-ID selects, **`updateQuillTheme()`** (popup colors + font sync), Font/Size whitelist registration. |
-| [js/editeur-app.js](../js/editeur-app.js) | French editor: UI, scenes/hotspots, save/load, previews, **`getCurrentProjectData()`**, map hooks — everything except `generateGame`. |
-| [js/editeur-generate.js](../js/editeur-generate.js) | French: `generateGame()` (player template) + `window.onload` boot. |
-| [js/editor-en-app.js](../js/editor-en-app.js) | English editor — mirrors `editeur-app.js`. |
-| [js/editor-en-generate.js](../js/editor-en-generate.js) | English: `generateGame()` + boot; mirrors `editeur-generate.js`. |
+| [js/editeur-app.js](../js/editeur-app.js) | French editor: UI, scenes/hotspots, save/load (`.json` / **`.escapegame`** bundle), previews, **`getCurrentProjectData()`**, map hooks — everything except `generateGame`. |
+| [js/editeur-generate.js](../js/editeur-generate.js) | French: `generateGame()` (player template), **`exportGameWebZip()`** (hosting ZIP), `window.onload` boot. |
+| [js/editor-en-app.js](../js/editor-en-app.js) | English editor — mirrors `editeur-app.js` (including bundle save/load). |
+| [js/editor-en-generate.js](../js/editor-en-generate.js) | English: `generateGame()` + **`exportGameWebZip()`** + boot; mirrors `editeur-generate.js`. |
 | [xflow/project-graph.js](../xflow/project-graph.js) | **Drawflow** map: build graph from project, views (focus / full / tree), narration filter, side panel **DOM mount**. |
 | [README.md](../README.md) | User-facing documentation (FR + EN). |
 
@@ -81,7 +81,7 @@ Rich text fields use **Quill 1.x** (Snow theme), initialized by [`js/editor-quil
 ## Editor shell vs generated player
 
 1. **Editor application** — `*-app.js` + `*-generate.js` in the browser tab; builds the form, map modals, saves JSON, calls `generateGame()`.
-2. **Generated output** — `generateGame()` builds a **string** (`htmlTemplate`) and triggers download of **`index.html`**: standalone player (Pannellum CDN today, optional future local bundle).
+2. **Generated output** — `generateGame()` builds a **string** (`htmlTemplate`) and triggers download of **`index.html`**: standalone player using **Pannellum from CDN** (jsDelivr). Alternatively, **`exportGameWebZip()`** builds a **ZIP** with **local `lib/pannellum`**, **`media/`**, and the same player HTML rewritten for relative paths (offline-friendly hosting).
 
 The **player** logic is embedded as a large template literal inside `generateGame()`. Changing gameplay requires editing that template (or extracting a shared script later).
 
@@ -122,6 +122,19 @@ Saved files include **`schemaVersion: 2`** (via `EditorCore` / app serialization
 - **`scenes`**: array of scene objects with **`id`**, **`media`** (e.g. `panoramaUrl`, **`ambiance`** as `{ url, volume }`), **`hotspots`**.
 
 Each hotspot carries a unified **`action`** (and legacy-oriented field names may still appear in older docs — the runtime path normalizes toward **`payload.copy`** and **`sfx`**).
+
+### Portable project bundle — `.escapegame` (editor)
+
+Used to **save and reload** a project that references **local media files** (panoramas, audio, icons) without re-uploading everything manually.
+
+- **Format**: ZIP file with extension **`.escapegame`**, containing **`project.json`** (V2) and an **`assets/`** directory; media paths in JSON look like **`./assets/...`**.
+- **Implementation** (`*-app.js`): **`saveProjectBundle()`** (JSZip + FileSaver) serializes the current project with rewritten paths, embeds files from **`bundleAssets`** / **`bundleAssetPathBlobs`**. **`loadProject()`** accepts **`.json`** or **`.escapegame`**; for ZIP, **`project.json`** is parsed and files are mapped to **`blob:`** URLs for the session.
+- **UX**: **`saveProject()`** (plain JSON) may **`confirm`** if **`collectPortableBundleEmbeds`** finds remaining local references — user is nudged toward **`.escapegame`** so files are not lost.
+
+### Web ZIP export — `exportGameWebZip()` (generated player)
+
+- **Role**: produce a **folder-ready ZIP** for static hosting or USB copy: **`index.html`**, **`lib/pannellum.*`** (fetched at export time), **`media/`** with copied assets, plus short **readme / batch** helpers for local testing (FR/EN file names differ).
+- **URLs**: project media URLs are rewritten for relative **`media/`** paths where possible; stray **`blob:`** references trigger **warnings** (not portable across sessions).
 
 ### Hotspot `selector` in the project file
 
@@ -173,9 +186,11 @@ flowchart TD
 | `openPicker` / `previewScene` | Fullscreen Pannellum for coordinates / scene preview. |
 | `updateHsFields` | Swap dynamic fields by hotspot type; **`deferSelectorInit`** on load. |
 | Selector helpers | `initSelectorChoicesForm`, `renderChoiceCardElement`, `syncSelectorChoicesToTextarea`, etc. |
-| `saveProject` / `loadProject` | JSON persistence (V2 + legacy load). |
+| `saveProject` / `loadProject` | JSON persistence (V2 + legacy load); **`loadProject`** also accepts **`.escapegame`**. |
+| `saveProjectBundle` | Build **`.escapegame`** (ZIP: `project.json` + `assets/`). |
 | `updatePreview` | Inventory + dialog preview; calls **`updateQuillTheme()`** when present. |
-| `generateGame` | Read project → build player template → download. |
+| `generateGame` | Read project → build player template → download **`index.html`**. |
+| `exportGameWebZip` | Read project → fetch Pannellum → build **hosting ZIP** (`lib/`, `media/`, …). |
 | `refreshProjectMapGraphInPlace` / `setProjectMapView` | Regenerate or switch map view (`project-graph.js`). |
 
 Hotspot **types** in the player are handled in **`hotspotDispatcher`** inside the generated script.
@@ -237,7 +252,7 @@ Aujourd’hui, **inventaire** et **réglages** sont deux entrées séparées dan
 
 Aligned with [README.md](../README.md):
 
-- **Chemin A (next priority)** — **Offline `.zip` export**: bundle generated `index.html` with **local Pannellum** (and other assets) for distribution without CDN (ideal for **EPN** / locked-down networks).
+- **Chemin A** — **Web hosting ZIP** (`exportGameWebZip`) and **editor bundle** (`.escapegame`) are **implemented**; remaining work is polish, multi-file stories, and stricter **versioning** once the beta stabilizes.
 - **Chemin B (long term)** — **React Flow** (or similar) replacing Drawflow only if the project adopts a richer front-end stack; keep **`EditorCore` + V2** as the contract.
 
 Other ideas: SFX on classic hotspots, **unified in-game menu hub** (see [Audio (player)](#audio-player)), multi-level games + `localStorage` inventory handoff, picked-item persistence across revisits, i18n beyond dual HTML files.

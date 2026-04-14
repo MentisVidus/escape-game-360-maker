@@ -20,7 +20,9 @@ Save filenames: `projet.json` (FR editor) vs `project.json` (EN editor) — **sa
 1. **Grep** for related symbols (`generateGame`, `sceneAudios`, `hotspotDispatcher`, etc.).
 2. If you touch **generated** behavior, update the **template string** inside `generateGame()` — not only the editor UI.
 3. Test **Save project** → **Load project** so JSON round-trips.
-4. Test **Generate** → open `index.html` locally or on a static host; check scenes, inventory, audio, hotspots.
+4. If you touch **bundle** code: test **Save project (.escapegame)** → **Load**, and a round-trip with **local media** pickers (`openBundleLocalMediaPicker`).
+5. If you touch **export** code: test **`generateGame()`** and **`exportGameWebZip()`**; confirm `lib/` + `media/` in the ZIP when using local assets.
+6. Test **Generate** → open `index.html` locally or on a static host; check scenes, inventory, audio, hotspots, **player settings** (volume sliders) if relevant.
 
 ### Extra checklist for selector-related work
 
@@ -46,4 +48,4 @@ If you use GitHub: describe **what** changed and **how to test** in the PR. Link
 ## Documentation
 
 - User docs: [README.md](../README.md).
-- Technical docs: [ARCHITECTURE.md](./ARCHITECTURE.md) — update it when you add subsystems (new audio channels, new hotspot type, file split, etc.).
+- Technical docs: [ARCHITECTURE.md](./ARCHITECTURE.md) — update it when you add subsystems (new audio channels, new hotspot type, **bundle / export** paths, file split, etc.).

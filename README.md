@@ -4,7 +4,7 @@
 
 Un générateur visuel gratuit et open-source pour créer des *escape games* ou des visites virtuelles interactives en images 360°. Conçu pour des **ateliers d’initiation au numérique** et les **Espaces Publics Numériques (EPN)** : aucune connaissance en programmation n’est requise.
 
-L’outil produit un jeu jouable sous la forme d’un fichier **`index.html`** autonome (navigateur moderne). Le projet de travail se sauvegarde en **JSON** (**schéma V2**), distinct du HTML généré.
+L’outil produit un jeu jouable sous la forme d’un fichier **`index.html`** autonome (navigateur moderne), ou d’une **archive ZIP** prête pour l’hébergement Web (Pannellum embarqué + dossier `media/`). Le projet de travail se sauvegarde en **JSON** (**schéma V2**) ou, pour embarquer les **médias locaux**, en archive **`.escapegame`** (ZIP contenant `project.json` + `assets/`), distinct du HTML généré.
 
 ---
 
@@ -25,20 +25,22 @@ Pour le détail technique (carte Drawflow, panneau latéral, Quill, flux selecto
 2. Ajoutez des scènes et renseignez vos images 360° (format équirectangulaire).
 3. Ajoutez des **points d’interaction** (hotspots) : messages, objets, énigmes, changements de scène, **menus à choix (selector)**.
 4. (Optionnel) Ouvrez la **carte du projet** pour visualiser le parcours et éditer depuis le **panneau latéral**.
-5. Cliquez sur **« Générer mon jeu »** : le navigateur télécharge votre **`index.html`**.
+5. Cliquez sur **« Générer mon jeu »** pour **`index.html`**, ou sur **« Exporter le jeu (.ZIP pour Hébergement Web) »** pour une archive complète (voir ci-dessous).
 
 ### 💡 Conseils importants
 
 * **Images et CORS** : pour les tests, privilégiez des URL **`http://` / `https://`**. Les nouvelles scènes pointent par défaut vers une **grille équirectangulaire** du dépôt (jsDelivr) ; les chemins locaux (`./mon-panorama.jpg`) fonctionnent surtout lorsque le jeu est servi par un **petit serveur web** ou hébergé en ligne.
-* **Sauvegarde** : le bouton « Sauvegarder le projet » produit un **`.json`** (V2). Réutilisez-le pour reprendre votre travail.
+* **Sauvegarde** : **`.json`** (V2, léger) pour tout en URL distante ; **`.escapegame`** si vous utilisez des **fichiers locaux** (panoramas, audio…) — l’archive contient le JSON et le dossier **`assets/`**. Même bouton **Charger** accepte les deux formats.
+* **Exports joueur** : **`index.html` seul** convient quand tous les médias sont déjà en **`https://…`** (sinon un avertissement s’affiche). Le **ZIP Web** inclut **Pannellum en local**, **`media/`**, et des fichiers d’aide pour tester hors ligne (`Lisez-moi.txt`, script batch).
 * **Tests sur `localhost`** : après avoir remplacé `index.html` ou extrait un nouveau ZIP, utilisez un **rechargement forcé** (**Ctrl+F5** sur Windows/Linux, **Cmd+Shift+R** sur macOS) ou videz le cache du navigateur. Sinon un **ancien panorama** peut sembler « rester affiché » alors que le nouveau fichier est correct.
 
 ### Documentation (développeurs & assistants IA)
 
-* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — dépôt, **JSON V2**, carte, Quill, Pannellum, audio, selector.
+* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — dépôt, **JSON V2**, **`.escapegame`**, export ZIP Web, carte, Quill, Pannellum, audio, HUD joueur, selector.
 * [docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md) — vision **nodale / hybride**, état d’avancement, suite produit.
 * [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — synchronisation FR/EN, bonnes pratiques.
 * [docs/SELECTOR_SPEC.md](docs/SELECTOR_SPEC.md) — menus à choix, imbrication, SFX.
+* [docs/todo.md](docs/todo.md) — mini backlog technique (tests, suivi), distinct des specs.
 
 ---
 
@@ -57,6 +59,19 @@ Pour le détail technique (carte Drawflow, panneau latéral, Quill, flux selecto
 * **Inventaire** — panneau rétractable et personnalisable.
 * **Logique & énigmes** — codes, objets requis, progression mémorisée.
 * **Selector** — menus à choix, sous-menus, SFX par choix, conditions d’affichage.
+* **Bundle projet `.escapegame`** — sauvegarde / chargement **ZIP** (`project.json` + `assets/`) pour travailler avec des médias locaux sans tout remettre en ligne à la main.
+* **Export ZIP hébergement Web** — `index.html` + **Pannellum** copié dans `lib/`, médias dans `media/`, fichiers d’aide pour test local (EPN / clé USB).
+* **Joueur — réglages audio** — HUD (inventaire + engrenage), mix **Master / Musique / Ambiance / SFX**, mémorisé dans **`localStorage`** (détails : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
+* **Panorama par défaut** — nouvelles scènes pointent vers une **grille équirectangulaire** hébergée (jsDelivr), définie dans `EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL`.
+
+### Récent (post bundle & audio joueur — 2026)
+
+| Thème | Contenu |
+|--------|---------|
+| **Projet portable** | Sauvegarde / chargement **`.escapegame`**, cartographie **`bundleAssets`**, chemins **`./assets/…`** dans le JSON, import ZIP côté éditeur. |
+| **Export Web** | **`exportGameWebZip()`** : fetch Pannellum, réécriture des URLs médias, alertes **`blob:`** résiduelles. |
+| **Joueur** | **`#player-hud`**, modale volumes, persistance **`escape360_player_audio_v1`**. |
+| **Éditeur** | Placeholder scène jsDelivr ; confirm si sauvegarde `.json` avec embeds bundle. |
 
 ---
 
@@ -79,9 +94,11 @@ La numérotation « 2.0 » décrit une **étape produit** (documentation) ; le d
 
 ## 🚀 Feuille de route
 
-### Chemin A — priorité suivante
+### Chemin A — export & diffusion (*état au printemps 2026*)
 
-* **Export hors-ligne en archive `.zip`** — empaqueter le jeu généré avec **Pannellum en local** (sans dépendre du CDN) et les ressources du dossier, pour diffusion sur clé USB, intranet ou postes sans accès Internet (*objectif EPN*).
+* **Livré** — **ZIP pour hébergement Web** (`exportGameWebZip`) : jeu avec **Pannellum en local**, dossier **`media/`**, utilitaires de test hors ligne.
+* **Livré** — **Bundle éditeur** **`.escapegame`** : projet + médias pour reprendre le travail avec des fichiers locaux.
+* **À affiner** — ergonomie bundle, documentation joueur, jeux multi-fichiers ; pas de **semver** figé tant que la bêta reste ouverte.
 
 ### Chemin B — plus long terme
 
@@ -89,7 +106,8 @@ La numérotation « 2.0 » décrit une **étape produit** (documentation) ; le d
 
 ### Autres pistes
 
-* SFX sur tous les types de hotspots « classiques », réglages de volume côté joueur.
+* SFX sur tous les types de hotspots « classiques » (au-delà du selector).
+* **Menu in-game unifié** (hub inventaire + réglages + extensions) — voir [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (*Audio (player)*).
 * Système de **niveaux** liant plusieurs HTML + transfert d’inventaire (`localStorage`).
 * **Persistance** des objets ramassés lors des retours en scène.
 
@@ -105,7 +123,7 @@ La numérotation « 2.0 » décrit une **étape produit** (documentation) ; le d
 
 A free, open-source visual builder for 360° escape rooms and interactive virtual tours. Built for **digital literacy workshops** and **public digital spaces** (*médiathèques*, fab labs, community centers). No programming knowledge is required.
 
-The tool outputs a standalone **`index.html`** playable in a modern browser. Your work-in-progress is saved as **JSON** (**V2 schema**), separate from the generated player file.
+The tool outputs a standalone **`index.html`** playable in a modern browser, or a **ZIP archive** ready for static hosting (bundled Pannellum + `media/`). Your work-in-progress is saved as **JSON** (**V2 schema**), or as an **`.escapegame`** bundle (ZIP with `project.json` + `assets/` for local media), separate from the generated player file.
 
 ---
 
@@ -126,20 +144,23 @@ See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/PLAN_EDITEUR_NO
 2. Add scenes and your 360° equirectangular image URLs.
 3. Add **hotspots** — messages, items, puzzles, scene jumps, **choice menus (selector)**.
 4. (Optional) Open the **project map** to explore flow and edit from the **side panel**.
-5. Click **GENERATE MY GAME** to download **`index.html`**.
+5. Click **GENERATE MY GAME** for **`index.html`**, or **Export game (.ZIP for Web hosting)** for a full archive (see below).
 
 ### Tips
 
 * For testing, prefer **`http`/`https`** media URLs. New scenes default to a **grid equirectangular** image from the repo (jsDelivr). Local paths work best when the game is served from a **local web server** or hosted online.
-* Use **Save project** regularly; the **`.json`** file (V2) is your source project.
+* **Save** — use **`.json`** (V2, lightweight) when everything is remote; use **`.escapegame`** when you rely on **local files** (panoramas, audio…) — the archive holds the JSON plus an **`assets/`** folder. The same **Load** button accepts both.
+* **Player output** — **`index.html` alone** is ideal when all media are already **`https://…`** (otherwise a warning is shown). The **Web ZIP** ships **local Pannellum**, **`media/`**, and helper files for offline testing (`README-play-locally.txt`, batch script).
+* Use **Save project** regularly; keep **`.json`** or **`.escapegame`** under version control or backup as appropriate.
 * When testing on **`localhost`**, after swapping **`index.html`** or extracting a new ZIP, do a **hard reload** (**Ctrl+F5** / **Cmd+Shift+R**) or clear cache — otherwise an **old panorama** may appear even though the new build is fine.
 
 ### Technical documentation
 
-* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — repo layout, **V2 JSON**, map, Quill, Pannellum, audio, selector.
+* [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — repo layout, **V2 JSON**, **`.escapegame`**, Web ZIP export, map, Quill, Pannellum, audio, player HUD, selector.
 * [docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md) — hybrid / nodal vision, status, next steps.
 * [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — FR/EN sync, safe changes.
 * [docs/SELECTOR_SPEC.md](docs/SELECTOR_SPEC.md) — choice menus, nesting, SFX.
+* [docs/todo.md](docs/todo.md) — short technical backlog (tests, tracking), not a functional spec.
 
 ---
 
@@ -151,6 +172,19 @@ See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/PLAN_EDITEUR_NO
 * **Quill.js rich text** — headings, styles, lists, alignment, color, **system fonts & sizes** (no embedded images/videos — keeps JSON small).
 * **WYSIWYG vs dialog theme** — editor surface tracks **popup colors** and **font** from global settings in real time.
 * **Global music & per-scene ambiance**, **live scene preview**, **visual CSS editor** for hit areas, **360° picker**, **inventory**, **logic & riddles**, **selector** menus with nesting and per-choice SFX.
+* **`.escapegame` project bundle** — save/load **ZIP** (`project.json` + `assets/`) for local media workflows.
+* **Web hosting ZIP export** — `index.html` + **Pannellum** under `lib/`, assets under `media/`, offline play helpers.
+* **Player — audio settings** — HUD (inventory + gear), **Master / Music / Ambience / SFX** mix, persisted in **`localStorage`** (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
+* **Default panorama** — new scenes use **`EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL`** (jsDelivr grid PNG).
+
+### Recent (2026 — bundle + player audio)
+
+| Area | Notes |
+|------|--------|
+| **Portable project** | **`.escapegame`** save/load, **`bundleAssets`** map, **`./assets/…`** paths in JSON. |
+| **Web export** | **`exportGameWebZip()`** — fetch Pannellum, rewrite media URLs, warn on stray **`blob:`**. |
+| **Player** | **`#player-hud`**, volume modal, **`escape360_player_audio_v1`** key. |
+| **Editor** | jsDelivr placeholder; **`.json`** save confirm when bundle embeds remain. |
 
 ---
 
@@ -171,9 +205,11 @@ The label **2.0** marks a **documentation milestone**; the repo is still describ
 
 ## 🚀 Roadmap
 
-### Path A — next priority
+### Path A — distribution & export (*spring 2026 status*)
 
-* **Offline `.zip` export** — ship **Pannellum locally** (no CDN) plus bundled assets for USB / air-gapped / low-connectivity **public digital spaces**.
+* **Delivered** — **Web hosting ZIP** (`exportGameWebZip`): local **Pannellum**, **`media/`**, offline test helpers.
+* **Delivered** — **Editor bundle** **`.escapegame`**: project + assets for local media workflows.
+* **To refine** — bundle UX, multi-file games, **semver** once the beta stabilizes.
 
 ### Path B — longer term
 
@@ -181,7 +217,8 @@ The label **2.0** marks a **documentation milestone**; the repo is still describ
 
 ### Also on the radar
 
-* Broader SFX coverage, player-side volume controls, multi-level games with `localStorage` handoff, persistent “picked” state across revisits.
+* Broader SFX coverage on classic hotspots; **unified in-game menu hub** (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
+* Multi-level games with `localStorage` handoff, persistent “picked” state across revisits.
 
 ---
 
