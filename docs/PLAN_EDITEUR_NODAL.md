@@ -2,7 +2,7 @@
 
 Document de **référence** pour l’architecture **hybride** (graphe Drawflow + formulaire classique) et le **schéma JSON V2**. Il complète [ARCHITECTURE.md](./ARCHITECTURE.md) sur les choix de conception.
 
-**Statut (fin phase V2 — avril 2026)** : les chantiers **données V2**, **panneau latéral** et **carte Drawflow** (vues multiples, narration) sont **livrés** dans l’éditeur. La représentation **dédiée des selectors comme nœuds multi-sorties** dans le graphe reste une **piste d’évolution** (priorité moindre que l’export hors-ligne).
+**Statut (printemps 2026)** : les chantiers **données V2**, **panneau latéral**, **carte Drawflow** (vues multiples, narration), **bundle éditeur `.escapegame`**, **export ZIP hébergement Web** (`exportGameWebZip`) et **réglages audio côté joueur** (HUD + `localStorage`) sont **livrés**. La représentation **dédiée des selectors comme nœuds multi-sorties** dans le graphe reste une **piste d’évolution** (priorité moindre).
 
 **Versioning** : le dépôt reste présenté en **bêta** ; les sauvegardes récentes incluent **`schemaVersion: 2`**. Le terme **schéma projet v2** désigne ce format, distinct des brouillons historiques de développement.
 
@@ -84,8 +84,9 @@ Synchronisation : après ajout de scène depuis la carte, **`refreshAllSceneTarg
 | **1** | Schéma V2, `EditorCore`, save/load, génération, refactor actions | **Livré** |
 | **2** | Panneau latéral Drawflow + déplacement DOM + vues carte | **Livré** |
 | **3** | Nœuds selector « câblés » dans Drawflow (multi-sorties dédiées) | **Non prioritaire** — le selector reste pleinement éditable dans le formulaire classique |
+| **4** | Bundle `.escapegame` + export Web ZIP + audio joueur | **Livré** — voir [ARCHITECTURE.md](./ARCHITECTURE.md) |
 
-**Suite prioritaire (produit)** : voir [README.md](../README.md) — **Chemin A** : export **.zip** 100 % hors-ligne (Pannellum + assets). **Chemin B** : **React Flow** ou équivalent si refonte graphe un jour.
+**Suite prioritaire (produit)** : voir [README.md](../README.md) — affinage **Chemin A** (ergonomie bundle, jeux multi-fichiers), **Chemin B** : **React Flow** ou équivalent si refonte graphe un jour.
 
 Heuristiques de layout avancées (auto-layout graphique) : hors périmètre immédiat.
 

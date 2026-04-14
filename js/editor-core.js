@@ -15,6 +15,14 @@
     var SCHEMA_VERSION = 2;
 
     /**
+     * Panorama 360° par défaut pour les nouvelles scènes : grille équirectangulaire du dépôt,
+     * servie via jsDelivr (HTTPS, OK en prévisualisation et file:// évité pour le média lui-même).
+     * Fichier source : media/equirectangular_placeholder_grid.png
+     */
+    var DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL =
+        "https://cdn.jsdelivr.net/gh/MentisVidus/escape-game-360-maker@main/media/equirectangular_placeholder_grid.png";
+
+    /**
      * Action unifiée (hotspot simple ou entrée d’un selector).
      * @typedef {Object} UnifiedAction
      * @property {string} type - msg | scene | pick | req | pwd | selector | …
@@ -297,6 +305,7 @@
 
     var EditorCore = {
         SCHEMA_VERSION: SCHEMA_VERSION,
+        DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL: DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL,
         createEmptyProject: createEmptyProject,
         createDefaultAction: createDefaultAction,
         createDefaultSfx: createDefaultSfx,

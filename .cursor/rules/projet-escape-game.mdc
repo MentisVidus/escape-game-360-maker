@@ -1,0 +1,65 @@
+---
+description: Contexte projet Escape Game 360° — stack, JSON V2, Quill/SRI/CORS, synchro FR/EN, export ZIP
+alwaysApply: true
+---
+
+# Contexte projet — Escape Game 360° Maker
+
+## Présentation
+Éditeur no-code pour escape games / visites 360° (Pannellum). Public cible : médiateurs numériques, **EPN**. Licence **CC BY-SA 4.0**. Auteur : Renald Gauthier (assistance IA).
+
+## Stack (versions figées dans les HTML)
+- **Vanilla** HTML / CSS / JS — pas de bundler, pas de `npm install` pour l’éditeur.
+- **Pannellum** 2.5.7 (jsDelivr dans l’éditeur ; copié en `lib/` dans l’export ZIP joueur).
+- **Quill** 1.3.7 — charger depuis **cdnjs.cloudflare.com**, **pas** `cdn.quilljs.com` : avec `crossorigin="anonymous"` + SRI, `cdn.quilljs.com` ne renvoie pas les en-têtes CORS → blocage en **`file://`**.
+- **Drawflow** 0.0.59 (unpkg) — carte projet.
+- **JSZip** 3.10.1 + **FileSaver.js** 2.0.5 (cdnjs) — export ZIP.
+- **`vendor/README.md`** — copies optionnelles des mêmes libs (Pannellum, Quill, Drawflow, JSZip, FileSaver) pour héberger les binaires dans le dépôt ; les HTML pointent toujours vers les CDN par défaut.
+- **SRI** : `integrity` (sha512 depuis l’API cdnjs ou calcul sur l’URL exacte) + `crossorigin="anonymous"` + `referrerpolicy="no-referrer"`.  
+  **Ne pas** encoder `+` ou `/` du Base64 en entités HTML (`&#43;`, `&#47;`) dans `integrity` — la vérification SRI échoue et les scripts/CSS ne se chargent pas.  
+  **OneDrive** peut parfois altérer les `+` dans les fichiers : si Quill « disparaît », vérifier les hashes à la main (API cdnjs).
+
+## Architecture données (V2 — à ne pas casser)
+- **`js/editor-core.js`** — **Headless uniquement** : pas de `document`. `EditorCore`, `schemaVersion: 2`, normalisation des **actions unifiées**, **`payload.copy`** (`bodyHtml`, `buttonLabel`), audio **`{ url, volume }`**, **`DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL`**, branche **legacy V1** à l’import. **Ce n’est pas** la gestion des scènes dans le DOM.
+- **`js/editeur-app.js`** / **`js/editor-en-app.js`** — UI, formulaires, `getCurrentProjectData()`, `saveProject` / `loadProject` (`.json` / **`.escapegame`**), `saveProjectBundle`, hotspots, selector, previews. **Garder FR et EN alignés** (voir `docs/CONTRIBUTING.md`).
+- **`js/editor-quill-scenes.js`** — Quill sur `.editor-rich-text`, listes `f-target` / `sel-scene-target`, **`updateQuillTheme()`** (sync couleurs + police popups), enregistrement **Font** / **Size** Quill, **délégation `blur`/`change`/`focusin` sur `document.body` pour `.sc-id`** (panneau latéral carte : les blocs ne sont plus dans `#scenes-container`).
+- **`js/editeur-generate.js`** / **`js/editor-en-generate.js`** — `buildPlayerHtmlTemplate()` (HTML joueur), `generateGame()` (avertissement si médias locaux), `exportGameWebZip()` ; adaptateurs **V2 → runtime joueur** (`choiceV2ToLegacy`, `actionV2ToPlayerArgs`, …). Le joueur est un **gros template literal** dans `generateGame()`.
+- **`xflow/project-graph.js`** — Drawflow : vues **focus** / **full** / **tree**, filtre narration, panneau latéral (**montage DOM** des `.scene-block` / hotspots dans `#project-map-side-content`).
+- **`css/editor.css`** — Chrome éditeur + styles Quill (`.ql-font-*`, tailles, labels picker FR/EN).
+
+## Documentation à lire avant gros changements
+- `docs/ARCHITECTURE.md` — flux, JSON, carte, Quill, audio, pièges **selector**.
+- `docs/PLAN_EDITEUR_NODAL.md` — état livré V2 / hybride, suite (bundle, React long terme).
+- `docs/SELECTOR_SPEC.md` — menus à choix, imbrication, SFX.
+- `docs/CONTRIBUTING.md` — synchro FR/EN.
+- `docs/todo.md` — backlog court (tâches / bugs repérés en test), distinct des specs ; voir aussi `.cursor/rules/todo.mdc`.
+
+## Pièges connus (selector)
+- **`updateHsFields(hId, { deferSelectorInit: !!hsData })`** au chargement : ne pas appeler `initSelectorChoicesForm` avant d’avoir injecté **`f_sel_choices`** depuis le JSON.
+- **`renderChoiceCardElement`** : passer **`hId` explicitement** si la carte n’est pas encore dans le DOM (`closest('.hotspot-block')` peut être `null`).
+- Sérialiser les choix avec des sélecteurs **bornés** à la carte courante (éviter les fuites `sfxUrl` parent / nested).
+
+## Joueur généré
+- Pas de Quill embarqué : styles **`.ql-align-*`**, **`.ql-font-*`**, **`.ql-size-*`**, **`.play-html-rich`** injectés dans le `<style>` du HTML pour coller au rendu WYSIWYG.
+- Popups : contenu narratif dans **`.play-html-rich`** pour ne pas écraser l’alignement Quill par un `text-align: center` global.
+
+## Migration React (vision long terme — README « Chemin B »)
+- Conserver **`EditorCore` + schéma JSON V2** comme contrat. Remplacer surtout la **couche graphe** (Drawflow → React Flow ou autre) via des adaptateurs ; éviter de dupliquer la logique métier dans le JSX.
+
+## Chantiers référence
+- **C1–C3** — Éditeur de base, audio, carte Drawflow + panneau latéral + Quill + thème popups.
+- **C4** — Export **ZIP Web** (`exportGameWebZip`) : `index.html` + `./lib/pannellum.{css,js}` + `media/` (fetch Pannellum une fois à l’export) + utilitaires locaux (`jouer_hors_ligne.bat` / `Lisez-moi.txt`, miroir EN). `generateGame()` télécharge seul `index.html` (CDN Pannellum + URLs du projet) ; **confirm** si médias bundle / `blob:` (`collectPortableBundleEmbeds`).
+
+## Chantier C5 — Bundle `.escapegame` (ZIP) — **livré**
+- ZIP **`project.json`** + **`assets/`** ; chargement éditeur avec **`blob:`** pour la session ; **rétrocompat** `.json` seul.
+- Export joueur : **`exportGameWebZip()`** réécrit les chemins vers **`media/`** ; **`generateGame()`** seul reste adapté au CDN + URLs du projet.
+- API : `FileReader`, `URL.createObjectURL()` ; pas de `fetch` sur `file://` pour les médias locaux bruts.
+
+## Conventions Git (si dépôt Git actif)
+- Branches `feat/...` depuis `main` ; commits FR clairs ; PR par chantier ; pas de push direct sur `main` si politique d’équipe.
+
+## Principes pour l’agent / PR
+- **Changements minimaux** : ne pas refactorer hors périmètre.
+- **FR + EN** : toute modif d’`editeur.html` / `editeur-app.js` / `editeur-generate.js` → miroir **`editor_en.*`** sauf textes UI.
+- Préférer **serveur HTTP local** pour tests complets ; **`file://`** reste un cas réel EPN — tester Quill + SRI après chaque touche aux CDN.
+- Commentaires utiles en **français** dans le code existant ; pas de sur-documentation.

@@ -1,5 +1,5 @@
-﻿// --- GÉNÉRATION DU JEU (index.html ou ZIP hors-ligne) ---
-// Fabrique le HTML du joueur ; `generateGame` télécharge seul l'HTML, `exportGameOfflineZip` empaquette Pannellum local.
+﻿// --- GÉNÉRATION DU JEU (index.html seul ou ZIP Web) ---
+// Fabrique le HTML du joueur ; `generateGame` télécharge seul l'HTML ; `exportGameWebZip` (ZIP hébergement).
 
 /** URLs CDN Pannellum (identiques aux balises du template joueur). */
 var OFFLINE_PANNELLUM_CDN_CSS = "https://cdn.jsdelivr.net/npm/pannellum@2.5.7/build/pannellum.css";
@@ -11,9 +11,71 @@ function patchPlayerHtmlForOffline(html) {
         .replace(/https:\/\/cdn\.jsdelivr\.net\/npm\/pannellum@2\.5\.7\/build\/pannellum\.js/g, "./lib/pannellum.js");
 }
 
-/**
- * @returns {string} HTML complet du joueur (liens Pannellum CDN).
- */
+/** Préfixe ./ pour chemins relatifs joueur ; laisse http(s), blob:, data: intacts. */
+function playerRelMediaPathIfLocal(u) {
+    var s = String(u || "").trim();
+    if (!s) return s;
+    if (
+        s.startsWith("http://") ||
+        s.startsWith("https://") ||
+        s.startsWith("blob:") ||
+        s.startsWith("data:")
+    )
+        return s;
+    if (s.startsWith("./")) return s;
+    return "./" + s;
+}
+
+function sanitizeOfflineMediaBaseName(name, fallback) {
+    var base = String(name || fallback || "media")
+        .split(/[/\\]/)
+        .pop();
+    base = base.replace(/[^a-zA-Z0-9._-]+/g, "_");
+    if (!base || base === "." || base === "..") base = fallback || "media.bin";
+    return base.slice(0, 120);
+}
+
+function uniqueOfflineMediaName(desired, usedSet) {
+    var dot = desired.lastIndexOf(".");
+    var stem = dot > 0 ? desired.slice(0, dot) : desired;
+    var ext = dot > 0 ? desired.slice(dot) : "";
+    var name = desired;
+    var n = 0;
+    while (usedSet[name]) {
+        n++;
+        name = stem + "_" + n + ext;
+    }
+    usedSet[name] = true;
+    return name;
+}
+
+var WEB_ZIP_BAT_WINDOWS =
+    "@echo off\r\n" +
+    "echo Lancement du serveur local pour l'Escape Game...\r\n" +
+    "start http://localhost:8000\r\n" +
+    "python -m http.server 8000\r\n" +
+    "pause\r\n";
+
+var WEB_ZIP_README_FR =
+    "=== Jouer en local sur votre ordinateur ===\r\n\r\n" +
+    "Le jeu 360° ne fonctionne pas en ouvrant index.html directement (double-clic) : le navigateur bloque les médias.\r\n" +
+    "Il faut servir le dossier avec un petit serveur HTTP.\r\n\r\n" +
+    "--- Méthode rapide (Windows, Python installé) ---\r\n" +
+    "1. Installez Python depuis https://www.python.org/ (cochez \"Add Python to PATH\").\r\n" +
+    "2. Double-cliquez sur jouer_hors_ligne.bat dans ce dossier.\r\n" +
+    "3. Le navigateur s'ouvre sur http://localhost:8000 — cliquez sur index.html.\r\n\r\n" +
+    "--- À la main avec Python ---\r\n" +
+    "Ouvrez une invite de commandes dans ce dossier (Shift + clic droit > Ouvrir dans le terminal), puis :\r\n" +
+    "  python -m http.server 8000\r\n" +
+    "Ouvrez ensuite http://localhost:8000 dans Chrome ou Firefox.\r\n\r\n" +
+    "--- Avec Node.js (npx) ---\r\n" +
+    "  npx --yes serve -l 8000\r\n\r\n" +
+    "--- Avec Visual Studio Code ---\r\n" +
+    "Installez l'extension \"Live Server\", clic droit sur index.html > \"Open with Live Server\".\r\n\r\n" +
+    "--- Hébergement sur le Web ---\r\n" +
+    "Uploadez tout le contenu du ZIP (index.html, lib/, media/) sur votre hébergeur ou GitHub Pages.\r\n";
+
+/** @returns {string} HTML complet du joueur (liens Pannellum CDN). */
 function buildPlayerHtmlTemplate() {
     // 1. Paramètres globaux depuis le projet v2
     const project = getCurrentProjectData();
@@ -23,7 +85,9 @@ function buildPlayerHtmlTemplate() {
     const invIconVal = project.invIcon || "🎒";
 	const useGlobalAudio = !!project.useGlobalAudio;
 	const gm = project.globalMusic || {};
-	const globalMusicUrl = String(gm.url != null ? gm.url : project.globalAudioUrl || "").trim();
+	const globalMusicUrl = playerRelMediaPathIfLocal(
+		String(gm.url != null ? gm.url : project.globalAudioUrl || "").trim()
+	);
 	const globalMusicVol =
 		gm.volume !== undefined && !isNaN(Number(gm.volume))
 			? Math.max(0, Math.min(1, Number(gm.volume)))
@@ -36,10 +100,10 @@ function buildPlayerHtmlTemplate() {
     if(invPos === 'bottom-right') { invPosCSS = "bottom: 15px; right: 15px;"; alignItems = "flex-end"; } 
     if(invPos === 'bottom-left') { invPosCSS = "bottom: 15px; left: 15px;"; alignItems = "flex-start"; }
     
-    // Gestion de l'icône d'inventaire (Image ou Émoji)
-    let invIconHTML = invIconVal; 
+    // Gestion de l'icône d'inventaire (Image ou Émoji) — pas de taille fixe en px pour rester compatible futurs assets
+    let invIconHTML = invIconVal;
     if(invIconVal.startsWith('http') || invIconVal.endsWith('.png') || invIconVal.endsWith('.jpg')) {
-        invIconHTML = `<img src="${invIconVal}" style="width:30px; height:30px; display:block;">`;
+        invIconHTML = `<img src="${invIconVal}" class="player-hud-icon-img" alt="">`;
     }
 	
     // Extraction des couleurs inventaire (conversion RGBa)
@@ -161,7 +225,7 @@ function buildPlayerHtmlTemplate() {
     (project.scenes || []).forEach((scene, index) => {
         const scId = scene.id || ("scene_" + (index + 1));
         let scImg = (scene.media && scene.media.panoramaUrl) ? scene.media.panoramaUrl : "";
-        if (!String(scImg).startsWith('http')) scImg = "./" + scImg;
+        scImg = playerRelMediaPathIfLocal(scImg);
         if(index === 0) firstSceneId = scId;
 
         var amb = scene.media && scene.media.ambiance;
@@ -172,8 +236,7 @@ function buildPlayerHtmlTemplate() {
                   ? String(amb.url).trim()
                   : "";
         if (scAudioRaw) {
-            let scAudioUrl = scAudioRaw;
-            if (!scAudioUrl.startsWith("http")) scAudioUrl = "./" + scAudioUrl;
+            let scAudioUrl = playerRelMediaPathIfLocal(scAudioRaw);
             var ambVol =
                 amb && typeof amb === "object" && amb.volume !== undefined && !isNaN(Number(amb.volume))
                     ? Math.max(0, Math.min(1, Number(amb.volume)))
@@ -245,13 +308,40 @@ function buildPlayerHtmlTemplate() {
         .ql-size-large { font-size: 1.5em !important; }
         .ql-size-huge { font-size: 2em !important; }
         
-        /* Styles de l'inventaire */
-        #inv-container { position: absolute; ${invPosCSS} z-index: 9999; display: ${hasInv ? 'flex' : 'none'}; flex-direction: column; align-items: ${alignItems}; }
-        #inv-toggle { cursor: pointer; font-size: 30px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 50%; text-align: center; line-height: 1; user-select: none; border: 2px solid rgba(255,255,255,0.3); transition: 0.2s; }
-        #inv-toggle:hover { background: rgba(255,255,255,0.2); transform: scale(1.1); }
+        /* HUD : inventaire + réglages (côte à côte) — boutons dimensionnés en em pour accueillir images ou emoji */
+        #player-hud { position: absolute; ${invPosCSS} z-index: 9999; display: flex; flex-direction: column; align-items: ${alignItems}; }
+        .player-hud-icons { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.45em; }
+        .player-hud-btn {
+            cursor: pointer; box-sizing: border-box; min-width: 2.6em; min-height: 2.6em; padding: 0.35em;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: clamp(1.15rem, 4.2vmin, 1.85rem); line-height: 1;
+            background: rgba(0,0,0,0.5); border-radius: 50%; user-select: none;
+            border: 2px solid rgba(255,255,255,0.3); transition: 0.2s; color: inherit;
+        }
+        .player-hud-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.06); }
+        .player-hud-icon-img { max-width: 2.5em; max-height: 2.5em; width: auto; height: auto; object-fit: contain; display: block; vertical-align: middle; }
         #inv-panel { background: ${invBg}; color: ${invColor}; border: 2px solid white; padding: 15px; border-radius: 8px; margin-top: 10px; margin-bottom: 10px; display: none; min-width: 150px; }
         #inv-panel h3 { margin: 0 0 10px 0; border-bottom: 1px solid #555; padding-bottom: 5px; } 
         #inv-list { margin: 0; padding: 0; list-style-type: none; line-height: 1.5; }
+        /* Modale réglages joueur (volume — extensible plus tard) */
+        #settings-modal { display: none; position: fixed; inset: 0; z-index: 10050; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
+        #settings-modal.is-open { display: flex; }
+        .settings-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.55); }
+        .settings-modal-panel {
+            position: relative; z-index: 1; max-width: 420px; width: 100%; padding: 18px 20px; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+            font-family: ${popFont}; color: ${popColor}; background: ${popBg}; border: 1px solid rgba(255,255,255,0.2);
+        }
+        .settings-modal-panel h2 { margin: 0 0 14px 0; font-size: 1.25rem; }
+        .settings-row { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; }
+        .settings-row label { font-size: 0.92rem; opacity: 0.95; }
+        .settings-row input[type=range] { width: 100%; max-width: 100%; }
+        .settings-val { font-size: 0.8rem; opacity: 0.85; font-variant-numeric: tabular-nums; }
+        .settings-close-row { margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+        .settings-close-btn {
+            cursor: pointer; padding: 8px 16px; border-radius: 6px; border: none; font-family: ${popFont};
+            background: ${popBtnBg}; color: ${popBtnCol}; font-size: 0.95rem;
+        }
+        .settings-close-btn:hover { filter: brightness(1.08); }
     </style>
 </head>
 <body>
@@ -266,12 +356,45 @@ function buildPlayerHtmlTemplate() {
         <button onclick="startGame()" style="padding: 15px 30px; font-size: 1.2em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Commencer l'aventure</button>
     </div>
 
-    <!-- Interface Joueur -->
-    <div id="inv-container">
-        <div id="inv-toggle" onclick="toggleInv()">${invIconHTML}</div>
-        <div id="inv-panel">
+    <!-- HUD joueur : inventaire (optionnel) + réglages -->
+    <div id="player-hud">
+        <div class="player-hud-icons">
+            ${hasInv ? `<button type="button" id="inv-toggle" class="player-hud-btn" onclick="toggleInv()" aria-label="Inventaire">${invIconHTML}</button>` : ""}
+            <button type="button" id="settings-toggle" class="player-hud-btn" onclick="togglePlayerSettings()" title="Paramètres" aria-label="Paramètres">⚙</button>
+        </div>
+        ${hasInv ? `<div id="inv-panel">
             <h3>Inventaire</h3>
             <ul id="inv-list"><li style="color:gray; font-style:italic;">Vide</li></ul>
+        </div>` : ""}
+    </div>
+
+    <div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+        <div class="settings-modal-backdrop" onclick="closePlayerSettings()"></div>
+        <div class="settings-modal-panel">
+            <h2 id="settings-modal-title">Paramètres</h2>
+            <div class="settings-row">
+                <label for="set-master">Volume principal (Master)</label>
+                <input type="range" id="set-master" min="0" max="1" step="0.05" value="1" oninput="onPlayerAudioSliderInput('master')">
+                <span class="settings-val" id="set-master-val">1.00</span>
+            </div>
+            <div class="settings-row">
+                <label for="set-music">Musique</label>
+                <input type="range" id="set-music" min="0" max="1" step="0.05" value="1" oninput="onPlayerAudioSliderInput('music')">
+                <span class="settings-val" id="set-music-val">1.00</span>
+            </div>
+            <div class="settings-row">
+                <label for="set-ambiance">Ambiance</label>
+                <input type="range" id="set-ambiance" min="0" max="1" step="0.05" value="1" oninput="onPlayerAudioSliderInput('ambiance')">
+                <span class="settings-val" id="set-ambiance-val">1.00</span>
+            </div>
+            <div class="settings-row">
+                <label for="set-sfx">Effets sonores</label>
+                <input type="range" id="set-sfx" min="0" max="1" step="0.05" value="1" oninput="onPlayerAudioSliderInput('sfx')">
+                <span class="settings-val" id="set-sfx-val">1.00</span>
+            </div>
+            <div class="settings-close-row">
+                <button type="button" class="settings-close-btn" onclick="closePlayerSettings()">Fermer</button>
+            </div>
         </div>
     </div>
     
@@ -288,15 +411,18 @@ function buildPlayerHtmlTemplate() {
     var sceneAmbianceClips = ${sceneAmbianceJson};
 
     var audioSys = {
-        masterVol: 1.0, musicVol: 0.5, ambianceVol: 0.8, sfxVol: 1.0,
+        masterVol: 1.0, musicVol: 1.0, ambianceVol: 1.0, sfxVol: 1.0,
         _ambianceLogicalUrl: '',
-        
+        _lastMusicClip: 1,
+        _lastAmbClip: 1,
+
         playMusic: function(url, clipVol) {
             var p = document.getElementById('audio-music');
             if(!url || !String(url).trim()) { p.pause(); return; }
             url = String(url).trim();
             var m = 1;
             if(clipVol != null && clipVol !== '' && !isNaN(Number(clipVol))) m = Math.max(0, Math.min(1, Number(clipVol)));
+            this._lastMusicClip = m;
             p.volume = this.musicVol * this.masterVol * m;
             if(p.src !== url) { p.src = url; }
             p.play().catch(function(e){console.log(e)});
@@ -313,6 +439,7 @@ function buildPlayerHtmlTemplate() {
             url = String(url).trim();
             var m = 1;
             if(clipVol != null && clipVol !== '' && !isNaN(Number(clipVol))) m = Math.max(0, Math.min(1, Number(clipVol)));
+            this._lastAmbClip = m;
             p.volume = this.ambianceVol * this.masterVol * m;
             if (this._ambianceLogicalUrl === url) {
                 if (p.paused) p.play().catch(function(e){console.log(e)});
@@ -338,6 +465,87 @@ function buildPlayerHtmlTemplate() {
         }
     };
 
+    var PLAYER_AUDIO_STORAGE_KEY = "escape360_player_audio_v1";
+
+    function syncPlayerAudioSlidersToUi() {
+        var m = document.getElementById("set-master");
+        var mu = document.getElementById("set-music");
+        var am = document.getElementById("set-ambiance");
+        var sx = document.getElementById("set-sfx");
+        if (m) { m.value = String(audioSys.masterVol); var el = document.getElementById("set-master-val"); if(el) el.textContent = Number(audioSys.masterVol).toFixed(2); }
+        if (mu) { mu.value = String(audioSys.musicVol); var e2 = document.getElementById("set-music-val"); if(e2) e2.textContent = Number(audioSys.musicVol).toFixed(2); }
+        if (am) { am.value = String(audioSys.ambianceVol); var e3 = document.getElementById("set-ambiance-val"); if(e3) e3.textContent = Number(audioSys.ambianceVol).toFixed(2); }
+        if (sx) { sx.value = String(audioSys.sfxVol); var e4 = document.getElementById("set-sfx-val"); if(e4) e4.textContent = Number(audioSys.sfxVol).toFixed(2); }
+    }
+
+    function applyLiveAudioVolumes() {
+        var m = document.getElementById("audio-music");
+        if (m && m.src) {
+            var clip = audioSys._lastMusicClip != null ? audioSys._lastMusicClip : 1;
+            m.volume = Math.max(0, Math.min(1, audioSys.musicVol * audioSys.masterVol * clip));
+        }
+        var a = document.getElementById("audio-ambiance");
+        if (a && a.src && audioSys._ambianceLogicalUrl) {
+            var c = audioSys._lastAmbClip != null ? audioSys._lastAmbClip : 1;
+            a.volume = Math.max(0, Math.min(1, audioSys.ambianceVol * audioSys.masterVol * c));
+        }
+    }
+
+    function loadPlayerAudioPrefsFromStorage() {
+        try {
+            var raw = localStorage.getItem(PLAYER_AUDIO_STORAGE_KEY);
+            if (!raw) return;
+            var o = JSON.parse(raw);
+            if (!o || typeof o !== "object") return;
+            if (o.master != null && !isNaN(Number(o.master))) audioSys.masterVol = Math.max(0, Math.min(1, Number(o.master)));
+            if (o.music != null && !isNaN(Number(o.music))) audioSys.musicVol = Math.max(0, Math.min(1, Number(o.music)));
+            if (o.ambiance != null && !isNaN(Number(o.ambiance))) audioSys.ambianceVol = Math.max(0, Math.min(1, Number(o.ambiance)));
+            if (o.sfx != null && !isNaN(Number(o.sfx))) audioSys.sfxVol = Math.max(0, Math.min(1, Number(o.sfx)));
+        } catch (e) {}
+    }
+
+    function savePlayerAudioPrefsToStorage() {
+        try {
+            localStorage.setItem(PLAYER_AUDIO_STORAGE_KEY, JSON.stringify({
+                master: audioSys.masterVol, music: audioSys.musicVol,
+                ambiance: audioSys.ambianceVol, sfx: audioSys.sfxVol
+            }));
+        } catch (e) {}
+    }
+
+    function onPlayerAudioSliderInput(kind) {
+        var v, el, idVal;
+        if (kind === "master") { el = document.getElementById("set-master"); idVal = "set-master-val"; }
+        else if (kind === "music") { el = document.getElementById("set-music"); idVal = "set-music-val"; }
+        else if (kind === "ambiance") { el = document.getElementById("set-ambiance"); idVal = "set-ambiance-val"; }
+        else { el = document.getElementById("set-sfx"); idVal = "set-sfx-val"; }
+        if (!el) return;
+        v = parseFloat(el.value);
+        if (isNaN(v)) v = 1;
+        v = Math.max(0, Math.min(1, v));
+        var disp = document.getElementById(idVal);
+        if (disp) disp.textContent = v.toFixed(2);
+        if (kind === "master") audioSys.masterVol = v;
+        else if (kind === "music") audioSys.musicVol = v;
+        else if (kind === "ambiance") audioSys.ambianceVol = v;
+        else audioSys.sfxVol = v;
+        applyLiveAudioVolumes();
+        savePlayerAudioPrefsToStorage();
+    }
+
+    function togglePlayerSettings() {
+        var mod = document.getElementById("settings-modal");
+        if (!mod) return;
+        if (mod.classList.contains("is-open")) { closePlayerSettings(); return; }
+        syncPlayerAudioSlidersToUi();
+        mod.classList.add("is-open");
+    }
+
+    function closePlayerSettings() {
+        var mod = document.getElementById("settings-modal");
+        if (mod) mod.classList.remove("is-open");
+    }
+
     function applySceneAmbiance(sceneId) {
         var clip = sceneAmbianceClips[sceneId];
         if (!clip || !clip.url || String(clip.url).trim() === '') {
@@ -350,6 +558,8 @@ function buildPlayerHtmlTemplate() {
     // --- LANCEMENT DU JEU ---
     function startGame() {
         document.getElementById('start-screen').style.display = 'none';
+        loadPlayerAudioPrefsFromStorage();
+        syncPlayerAudioSlidersToUi();
         
         // Initialisation de Pannellum
         viewer = pannellum.viewer('panorama', { 
@@ -371,10 +581,11 @@ function buildPlayerHtmlTemplate() {
     
     function toggleInv() { 
         var p = document.getElementById('inv-panel'); 
+        if (!p) return;
         p.style.display = (p.style.display === 'block') ? 'none' : 'block'; 
     }
     function openInventoryPanelIfVisible() {
-        var c = document.getElementById('inv-container');
+        var c = document.getElementById('player-hud');
         if(!c || c.style.display === 'none') return;
         var p = document.getElementById('inv-panel');
         if(p) p.style.display = 'block';
@@ -445,13 +656,18 @@ function buildPlayerHtmlTemplate() {
     function choiceToPayload(choice) {
         if(!choice || !choice.actionType) return null;
         var at = choice.actionType;
-        if(at === 'msg') return { type: 'msg', txt: choice.txt || '' };
-        if(at === 'scene') return { type: 'scene', target: choice.target || '', transTxt: choice.transTxt || '', transBtn: choice.transBtn };
-        if(at === 'pick') return { type: 'pick', itemId: choice.itemId, itemName: choice.itemName, txt: choice.txt || '' };
+        var sfx = {};
+        if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== '') {
+            sfx.sfxUrl = String(choice.sfxUrl).trim();
+            if(choice.sfxVolume !== undefined && choice.sfxVolume !== null && choice.sfxVolume !== '') sfx.sfxVolume = choice.sfxVolume;
+        }
+        if(at === 'msg') return Object.assign({ type: 'msg', txt: choice.txt || '' }, sfx);
+        if(at === 'scene') return Object.assign({ type: 'scene', target: choice.target || '', transTxt: choice.transTxt || '', transBtn: choice.transBtn }, sfx);
+        if(at === 'pick') return Object.assign({ type: 'pick', itemId: choice.itemId, itemName: choice.itemName, txt: choice.txt || '' }, sfx);
         return null;
     }
-    function closeSelectorOverlay() {
-        audioSys.stopSFX();
+    function closeSelectorOverlay(stopSfx) {
+        if (stopSfx !== false) audioSys.stopSFX();
         var o = document.getElementById('selector-overlay');
         if(o) o.remove();
         selectorHistory = [];
@@ -467,10 +683,10 @@ function buildPlayerHtmlTemplate() {
     }
     function runSelectorChoice(choice) {
         if(!choice) return;
-        if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== '') {
-            audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
-        }
         if(choice.actionType === 'selector') {
+            if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== '') {
+                audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
+            }
             if(choice.nested) {
                 selectorHistory.push(normalizeSelectorLevel(choice.nested, selectorHistory[selectorHistory.length - 1].displayMode));
                 renderSelectorPanel();
@@ -479,12 +695,15 @@ function buildPlayerHtmlTemplate() {
         }
         var payload = choiceToPayload(choice);
         if(payload && payload.type === 'msg') {
+            if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== '') {
+                audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
+            }
             selectorHistory.push({ _inlineMessage: true, bodyHtml: payload.txt || '' });
             renderSelectorPanel();
             return;
         }
         var hsForAction = selectorHsDiv;
-        closeSelectorOverlay();
+        closeSelectorOverlay(false);
         if(payload) executeAction(payload, hsForAction, true);
     }
     function renderSelectorPanel() {
@@ -726,6 +945,19 @@ function buildPlayerHtmlTemplate() {
 }
 
 function generateGame() {
+    var project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
+    var embedList =
+        typeof window.collectPortableBundleEmbeds === "function"
+            ? window.collectPortableBundleEmbeds(project)
+            : [];
+    if (embedList.length > 0) {
+        var proceed = window.confirm(
+            "Ce projet référence des médias locaux (fichiers du bundle .escapegame ou importés) : les adresses blob:… dans index.html ne sont valides que dans cette session du navigateur et ne se partagent pas.\n\n" +
+                "Pour un jeu jouable ailleurs, utilisez l’export « ZIP Web » (dossier media/) ou des URLs publiques https://… pour tous les médias.\n\n" +
+                "Télécharger index.html quand même ? (utile surtout si vous n’avez modifié que le texte / les hotspots et réinjecterez le fichier dans un pack déjà extrait.)"
+        );
+        if (!proceed) return;
+    }
     const htmlTemplate = buildPlayerHtmlTemplate();
     const blob = new Blob([htmlTemplate], { type: "text/html;charset=utf-8" });
     const lien = document.createElement("a");
@@ -737,10 +969,9 @@ function generateGame() {
 }
 
 /**
- * Télécharge une archive ZIP : index.html + lib/pannellum.css + lib/pannellum.js (Pannellum récupéré par fetch sur le CDN éditeur).
- * Nécessite une connexion au moment de l’export pour télécharger les libs ; le package final est autonome hors-ligne.
+ * ZIP pour hébergement HTTP : médias bruts dans media/ (images + audio), pas de media-images.js — adapté aux serveurs où ./media/ n’est pas bloqué par CORS.
  */
-async function exportGameOfflineZip() {
+async function exportGameWebZip() {
     if (typeof JSZip === "undefined" || typeof saveAs === "undefined") {
         alert(
             "JSZip ou FileSaver.js n’est pas chargé. Vérifiez votre connexion Internet (CDN), puis rechargez la page."
@@ -749,7 +980,31 @@ async function exportGameOfflineZip() {
     }
     try {
         const htmlRaw = buildPlayerHtmlTemplate();
-        const html = patchPlayerHtmlForOffline(htmlRaw);
+        let html = patchPlayerHtmlForOffline(htmlRaw);
+        const project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
+        var embedList =
+            typeof window.collectPortableBundleEmbeds === "function"
+                ? window.collectPortableBundleEmbeds(project)
+                : [];
+        var mediaFilesToAdd = [];
+        if (embedList.length > 0) {
+            var usedMedia = {};
+            for (var ei = 0; ei < embedList.length; ei++) {
+                var item = embedList[ei];
+                var mediaBase = uniqueOfflineMediaName(
+                    sanitizeOfflineMediaBaseName(item.nameHint, "media.bin"),
+                    usedMedia
+                );
+                html = html.split(item.url).join("./media/" + mediaBase);
+                mediaFilesToAdd.push({ name: mediaBase, blob: item.blob });
+            }
+        }
+        if (/blob:/.test(html)) {
+            alert(
+                "Export ZIP : des adresses blob:… restent dans index.html (média local introuvable dans la session ou non pris en charge par l’export). " +
+                    "Le dossier media/ ne contient pas ces fichiers — le jeu sera incomplet. Rechargez les médias dans l’éditeur, préférez le bundle .escapegame, puis réexportez."
+            );
+        }
         const [cssText, jsText] = await Promise.all([
             fetch(OFFLINE_PANNELLUM_CDN_CSS).then(function (r) {
                 if (!r.ok) throw new Error("pannellum.css (" + r.status + ")");
@@ -762,20 +1017,27 @@ async function exportGameOfflineZip() {
         ]);
         const zip = new JSZip();
         zip.file("index.html", html);
+        zip.file("jouer_hors_ligne.bat", WEB_ZIP_BAT_WINDOWS);
+        zip.file("Lisez-moi.txt", WEB_ZIP_README_FR);
+        if (mediaFilesToAdd.length > 0) {
+            var mediaFolder = zip.folder("media");
+            mediaFilesToAdd.forEach(function (m) {
+                mediaFolder.file(m.name, m.blob);
+            });
+        }
         const lib = zip.folder("lib");
         lib.file("pannellum.css", cssText);
         lib.file("pannellum.js", jsText);
-        const blob = await zip.generateAsync({ type: "blob" });
-        const project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
-        const base = String(project.title || "EscapeGame")
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const downloadBase = String(project.title || "EscapeGame")
             .replace(/[\\/:*?"<>|]+/g, "_")
             .trim()
             .slice(0, 80);
-        saveAs(blob, (base || "EscapeGame") + "_Complet.zip");
+        saveAs(zipBlob, (downloadBase || "EscapeGame") + "_Web.zip");
     } catch (e) {
         console.error(e);
         alert(
-            "Échec de l’export ZIP : " +
+            "Échec de l’export ZIP (hébergement Web) : " +
                 (e && e.message ? e.message : String(e)) +
                 "\n\nUne connexion est nécessaire pour récupérer Pannellum une fois ; réessayez ou vérifiez les bloqueurs."
         );

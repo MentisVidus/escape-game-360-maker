@@ -139,7 +139,7 @@
         }
         var id = String(raw).trim();
         if (typeof window.addScene === "function") {
-            var img = isEn() ? "room.jpg" : "salle.jpg";
+            var img = EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL;
             window.addScene(id, img, "");
         }
         global.refreshAllSceneTargetSelects({ preferSelect: sel, preferVal: id });
@@ -261,6 +261,36 @@
         ];
     }
 
+    /** Sources Quill (évite de dépendre d’une référence globale fragile). */
+    function quillSourceApi() {
+        if (window.Quill && Quill.sources && Quill.sources.API != null) return Quill.sources.API;
+        return "api";
+    }
+
+    function quillSourceUser() {
+        if (window.Quill && Quill.sources && Quill.sources.USER != null) return Quill.sources.USER;
+        return "user";
+    }
+
+    /**
+     * Injecte du HTML dans l’éditeur en privilégiant le DOM + update() plutôt que
+     * clipboard.dangerouslyPasteHTML seul : le convertisseur clipboard peut perdre
+     * titres / tailles sur les ré-inits (chargement projet, bundle .escapegame), puis
+     * text-change recopie un innerHTML appauvri dans le textarea caché.
+     */
+    function loadHtmlIntoQuill(q, html) {
+        if (!q || !html) return;
+        var h = String(html).trim();
+        if (!h) return;
+        try {
+            q.root.innerHTML = h;
+            q.update(quillSourceApi());
+        } catch (e) {
+            console.warn("Quill: chargement DOM direct impossible, fallback clipboard.", e);
+            q.clipboard.dangerouslyPasteHTML(h);
+        }
+    }
+
     global.destroyRichEditorsIn = function (root) {
         if (!root || !root.querySelectorAll) return;
         root.querySelectorAll("textarea." + RICH_CLASS).forEach(function (ta) {
@@ -299,13 +329,17 @@
                 theme: "snow",
                 modules: { toolbar: quillToolbar() },
             });
+            var srcUser = quillSourceUser();
+            q.on("text-change", function (delta, oldDelta, source) {
+                if (source === srcUser) {
+                    ta.value = q.root.innerHTML;
+                }
+            });
             var html = (ta.value || "").trim();
             if (html) {
-                q.clipboard.dangerouslyPasteHTML(html);
+                loadHtmlIntoQuill(q, html);
             }
-            q.on("text-change", function () {
-                ta.value = q.root.innerHTML;
-            });
+            ta.value = q.root.innerHTML;
             ta.style.display = "none";
             ta._quill = q;
             ta.dataset.richInit = "1";

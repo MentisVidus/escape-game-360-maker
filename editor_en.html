@@ -39,10 +39,12 @@
     <!-- ========================================== -->
     <div class="top-toolbar">
         <button class="btn-save" onclick="saveProject()">💾 Save project (.json)</button>
-        <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Load project (.json)</button>
+        <button type="button" class="btn-save" onclick="void saveProjectBundle()" title="ZIP archive renamed: project.json + assets/ folder">💾 Save project (.escapegame)</button>
+        <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Load project (.json / .escapegame)</button>
         <button type="button" class="btn-load" onclick="openProjectMap()" title="Graph view of scenes and transitions">🗺️ Show map</button>
-        <!-- Hidden file input for “Load project” -->
-        <input type="file" id="file-import" style="display:none;" accept=".json" onchange="loadProject(event)">
+        <!-- JSON or portable bundle (.escapegame); separate input for local media pickers -->
+        <input type="file" id="file-import" style="display:none;" accept=".json,.escapegame,application/json,application/zip" onchange="loadProject(event)">
+        <input type="file" id="bundle-media-file" style="display:none;" onchange="onBundleLocalMediaSelected(event)">
     </div>
 
     <!-- Movable block (editor + map side panel): title + global settings -->
@@ -222,7 +224,20 @@
                     <div class="row" style="margin-bottom: 10px;">
                         <div class="col" style="flex: 1;">
                             <label>Audio file URL (.mp3, .ogg):</label>
-                            <input type="text" id="globalAudioUrl" placeholder="https://example.com/music.mp3" style="width: 100%;">
+                            <div style="display:flex;gap:6px;align-items:center;width:100%;">
+                            <input type="text" id="globalAudioUrl" placeholder="https://example.com/music.mp3" style="flex:1;min-width:0;">
+                            <button type="button" class="btn-icon" title="Pick a local audio file" onclick="openBundleLocalMediaPicker(document.getElementById('globalAudioUrl'), 'audio/*,.mp3,.ogg,.wav,.m4a')">📎</button>
+                            <button type="button" class="btn-icon" title="Play at the volume set below" onclick="editorAudioPreviewToggle(document.getElementById('globalAudioUrl'), document.getElementById('globalAudioVol'), this)">▶</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-bottom: 10px;">
+                        <div class="col" style="flex: 1;">
+                            <label for="globalAudioVol">Music volume (0–1):</label>
+                            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                <input type="range" id="globalAudioVol" min="0" max="1" step="0.05" value="0.5" style="flex:1;min-width:160px;max-width:320px;" oninput="var v=document.getElementById('globalAudioVolVal');if(v)v.textContent=Number(this.value).toFixed(2);">
+                                <span id="globalAudioVolVal" style="min-width:2.5em;font-variant-numeric:tabular-nums;">0.50</span>
+                            </div>
                         </div>
                     </div>
                     <small style="color: #7f8c8d;">This track starts when the game begins and loops.</small>
@@ -242,7 +257,10 @@
     
     <button class="btn-add-scene" onclick="addScene()">+ ADD NEW SCENE</button>
     <button class="btn-generate" onclick="generateGame()">🚀 GENERATE MY GAME (INDEX.HTML)</button>
-    <button type="button" class="btn-export-offline" onclick="void exportGameOfflineZip()">📦 Export full game (.ZIP offline)</button>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;margin-top:8px;">
+        <button type="button" class="btn-export-offline" onclick="void exportGameWebZip()">📦 Export game (.ZIP for Web hosting)</button>
+    </div>
+    <p style="max-width:560px;margin:8px auto 0;font-size:12px;color:#7f8c8d;line-height:1.4;text-align:center;">Web ZIP: <code>index.html</code>, <code>lib/</code>, <code>media/</code> — <code>README-play-locally.txt</code> and <code>start_local_server.bat</code> for local testing. <strong>Generate index.html alone</strong> is best when all media are already <code>https://…</code>; a warning appears if the project uses local bundle files.</p>
 
     <!-- Credits & license -->
     <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 13px; color: #7f8c8d; line-height: 1.5;">
@@ -324,6 +342,7 @@
     <script src="js/editor-core.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js" integrity="sha512-P2W2rr8ikUPfa31PLBo5bcBQrsa+TNj8jiKadtaIrHQGMo6hQM6RdPjQYxlNguwHz8AwSQ28VkBK6kHBLgd/8g==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
     <script src="js/editor-quill-scenes.js" defer></script>
+    <script src="js/editor-audio-preview.js" defer></script>
     <script src="js/editor-en-app.js" defer></script>
     <script src="js/editor-en-generate.js" defer></script>
     <script src="xflow/project-graph.js" defer></script>

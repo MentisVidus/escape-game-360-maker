@@ -1,0 +1,15 @@
+---
+description: Backlog docs/todo.md — à synchroniser quand une tâche y est traitée
+alwaysApply: true
+---
+
+# Fichier `docs/todo.md`
+
+Backlog court **versionné** (sync multi-machine).
+
+Lorsqu’une session **règle ou attaque** un point **explicitement listé** dans `docs/todo.md` :
+
+- **Mettre à jour** ce fichier : déplacer l’entrée vers « Traitée », la raccourcir, ou la supprimer si tout est bouclé.
+- Si plus aucune tâche ouverte n’y figure, **proposer** à l’utilisateur de supprimer `docs/todo.md` et **retirer la présente règle** (`.cursor/rules/todo.mdc`).
+
+Un lien discret vers `docs/todo.md` dans le README reste optionnel (liste de tâches vivante, distincte des specs `ARCHITECTURE` / `PLAN_*` / `SELECTOR_SPEC`).
