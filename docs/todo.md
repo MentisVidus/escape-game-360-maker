@@ -12,6 +12,7 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 - **README — tests localhost** — rechargement forcé / cache (`Ctrl+F5`, etc.) ajouté dans les conseils FR + EN.
 - **Sauvegarde `.json` + médias locaux** — `saveProject()` : `confirm` si `collectPortableBundleEmbeds` non vide ; recommande **`.escapegame`** (FR + EN).
 - **SFX selector (sous-menu → scène / pick)** — `choiceToPayload` inclut `sfxUrl` / `sfxVolume` ; `closeSelectorOverlay(false)` avant `executeAction` pour ne pas appeler `stopSFX()` et couper le son ; joueur FR+EN (`editeur-generate.js` / `editor-en-generate.js`).
+- **Quill au rechargement projet / bundle** — chargement du HTML via `ql-editor` + `update(api)` plutôt que seul `dangerouslyPasteHTML` ; synchro textarea sur `text-change` réservée au source **user** + recopie explicite après init (`js/editor-quill-scenes.js`).
 
 ---
 
@@ -19,12 +20,6 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 
 1. **Volume par type de source** — aujourd’hui volume dédié surtout côté **SFX** (selector) ; étendre **ambiance** et **musique globale** (sliders ou logique alignée sur les SFX), côté formulaire + schéma déjà `{ url, volume }` où c’est pertinent.
 2. **Placeholder scène (grille PNG)** — après commit sur `main`, remplacer toute URL locale par l’URL **raw GitHub** ou **jsDelivr** du fichier dans `media/` (GitHub accepte sans problème les petits PNG).
-
----
-
-## Bugs / qualité à investiguer (hors ZIP)
-
-4. **Quill au rechargement `.escapegame`** — titres (Heading 1, etc.) ou tailles perdues alors que couleurs OK : vérifier **sérialisation Delta/HTML**, enregistrements Quill personnalisés, et ordre `initRichEditorsIn` après injection DOM.
 
 ---
 
