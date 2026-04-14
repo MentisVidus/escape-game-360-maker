@@ -100,10 +100,10 @@ function buildPlayerHtmlTemplate() {
     if(invPos === 'bottom-right') { invPosCSS = "bottom: 15px; right: 15px;"; alignItems = "flex-end"; } 
     if(invPos === 'bottom-left') { invPosCSS = "bottom: 15px; left: 15px;"; alignItems = "flex-start"; }
     
-    // Gestion de l'icône d'inventaire (Image ou Émoji)
-    let invIconHTML = invIconVal; 
+    // Gestion de l'icône d'inventaire (Image ou Émoji) — pas de taille fixe en px pour rester compatible futurs assets
+    let invIconHTML = invIconVal;
     if(invIconVal.startsWith('http') || invIconVal.endsWith('.png') || invIconVal.endsWith('.jpg')) {
-        invIconHTML = `<img src="${invIconVal}" style="width:30px; height:30px; display:block;">`;
+        invIconHTML = `<img src="${invIconVal}" class="player-hud-icon-img" alt="">`;
     }
 	
     // Extraction des couleurs inventaire (conversion RGBa)
@@ -308,13 +308,40 @@ function buildPlayerHtmlTemplate() {
         .ql-size-large { font-size: 1.5em !important; }
         .ql-size-huge { font-size: 2em !important; }
         
-        /* Styles de l'inventaire */
-        #inv-container { position: absolute; ${invPosCSS} z-index: 9999; display: ${hasInv ? 'flex' : 'none'}; flex-direction: column; align-items: ${alignItems}; }
-        #inv-toggle { cursor: pointer; font-size: 30px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 50%; text-align: center; line-height: 1; user-select: none; border: 2px solid rgba(255,255,255,0.3); transition: 0.2s; }
-        #inv-toggle:hover { background: rgba(255,255,255,0.2); transform: scale(1.1); }
+        /* HUD : inventaire + réglages (côte à côte) — boutons dimensionnés en em pour accueillir images ou emoji */
+        #player-hud { position: absolute; ${invPosCSS} z-index: 9999; display: flex; flex-direction: column; align-items: ${alignItems}; }
+        .player-hud-icons { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.45em; }
+        .player-hud-btn {
+            cursor: pointer; box-sizing: border-box; min-width: 2.6em; min-height: 2.6em; padding: 0.35em;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: clamp(1.15rem, 4.2vmin, 1.85rem); line-height: 1;
+            background: rgba(0,0,0,0.5); border-radius: 50%; user-select: none;
+            border: 2px solid rgba(255,255,255,0.3); transition: 0.2s; color: inherit;
+        }
+        .player-hud-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.06); }
+        .player-hud-icon-img { max-width: 2.5em; max-height: 2.5em; width: auto; height: auto; object-fit: contain; display: block; vertical-align: middle; }
         #inv-panel { background: ${invBg}; color: ${invColor}; border: 2px solid white; padding: 15px; border-radius: 8px; margin-top: 10px; margin-bottom: 10px; display: none; min-width: 150px; }
         #inv-panel h3 { margin: 0 0 10px 0; border-bottom: 1px solid #555; padding-bottom: 5px; } 
         #inv-list { margin: 0; padding: 0; list-style-type: none; line-height: 1.5; }
+        /* Modale réglages joueur (volume — extensible plus tard) */
+        #settings-modal { display: none; position: fixed; inset: 0; z-index: 10050; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
+        #settings-modal.is-open { display: flex; }
+        .settings-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.55); }
+        .settings-modal-panel {
+            position: relative; z-index: 1; max-width: 420px; width: 100%; padding: 18px 20px; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+            font-family: ${popFont}; color: ${popColor}; background: ${popBg}; border: 1px solid rgba(255,255,255,0.2);
+        }
+        .settings-modal-panel h2 { margin: 0 0 14px 0; font-size: 1.25rem; }
+        .settings-row { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; }
+        .settings-row label { font-size: 0.92rem; opacity: 0.95; }
+        .settings-row input[type=range] { width: 100%; max-width: 100%; }
+        .settings-val { font-size: 0.8rem; opacity: 0.85; font-variant-numeric: tabular-nums; }
+        .settings-close-row { margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+        .settings-close-btn {
+            cursor: pointer; padding: 8px 16px; border-radius: 6px; border: none; font-family: ${popFont};
+            background: ${popBtnBg}; color: ${popBtnCol}; font-size: 0.95rem;
+        }
+        .settings-close-btn:hover { filter: brightness(1.08); }
     </style>
 </head>
 <body>
@@ -329,12 +356,45 @@ function buildPlayerHtmlTemplate() {
         <button onclick="startGame()" style="padding: 15px 30px; font-size: 1.2em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Commencer l'aventure</button>
     </div>
 
-    <!-- Interface Joueur -->
-    <div id="inv-container">
-        <div id="inv-toggle" onclick="toggleInv()">${invIconHTML}</div>
-        <div id="inv-panel">
+    <!-- HUD joueur : inventaire (optionnel) + réglages -->
+    <div id="player-hud">
+        <div class="player-hud-icons">
+            ${hasInv ? `<button type="button" id="inv-toggle" class="player-hud-btn" onclick="toggleInv()" aria-label="Inventaire">${invIconHTML}</button>` : ""}
+            <button type="button" id="settings-toggle" class="player-hud-btn" onclick="togglePlayerSettings()" title="Paramètres" aria-label="Paramètres">⚙</button>
+        </div>
+        ${hasInv ? `<div id="inv-panel">
             <h3>Inventaire</h3>
             <ul id="inv-list"><li style="color:gray; font-style:italic;">Vide</li></ul>
+        </div>` : ""}
+    </div>
+
+    <div id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+        <div class="settings-modal-backdrop" onclick="closePlayerSettings()"></div>
+        <div class="settings-modal-panel">
+            <h2 id="settings-modal-title">Paramètres</h2>
+            <div class="settings-row">
+                <label for="set-master">Volume principal (Master)</label>
+                <input type="range" id="set-master" min="0" max="1" step="0.05" value="1" oninput="onPlayerAudioSliderInput('master')">
+                <span class="settings-val" id="set-master-val">1.00</span>
+            </div>
+            <div class="settings-row">
+                <label for="set-music">Musique</label>
+                <input type="range" id="set-music" min="0" max="1" step="0.05" value="1" oninput="onPlayerAudioSliderInput('music')">
+                <span class="settings-val" id="set-music-val">1.00</span>
+            </div>
+            <div class="settings-row">
+                <label for="set-ambiance">Ambiance</label>
+                <input type="range" id="set-ambiance" min="0" max="1" step="0.05" value="1" oninput="onPlayerAudioSliderInput('ambiance')">
+                <span class="settings-val" id="set-ambiance-val">1.00</span>
+            </div>
+            <div class="settings-row">
+                <label for="set-sfx">Effets sonores</label>
+                <input type="range" id="set-sfx" min="0" max="1" step="0.05" value="1" oninput="onPlayerAudioSliderInput('sfx')">
+                <span class="settings-val" id="set-sfx-val">1.00</span>
+            </div>
+            <div class="settings-close-row">
+                <button type="button" class="settings-close-btn" onclick="closePlayerSettings()">Fermer</button>
+            </div>
         </div>
     </div>
     
@@ -351,15 +411,18 @@ function buildPlayerHtmlTemplate() {
     var sceneAmbianceClips = ${sceneAmbianceJson};
 
     var audioSys = {
-        masterVol: 1.0, musicVol: 0.5, ambianceVol: 0.8, sfxVol: 1.0,
+        masterVol: 1.0, musicVol: 1.0, ambianceVol: 1.0, sfxVol: 1.0,
         _ambianceLogicalUrl: '',
-        
+        _lastMusicClip: 1,
+        _lastAmbClip: 1,
+
         playMusic: function(url, clipVol) {
             var p = document.getElementById('audio-music');
             if(!url || !String(url).trim()) { p.pause(); return; }
             url = String(url).trim();
             var m = 1;
             if(clipVol != null && clipVol !== '' && !isNaN(Number(clipVol))) m = Math.max(0, Math.min(1, Number(clipVol)));
+            this._lastMusicClip = m;
             p.volume = this.musicVol * this.masterVol * m;
             if(p.src !== url) { p.src = url; }
             p.play().catch(function(e){console.log(e)});
@@ -376,6 +439,7 @@ function buildPlayerHtmlTemplate() {
             url = String(url).trim();
             var m = 1;
             if(clipVol != null && clipVol !== '' && !isNaN(Number(clipVol))) m = Math.max(0, Math.min(1, Number(clipVol)));
+            this._lastAmbClip = m;
             p.volume = this.ambianceVol * this.masterVol * m;
             if (this._ambianceLogicalUrl === url) {
                 if (p.paused) p.play().catch(function(e){console.log(e)});
@@ -401,6 +465,87 @@ function buildPlayerHtmlTemplate() {
         }
     };
 
+    var PLAYER_AUDIO_STORAGE_KEY = "escape360_player_audio_v1";
+
+    function syncPlayerAudioSlidersToUi() {
+        var m = document.getElementById("set-master");
+        var mu = document.getElementById("set-music");
+        var am = document.getElementById("set-ambiance");
+        var sx = document.getElementById("set-sfx");
+        if (m) { m.value = String(audioSys.masterVol); var el = document.getElementById("set-master-val"); if(el) el.textContent = Number(audioSys.masterVol).toFixed(2); }
+        if (mu) { mu.value = String(audioSys.musicVol); var e2 = document.getElementById("set-music-val"); if(e2) e2.textContent = Number(audioSys.musicVol).toFixed(2); }
+        if (am) { am.value = String(audioSys.ambianceVol); var e3 = document.getElementById("set-ambiance-val"); if(e3) e3.textContent = Number(audioSys.ambianceVol).toFixed(2); }
+        if (sx) { sx.value = String(audioSys.sfxVol); var e4 = document.getElementById("set-sfx-val"); if(e4) e4.textContent = Number(audioSys.sfxVol).toFixed(2); }
+    }
+
+    function applyLiveAudioVolumes() {
+        var m = document.getElementById("audio-music");
+        if (m && m.src) {
+            var clip = audioSys._lastMusicClip != null ? audioSys._lastMusicClip : 1;
+            m.volume = Math.max(0, Math.min(1, audioSys.musicVol * audioSys.masterVol * clip));
+        }
+        var a = document.getElementById("audio-ambiance");
+        if (a && a.src && audioSys._ambianceLogicalUrl) {
+            var c = audioSys._lastAmbClip != null ? audioSys._lastAmbClip : 1;
+            a.volume = Math.max(0, Math.min(1, audioSys.ambianceVol * audioSys.masterVol * c));
+        }
+    }
+
+    function loadPlayerAudioPrefsFromStorage() {
+        try {
+            var raw = localStorage.getItem(PLAYER_AUDIO_STORAGE_KEY);
+            if (!raw) return;
+            var o = JSON.parse(raw);
+            if (!o || typeof o !== "object") return;
+            if (o.master != null && !isNaN(Number(o.master))) audioSys.masterVol = Math.max(0, Math.min(1, Number(o.master)));
+            if (o.music != null && !isNaN(Number(o.music))) audioSys.musicVol = Math.max(0, Math.min(1, Number(o.music)));
+            if (o.ambiance != null && !isNaN(Number(o.ambiance))) audioSys.ambianceVol = Math.max(0, Math.min(1, Number(o.ambiance)));
+            if (o.sfx != null && !isNaN(Number(o.sfx))) audioSys.sfxVol = Math.max(0, Math.min(1, Number(o.sfx)));
+        } catch (e) {}
+    }
+
+    function savePlayerAudioPrefsToStorage() {
+        try {
+            localStorage.setItem(PLAYER_AUDIO_STORAGE_KEY, JSON.stringify({
+                master: audioSys.masterVol, music: audioSys.musicVol,
+                ambiance: audioSys.ambianceVol, sfx: audioSys.sfxVol
+            }));
+        } catch (e) {}
+    }
+
+    function onPlayerAudioSliderInput(kind) {
+        var v, el, idVal;
+        if (kind === "master") { el = document.getElementById("set-master"); idVal = "set-master-val"; }
+        else if (kind === "music") { el = document.getElementById("set-music"); idVal = "set-music-val"; }
+        else if (kind === "ambiance") { el = document.getElementById("set-ambiance"); idVal = "set-ambiance-val"; }
+        else { el = document.getElementById("set-sfx"); idVal = "set-sfx-val"; }
+        if (!el) return;
+        v = parseFloat(el.value);
+        if (isNaN(v)) v = 1;
+        v = Math.max(0, Math.min(1, v));
+        var disp = document.getElementById(idVal);
+        if (disp) disp.textContent = v.toFixed(2);
+        if (kind === "master") audioSys.masterVol = v;
+        else if (kind === "music") audioSys.musicVol = v;
+        else if (kind === "ambiance") audioSys.ambianceVol = v;
+        else audioSys.sfxVol = v;
+        applyLiveAudioVolumes();
+        savePlayerAudioPrefsToStorage();
+    }
+
+    function togglePlayerSettings() {
+        var mod = document.getElementById("settings-modal");
+        if (!mod) return;
+        if (mod.classList.contains("is-open")) { closePlayerSettings(); return; }
+        syncPlayerAudioSlidersToUi();
+        mod.classList.add("is-open");
+    }
+
+    function closePlayerSettings() {
+        var mod = document.getElementById("settings-modal");
+        if (mod) mod.classList.remove("is-open");
+    }
+
     function applySceneAmbiance(sceneId) {
         var clip = sceneAmbianceClips[sceneId];
         if (!clip || !clip.url || String(clip.url).trim() === '') {
@@ -413,6 +558,8 @@ function buildPlayerHtmlTemplate() {
     // --- LANCEMENT DU JEU ---
     function startGame() {
         document.getElementById('start-screen').style.display = 'none';
+        loadPlayerAudioPrefsFromStorage();
+        syncPlayerAudioSlidersToUi();
         
         // Initialisation de Pannellum
         viewer = pannellum.viewer('panorama', { 
@@ -434,10 +581,11 @@ function buildPlayerHtmlTemplate() {
     
     function toggleInv() { 
         var p = document.getElementById('inv-panel'); 
+        if (!p) return;
         p.style.display = (p.style.display === 'block') ? 'none' : 'block'; 
     }
     function openInventoryPanelIfVisible() {
-        var c = document.getElementById('inv-container');
+        var c = document.getElementById('player-hud');
         if(!c || c.style.display === 'none') return;
         var p = document.getElementById('inv-panel');
         if(p) p.style.display = 'block';

@@ -428,7 +428,7 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
             <div class="row">
                 <div class="col"><label>ID court système (ex: cuisine) :</label><input type="text" class="sc-id" value="${scIdVal}"></div>
                 <div class="col"><label>Image 360 (ex: salle.jpg ou http...) :</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-img" style="flex:1;min-width:0" value="${scImgVal}" oninput="updateScenePreview(this)"><button type="button" class="btn-icon" title="Choisir un fichier image local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'image/*,.jpg,.jpeg,.png,.webp')">📎</button></div></div>
-                <div class="col col-wide"><label>🎵 Audio d'ambiance (URL mp3) :</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-audio" style="flex:1;min-width:0" placeholder="Optionnel"><button type="button" class="btn-icon" title="Choisir un fichier audio local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'audio/*,.mp3,.ogg,.wav,.m4a')">📎</button></div></div>
+                <div class="col col-wide"><label>🎵 Audio d'ambiance (URL mp3) :</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-audio" style="flex:1;min-width:0" placeholder="Optionnel"><button type="button" class="btn-icon" title="Choisir un fichier audio local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'audio/*,.mp3,.ogg,.wav,.m4a')">📎</button><button type="button" class="btn-icon" title="Écouter avec le volume réglé sous la ligne" onclick="editorAudioPreviewToggle(this.closest('.scene-block').querySelector('.sc-audio'), this.closest('.scene-block').querySelector('.sc-audio-vol'), this)">▶</button></div></div>
             </div>
             <div class="row">
                 <div class="col col-wide"><label>Volume ambiance (0 à 1) :</label><input type="range" class="sc-audio-vol" min="0" max="1" step="0.05" value="1" style="width:100%;max-width:320px;" title="Volume relatif de l’ambiance dans le mix audio du joueur"></div>
@@ -1206,18 +1206,6 @@ function renderChoiceCardElement(ch, hId, depth) {
     is.className = "sel-opt-sfx";
     is.placeholder = "optionnel";
     is.value = ch.sfxUrl || "";
-    var sfxBtn = document.createElement("button");
-    sfxBtn.type = "button";
-    sfxBtn.className = "btn-icon";
-    sfxBtn.title = "Fichier audio local";
-    sfxBtn.textContent = "📎";
-    sfxBtn.onclick = function () {
-        openBundleLocalMediaPicker(is, "audio/*,.mp3,.ogg,.wav,.m4a");
-    };
-    var sfxRow = document.createElement("div");
-    sfxRow.style.cssText = "display:flex;gap:6px;align-items:center;flex-wrap:wrap;width:100%;";
-    sfxRow.appendChild(is);
-    sfxRow.appendChild(sfxBtn);
     var lsv = document.createElement("label");
     lsv.textContent = "Volume du son (0 à 1) :";
     var isv = document.createElement("input");
@@ -1227,6 +1215,29 @@ function renderChoiceCardElement(ch, hId, depth) {
     isv.max = "1";
     isv.step = "0.1";
     isv.value = ch.sfxVolume !== undefined && ch.sfxVolume !== null ? String(ch.sfxVolume) : "";
+    var sfxBtn = document.createElement("button");
+    sfxBtn.type = "button";
+    sfxBtn.className = "btn-icon";
+    sfxBtn.title = "Fichier audio local";
+    sfxBtn.textContent = "📎";
+    sfxBtn.onclick = function () {
+        openBundleLocalMediaPicker(is, "audio/*,.mp3,.ogg,.wav,.m4a");
+    };
+    var sfxPreviewBtn = document.createElement("button");
+    sfxPreviewBtn.type = "button";
+    sfxPreviewBtn.className = "btn-icon";
+    sfxPreviewBtn.title = "Écouter avec le volume réglé sous la ligne";
+    sfxPreviewBtn.textContent = "▶";
+    sfxPreviewBtn.onclick = function () {
+        if (typeof window.editorAudioPreviewToggle === "function") {
+            window.editorAudioPreviewToggle(is, isv, sfxPreviewBtn);
+        }
+    };
+    var sfxRow = document.createElement("div");
+    sfxRow.style.cssText = "display:flex;gap:6px;align-items:center;flex-wrap:wrap;width:100%;";
+    sfxRow.appendChild(is);
+    sfxRow.appendChild(sfxBtn);
+    sfxRow.appendChild(sfxPreviewBtn);
     det.appendChild(lr);
     det.appendChild(ir);
     det.appendChild(lh);

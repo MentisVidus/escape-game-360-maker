@@ -204,6 +204,17 @@ Scene changes: player listens to **`scenechange`** and applies per-scene **ambia
 
 Splash screen exists so audio can start after a **user gesture** (browser autoplay policies).
 
+### HUD & player settings (implemented)
+
+- **`#player-hud`**: corner placement follows editor **inventory position** (`invPos`). **Inventory** toggle (optional) and **settings** (gear) sit **side by side** in `.player-hud-icons` so they never overlap.
+- **Settings modal** (`#settings-modal`): uses the same **popup theme** as narrative dialogs (`popFont`, popup colors / buttons from project). Sliders: **Master**, **Music**, **Ambiance**, **SFX** (defaults 1.0). Effective level is **`master × channel × clipVolume`**, where **`clipVolume`** comes from the editor (per clip).
+- **Persistence**: channel + master values are saved in **`localStorage`** under **`escape360_player_audio_v1`** and restored when the player starts after the splash screen.
+- **Custom icons (inventory)**: image URLs use **`player-hud-icon-img`** with **`em` / `max-*` sizing** (no fixed pixel frame) so future designer-provided assets scale cleanly; the settings control is still a text/emoji placeholder until a dedicated project field exists.
+
+### Piste : menu in-game unifié (futur)
+
+Aujourd’hui, **inventaire** et **réglages** sont deux entrées séparées dans le HUD. Une évolution possible : un **hub unique** (icône « menu » ou équivalent) ouvrant un panneau avec des **boutons ou onglets** — **Inventaire**, **Paramètres**, et plus tard **journal de quête / log**, **carte**, **indices** (difficulté), **langue**, etc. On pourra **réutiliser partiellement** la logique des overlays déjà présents (**selector**, popups centrées, styles `popFont`) tout en gardant le **JSON V2** comme contrat côté éditeur. Les assets d’icônes resteraient des **chemins / URLs** avec mise en page **flexible** (comme ci-dessus), pas des tailles figées en pixels.
+
 ---
 
 ## Notable DOM hooks
@@ -229,7 +240,7 @@ Aligned with [README.md](../README.md):
 - **Chemin A (next priority)** — **Offline `.zip` export**: bundle generated `index.html` with **local Pannellum** (and other assets) for distribution without CDN (ideal for **EPN** / locked-down networks).
 - **Chemin B (long term)** — **React Flow** (or similar) replacing Drawflow only if the project adopts a richer front-end stack; keep **`EditorCore` + V2** as the contract.
 
-Other ideas: SFX on classic hotspots, player volume UI, multi-level games + `localStorage` inventory handoff, picked-item persistence across revisits, i18n beyond dual HTML files.
+Other ideas: SFX on classic hotspots, **unified in-game menu hub** (see [Audio (player)](#audio-player)), multi-level games + `localStorage` inventory handoff, picked-item persistence across revisits, i18n beyond dual HTML files.
 
 ---
 
