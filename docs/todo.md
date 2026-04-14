@@ -14,12 +14,13 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 - **SFX selector (sous-menu → scène / pick)** — `choiceToPayload` inclut `sfxUrl` / `sfxVolume` ; `closeSelectorOverlay(false)` avant `executeAction` pour ne pas appeler `stopSFX()` et couper le son ; joueur FR+EN (`editeur-generate.js` / `editor-en-generate.js`).
 - **Quill au rechargement projet / bundle** — chargement du HTML via `ql-editor` + `update(api)` plutôt que seul `dangerouslyPasteHTML` ; synchro textarea sur `text-change` réservée au source **user** + recopie explicite après init (`js/editor-quill-scenes.js`).
 - **Volume musique / ambiance + défaut hotspot 120×120** — curseurs `globalAudioVol` + `sc-audio-vol` (FR/EN `editeur.html` / `editor_en.html`, `editeur-app.js` / `editor-en-app.js`) ; schéma déjà `{ url, volume }` ; joueur inchangé (`editeur-generate.js` lisait déjà les volumes). Hotspot neuf : **120×120** px (CSS + UI no-code).
+- **Placeholder scène (grille PNG)** — `EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL` → jsDelivr `media/equirectangular_placeholder_grid.png` (dépôt `MentisVidus/escape-game-360-maker@main`) ; nouvelles scènes + chargement projet sans `panoramaUrl` (FR/EN, `editor-quill-scenes.js`).
 
 ---
 
 ## Phase suivante (éditeur / UX audio)
 
-1. **Placeholder scène (grille PNG)** — après commit sur `main`, remplacer toute URL locale par l’URL **raw GitHub** ou **jsDelivr** du fichier dans `media/` (GitHub accepte sans problème les petits PNG).
+*(Rien d’ouvert ici pour l’instant — voir revue doc ci-dessous ou backlog produit.)*
 
 ---
 

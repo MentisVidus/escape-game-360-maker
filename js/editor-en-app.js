@@ -400,7 +400,7 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
     
     // Defaults when not provided (e.g. new scene or JSON load)
     if(!scIdVal) scIdVal = "scene_" + sId; 
-    if(!scImgVal) scImgVal = "salle.jpg";
+    if(!scImgVal) scImgVal = EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL;
     
     const sceneHTML = `
     <div class="scene-block" id="scene_${sId}">
@@ -423,7 +423,7 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
         <div id="scene_body_${sId}">
             <div class="row">
                 <div class="col"><label>Short scene ID (e.g. kitchen):</label><input type="text" class="sc-id" value="${scIdVal}"></div>
-                <div class="col"><label>360° image (e.g. room.jpg or http...):</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-img" style="flex:1;min-width:0" value="${scImgVal}" oninput="updateScenePreview(this)"><button type="button" class="btn-icon" title="Pick a local image file" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'image/*,.jpg,.jpeg,.png,.webp')">📎</button></div></div>
+                <div class="col"><label>360° image (https URL or local file):</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-img" style="flex:1;min-width:0" value="${scImgVal}" oninput="updateScenePreview(this)"><button type="button" class="btn-icon" title="Pick a local image file" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'image/*,.jpg,.jpeg,.png,.webp')">📎</button></div></div>
                 <div class="col col-wide"><label>🎵 Ambient audio (mp3 URL):</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-audio" style="flex:1;min-width:0" placeholder="Optional"><button type="button" class="btn-icon" title="Pick a local audio file" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'audio/*,.mp3,.ogg,.wav,.m4a')">📎</button><button type="button" class="btn-icon" title="Play at the volume set on the line below" onclick="editorAudioPreviewToggle(this.closest('.scene-block').querySelector('.sc-audio'), this.closest('.scene-block').querySelector('.sc-audio-vol'), this)">▶</button></div></div>
             </div>
             <div class="row">
@@ -1782,7 +1782,7 @@ function applyLoadedProject(project) {
 
     project.scenes.forEach(function (scene) {
         var scMedia = scene.media || {};
-        const sId = addScene(scene.id || "", scMedia.panoramaUrl || "room.jpg", scene.title || "");
+        const sId = addScene(scene.id || "", scMedia.panoramaUrl || EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL, scene.title || "");
 
         var scDiv = document.getElementById("scene_" + sId);
         if (scDiv && scDiv.querySelector(".sc-audio")) {

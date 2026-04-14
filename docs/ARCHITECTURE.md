@@ -9,7 +9,7 @@ This document is for **developers** and **AI assistants** working on the reposit
 | [editeur.html](../editeur.html) | Main editor (French UI): markup + `<link>` / `<script src>`. |
 | [editor_en.html](../editor_en.html) | Same behavior, English UI; comments in English; default save as `project.json`. |
 | [css/editor.css](../css/editor.css) | Shared editor chrome (layout, buttons, modals, form controls, **Quill** toolbar & font/size pickers). |
-| [js/editor-core.js](../js/editor-core.js) | **Headless** project model V2 & unified action helpers (`EditorCore`) — **no DOM**; normalization of `payload.copy`, audio `{ url, volume }`, `legacyV1` import. |
+| [js/editor-core.js](../js/editor-core.js) | **Headless** project model V2 & unified action helpers (`EditorCore`) — **no DOM**; normalization of `payload.copy`, audio `{ url, volume }`, `legacyV1` import, **`DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL`** (jsDelivr grid PNG for new scenes). |
 | [js/editor-quill-scenes.js](../js/editor-quill-scenes.js) | Quill WYSIWYG for `.editor-rich-text`, scene-ID selects, **`updateQuillTheme()`** (popup colors + font sync), Font/Size whitelist registration. |
 | [js/editeur-app.js](../js/editeur-app.js) | French editor: UI, scenes/hotspots, save/load, previews, **`getCurrentProjectData()`**, map hooks — everything except `generateGame`. |
 | [js/editeur-generate.js](../js/editeur-generate.js) | French: `generateGame()` (player template) + `window.onload` boot. |

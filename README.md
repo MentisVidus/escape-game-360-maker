@@ -29,7 +29,7 @@ Pour le détail technique (carte Drawflow, panneau latéral, Quill, flux selecto
 
 ### 💡 Conseils importants
 
-* **Images et CORS** : pour les tests, privilégiez des URL **`http://` / `https://`**. Les fichiers locaux (`salle.jpg`) fonctionnent surtout lorsque le jeu est servi par un **petit serveur web** ou hébergé en ligne.
+* **Images et CORS** : pour les tests, privilégiez des URL **`http://` / `https://`**. Les nouvelles scènes pointent par défaut vers une **grille équirectangulaire** du dépôt (jsDelivr) ; les chemins locaux (`./mon-panorama.jpg`) fonctionnent surtout lorsque le jeu est servi par un **petit serveur web** ou hébergé en ligne.
 * **Sauvegarde** : le bouton « Sauvegarder le projet » produit un **`.json`** (V2). Réutilisez-le pour reprendre votre travail.
 * **Tests sur `localhost`** : après avoir remplacé `index.html` ou extrait un nouveau ZIP, utilisez un **rechargement forcé** (**Ctrl+F5** sur Windows/Linux, **Cmd+Shift+R** sur macOS) ou videz le cache du navigateur. Sinon un **ancien panorama** peut sembler « rester affiché » alors que le nouveau fichier est correct.
 
@@ -130,7 +130,7 @@ See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/PLAN_EDITEUR_NO
 
 ### Tips
 
-* For testing, prefer **`http`/`https`** media URLs. Local filenames work best when the game is served from a **local web server** or hosted online.
+* For testing, prefer **`http`/`https`** media URLs. New scenes default to a **grid equirectangular** image from the repo (jsDelivr). Local paths work best when the game is served from a **local web server** or hosted online.
 * Use **Save project** regularly; the **`.json`** file (V2) is your source project.
 * When testing on **`localhost`**, after swapping **`index.html`** or extracting a new ZIP, do a **hard reload** (**Ctrl+F5** / **Cmd+Shift+R**) or clear cache — otherwise an **old panorama** may appear even though the new build is fine.
 

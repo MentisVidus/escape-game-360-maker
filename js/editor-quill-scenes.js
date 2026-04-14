@@ -139,7 +139,7 @@
         }
         var id = String(raw).trim();
         if (typeof window.addScene === "function") {
-            var img = isEn() ? "room.jpg" : "salle.jpg";
+            var img = EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL;
             window.addScene(id, img, "");
         }
         global.refreshAllSceneTargetSelects({ preferSelect: sel, preferVal: id });
