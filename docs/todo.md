@@ -11,6 +11,7 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 - **Export ZIP + médias mixtes** — extension de `eachPortableMediaUrlInProject` / `rewritePortableUrlsInProjectClone` (FR + EN) : `globalAudioUrl`, `invIcon` (URL), `media.ambianceUrl` (legacy). Alerte si des `blob:` subsistent dans `index.html` après remplacement (export ZIP).
 - **README — tests localhost** — rechargement forcé / cache (`Ctrl+F5`, etc.) ajouté dans les conseils FR + EN.
 - **Sauvegarde `.json` + médias locaux** — `saveProject()` : `confirm` si `collectPortableBundleEmbeds` non vide ; recommande **`.escapegame`** (FR + EN).
+- **SFX selector (sous-menu → scène / pick)** — `choiceToPayload` inclut `sfxUrl` / `sfxVolume` ; `closeSelectorOverlay(false)` avant `executeAction` pour ne pas appeler `stopSFX()` et couper le son ; joueur FR+EN (`editeur-generate.js` / `editor-en-generate.js`).
 
 ---
 
@@ -24,7 +25,6 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 ## Bugs / qualité à investiguer (hors ZIP)
 
 4. **Quill au rechargement `.escapegame`** — titres (Heading 1, etc.) ou tailles perdues alors que couleurs OK : vérifier **sérialisation Delta/HTML**, enregistrements Quill personnalisés, et ordre `initRichEditorsIn` après injection DOM.
-5. **SFX + changement de scène dans un sous-menu selector** — ordre d’exécution (`playSFX` vs popup « Continuer » vs `loadScene`) ; vérifier dans le HTML généré (`executeAction` / selector) si le SFX est coupé ou jamais déclenché.
 
 ---
 

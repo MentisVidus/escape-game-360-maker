@@ -508,13 +508,18 @@ function buildPlayerHtmlTemplate() {
     function choiceToPayload(choice) {
         if(!choice || !choice.actionType) return null;
         var at = choice.actionType;
-        if(at === 'msg') return { type: 'msg', txt: choice.txt || '' };
-        if(at === 'scene') return { type: 'scene', target: choice.target || '', transTxt: choice.transTxt || '', transBtn: choice.transBtn };
-        if(at === 'pick') return { type: 'pick', itemId: choice.itemId, itemName: choice.itemName, txt: choice.txt || '' };
+        var sfx = {};
+        if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== '') {
+            sfx.sfxUrl = String(choice.sfxUrl).trim();
+            if(choice.sfxVolume !== undefined && choice.sfxVolume !== null && choice.sfxVolume !== '') sfx.sfxVolume = choice.sfxVolume;
+        }
+        if(at === 'msg') return Object.assign({ type: 'msg', txt: choice.txt || '' }, sfx);
+        if(at === 'scene') return Object.assign({ type: 'scene', target: choice.target || '', transTxt: choice.transTxt || '', transBtn: choice.transBtn }, sfx);
+        if(at === 'pick') return Object.assign({ type: 'pick', itemId: choice.itemId, itemName: choice.itemName, txt: choice.txt || '' }, sfx);
         return null;
     }
-    function closeSelectorOverlay() {
-        audioSys.stopSFX();
+    function closeSelectorOverlay(stopSfx) {
+        if (stopSfx !== false) audioSys.stopSFX();
         var o = document.getElementById('selector-overlay');
         if(o) o.remove();
         selectorHistory = [];
@@ -530,10 +535,10 @@ function buildPlayerHtmlTemplate() {
     }
     function runSelectorChoice(choice) {
         if(!choice) return;
-        if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== '') {
-            audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
-        }
         if(choice.actionType === 'selector') {
+            if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== '') {
+                audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
+            }
             if(choice.nested) {
                 selectorHistory.push(normalizeSelectorLevel(choice.nested, selectorHistory[selectorHistory.length - 1].displayMode));
                 renderSelectorPanel();
@@ -542,12 +547,15 @@ function buildPlayerHtmlTemplate() {
         }
         var payload = choiceToPayload(choice);
         if(payload && payload.type === 'msg') {
+            if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== '') {
+                audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
+            }
             selectorHistory.push({ _inlineMessage: true, bodyHtml: payload.txt || '' });
             renderSelectorPanel();
             return;
         }
         var hsForAction = selectorHsDiv;
-        closeSelectorOverlay();
+        closeSelectorOverlay(false);
         if(payload) executeAction(payload, hsForAction, true);
     }
     function renderSelectorPanel() {
