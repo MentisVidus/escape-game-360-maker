@@ -559,7 +559,7 @@ function addHotspot(sceneId, hsData = null) {
 
     // Remplissage des champs dynamiques avec les données sauvegardées (si on charge un projet)
     if(hsData) {
-        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices'];
+        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
         fields.forEach(f => {
             let el = hsDiv.querySelector('.' + f);
             if(el && hsData[f.replace(/-/g, '_')] !== undefined) {
@@ -572,7 +572,13 @@ function addHotspot(sceneId, hsData = null) {
             else initSelectorChoicesForm(hId);
         }
         // Restaure l'état du mode expert
-        if(hsData.expertMode) toggleExpertMode(hId, true); 
+        if(hsData.expertMode) toggleExpertMode(hId, true);
+        if (hsData.type === "pick") {
+            var _pickFld = document.getElementById("fields_" + hId);
+            if (_pickFld) {
+                applyPickHiddenIfAutoFillInitial(_pickFld.querySelector(".f-item-id"), _pickFld.querySelector(".f-hs-hidden-if"));
+            }
+        }
     }
     var _fld = document.getElementById("fields_" + hId);
     if (hsData && _fld && typeof destroyRichEditorsIn === "function") {
@@ -599,7 +605,7 @@ function extractHotspotData(hId) {
         type: hsDiv.querySelector('.hs-type').value 
     };
     
-    let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'ui-w', 'ui-h', 'ui-shape', 'ui-bgc', 'ui-bga', 'ui-brd-style', 'ui-brd-w', 'ui-brd-c', 'ui-img'];
+    let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol', 'ui-w', 'ui-h', 'ui-shape', 'ui-bgc', 'ui-bga', 'ui-brd-style', 'ui-brd-w', 'ui-brd-c', 'ui-img'];
     fields.forEach(f => { 
         let el = hsDiv.querySelector('.' + f); 
         if(el) hs[f.replace(/-/g, '_')] = el.value; 
@@ -883,7 +889,7 @@ function cardToChoice(card) {
     var sfxv = getOwnChoiceField(card, ".sel-opt-sfxvol");
     if(sfxv && sfxv.value.trim() !== "") {
         var v = parseFloat(sfxv.value);
-        if(!isNaN(v)) out.sfxVolume = v;
+        if(!isNaN(v) && (out.sfxUrl || v !== 1)) out.sfxVolume = v;
     }
     return out;
 }
@@ -949,6 +955,165 @@ function selectorAddNestedChoice(btn) {
     }
     list.appendChild(renderChoiceCardElement(getDefaultChoice(), hId, depth + 1));
     syncSelectorChoicesToTextarea(hId);
+}
+
+/** Remplit « Masquer si… » avec l’ID ramassé si vide (utile aussi après chargement JSON). */
+function applyPickHiddenIfAutoFillInitial(pickIdInput, hiddenIfInput) {
+    if (!pickIdInput || !hiddenIfInput) return;
+    if ((hiddenIfInput.value || "").trim() === "" && (pickIdInput.value || "").trim() !== "") {
+        hiddenIfInput.value = pickIdInput.value.trim();
+        hiddenIfInput.dataset.autoFilled = "1";
+    }
+}
+
+/** « Masquer si… » suit l’ID d’objet ramassé tant que le champ n’a pas été saisi à la main (même logique partout). */
+function wirePickIdToHiddenIfAutoFill(pickIdInput, hiddenIfInput) {
+    applyPickHiddenIfAutoFillInitial(pickIdInput, hiddenIfInput);
+    if (!pickIdInput || !hiddenIfInput) return;
+    hiddenIfInput.addEventListener("input", function () { hiddenIfInput.dataset.autoFilled = "0"; });
+    pickIdInput.addEventListener("input", function () {
+        if (hiddenIfInput.dataset.autoFilled === "1" || (hiddenIfInput.value || "").trim() === "") {
+            hiddenIfInput.value = pickIdInput.value.trim();
+            hiddenIfInput.dataset.autoFilled = "1";
+        }
+    });
+}
+
+/** Tiroirs visibilité + SFX pour les champs dynamiques d’hotspot (HTML injecté dans updateHsFields). */
+function buildHotspotAdvancedDrawersHtml() {
+    return (
+        `<details class="hs-vis-advanced" style="margin-top:12px;">
+            <summary style="cursor:pointer;font-weight:600;">Affichage conditionnel (optionnel)</summary>
+            <div class="hs-vis-controls" style="margin-top:8px;">
+                <label>Afficher seulement si le joueur a l’objet (ID) :</label>
+                <input type="text" class="f-hs-req-item" style="width:100%;max-width:100%;box-sizing:border-box;" placeholder="vide = toujours affiché">
+                <label style="margin-top:8px;display:block;">Est cliquable quand le hotspot est invisible (opacité 0) :</label>
+                <select class="f-hs-ghost-click" style="max-width:100%;">
+                    <option value="yes" selected>Oui</option>
+                    <option value="no">Non</option>
+                </select>
+                <small style="color:#666;display:block;margin-top:4px;">Sans effet pour un hotspot « Menu de choix ». Inutile pour les tiroirs des lignes d’un selector.</small>
+                <label style="margin-top:8px;display:block;">Masquer si le joueur possède l’objet (ID) :</label>
+                <input type="text" class="f-hs-hidden-if" style="width:100%;max-width:100%;box-sizing:border-box;" placeholder="vide = pas de masquage">
+            </div>
+        </details>` +
+        `<details class="hs-sfx-advanced" style="margin-top:12px;">
+            <summary style="cursor:pointer;font-weight:600;">🔊 SFX (optionnel)</summary>
+            <div class="hs-sfx-controls" style="margin-top:8px;">
+                <label>Audio SFX (URL) :</label>
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;width:100%;">
+                    <input type="text" class="f-sfx-url" style="flex:1;min-width:0" placeholder="optionnel">
+                    <button type="button" class="btn-icon" title="Fichier audio local" onclick="openBundleLocalMediaPicker(this.closest('.hs-sfx-controls').querySelector('.f-sfx-url'), 'audio/*,.mp3,.ogg,.wav,.m4a')">📎</button>
+                    <button type="button" class="btn-icon" title="Écouter avec le volume réglé sous la ligne" onclick="editorAudioPreviewToggle(this.closest('.hs-sfx-controls').querySelector('.f-sfx-url'), this.closest('.hs-sfx-controls').querySelector('.f-sfx-vol'), this)">▶</button>
+                </div>
+                <label>Volume SFX (0 à 1) :</label>
+                <input type="range" class="f-sfx-vol" min="0" max="1" step="0.05" value="1" style="width:100%;max-width:320px;">
+            </div>
+        </details>`
+    );
+}
+
+/** Même schéma que buildHotspotAdvancedDrawersHtml, en DOM pour une carte de choix selector. */
+function appendSelectorChoiceAdvancedDrawers(card, ch) {
+    ch = ch || {};
+    var detVis = document.createElement("details");
+    detVis.className = "hs-vis-advanced";
+    detVis.style.marginTop = "12px";
+    var sumVis = document.createElement("summary");
+    sumVis.style.cursor = "pointer";
+    sumVis.style.fontWeight = "600";
+    sumVis.textContent = "Affichage conditionnel (optionnel)";
+    detVis.appendChild(sumVis);
+    var wrapVis = document.createElement("div");
+    wrapVis.className = "hs-vis-controls";
+    wrapVis.style.marginTop = "8px";
+    var lr = document.createElement("label");
+    lr.textContent = "Afficher seulement si le joueur a l’objet (ID) :";
+    var ir = document.createElement("input");
+    ir.type = "text";
+    ir.className = "sel-opt-req";
+    ir.style.cssText = "width:100%;max-width:100%;box-sizing:border-box;";
+    ir.placeholder = "vide = toujours affiché";
+    ir.value = ch.requiresItem || "";
+    var lh = document.createElement("label");
+    lh.style.marginTop = "8px";
+    lh.style.display = "block";
+    lh.textContent = "Masquer si le joueur possède l'objet (ID) :";
+    var ih = document.createElement("input");
+    ih.type = "text";
+    ih.className = "sel-opt-hidden";
+    ih.style.cssText = "width:100%;max-width:100%;box-sizing:border-box;";
+    ih.placeholder = "vide = pas de masquage";
+    ih.value = ch.hiddenIfHasItem || "";
+    wrapVis.appendChild(lr);
+    wrapVis.appendChild(ir);
+    wrapVis.appendChild(lh);
+    wrapVis.appendChild(ih);
+    detVis.appendChild(wrapVis);
+    card.appendChild(detVis);
+
+    var detSfx = document.createElement("details");
+    detSfx.className = "hs-sfx-advanced";
+    detSfx.style.marginTop = "12px";
+    var sumSfx = document.createElement("summary");
+    sumSfx.style.cursor = "pointer";
+    sumSfx.style.fontWeight = "600";
+    sumSfx.textContent = "🔊 SFX (optionnel)";
+    detSfx.appendChild(sumSfx);
+    var wrapSfx = document.createElement("div");
+    wrapSfx.className = "hs-sfx-controls";
+    wrapSfx.style.marginTop = "8px";
+    var ls = document.createElement("label");
+    ls.textContent = "Audio SFX (URL) :";
+    var is = document.createElement("input");
+    is.type = "text";
+    is.className = "sel-opt-sfx";
+    is.style.flex = "1";
+    is.style.minWidth = "0";
+    is.placeholder = "optionnel";
+    is.value = ch.sfxUrl || "";
+    var lsv = document.createElement("label");
+    lsv.textContent = "Volume SFX (0 à 1) :";
+    var isv = document.createElement("input");
+    isv.type = "range";
+    isv.className = "sel-opt-sfxvol";
+    isv.min = "0";
+    isv.max = "1";
+    isv.step = "0.05";
+    isv.value =
+        ch.sfxVolume !== undefined && ch.sfxVolume !== null && String(ch.sfxVolume).trim() !== ""
+            ? String(ch.sfxVolume)
+            : "1";
+    isv.style.cssText = "width:100%;max-width:320px;";
+    var sfxBtn = document.createElement("button");
+    sfxBtn.type = "button";
+    sfxBtn.className = "btn-icon";
+    sfxBtn.title = "Fichier audio local";
+    sfxBtn.textContent = "📎";
+    sfxBtn.onclick = function () {
+        openBundleLocalMediaPicker(is, "audio/*,.mp3,.ogg,.wav,.m4a");
+    };
+    var sfxPreviewBtn = document.createElement("button");
+    sfxPreviewBtn.type = "button";
+    sfxPreviewBtn.className = "btn-icon";
+    sfxPreviewBtn.title = "Écouter avec le volume réglé sous la ligne";
+    sfxPreviewBtn.textContent = "▶";
+    sfxPreviewBtn.onclick = function () {
+        if (typeof window.editorAudioPreviewToggle === "function") {
+            window.editorAudioPreviewToggle(is, isv, sfxPreviewBtn);
+        }
+    };
+    var sfxRow = document.createElement("div");
+    sfxRow.style.cssText = "display:flex;gap:6px;align-items:center;flex-wrap:wrap;width:100%;";
+    sfxRow.appendChild(is);
+    sfxRow.appendChild(sfxBtn);
+    sfxRow.appendChild(sfxPreviewBtn);
+    wrapSfx.appendChild(ls);
+    wrapSfx.appendChild(sfxRow);
+    wrapSfx.appendChild(lsv);
+    wrapSfx.appendChild(isv);
+    detSfx.appendChild(wrapSfx);
+    card.appendChild(detSfx);
 }
 
 function selectorRebuildActionFields(card, ch, hsHotspotId) {
@@ -1033,21 +1198,7 @@ function selectorRebuildActionFields(card, ch, hsHotspotId) {
         wp.appendChild(tp);
         container.appendChild(lp);
         container.appendChild(wp);
-        var advHidden = getOwnChoiceField(card, ".sel-opt-hidden");
-        var pickIdInput = rp.querySelector(".sel-pick-id");
-        if(advHidden) {
-            if((advHidden.value || "").trim() === "" && (pickIdInput.value || "").trim() !== "") {
-                advHidden.value = pickIdInput.value.trim();
-                advHidden.dataset.autoFilled = "1";
-            }
-            advHidden.addEventListener("input", function() { advHidden.dataset.autoFilled = "0"; });
-        }
-        pickIdInput.addEventListener("input", function() {
-            if(advHidden && (advHidden.dataset.autoFilled === "1" || (advHidden.value || "").trim() === "")) {
-                advHidden.value = pickIdInput.value.trim();
-                advHidden.dataset.autoFilled = "1";
-            }
-        });
+        wirePickIdToHiddenIfAutoFill(rp.querySelector(".sel-pick-id"), getOwnChoiceField(card, ".sel-opt-hidden"));
     } else if(type === "selector") {
         if(isNaN(hsIdNum)) return;
         var nest = ch.nested || {};
@@ -1180,73 +1331,7 @@ function renderChoiceCardElement(ch, hId, depth) {
     card.appendChild(selA);
     card.appendChild(fields);
 
-    var det = document.createElement("details");
-    det.className = "sel-opt-advanced";
-    var sum = document.createElement("summary");
-    sum.textContent = "Options avancées (inventaire, son)";
-    det.appendChild(sum);
-    var lr = document.createElement("label");
-    lr.textContent = "Afficher seulement si le joueur a l'objet (ID) :";
-    var ir = document.createElement("input");
-    ir.type = "text";
-    ir.className = "sel-opt-req";
-    ir.placeholder = "optionnel";
-    ir.value = ch.requiresItem || "";
-    var lh = document.createElement("label");
-    lh.textContent = "Masquer si le joueur a déjà l'objet (ID) :";
-    var ih = document.createElement("input");
-    ih.type = "text";
-    ih.className = "sel-opt-hidden";
-    ih.placeholder = "optionnel";
-    ih.value = ch.hiddenIfHasItem || "";
-    var ls = document.createElement("label");
-    ls.textContent = "Son au clic (URL) :";
-    var is = document.createElement("input");
-    is.type = "text";
-    is.className = "sel-opt-sfx";
-    is.placeholder = "optionnel";
-    is.value = ch.sfxUrl || "";
-    var lsv = document.createElement("label");
-    lsv.textContent = "Volume du son (0 à 1) :";
-    var isv = document.createElement("input");
-    isv.type = "number";
-    isv.className = "sel-opt-sfxvol";
-    isv.min = "0";
-    isv.max = "1";
-    isv.step = "0.1";
-    isv.value = ch.sfxVolume !== undefined && ch.sfxVolume !== null ? String(ch.sfxVolume) : "";
-    var sfxBtn = document.createElement("button");
-    sfxBtn.type = "button";
-    sfxBtn.className = "btn-icon";
-    sfxBtn.title = "Fichier audio local";
-    sfxBtn.textContent = "📎";
-    sfxBtn.onclick = function () {
-        openBundleLocalMediaPicker(is, "audio/*,.mp3,.ogg,.wav,.m4a");
-    };
-    var sfxPreviewBtn = document.createElement("button");
-    sfxPreviewBtn.type = "button";
-    sfxPreviewBtn.className = "btn-icon";
-    sfxPreviewBtn.title = "Écouter avec le volume réglé sous la ligne";
-    sfxPreviewBtn.textContent = "▶";
-    sfxPreviewBtn.onclick = function () {
-        if (typeof window.editorAudioPreviewToggle === "function") {
-            window.editorAudioPreviewToggle(is, isv, sfxPreviewBtn);
-        }
-    };
-    var sfxRow = document.createElement("div");
-    sfxRow.style.cssText = "display:flex;gap:6px;align-items:center;flex-wrap:wrap;width:100%;";
-    sfxRow.appendChild(is);
-    sfxRow.appendChild(sfxBtn);
-    sfxRow.appendChild(sfxPreviewBtn);
-    det.appendChild(lr);
-    det.appendChild(ir);
-    det.appendChild(lh);
-    det.appendChild(ih);
-    det.appendChild(ls);
-    det.appendChild(sfxRow);
-    det.appendChild(lsv);
-    det.appendChild(isv);
-    card.appendChild(det);
+    appendSelectorChoiceAdvancedDrawers(card, ch);
 
     ch.actionType = selA.value;
     selectorRebuildActionFields(card, ch, hId);
@@ -1314,12 +1399,13 @@ function updateHsFields(hId, opts) {
         typeof buildSceneTargetSelect === "function"
             ? buildSceneTargetSelect("f-target")
             : '<input type="text" class="f-target" value="scene_2">';
+    var hsAdvancedHtml = buildHotspotAdvancedDrawersHtml();
 
     if(type === 'msg') {
-        container.innerHTML = `<label>Texte affiché :</label><div class="wysiwyg-wrap"><textarea class="f-txt editor-rich-text" rows="3">Bravo.</textarea></div>`;
+        container.innerHTML = `<label>Texte affiché :</label><div class="wysiwyg-wrap"><textarea class="f-txt editor-rich-text" rows="3">Bravo.</textarea></div>${hsAdvancedHtml}`;
     }
     else if(type === 'pick') {
-        container.innerHTML = `<div class="row"><div class="col"><label>ID objet :</label><input type="text" class="f-item-id" value="cle"></div><div class="col"><label>Nom :</label><input type="text" class="f-item-name" value="La clé dorée"></div></div><label>Texte narratif :</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2">Vous trouvez une clé.</textarea></div>`;
+        container.innerHTML = `<div class="row"><div class="col"><label>ID objet :</label><input type="text" class="f-item-id" value="cle"></div><div class="col"><label>Nom :</label><input type="text" class="f-item-name" value="La clé dorée"></div></div><label>Texte narratif :</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2">Vous trouvez une clé.</textarea></div>${hsAdvancedHtml}`;
     }
     else if(type === 'req') {
         container.innerHTML = `
@@ -1334,10 +1420,10 @@ function updateHsFields(hId, opts) {
             <div class="s-scene"><label>Aller vers la scène :</label>${sceneSel}<label>Texte transition :</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Bouton :</label><input type="text" class="f-trans-btn" value="Entrer"></div>
             <div class="s-msg"><label>Message :</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2">Ouvert !</textarea></div></div>
             <div class="s-pick"><div class="row"><div class="col"><label>Nouvel ID objet :</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Nouveau Nom :</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Texte trouvaille :</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2">Trouvé !</textarea></div></div>
-        </div>`;
+        </div>${hsAdvancedHtml}`;
     }
     else if(type === 'scene') {
-        container.innerHTML = `<label>Aller vers la scène :</label>${sceneSel}<label style="color:#2980b9;">Texte transition :</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Bouton :</label><input type="text" class="f-trans-btn" value="Continuer">`;
+        container.innerHTML = `<label>Aller vers la scène :</label>${sceneSel}<label style="color:#2980b9;">Texte transition :</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Bouton :</label><input type="text" class="f-trans-btn" value="Continuer">${hsAdvancedHtml}`;
     }
     else if(type === 'pwd') {
         container.innerHTML = `
@@ -1352,7 +1438,7 @@ function updateHsFields(hId, opts) {
             <div class="s-scene"><label>Aller vers la scène :</label>${sceneSel}<label>Texte transition :</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Bouton :</label><input type="text" class="f-trans-btn" value="Entrer"></div>
             <div class="s-msg"><label>Message :</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2">Déverrouillé !</textarea></div></div>
             <div class="s-pick"><div class="row"><div class="col"><label>ID objet :</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Nom :</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Texte trouvaille :</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2">Trouvé.</textarea></div></div>
-        </div>`;
+        </div>${hsAdvancedHtml}`;
     }
     else if(type === 'selector') {
         var defaultSelJson = JSON.stringify(getDefaultSelectorChoices(), null, 2);
@@ -1380,8 +1466,12 @@ function updateHsFields(hId, opts) {
                 <textarea class="f-sel-choices css-editor" rows="12" readonly style="font-family:Consolas,monospace;font-size:12px;">${defaultSelJson}</textarea>
             </div>
         </div>
-        <small style="color:#555;display:block;margin-top:10px;">Astuce : conditions d’affichage et sons par choix se règlent dans <b>Options avancées</b> sur chaque ligne, ou dans le JSON.</small>`;
+        ${hsAdvancedHtml}
+        <small style="color:#555;display:block;margin-top:10px;">Astuce : conditions d’affichage et SFX par choix se règlent dans les <b>tiroirs sous chaque ligne</b>, ou dans le JSON. Les tiroirs au bas du formulaire pilotent le menu selector lui-même.</small>`;
         if(!opts.deferSelectorInit) initSelectorChoicesForm(hId);
+    }
+    if (type === "pick") {
+        wirePickIdToHiddenIfAutoFill(container.querySelector(".f-item-id"), container.querySelector(".f-hs-hidden-if"));
     }
     if (typeof initRichEditorsIn === "function") initRichEditorsIn(container);
 }
@@ -1415,6 +1505,11 @@ function legacyActionToV2(type, source) {
 
     if(src.requiresItem) action.visibility.requiresItem = String(src.requiresItem).trim();
     if(src.hiddenIfHasItem) action.visibility.hiddenIfHasItem = String(src.hiddenIfHasItem).trim();
+    var gcRaw = src.f_hs_ghost_click != null ? src.f_hs_ghost_click : src.ghostClick;
+    if(gcRaw != null && gcRaw !== "") {
+        var gcs = String(gcRaw).trim().toLowerCase();
+        if(gcs === "no" || gcs === "non" || gcs === "0" || gcRaw === false) action.visibility.clickWhenInvisible = false;
+    }
     if(src.sfxUrl) action.sfx.url = String(src.sfxUrl).trim();
     if(src.sfxVolume !== undefined && src.sfxVolume !== null && src.sfxVolume !== "") {
         var v = parseFloat(src.sfxVolume);
@@ -1457,6 +1552,8 @@ function legacyActionToV2(type, source) {
             })
         };
     }
+    /* Hotspot selector : pas de « zone fantôme » (menus/boutons invisibles). */
+    if(action.type === "selector") action.visibility.clickWhenInvisible = true;
     return action;
 }
 
@@ -1523,6 +1620,11 @@ function hotspotDomToV2(hsDiv) {
             choices: selectorChoicesFromTextarea(hsDiv, hId)
         };
     }
+    legacy.requiresItem = (hsDiv.querySelector(".f-hs-req-item") || { value: "" }).value;
+    legacy.f_hs_ghost_click = (hsDiv.querySelector(".f-hs-ghost-click") || { value: "yes" }).value;
+    legacy.hiddenIfHasItem = (hsDiv.querySelector(".f-hs-hidden-if") || { value: "" }).value;
+    legacy.sfxUrl = (hsDiv.querySelector(".f-sfx-url") || { value: "" }).value;
+    legacy.sfxVolume = (hsDiv.querySelector(".f-sfx-vol") || { value: "" }).value;
 
     return {
         id: hsDiv.id,
@@ -1738,6 +1840,11 @@ function actionV2ToLegacyHotspotData(hs) {
             return actionV2ToLegacyChoice(c.action, c.label, i);
         }), null, 2);
     }
+    if(a.sfx && a.sfx.url) out.f_sfx_url = a.sfx.url;
+    if(a.sfx && a.sfx.volume !== undefined) out.f_sfx_vol = a.sfx.volume;
+    if(a.visibility && a.visibility.requiresItem) out.f_hs_req_item = a.visibility.requiresItem;
+    if(a.visibility && a.visibility.clickWhenInvisible === false) out.f_hs_ghost_click = "no";
+    if(a.visibility && a.visibility.hiddenIfHasItem) out.f_hs_hidden_if = a.visibility.hiddenIfHasItem;
     return out;
 }
 

@@ -198,8 +198,11 @@
         .sel-nested-block {
             margin-top: 10px; padding: 10px; border-left: 3px solid #3498db; background: #f8fbff; border-radius: 0 6px 6px 0;
         }
-        .sel-opt-advanced { margin-top: 10px; font-size: 13px; color: #555; }
-        .sel-opt-advanced summary { cursor: pointer; font-weight: 600; color: #7f8c8d; }
+        /* Tiroirs par choix (alignés sur hs-vis-advanced / hs-sfx-advanced des hotspots) */
+        .sel-choice-card .hs-vis-advanced,
+        .sel-choice-card .hs-sfx-advanced { font-size: 13px; color: #555; }
+        .sel-choice-card .hs-vis-advanced summary,
+        .sel-choice-card .hs-sfx-advanced summary { color: #2c3e50; }
         .selector-form-wrap { margin-top: 8px; }
         .selector-json-hint { font-size: 13px; color: #555; margin: 8px 0; line-height: 1.4; }
 

@@ -213,6 +213,7 @@ function buildPlayerHtmlTemplate() {
         }
         if(a.visibility && a.visibility.requiresItem) args.requiresItem = a.visibility.requiresItem;
         if(a.visibility && a.visibility.hiddenIfHasItem) args.hiddenIfHasItem = a.visibility.hiddenIfHasItem;
+        if(a.visibility && a.visibility.clickWhenInvisible === false) args.clickWhenInvisible = false;
         if(a.sfx && a.sfx.url) args.sfxUrl = a.sfx.url;
         if(a.sfx && a.sfx.volume !== undefined) args.sfxVolume = a.sfx.volume;
         return args;
@@ -603,10 +604,10 @@ function buildPlayerHtmlTemplate() {
             afficherPopup("", payload.txt);
         } else if(payload.type === 'pick') {
             inventaire[payload.itemId] = { name: payload.itemName };
-            if(hsDiv && !fromSelector) hsDiv.style.display = 'none';
             majInventaireUI();
             openInventoryPanelIfVisible();
             afficherPopup("", payload.txt);
+            refreshAllHotspotVisibility();
         }
     }
 
@@ -648,6 +649,52 @@ function buildPlayerHtmlTemplate() {
             if(inventaire[String(args.hiddenIfHasItem).trim()]) return false;
         }
         return true;
+    }
+    var hotspotRegistry = [];
+    /*
+     * Hotspot visibility / clicks:
+     * (1) opacity:0 + pointer-events:none — hidden and not clickable (clickWhenInvisible === false or pick already taken).
+     * (2) opacity:0 + pointer-events:auto — ghost hit zone (clickWhenInvisible !== false; never for type selector).
+     * (3) Visible — visibility rules satisfied and pick not consumed.
+     */
+    /** Hide when visibility filters fail (same as isActionVisible) or pick already collected. */
+    function shouldHideHotspotVisually(args) {
+        if(!args) return false;
+        if(args.type === 'pick' && args.itemId != null && String(args.itemId).trim() !== '' && inventaire[String(args.itemId).trim()]) {
+            return true;
+        }
+        return !isActionVisible(args);
+    }
+    function ghostPointerWhenHidden(args) {
+        if(!args || args.type === 'selector') return false;
+        if(args.clickWhenInvisible === false) return false;
+        if(args.type === 'pick' && args.itemId != null && String(args.itemId).trim() !== '' && inventaire[String(args.itemId).trim()]) {
+            return false;
+        }
+        return true;
+    }
+    function applyHotspotVisibility(hsDiv, args) {
+        if(!hsDiv || !args) return;
+        if(shouldHideHotspotVisually(args)) {
+            hsDiv.style.opacity = '0';
+            hsDiv.style.pointerEvents = ghostPointerWhenHidden(args) ? 'auto' : 'none';
+            hsDiv.style.visibility = '';
+            hsDiv.style.display = '';
+            return;
+        }
+        hsDiv.style.opacity = '';
+        hsDiv.style.pointerEvents = '';
+        hsDiv.style.visibility = '';
+        hsDiv.style.display = '';
+    }
+    function refreshAllHotspotVisibility() {
+        hotspotRegistry = hotspotRegistry.filter(function(el) { return el && el.isConnected && el._hsArgs; });
+        for(var i = 0; i < hotspotRegistry.length; i++) {
+            applyHotspotVisibility(hotspotRegistry[i], hotspotRegistry[i]._hsArgs);
+        }
+        try {
+            if(typeof viewer !== 'undefined' && viewer && typeof viewer.resize === 'function') viewer.resize();
+        } catch (e) {}
     }
     function choiceToPayload(choice) {
         if(!choice || !choice.actionType) return null;
@@ -829,8 +876,14 @@ function buildPlayerHtmlTemplate() {
     }
 
     function hotspotDispatcher(hsDiv, args) {
+        hsDiv._hsArgs = args;
+        hotspotRegistry.push(hsDiv);
+        applyHotspotVisibility(hsDiv, args);
         hsDiv.onclick = function() {
-            if(!isActionVisible(args)) return;
+            var visOk = isActionVisible(args);
+            if(!visOk) {
+                if(!ghostPointerWhenHidden(args) || !shouldHideHotspotVisually(args)) return;
+            }
             if(args.type === 'selector') { openSelector(args, hsDiv); }
             else if(args.type === 'msg') { executeAction({ type: 'msg', txt: args.txt, sfxUrl: args.sfxUrl, sfxVolume: args.sfxVolume }, hsDiv); }
             else if(args.type === 'scene') { executeAction({ type: 'scene', target: args.target, transTxt: args.transTxt, transBtn: args.transBtn, sfxUrl: args.sfxUrl, sfxVolume: args.sfxVolume }, hsDiv); }
@@ -854,7 +907,7 @@ function buildPlayerHtmlTemplate() {
                 
                 var pwdBackdrop = document.createElement('div');
                 pwdBackdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
-                pwdBackdrop.onclick = function(e) { if(e.target === pwdBackdrop) document.body.removeChild(pwdBackdrop); };
+                pwdBackdrop.onclick = function(e) { if(e.target === pwdBackdrop) { audioSys.stopSFX(); document.body.removeChild(pwdBackdrop); } };
                 var msg = document.createElement('div');
                 msg.style.cssText = 'background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;';
                 msg.onclick = function(e){ e.stopPropagation(); };
@@ -889,7 +942,7 @@ function buildPlayerHtmlTemplate() {
                 cls.innerHTML = "X"; 
                 cls.setAttribute('aria-label','Close');
                 cls.style.cssText = 'position:absolute;top:8px;right:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;';
-                cls.onclick = function() { document.body.removeChild(pwdBackdrop); }; 
+                cls.onclick = function() { audioSys.stopSFX(); document.body.removeChild(pwdBackdrop); }; 
                 
                 msg.appendChild(cls); 
                 pwdBackdrop.appendChild(msg);
@@ -915,17 +968,28 @@ function buildPlayerHtmlTemplate() {
     function afficherPopup(titre, texte, btnTxt = 'Close', onConfirm = null) {
         var backdrop = document.createElement('div');
         backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
-        backdrop.onclick = function(e) { if(e.target === backdrop) document.body.removeChild(backdrop); };
+        function closePopup() {
+            audioSys.stopSFX();
+            if (backdrop.parentNode) document.body.removeChild(backdrop);
+        }
+        backdrop.onclick = function(e) { if(e.target === backdrop) closePopup(); };
         var msg = document.createElement('div');
         msg.style.cssText = 'background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;max-height:85vh;overflow:auto;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;';
         msg.onclick = function(e){ e.stopPropagation(); };
         msg.innerHTML = (titre!=="" ? "<h3 style='margin-top:0;color:inherit;opacity:0.8;'>" + titre + "</h3>" : "") + "<div class='play-html-rich'>" + texte + "</div><br>";
+        var btnX = document.createElement('button');
+        btnX.type = 'button';
+        btnX.innerHTML = '✕';
+        btnX.setAttribute('aria-label','Close');
+        btnX.style.cssText = 'position:absolute;top:8px;right:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;';
+        btnX.onclick = function() { closePopup(); };
+        msg.insertBefore(btnX, msg.firstChild);
         
         var btn = document.createElement('button'); 
         btn.innerHTML = btnTxt; 
         btn.style.cssText = 'margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;';
         btn.onclick = function() { 
-            document.body.removeChild(backdrop); 
+            closePopup();
             if(onConfirm) onConfirm(); 
         }; 
         

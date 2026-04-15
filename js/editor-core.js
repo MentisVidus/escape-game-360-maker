@@ -28,7 +28,7 @@
      * @property {string} type - msg | scene | pick | req | pwd | selector | …
      * @property {Object} payload - champs spécifiques au type (+ copy pour les textes)
      * @property {{ url: string, volume: number }} sfx
-     * @property {{ requiresItem: string, hiddenIfHasItem: string }} visibility
+     * @property {{ requiresItem: string, hiddenIfHasItem: string, clickWhenInvisible?: boolean }} visibility
      */
 
     function createDefaultSfx() {
@@ -36,7 +36,7 @@
     }
 
     function createDefaultVisibility() {
-        return { requiresItem: "", hiddenIfHasItem: "" };
+        return { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true };
     }
 
     function createDefaultCopy() {
@@ -147,6 +147,14 @@
         }
         if (!action.visibility || typeof action.visibility !== "object") {
             action.visibility = createDefaultVisibility();
+        } else {
+            var vis = action.visibility;
+            var cwi = vis.clickWhenInvisible;
+            if (cwi === false || cwi === "false" || cwi === 0 || cwi === "no" || cwi === "non") {
+                vis.clickWhenInvisible = false;
+            } else {
+                vis.clickWhenInvisible = true;
+            }
         }
     }
 
