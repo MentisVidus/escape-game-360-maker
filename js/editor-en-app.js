@@ -394,7 +394,8 @@ function moveDown(elemId) {
 
 // --- Add scene ---
 // Inserts a new scene block into #scenes-container
-function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
+/** @param {Object} [sceneTargetRefreshOpts] — forwarded to refreshAllSceneTargetSelects (e.g. { preferSelect, preferVal } after “+ New scene”). */
+function addScene(scIdVal = null, scImgVal = null, scTitleVal = "", sceneTargetRefreshOpts = null) {
     sceneIdCounter++; 
     const sId = sceneIdCounter;
     
@@ -437,7 +438,7 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
     
     document.getElementById('scenes-container').insertAdjacentHTML('beforeend', sceneHTML);
     if (typeof refreshAllSceneTargetSelects === "function") {
-        refreshAllSceneTargetSelects();
+        refreshAllSceneTargetSelects(sceneTargetRefreshOpts || undefined);
     }
     if (typeof initAllSceneIdStableFields === "function") {
         initAllSceneIdStableFields();

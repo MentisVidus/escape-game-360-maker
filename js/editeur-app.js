@@ -398,7 +398,8 @@ function moveDown(elemId) {
 
 // --- FONCTION : AJOUTER UNE SCÈNE ---
 // Crée le code HTML d'une nouvelle scène et l'injecte dans la page
-function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
+/** @param {Object} [sceneTargetRefreshOpts] — passé à refreshAllSceneTargetSelects (ex. { preferSelect, preferVal } après « + nouvelle scène »). */
+function addScene(scIdVal = null, scImgVal = null, scTitleVal = "", sceneTargetRefreshOpts = null) {
     sceneIdCounter++; 
     const sId = sceneIdCounter;
     
@@ -441,7 +442,7 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "") {
     
     document.getElementById('scenes-container').insertAdjacentHTML('beforeend', sceneHTML);
     if (typeof refreshAllSceneTargetSelects === "function") {
-        refreshAllSceneTargetSelects();
+        refreshAllSceneTargetSelects(sceneTargetRefreshOpts || undefined);
     }
     if (typeof initAllSceneIdStableFields === "function") {
         initAllSceneIdStableFields();
