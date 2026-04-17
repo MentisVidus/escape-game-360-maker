@@ -92,20 +92,20 @@ async function saveProjectBundle() {
     }
 }
 
-function updateScenePreview() { /* reserved e.g. URL validation; .sc-img oninput calls this */ }
-
-// --- UI helpers: collapse, reorder blocks ---
-// Toggle visibility of a scene or hotspot body
-function toggleCollapse(bodyId, btn) {
-    const body = document.getElementById(bodyId);
-    if(body.style.display === 'none') { 
-        body.style.display = ''; 
-        btn.innerHTML = '▼'; 
-    } else { 
-        body.style.display = 'none'; 
-        btn.innerHTML = '▶'; 
-    }
+// --- Shared FR/EN UI helpers (no localized strings) ---
+var EditorSharedUiApi = window.EditorSharedUi;
+if (!EditorSharedUiApi) {
+    throw new Error("EditorSharedUi unavailable (js/editor-shared-ui-utils.js).");
 }
+var updateScenePreview = EditorSharedUiApi.updateScenePreview;
+var toggleCollapse = EditorSharedUiApi.toggleCollapse;
+var toggleAllHotspotsInScene = EditorSharedUiApi.toggleAllHotspotsInScene;
+var moveUp = EditorSharedUiApi.moveUp;
+var moveDown = EditorSharedUiApi.moveDown;
+var hexToRgba = EditorSharedUiApi.hexToRgba;
+var buildCss = EditorSharedUiApi.buildCss;
+var applyPickHiddenIfAutoFillInitial = EditorSharedUiApi.applyPickHiddenIfAutoFillInitial;
+var wirePickIdToHiddenIfAutoFill = EditorSharedUiApi.wirePickIdToHiddenIfAutoFill;
 
 /** From map: add scene then refresh graph if modal is open. */
 function addSceneFromMap() {
@@ -123,46 +123,6 @@ function addSceneFromMap() {
     }
 }
 window.addSceneFromMap = addSceneFromMap;
-
-/** Collapse or expand all hotspot main bodies in one scene. */
-function toggleAllHotspotsInScene(sceneNumericId) {
-    const wrap = document.getElementById("hs-container-" + sceneNumericId);
-    if (!wrap) return;
-    const blocks = wrap.querySelectorAll(":scope > .hotspot-block");
-    let anyExpanded = false;
-    blocks.forEach((hb) => {
-        const m = hb.id && hb.id.match(/^hs_(\d+)$/);
-        if (!m) return;
-        const body = document.getElementById("hs_body_" + m[1]);
-        if (body && body.style.display !== "none") anyExpanded = true;
-    });
-    const expand = !anyExpanded;
-    blocks.forEach((hb) => {
-        const m = hb.id && hb.id.match(/^hs_(\d+)$/);
-        if (!m) return;
-        const hId = m[1];
-        const body = document.getElementById("hs_body_" + hId);
-        const btn = hb.querySelector(".hs-block-header-main > .btn-icon");
-        if (!body || !btn) return;
-        if (expand) {
-            body.style.display = "";
-            btn.innerHTML = "▼";
-        } else {
-            body.style.display = "none";
-            btn.innerHTML = "▶";
-        }
-    });
-}
-// Move DOM node up among siblings
-function moveUp(elemId) { 
-    const el = document.getElementById(elemId); 
-    if(el.previousElementSibling) el.parentNode.insertBefore(el, el.previousElementSibling); 
-}
-// Move DOM node down among siblings
-function moveDown(elemId) { 
-    const el = document.getElementById(elemId); 
-    if(el.nextElementSibling) el.parentNode.insertBefore(el.nextElementSibling, el); 
-}
 
 // --- Add scene ---
 // Inserts a new scene block into #scenes-container
@@ -442,36 +402,6 @@ function duplicateScene(sId) {
 }
 
 // --- CSS helpers (no-code + expert) ---
-// Hex + alpha → rgba(...) for inline CSS
-function hexToRgba(hex, alpha) { 
-    let r = parseInt(hex.slice(1, 3), 16), 
-        g = parseInt(hex.slice(3, 5), 16), 
-        b = parseInt(hex.slice(5, 7), 16); 
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`; 
-}
-
-// Build hotspot CSS string from visual controls
-function buildCss(hId) {
-    const hsDiv = document.querySelector(`#hs_${hId}`);
-    
-    let w = hsDiv.querySelector('.ui-w').value;
-    let h = hsDiv.querySelector('.ui-h').value;
-    let shape = hsDiv.querySelector('.ui-shape').value;
-    let bgc = hsDiv.querySelector('.ui-bgc').value;
-    let bga = hsDiv.querySelector('.ui-bga').value;
-    let brdStyle = hsDiv.querySelector('.ui-brd-style').value;
-    let brdW = hsDiv.querySelector('.ui-brd-w').value;
-    let brdC = hsDiv.querySelector('.ui-brd-c').value;
-    let img = hsDiv.querySelector('.ui-img').value;
-    
-    // Assemble declaration
-    let css = `width: ${w}px; height: ${h}px; background: ${hexToRgba(bgc, bga)}; border-radius: ${shape}; cursor: pointer; display: flex; align-items: center; justify-content: center;`;
-    if (brdStyle !== 'none') css += ` border: ${brdW}px ${brdStyle} ${brdC};`;
-    if (img !== "") css += ` background-image: url('${img}'); background-size: contain; background-repeat: no-repeat; background-position: center;`;
-    
-    // Write into expert / generated textarea
-    hsDiv.querySelector('.hs-custom-css').value = css;
-}
 
 // Toggle between visual CSS editor and freeform textarea
 function toggleExpertMode(hId, forceExpert = false) {
@@ -722,26 +652,6 @@ function selectorAddNestedChoice(btn) {
     }
     list.appendChild(renderChoiceCardElement(getDefaultChoice(), hId, depth + 1));
     syncSelectorChoicesToTextarea(hId);
-}
-
-function applyPickHiddenIfAutoFillInitial(pickIdInput, hiddenIfInput) {
-    if (!pickIdInput || !hiddenIfInput) return;
-    if ((hiddenIfInput.value || "").trim() === "" && (pickIdInput.value || "").trim() !== "") {
-        hiddenIfInput.value = pickIdInput.value.trim();
-        hiddenIfInput.dataset.autoFilled = "1";
-    }
-}
-
-function wirePickIdToHiddenIfAutoFill(pickIdInput, hiddenIfInput) {
-    applyPickHiddenIfAutoFillInitial(pickIdInput, hiddenIfInput);
-    if (!pickIdInput || !hiddenIfInput) return;
-    hiddenIfInput.addEventListener("input", function () { hiddenIfInput.dataset.autoFilled = "0"; });
-    pickIdInput.addEventListener("input", function () {
-        if (hiddenIfInput.dataset.autoFilled === "1" || (hiddenIfInput.value || "").trim() === "") {
-            hiddenIfInput.value = pickIdInput.value.trim();
-            hiddenIfInput.dataset.autoFilled = "1";
-        }
-    });
 }
 
 function buildHotspotAdvancedDrawersHtml() {

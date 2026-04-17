@@ -96,20 +96,20 @@ async function saveProjectBundle() {
     }
 }
 
-function updateScenePreview() { /* hook réservé (ex: validation URL) ; champ .sc-img l'appelle au oninput */ }
-
-// --- FONCTIONS D'ERGONOMIE VISUELLE (Plier, Monter, Descendre) ---
-// Masque ou affiche le contenu d'une scène ou d'un hotspot
-function toggleCollapse(bodyId, btn) {
-    const body = document.getElementById(bodyId);
-    if(body.style.display === 'none') { 
-        body.style.display = ''; 
-        btn.innerHTML = '▼'; 
-    } else { 
-        body.style.display = 'none'; 
-        btn.innerHTML = '▶'; 
-    }
+// --- Helpers UI partagés FR/EN (sans textes localisés) ---
+var EditorSharedUiApi = window.EditorSharedUi;
+if (!EditorSharedUiApi) {
+    throw new Error("EditorSharedUi indisponible (js/editor-shared-ui-utils.js).");
 }
+var updateScenePreview = EditorSharedUiApi.updateScenePreview;
+var toggleCollapse = EditorSharedUiApi.toggleCollapse;
+var toggleAllHotspotsInScene = EditorSharedUiApi.toggleAllHotspotsInScene;
+var moveUp = EditorSharedUiApi.moveUp;
+var moveDown = EditorSharedUiApi.moveDown;
+var hexToRgba = EditorSharedUiApi.hexToRgba;
+var buildCss = EditorSharedUiApi.buildCss;
+var applyPickHiddenIfAutoFillInitial = EditorSharedUiApi.applyPickHiddenIfAutoFillInitial;
+var wirePickIdToHiddenIfAutoFill = EditorSharedUiApi.wirePickIdToHiddenIfAutoFill;
 
 /** Depuis la carte : nouvelle scène puis rafraîchissement du graphe si la modale est ouverte. */
 function addSceneFromMap() {
@@ -128,45 +128,6 @@ function addSceneFromMap() {
 }
 window.addSceneFromMap = addSceneFromMap;
 
-/** Replier ou déplier d’un coup le corps principal de tous les hotspots d’une scène. */
-function toggleAllHotspotsInScene(sceneNumericId) {
-    const wrap = document.getElementById("hs-container-" + sceneNumericId);
-    if (!wrap) return;
-    const blocks = wrap.querySelectorAll(":scope > .hotspot-block");
-    let anyExpanded = false;
-    blocks.forEach((hb) => {
-        const m = hb.id && hb.id.match(/^hs_(\d+)$/);
-        if (!m) return;
-        const body = document.getElementById("hs_body_" + m[1]);
-        if (body && body.style.display !== "none") anyExpanded = true;
-    });
-    const expand = !anyExpanded;
-    blocks.forEach((hb) => {
-        const m = hb.id && hb.id.match(/^hs_(\d+)$/);
-        if (!m) return;
-        const hId = m[1];
-        const body = document.getElementById("hs_body_" + hId);
-        const btn = hb.querySelector(".hs-block-header-main > .btn-icon");
-        if (!body || !btn) return;
-        if (expand) {
-            body.style.display = "";
-            btn.innerHTML = "▼";
-        } else {
-            body.style.display = "none";
-            btn.innerHTML = "▶";
-        }
-    });
-}
-// Remonte un élément HTML juste au-dessus de son voisin précédent
-function moveUp(elemId) { 
-    const el = document.getElementById(elemId); 
-    if(el.previousElementSibling) el.parentNode.insertBefore(el, el.previousElementSibling); 
-}
-// Descend un élément HTML juste en dessous de son voisin suivant
-function moveDown(elemId) { 
-    const el = document.getElementById(elemId); 
-    if(el.nextElementSibling) el.parentNode.insertBefore(el.nextElementSibling, el); 
-}
 
 // --- FONCTION : AJOUTER UNE SCÈNE ---
 // Crée le code HTML d'une nouvelle scène et l'injecte dans la page
@@ -448,36 +409,6 @@ function duplicateScene(sId) {
 }
 
 // --- FONCTIONS DE GÉNÉRATION CSS (No-Code et Expert) ---
-// Convertit un code couleur Hexadécimal (ex:#ff0000) en code RGBA lisible en CSS avec transparence
-function hexToRgba(hex, alpha) { 
-    let r = parseInt(hex.slice(1, 3), 16), 
-        g = parseInt(hex.slice(3, 5), 16), 
-        b = parseInt(hex.slice(5, 7), 16); 
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`; 
-}
-
-// Récupère les valeurs des jauges de l'éditeur No-Code et fabrique la phrase de CSS
-function buildCss(hId) {
-    const hsDiv = document.querySelector(`#hs_${hId}`);
-    
-    let w = hsDiv.querySelector('.ui-w').value;
-    let h = hsDiv.querySelector('.ui-h').value;
-    let shape = hsDiv.querySelector('.ui-shape').value;
-    let bgc = hsDiv.querySelector('.ui-bgc').value;
-    let bga = hsDiv.querySelector('.ui-bga').value;
-    let brdStyle = hsDiv.querySelector('.ui-brd-style').value;
-    let brdW = hsDiv.querySelector('.ui-brd-w').value;
-    let brdC = hsDiv.querySelector('.ui-brd-c').value;
-    let img = hsDiv.querySelector('.ui-img').value;
-    
-    // Construction du texte CSS
-    let css = `width: ${w}px; height: ${h}px; background: ${hexToRgba(bgc, bga)}; border-radius: ${shape}; cursor: pointer; display: flex; align-items: center; justify-content: center;`;
-    if (brdStyle !== 'none') css += ` border: ${brdW}px ${brdStyle} ${brdC};`;
-    if (img !== "") css += ` background-image: url('${img}'); background-size: contain; background-repeat: no-repeat; background-position: center;`;
-    
-    // Injecte le texte dans la case de "Code CSS"
-    hsDiv.querySelector('.hs-custom-css').value = css;
-}
 
 // Gère le passage entre le mode d'édition No-Code et le Mode Expert
 function toggleExpertMode(hId, forceExpert = false) {
@@ -728,28 +659,6 @@ function selectorAddNestedChoice(btn) {
     }
     list.appendChild(renderChoiceCardElement(getDefaultChoice(), hId, depth + 1));
     syncSelectorChoicesToTextarea(hId);
-}
-
-/** Remplit « Masquer si… » avec l’ID ramassé si vide (utile aussi après chargement JSON). */
-function applyPickHiddenIfAutoFillInitial(pickIdInput, hiddenIfInput) {
-    if (!pickIdInput || !hiddenIfInput) return;
-    if ((hiddenIfInput.value || "").trim() === "" && (pickIdInput.value || "").trim() !== "") {
-        hiddenIfInput.value = pickIdInput.value.trim();
-        hiddenIfInput.dataset.autoFilled = "1";
-    }
-}
-
-/** « Masquer si… » suit l’ID d’objet ramassé tant que le champ n’a pas été saisi à la main (même logique partout). */
-function wirePickIdToHiddenIfAutoFill(pickIdInput, hiddenIfInput) {
-    applyPickHiddenIfAutoFillInitial(pickIdInput, hiddenIfInput);
-    if (!pickIdInput || !hiddenIfInput) return;
-    hiddenIfInput.addEventListener("input", function () { hiddenIfInput.dataset.autoFilled = "0"; });
-    pickIdInput.addEventListener("input", function () {
-        if (hiddenIfInput.dataset.autoFilled === "1" || (hiddenIfInput.value || "").trim() === "") {
-            hiddenIfInput.value = pickIdInput.value.trim();
-            hiddenIfInput.dataset.autoFilled = "1";
-        }
-    });
 }
 
 /** Tiroirs visibilité + SFX pour les champs dynamiques d’hotspot (HTML injecté dans updateHsFields). */
