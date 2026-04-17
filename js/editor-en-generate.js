@@ -119,6 +119,27 @@ function buildPlayerHtmlTemplate() {
     const popBtnBg = useCustomPopup ? (project.popBtnBg || "#27ae60") : "#27ae60";
     const popBtnCol = useCustomPopup ? (project.popBtnCol || "#ffffff") : "#ffffff";
 
+    const timerCfg = project.timer || {};
+    const timerEnabled = !!timerCfg.enabled;
+    const timerMode = timerCfg.mode === "countup" ? "countup" : "countdown";
+    const timerStartSeconds = Math.max(0, parseInt(timerCfg.startSeconds, 10) || 0);
+    const timerAutoStart = timerCfg.autoStart !== false;
+    const timerPauseWhenPopupOpen = !!timerCfg.pauseWhenPopupOpen;
+    const endGo = (project.endScreens && project.endScreens.gameOver) || {};
+    const playerTimerPayload = {
+        enabled: timerEnabled,
+        mode: timerMode,
+        startSeconds: timerStartSeconds,
+        autoStart: timerAutoStart,
+        pauseWhenPopupOpen: timerPauseWhenPopupOpen,
+        gameOver: {
+            title: String(endGo.title || "").trim(),
+            bodyHtml: String(endGo.bodyHtml || ""),
+            buttonLabel: String(endGo.buttonLabel || "Restart").trim() || "Restart"
+        }
+    };
+    const playerTimerJson = JSON.stringify(playerTimerPayload).replace(/</g, "\\u003c");
+
     let scenesConfig = {};
     let firstSceneId = "";
     let customStylesCSS = "";
@@ -339,6 +360,18 @@ function buildPlayerHtmlTemplate() {
             background: ${popBtnBg}; color: ${popBtnCol}; font-size: 0.95rem;
         }
         .settings-close-btn:hover { filter: brightness(1.08); }
+        #player-timer {
+            display: none; margin-top: 8px; padding: 6px 12px; border-radius: 8px; background: rgba(0,0,0,0.55); color: #fff;
+            font-variant-numeric: tabular-nums; font-size: clamp(0.9rem, 3.5vmin, 1.25rem); border: 1px solid rgba(255,255,255,0.25);
+        }
+        #player-timer.is-visible { display: block; }
+        #end-screen-modal { display: none; position: fixed; inset: 0; z-index: 11000; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
+        #end-screen-modal.is-open { display: flex; }
+        .end-screen-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.78); }
+        .end-screen-panel {
+            position: relative; z-index: 1; max-width: 520px; width: 100%; padding: 22px 24px; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.55); text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
     </style>
 </head>
 <body>
@@ -359,6 +392,7 @@ function buildPlayerHtmlTemplate() {
             ${hasInv ? `<button type="button" id="inv-toggle" class="player-hud-btn" onclick="toggleInv()" aria-label="Inventory">${invIconHTML}</button>` : ""}
             <button type="button" id="settings-toggle" class="player-hud-btn" onclick="togglePlayerSettings()" title="Settings" aria-label="Settings">⚙</button>
         </div>
+        <div id="player-timer" class="${timerEnabled ? "is-visible" : ""}" aria-live="polite">00:00</div>
         ${hasInv ? `<div id="inv-panel">
             <h3>Inventory</h3>
             <ul id="inv-list"><li style="color:gray; font-style:italic;">Empty</li></ul>
@@ -394,15 +428,147 @@ function buildPlayerHtmlTemplate() {
             </div>
         </div>
     </div>
+
+    <div id="end-screen-modal" role="dialog" aria-modal="true" aria-labelledby="end-screen-title">
+        <div class="end-screen-backdrop"></div>
+        <div class="end-screen-panel" style="font-family:${popFont};color:${popColor};background:${popBg};">
+            <h2 id="end-screen-title" style="margin:0 0 12px 0;font-size:1.35rem;"></h2>
+            <div id="end-screen-body" class="play-html-rich" style="text-align:left;margin-bottom:16px;"></div>
+            <button type="button" id="end-screen-restart" class="settings-close-btn" onclick="location.reload()">Restart</button>
+        </div>
+    </div>
     
     <!-- Pannellum mount node -->
     <div id="panorama"></div>
+    <script type="application/json" id="escape360-timer-config">${playerTimerJson}</script>
 
 <script>
     // Player state
     var inventaire = {}; 
     var unlockedHotspots = {};
     var viewer;
+
+    var PLAYER_TIMER_CONFIG = { enabled: false, mode: "countdown", startSeconds: 1800, autoStart: true, pauseWhenPopupOpen: false, gameOver: { title: "", bodyHtml: "", buttonLabel: "Restart" } };
+    try {
+        var _tcEl = document.getElementById("escape360-timer-config");
+        if (_tcEl && _tcEl.textContent) {
+            var _tcParsed = JSON.parse(_tcEl.textContent);
+            if (_tcParsed && typeof _tcParsed === "object") PLAYER_TIMER_CONFIG = _tcParsed;
+        }
+    } catch (eTimerCfg) {}
+    var gameOverTriggered = false;
+    var timerDisplayMs = 0;
+    var timerRunStart = null;
+    var timerPausedAccum = 0;
+    var timerBlockingDepth = 0;
+    var timerInterval = null;
+
+    function isTimerBlockingUiOpen() {
+        var sm = document.getElementById("settings-modal");
+        if (sm && sm.classList.contains("is-open")) return true;
+        return timerBlockingDepth > 0;
+    }
+    function isTimerPausedNow() {
+        return !!(PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled && PLAYER_TIMER_CONFIG.pauseWhenPopupOpen && isTimerBlockingUiOpen());
+    }
+    function timerNotifyBlockingOpen() {
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled || !PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) return;
+        var wasPaused = isTimerPausedNow();
+        timerBlockingDepth++;
+        if (!wasPaused && isTimerPausedNow()) timerOnEnterPause();
+    }
+    function timerNotifyBlockingClose() {
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled || !PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) return;
+        if (timerBlockingDepth > 0) timerBlockingDepth--;
+        timerOnLeavePauseIfNeeded();
+    }
+    function timerOnEnterPause() {
+        if (timerRunStart != null) {
+            timerPausedAccum += Date.now() - timerRunStart;
+            timerRunStart = null;
+        }
+    }
+    function timerOnLeavePauseIfNeeded() {
+        if (gameOverTriggered) return;
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled) return;
+        if (isTimerPausedNow()) return;
+        if (timerRunStart == null && PLAYER_TIMER_CONFIG.autoStart) timerRunStart = Date.now();
+    }
+    function formatTimerMs(ms) {
+        var s = Math.floor(Math.max(0, ms) / 1000);
+        var m = Math.floor(s / 60);
+        s = s % 60;
+        return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    }
+    function updateTimerHudLabel() {
+        var el = document.getElementById("player-timer");
+        if (!el) return;
+        el.textContent = formatTimerMs(timerDisplayMs);
+    }
+    function tickPlayerTimer() {
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled || gameOverTriggered) return;
+        if (isTimerPausedNow()) {
+            updateTimerHudLabel();
+            return;
+        }
+        var now = Date.now();
+        var elapsed = timerPausedAccum + (timerRunStart != null ? now - timerRunStart : 0);
+        if (PLAYER_TIMER_CONFIG.mode === "countup") {
+            timerDisplayMs = elapsed;
+        } else {
+            var total = Math.max(0, (PLAYER_TIMER_CONFIG.startSeconds || 0) * 1000);
+            timerDisplayMs = Math.max(0, total - elapsed);
+            if (timerDisplayMs <= 0) {
+                triggerGameOver();
+                return;
+            }
+        }
+        updateTimerHudLabel();
+    }
+    function triggerGameOver() {
+        if (gameOverTriggered) return;
+        gameOverTriggered = true;
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        timerRunStart = null;
+        if (PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.mode === "countdown") timerDisplayMs = 0;
+        updateTimerHudLabel();
+        var go = (PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.gameOver) || {};
+        var tEl = document.getElementById("end-screen-title");
+        var bEl = document.getElementById("end-screen-body");
+        var btn = document.getElementById("end-screen-restart");
+        if (tEl) tEl.textContent = go.title || "";
+        if (bEl) bEl.innerHTML = go.bodyHtml || "";
+        if (btn) btn.textContent = go.buttonLabel || "Restart";
+        var mod = document.getElementById("end-screen-modal");
+        if (mod) mod.classList.add("is-open");
+        try {
+            if (typeof viewer !== "undefined" && viewer && typeof viewer.destroy === "function") viewer.destroy();
+        } catch (eGo) {}
+        var hud = document.getElementById("player-hud");
+        if (hud) hud.style.display = "none";
+    }
+    function initPlayerTimerAfterStart() {
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled) return;
+        var el = document.getElementById("player-timer");
+        if (el) el.classList.add("is-visible");
+        gameOverTriggered = false;
+        timerPausedAccum = 0;
+        timerBlockingDepth = 0;
+        timerRunStart = null;
+        if (PLAYER_TIMER_CONFIG.mode === "countup") {
+            timerDisplayMs = 0;
+        } else {
+            timerDisplayMs = Math.max(0, (PLAYER_TIMER_CONFIG.startSeconds || 0) * 1000);
+        }
+        updateTimerHudLabel();
+        if (!PLAYER_TIMER_CONFIG.autoStart) return;
+        if (!isTimerPausedNow()) timerRunStart = Date.now();
+        timerInterval = setInterval(tickPlayerTimer, 250);
+        tickPlayerTimer();
+    }
 
     // --- Audio channels ---
     var sceneAmbianceClips = ${sceneAmbianceJson};
@@ -536,11 +702,15 @@ function buildPlayerHtmlTemplate() {
         if (mod.classList.contains("is-open")) { closePlayerSettings(); return; }
         syncPlayerAudioSlidersToUi();
         mod.classList.add("is-open");
+        if (PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled && PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) timerOnEnterPause();
     }
 
     function closePlayerSettings() {
         var mod = document.getElementById("settings-modal");
-        if (mod) mod.classList.remove("is-open");
+        if (!mod) return;
+        var wasOpen = mod.classList.contains("is-open");
+        mod.classList.remove("is-open");
+        if (wasOpen && PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled && PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) timerOnLeavePauseIfNeeded();
     }
 
     function applySceneAmbiance(sceneId) {
@@ -574,6 +744,7 @@ function buildPlayerHtmlTemplate() {
         if (${useGlobalAudio} && "${globalMusicUrl}" !== "") {
             audioSys.playMusic("${globalMusicUrl}", ${globalMusicVol});
         }
+        initPlayerTimerAfterStart();
     }
     
     function toggleInv() { 
@@ -591,6 +762,7 @@ function buildPlayerHtmlTemplate() {
     // Leaf action (msg / scene / pick) — shared engine for classic hotspots and future selector choices (see docs/SELECTOR_SPEC.md)
     // fromSelector: if true, do not hide hotspot after pick (same div must reopen the selector)
     function executeAction(payload, hsDiv, fromSelector) {
+        if (gameOverTriggered) return;
         if(payload.sfxUrl != null && String(payload.sfxUrl).trim() !== '') {
             audioSys.playSFX(String(payload.sfxUrl).trim(), payload.sfxVolume);
         }
@@ -715,6 +887,7 @@ function buildPlayerHtmlTemplate() {
         if(o) o.remove();
         selectorHistory = [];
         selectorHsDiv = null;
+        timerNotifyBlockingClose();
     }
     function selectorBack() {
         if(selectorHistory.length <= 1) {
@@ -873,6 +1046,7 @@ function buildPlayerHtmlTemplate() {
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
         renderSelectorPanel();
+        timerNotifyBlockingOpen();
     }
 
     function hotspotDispatcher(hsDiv, args) {
@@ -880,6 +1054,7 @@ function buildPlayerHtmlTemplate() {
         hotspotRegistry.push(hsDiv);
         applyHotspotVisibility(hsDiv, args);
         hsDiv.onclick = function() {
+            if (gameOverTriggered) return;
             var visOk = isActionVisible(args);
             if(!visOk) {
                 if(!ghostPointerWhenHidden(args) || !shouldHideHotspotVisually(args)) return;
@@ -907,7 +1082,7 @@ function buildPlayerHtmlTemplate() {
                 
                 var pwdBackdrop = document.createElement('div');
                 pwdBackdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
-                pwdBackdrop.onclick = function(e) { if(e.target === pwdBackdrop) { audioSys.stopSFX(); document.body.removeChild(pwdBackdrop); } };
+                pwdBackdrop.onclick = function(e) { if(e.target === pwdBackdrop) { audioSys.stopSFX(); timerNotifyBlockingClose(); document.body.removeChild(pwdBackdrop); } };
                 var msg = document.createElement('div');
                 msg.style.cssText = 'background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;';
                 msg.onclick = function(e){ e.stopPropagation(); };
@@ -927,6 +1102,7 @@ function buildPlayerHtmlTemplate() {
                 btn.style.cssText = 'margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;';
                 btn.onclick = function() {
                     if(inp.value.toLowerCase().trim() === args.pwd) { 
+                        timerNotifyBlockingClose();
                         document.body.removeChild(pwdBackdrop); 
                         unlockedHotspots[args.id] = true; 
                         executeReward(args, hsDiv); 
@@ -942,11 +1118,12 @@ function buildPlayerHtmlTemplate() {
                 cls.innerHTML = "X"; 
                 cls.setAttribute('aria-label','Close');
                 cls.style.cssText = 'position:absolute;top:8px;right:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;';
-                cls.onclick = function() { audioSys.stopSFX(); document.body.removeChild(pwdBackdrop); }; 
+                cls.onclick = function() { audioSys.stopSFX(); timerNotifyBlockingClose(); document.body.removeChild(pwdBackdrop); }; 
                 
                 msg.appendChild(cls); 
                 pwdBackdrop.appendChild(msg);
-                document.body.appendChild(pwdBackdrop); 
+                document.body.appendChild(pwdBackdrop);
+                timerNotifyBlockingOpen();
                 setTimeout(function(){ inp.focus(); }, 100);
             }
         };
@@ -970,6 +1147,7 @@ function buildPlayerHtmlTemplate() {
         backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
         function closePopup() {
             audioSys.stopSFX();
+            timerNotifyBlockingClose();
             if (backdrop.parentNode) document.body.removeChild(backdrop);
         }
         backdrop.onclick = function(e) { if(e.target === backdrop) closePopup(); };
@@ -996,6 +1174,7 @@ function buildPlayerHtmlTemplate() {
         msg.appendChild(btn); 
         backdrop.appendChild(msg);
         document.body.appendChild(backdrop);
+        timerNotifyBlockingOpen();
     }
 <\/script>
 </body>
