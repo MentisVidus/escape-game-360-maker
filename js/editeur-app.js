@@ -257,6 +257,33 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "", sceneTargetR
             <div class="row">
                 <div class="col col-wide"><label>Volume ambiance (0 à 1) :</label><input type="range" class="sc-audio-vol" min="0" max="1" step="0.05" value="1" style="width:100%;max-width:320px;" title="Volume relatif de l’ambiance dans le mix audio du joueur"></div>
             </div>
+            <h4 class="scene-block-heading" style="margin:14px 0 8px 0;">⏱ Timer local sur cette scène (optionnel)</h4>
+            <div class="row">
+                <div class="col col-wide">
+                    <label style="display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" class="sc-timer-override-enabled" onchange="var b=this.closest('.scene-block').querySelector('.sc-timer-override-fields');if(b)b.style.display=this.checked?'block':'none'">
+                        Activer un compte à rebours sur cette scène
+                    </label>
+                </div>
+            </div>
+            <div class="sc-timer-override-fields" style="display:none">
+                <div class="row">
+                    <div class="col"><label>Durée (secondes) :</label><input type="number" class="sc-timer-override-seconds" min="1" step="1" value="60"></div>
+                    <div class="col"><label>À la fin :</label>
+                        <select class="sc-timer-override-on-expire" onchange="var r=this.closest('.scene-block');var t=r.querySelector('.sc-timer-override-row-target');var m=r.querySelector('.sc-timer-override-row-msg');var v=this.value;if(t)t.style.display=v==='gotoScene'?'flex':'none';if(m)m.style.display=v==='showMessage'?'flex':'none';">
+                            <option value="gameOver">Game Over (écran global)</option>
+                            <option value="gotoScene">Changer de scène</option>
+                            <option value="showMessage">Afficher un message</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row sc-timer-override-row-target" style="display:none">
+                    <div class="col col-wide"><label>ID scène cible :</label><input type="text" class="sc-timer-override-target-scene" placeholder="ex: couloir"></div>
+                </div>
+                <div class="row sc-timer-override-row-msg" style="display:none">
+                    <div class="col col-wide"><label>Message (HTML) :</label><textarea class="sc-timer-override-message-html" rows="2" placeholder="<p>…</p>"></textarea></div>
+                </div>
+            </div>
             <h4>Points d'interaction</h4>
             <div id="hs-container-${sId}"></div>
             <button class="btn-add-hs" onclick="addHotspot(${sId})">+ Ajouter un point d'interaction</button>
@@ -1123,6 +1150,33 @@ function applyLoadedProject(project) {
                         : 1;
                 avEl.value = String(Math.max(0, Math.min(1, av)));
             }
+        }
+
+        if (scDiv) {
+            var tov =
+                typeof EditorCore !== "undefined" && EditorCore.normalizeSceneTimerOverride
+                    ? EditorCore.normalizeSceneTimerOverride(scene.timerOverride)
+                    : scene.timerOverride || {};
+            var tEn = scDiv.querySelector(".sc-timer-override-enabled");
+            var tFld = scDiv.querySelector(".sc-timer-override-fields");
+            var tSec = scDiv.querySelector(".sc-timer-override-seconds");
+            var tExp = scDiv.querySelector(".sc-timer-override-on-expire");
+            var tTgt = scDiv.querySelector(".sc-timer-override-target-scene");
+            var tMsg = scDiv.querySelector(".sc-timer-override-message-html");
+            if (tEn) tEn.checked = !!tov.enabled;
+            if (tFld) tFld.style.display = tov.enabled ? "block" : "none";
+            if (tSec) tSec.value = String(tov.seconds != null && !isNaN(Number(tov.seconds)) ? tov.seconds : 60);
+            if (tExp) {
+                tExp.value =
+                    tov.onExpire === "gotoScene" || tov.onExpire === "showMessage" ? tov.onExpire : "gameOver";
+            }
+            if (tTgt) tTgt.value = tov.targetScene || "";
+            if (tMsg) tMsg.value = tov.messageHtml || "";
+            var rowT = scDiv.querySelector(".sc-timer-override-row-target");
+            var rowM = scDiv.querySelector(".sc-timer-override-row-msg");
+            var ev = tov.onExpire === "gotoScene" || tov.onExpire === "showMessage" ? tov.onExpire : "gameOver";
+            if (rowT) rowT.style.display = ev === "gotoScene" ? "flex" : "none";
+            if (rowM) rowM.style.display = ev === "showMessage" ? "flex" : "none";
         }
 
         (scene.hotspots || []).forEach(function (hs) {

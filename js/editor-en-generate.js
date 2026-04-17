@@ -150,6 +150,26 @@ function buildPlayerHtmlTemplate() {
     };
     const playerVictoryJson = JSON.stringify(playerVictoryPayload).replace(/</g, "\\u003c");
 
+    var sceneTimerOverridesMapBuild = {};
+    (project.scenes || []).forEach(function (sc) {
+        if (!sc || sc.id == null || String(sc.id).trim() === "") return;
+        var ov = sc.timerOverride;
+        if (!ov || !ov.enabled) return;
+        var sec = Math.max(0, parseInt(ov.seconds, 10) || 0);
+        if (sec <= 0) return;
+        var exp = String(ov.onExpire || "gameOver").toLowerCase();
+        if (exp === "gotoscene") exp = "gotoScene";
+        if (exp === "showmessage") exp = "showMessage";
+        if (exp !== "gotoScene" && exp !== "showMessage") exp = "gameOver";
+        sceneTimerOverridesMapBuild[String(sc.id).trim()] = {
+            seconds: sec,
+            onExpire: exp,
+            targetScene: ov.targetScene != null ? String(ov.targetScene).trim() : "",
+            messageHtml: ov.messageHtml != null ? String(ov.messageHtml) : ""
+        };
+    });
+    const sceneTimerOverridesJson = JSON.stringify(sceneTimerOverridesMapBuild).replace(/</g, "\\u003c");
+
     let scenesConfig = {};
     let firstSceneId = "";
     let customStylesCSS = "";
@@ -461,6 +481,7 @@ function buildPlayerHtmlTemplate() {
     <div id="panorama"></div>
     <script type="application/json" id="escape360-timer-config">${playerTimerJson}</script>
     <script type="application/json" id="escape360-victory-config">${playerVictoryJson}</script>
+    <script type="application/json" id="escape360-scene-timer-overrides">${sceneTimerOverridesJson}</script>
 
 <script>
     // Player state
@@ -484,6 +505,18 @@ function buildPlayerHtmlTemplate() {
             if (_vParsed && typeof _vParsed === "object") PLAYER_VICTORY_CONFIG = _vParsed;
         }
     } catch (eVictoryCfg) {}
+    var sceneTimerOverridesMap = {};
+    try {
+        var _stoEl = document.getElementById("escape360-scene-timer-overrides");
+        if (_stoEl && _stoEl.textContent) {
+            var _stoParsed = JSON.parse(_stoEl.textContent);
+            if (_stoParsed && typeof _stoParsed === "object") sceneTimerOverridesMap = _stoParsed;
+        }
+    } catch (eSto) {}
+    var activeScenePressure = null;
+    var pressRunStart = null;
+    var pressPausedAccum = 0;
+    var pressTotalMs = 0;
     var gameOverTriggered = false;
     var victoryTriggered = false;
     var timerDisplayMs = 0;
@@ -493,24 +526,110 @@ function buildPlayerHtmlTemplate() {
     var timerInterval = null;
     var timerClockStarted = false;
 
+    function hasSceneTimerOverrides() {
+        for (var k in sceneTimerOverridesMap) {
+            if (sceneTimerOverridesMap[k] && (sceneTimerOverridesMap[k].seconds || 0) > 0) return true;
+        }
+        return false;
+    }
+    function ensurePlayerTimerTick() {
+        if (timerInterval) return;
+        timerInterval = setInterval(tickPlayerTimer, 250);
+    }
+    function clearScenePressureState() {
+        activeScenePressure = null;
+        pressRunStart = null;
+        pressPausedAccum = 0;
+        pressTotalMs = 0;
+    }
+    function pressTimerOnEnterPause() {
+        if (!activeScenePressure) return;
+        if (pressRunStart != null) {
+            pressPausedAccum += Date.now() - pressRunStart;
+            pressRunStart = null;
+        }
+    }
+    function pressTimerOnLeavePauseIfNeeded() {
+        if (!activeScenePressure || gameOverTriggered || victoryTriggered) return;
+        if (isTimerPausedNow()) return;
+        if (pressRunStart == null) pressRunStart = Date.now();
+    }
+    function onSceneChangedForTimer(newSid) {
+        if (gameOverTriggered || victoryTriggered) return;
+        if (typeof viewer === "undefined" || !viewer) return;
+        var sid = newSid != null && newSid !== "" ? String(newSid) : "";
+        if (!sid) {
+            try { sid = String(viewer.getScene() || ""); } catch (e0) {}
+        }
+        sid = String(sid || "").trim();
+        if (activeScenePressure && activeScenePressure.sceneId === sid) return;
+        if (activeScenePressure && activeScenePressure.sceneId !== sid) {
+            clearScenePressureState();
+            timerOnLeavePauseIfNeeded();
+        }
+        var ov = sceneTimerOverridesMap[sid];
+        if (!ov || (ov.seconds || 0) <= 0) {
+            tickPlayerTimer();
+            return;
+        }
+        activeScenePressure = {
+            sceneId: sid,
+            onExpire: ov.onExpire || "gameOver",
+            targetScene: String(ov.targetScene || "").trim(),
+            messageHtml: String(ov.messageHtml || "")
+        };
+        pressTotalMs = Math.max(0, (ov.seconds || 0) * 1000);
+        pressPausedAccum = 0;
+        pressRunStart = isTimerPausedNow() ? null : Date.now();
+        if (PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled && timerClockStarted) timerOnEnterPause();
+        var tel = document.getElementById("player-timer");
+        if (tel) tel.classList.add("is-visible");
+        ensurePlayerTimerTick();
+        tickPlayerTimer();
+    }
+    function handleSceneTimerExpired() {
+        if (!activeScenePressure) return;
+        var exp = activeScenePressure.onExpire || "gameOver";
+        var tgt = activeScenePressure.targetScene;
+        var msg = activeScenePressure.messageHtml || "";
+        clearScenePressureState();
+        timerOnLeavePauseIfNeeded();
+        if (exp === "gotoScene" && tgt && typeof viewer !== "undefined" && viewer && typeof viewer.loadScene === "function") {
+            try { viewer.loadScene(tgt); } catch (eLs) {}
+            return;
+        }
+        if (exp === "showMessage") {
+            afficherPopup("", msg || "<p></p>");
+            return;
+        }
+        triggerGameOver();
+    }
+
     function isTimerBlockingUiOpen() {
         var sm = document.getElementById("settings-modal");
         if (sm && sm.classList.contains("is-open")) return true;
         return timerBlockingDepth > 0;
     }
     function isTimerPausedNow() {
-        return !!(PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled && PLAYER_TIMER_CONFIG.pauseWhenPopupOpen && isTimerBlockingUiOpen());
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.pauseWhenPopupOpen || !isTimerBlockingUiOpen()) return false;
+        return !!((PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled) || activeScenePressure);
     }
     function timerNotifyBlockingOpen() {
-        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled || !PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) return;
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) return;
+        if (!PLAYER_TIMER_CONFIG.enabled && !activeScenePressure) return;
         var wasPaused = isTimerPausedNow();
         timerBlockingDepth++;
-        if (!wasPaused && isTimerPausedNow()) timerOnEnterPause();
+        if (!wasPaused && isTimerPausedNow()) {
+            timerOnEnterPause();
+            pressTimerOnEnterPause();
+        }
     }
     function timerNotifyBlockingClose() {
-        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled || !PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) return;
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) return;
+        if (!PLAYER_TIMER_CONFIG.enabled && !activeScenePressure) return;
         if (timerBlockingDepth > 0) timerBlockingDepth--;
         timerOnLeavePauseIfNeeded();
+        pressTimerOnLeavePauseIfNeeded();
     }
     function timerOnEnterPause() {
         if (timerRunStart != null) {
@@ -543,7 +662,20 @@ function buildPlayerHtmlTemplate() {
         el.textContent = formatTimerMs(timerDisplayMs);
     }
     function tickPlayerTimer() {
-        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled || gameOverTriggered || victoryTriggered) return;
+        if (gameOverTriggered || victoryTriggered) return;
+        if (activeScenePressure) {
+            if (isTimerPausedNow()) {
+                updateTimerHudLabel();
+                return;
+            }
+            var nowP = Date.now();
+            var elapsedP = pressPausedAccum + (pressRunStart != null ? nowP - pressRunStart : 0);
+            timerDisplayMs = Math.max(0, pressTotalMs - elapsedP);
+            updateTimerHudLabel();
+            if (timerDisplayMs <= 0) handleSceneTimerExpired();
+            return;
+        }
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled) return;
         if (!timerClockStarted) {
             updateTimerHudLabel();
             return;
@@ -568,6 +700,7 @@ function buildPlayerHtmlTemplate() {
     }
     function triggerGameOver() {
         if (gameOverTriggered || victoryTriggered) return;
+        clearScenePressureState();
         gameOverTriggered = true;
         if (timerInterval) {
             clearInterval(timerInterval);
@@ -594,6 +727,7 @@ function buildPlayerHtmlTemplate() {
     function triggerVictory() {
         if (victoryTriggered || gameOverTriggered) return;
         if (!PLAYER_VICTORY_CONFIG || !String(PLAYER_VICTORY_CONFIG.sceneId || "").trim()) return;
+        clearScenePressureState();
         victoryTriggered = true;
         if (timerInterval) {
             clearInterval(timerInterval);
@@ -626,23 +760,27 @@ function buildPlayerHtmlTemplate() {
     }
     function initPlayerTimerAfterStart() {
         if (victoryTriggered || gameOverTriggered) return;
-        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled) return;
-        var el = document.getElementById("player-timer");
-        if (el) el.classList.add("is-visible");
-        gameOverTriggered = false;
-        timerPausedAccum = 0;
-        timerBlockingDepth = 0;
-        timerRunStart = null;
-        timerClockStarted = !!PLAYER_TIMER_CONFIG.autoStart;
-        if (PLAYER_TIMER_CONFIG.mode === "countup") {
-            timerDisplayMs = 0;
-        } else {
-            timerDisplayMs = Math.max(0, (PLAYER_TIMER_CONFIG.startSeconds || 0) * 1000);
+        var globOn = PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled;
+        if (globOn) {
+            var el = document.getElementById("player-timer");
+            if (el) el.classList.add("is-visible");
+            gameOverTriggered = false;
+            timerPausedAccum = 0;
+            timerBlockingDepth = 0;
+            timerRunStart = null;
+            timerClockStarted = !!PLAYER_TIMER_CONFIG.autoStart;
+            if (PLAYER_TIMER_CONFIG.mode === "countup") {
+                timerDisplayMs = 0;
+            } else {
+                timerDisplayMs = Math.max(0, (PLAYER_TIMER_CONFIG.startSeconds || 0) * 1000);
+            }
+            updateTimerHudLabel();
+            if (!isTimerPausedNow() && timerClockStarted) timerRunStart = Date.now();
         }
-        updateTimerHudLabel();
-        if (!isTimerPausedNow() && timerClockStarted) timerRunStart = Date.now();
-        timerInterval = setInterval(tickPlayerTimer, 250);
-        tickPlayerTimer();
+        if (globOn || hasSceneTimerOverrides()) {
+            ensurePlayerTimerTick();
+            tickPlayerTimer();
+        }
     }
 
     // --- Audio channels ---
@@ -777,7 +915,10 @@ function buildPlayerHtmlTemplate() {
         if (mod.classList.contains("is-open")) { closePlayerSettings(); return; }
         syncPlayerAudioSlidersToUi();
         mod.classList.add("is-open");
-        if (PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled && PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) timerOnEnterPause();
+        if (PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.pauseWhenPopupOpen && (PLAYER_TIMER_CONFIG.enabled || activeScenePressure)) {
+            timerOnEnterPause();
+            pressTimerOnEnterPause();
+        }
     }
 
     function closePlayerSettings() {
@@ -785,7 +926,10 @@ function buildPlayerHtmlTemplate() {
         if (!mod) return;
         var wasOpen = mod.classList.contains("is-open");
         mod.classList.remove("is-open");
-        if (wasOpen && PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled && PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) timerOnLeavePauseIfNeeded();
+        if (wasOpen && PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.pauseWhenPopupOpen && (PLAYER_TIMER_CONFIG.enabled || activeScenePressure)) {
+            timerOnLeavePauseIfNeeded();
+            pressTimerOnLeavePauseIfNeeded();
+        }
     }
 
     function applySceneAmbiance(sceneId) {
@@ -815,6 +959,7 @@ function buildPlayerHtmlTemplate() {
             var sid = (sceneId != null && sceneId !== '') ? sceneId : viewer.getScene();
             applySceneAmbiance(sid);
             checkVictoryForScene(sid);
+            if (!victoryTriggered && !gameOverTriggered) onSceneChangedForTimer(sid);
         });
         applySceneAmbiance("${firstSceneId}");
         checkVictoryForScene("${firstSceneId}");
@@ -824,6 +969,7 @@ function buildPlayerHtmlTemplate() {
             audioSys.playMusic("${globalMusicUrl}", ${globalMusicVol});
         }
         if (!victoryTriggered) initPlayerTimerAfterStart();
+        if (!victoryTriggered && !gameOverTriggered) onSceneChangedForTimer("${firstSceneId}");
     }
     
     function toggleInv() { 

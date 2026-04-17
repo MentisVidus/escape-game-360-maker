@@ -100,6 +100,8 @@ Rich text fields use **Quill 1.x** (Snow theme), initialized by [`js/editor-quil
 
 The **player** logic is embedded as a large template literal inside `generateGame()`. Changing gameplay requires editing that template (or extracting a shared script later).
 
+- **Per-scene pressure timer (V2)** — optional `scene.timerOverride` on each scene (`enabled`, `seconds`, `onExpire`: `gameOver` | `gotoScene` | `showMessage`, plus `targetScene` / `messageHtml` when relevant). The form saves it in project JSON; `editeur-generate.js` / `editor-en-generate.js` embed a map for the runtime as `#escape360-scene-timer-overrides`. While that scene is active, the HUD shows the local countdown (global timer pauses if it was running); leaving the scene cancels the local timer unless it already expired.
+
 ---
 
 ## Data flow (save/load/export)

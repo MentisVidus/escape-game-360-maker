@@ -170,6 +170,29 @@
         };
     }
 
+    /**
+     * Timer « pression » optionnel par scène (phase D).
+     * @param {*} raw
+     * @returns {{ enabled: boolean, seconds: number, onExpire: string, targetScene: string, messageHtml: string }}
+     */
+    function normalizeSceneTimerOverride(raw) {
+        var ov = raw && typeof raw === "object" ? raw : {};
+        var exp = String(ov.onExpire || "gameOver").toLowerCase();
+        if (exp === "gotoscene") exp = "gotoScene";
+        if (exp === "showmessage") exp = "showMessage";
+        if (exp !== "gotoScene" && exp !== "showMessage") exp = "gameOver";
+        var sec = parseInt(ov.seconds, 10);
+        if (isNaN(sec) || sec < 0) sec = 60;
+        var en = ov.enabled === true || ov.enabled === 1 || String(ov.enabled).toLowerCase() === "true";
+        return {
+            enabled: !!en,
+            seconds: sec,
+            onExpire: exp,
+            targetScene: ov.targetScene != null ? String(ov.targetScene).trim() : "",
+            messageHtml: ov.messageHtml != null ? String(ov.messageHtml) : ""
+        };
+    }
+
     function normalizeTimerConfig(project) {
         var p = project || {};
         var timer = p.timer;
@@ -239,6 +262,7 @@
                 var scene = scenes[s];
                 if (!scene || typeof scene !== "object") continue;
                 scene.media = normalizeSceneMedia(scene.media);
+                scene.timerOverride = normalizeSceneTimerOverride(scene.timerOverride);
                 var hss = scene.hotspots;
                 if (!Array.isArray(hss)) scene.hotspots = [];
                 else {
@@ -387,6 +411,7 @@
         createDefaultCopy: createDefaultCopy,
         createDefaultAudioClip: createDefaultAudioClip,
         normalizeProjectV2: normalizeProjectV2,
+        normalizeSceneTimerOverride: normalizeSceneTimerOverride,
         serializeProject: serializeProject,
         parseProjectJSON: parseProjectJSON,
         isSchemaV2: isSchemaV2

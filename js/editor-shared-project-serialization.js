@@ -27,6 +27,23 @@
             throw new Error("document is required for project serialization.");
         }
 
+        function readSceneTimerOverrideFromDiv(sceneDiv) {
+            var en = sceneDiv.querySelector(".sc-timer-override-enabled");
+            var secEl = sceneDiv.querySelector(".sc-timer-override-seconds");
+            var expEl = sceneDiv.querySelector(".sc-timer-override-on-expire");
+            var tgtEl = sceneDiv.querySelector(".sc-timer-override-target-scene");
+            var msgEl = sceneDiv.querySelector(".sc-timer-override-message-html");
+            var exp = expEl && expEl.value ? String(expEl.value) : "gameOver";
+            if (exp !== "gotoScene" && exp !== "showMessage") exp = "gameOver";
+            return {
+                enabled: !!(en && en.checked),
+                seconds: secEl && secEl.value != null ? parseInt(secEl.value, 10) : 60,
+                onExpire: exp,
+                targetScene: tgtEl && tgtEl.value != null ? String(tgtEl.value).trim() : "",
+                messageHtml: msgEl && msgEl.value != null ? String(msgEl.value) : ""
+            };
+        }
+
         function getCurrentProjectData() {
             var scenesRoot = doc.getElementById("scenes-container");
             if (scenesRoot && typeof global.flushRichEditorsIn === "function") {
@@ -78,7 +95,8 @@
                             )
                         }
                     },
-                    hotspots: []
+                    hotspots: [],
+                    timerOverride: readSceneTimerOverrideFromDiv(sceneDiv)
                 };
                 sceneDiv.querySelectorAll(".hotspot-block").forEach(function (hsDiv) {
                     scene.hotspots.push(hotspotDomToV2(hsDiv));

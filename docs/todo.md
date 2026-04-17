@@ -30,6 +30,7 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 - **Timer + écrans de fin — phase A (schéma + UI éditeur)** — ajout des paramètres globaux `timer`, `victorySceneId`, `endScreens` dans `editor-core.js` (defaults + normalisation), ajout des contrôles FR/EN dans `editeur.html` / `editor_en.html`, et branchement save/load via `js/editor-shared-timer.js` + `js/editor-shared-project-serialization.js` + `applyLoadedProject` FR/EN.
 - **Timer joueur — phase B (runtime export)** — `js/editeur-generate.js` + `js/editor-en-generate.js` : JSON embarqué `escape360-timer-config` (timer + copie `endScreens.gameOver`), HUD `#player-timer`, CSS modale Game Over ; logique tick countdown / countup, expiration → écran Game Over (destroy Pannellum, masquage HUD, `location.reload()` sur le bouton) ; option **pause pendant popups** branchée sur paramètres, `afficherPopup`, sélecteur, énigme mot de passe ; `initPlayerTimerAfterStart()` après `startGame` ; garde **`gameOverTriggered`** sur `executeAction` et clics `hotspotDispatcher`.
 - **Timer joueur — phase C (victoire) + sens « démarrage auto »** — `js/editeur-generate.js` + `js/editor-en-generate.js` : modale victoire (`victorySceneId`, contenus `endScreens.victory`), déclenchement sur la scène courante (chargement initial + `scenechange`) ; si `timer.autoStart` est désactivé, le compteur ne tourne qu’après le premier clic hotspot ou la première exécution `executeAction` (ex. choix selector). Aide contextuelle sous la case à cocher dans `editeur.html` / `editor_en.html`.
+- **Timer joueur — phase D (overrides par scène)** — `EditorCore.normalizeSceneTimerOverride` + normalisation dans `normalizeProjectV2` ; formulaire par scène (FR/EN `editeur-app.js` / `editor-en-app.js`) + sérialisation `editor-shared-project-serialization.js` + duplication `editor-shared-duplication.js` ; runtime export : JSON `#escape360-scene-timer-overrides`, compte à rebours local sur la scène active, pause du timer global le temps du local si besoin, fin : Game Over global / `loadScene` / popup HTML.
 
 ---
 
@@ -134,7 +135,7 @@ Objectif : scènes “pression” avec compte à rebours local.
   - HUD timer, mode countup/countdown, expiration -> Game Over.
 - **Phase C — Victoire** *(livré : runtime export FR/EN + doc UI « auto-start »)*
   - Déclenchement via `victorySceneId` + écran victoire.
-- **Phase D — Overrides scène (V2)**
+- **Phase D — Overrides scène (V2)** *(livré : `scene.timerOverride` + runtime HUD / `scenechange`)*
   - Compte à rebours local par scène + actions à expiration.
 
 ---

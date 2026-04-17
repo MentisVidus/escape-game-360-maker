@@ -77,6 +77,31 @@
             var newVol = newScDiv && newScDiv.querySelector(".sc-audio-vol");
             if (newVol && oldVol) newVol.value = oldVol.value;
 
+            var oldTEn = sDiv.querySelector(".sc-timer-override-enabled");
+            var newTEn = newScDiv && newScDiv.querySelector(".sc-timer-override-enabled");
+            var oldTFld = sDiv.querySelector(".sc-timer-override-fields");
+            var newTFld = newScDiv && newScDiv.querySelector(".sc-timer-override-fields");
+            if (newTEn && oldTEn) newTEn.checked = oldTEn.checked;
+            if (newTFld && oldTFld) newTFld.style.display = oldTFld.style.display;
+            var oldTSec = sDiv.querySelector(".sc-timer-override-seconds");
+            var newTSec = newScDiv && newScDiv.querySelector(".sc-timer-override-seconds");
+            if (newTSec && oldTSec) newTSec.value = oldTSec.value;
+            var oldTExp = sDiv.querySelector(".sc-timer-override-on-expire");
+            var newTExp = newScDiv && newScDiv.querySelector(".sc-timer-override-on-expire");
+            if (newTExp && oldTExp) newTExp.value = oldTExp.value;
+            var oldTTgt = sDiv.querySelector(".sc-timer-override-target-scene");
+            var newTTgt = newScDiv && newScDiv.querySelector(".sc-timer-override-target-scene");
+            if (newTTgt && oldTTgt) newTTgt.value = oldTTgt.value;
+            var oldTMsg = sDiv.querySelector(".sc-timer-override-message-html");
+            var newTMsg = newScDiv && newScDiv.querySelector(".sc-timer-override-message-html");
+            if (newTMsg && oldTMsg) newTMsg.value = oldTMsg.value;
+            var oldRowT = sDiv.querySelector(".sc-timer-override-row-target");
+            var newRowT = newScDiv && newScDiv.querySelector(".sc-timer-override-row-target");
+            var oldRowM = sDiv.querySelector(".sc-timer-override-row-msg");
+            var newRowM = newScDiv && newScDiv.querySelector(".sc-timer-override-row-msg");
+            if (newRowT && oldRowT) newRowT.style.display = oldRowT.style.display;
+            if (newRowM && oldRowM) newRowM.style.display = oldRowM.style.display;
+
             sDiv.querySelectorAll(".hotspot-block").forEach(function (hsDiv) {
                 var hid = hsDiv.id.split("_")[1];
                 addHotspot(newSId, extractHotspotData(hid));
