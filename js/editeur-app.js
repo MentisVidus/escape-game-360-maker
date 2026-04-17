@@ -148,6 +148,16 @@ var HotspotDomMapper = EditorSharedHotspotDomMapperApi.createHotspotDomMapper({
     legacyActionToV2: legacyActionToV2
 });
 var hotspotDomToV2 = HotspotDomMapper.hotspotDomToV2;
+var EditorSharedProjectSerializationApi = window.EditorSharedProjectSerialization;
+if (!EditorSharedProjectSerializationApi) {
+    throw new Error("EditorSharedProjectSerialization indisponible (js/editor-shared-project-serialization.js).");
+}
+var ProjectSerializer = EditorSharedProjectSerializationApi.createSerializer({
+    EditorCore: window.EditorCore,
+    hotspotDomToV2: hotspotDomToV2,
+    document: document
+});
+var getCurrentProjectData = ProjectSerializer.getCurrentProjectData;
 
 /** Depuis la carte : nouvelle scène puis rafraîchissement du graphe si la modale est ouverte. */
 function addSceneFromMap() {
@@ -1113,68 +1123,6 @@ function updateHsFields(hId, opts) {
 
 // --- FONCTIONS DE SAUVEGARDE ET CHARGEMENT DU FICHIER .JSON ---
 
-
-/**
- * Projet sauvegardé au format schéma v2 (action unifiée).
- */
-function getCurrentProjectData() {
-    if(!window.EditorCore) throw new Error("EditorCore non chargé.");
-    var _scRoot = document.getElementById("scenes-container");
-    if (_scRoot && typeof flushRichEditorsIn === "function") {
-        flushRichEditorsIn(_scRoot);
-    }
-    let project = EditorCore.createEmptyProject();
-    project.title = document.getElementById('gameTitle').value;
-    project.useInv = document.getElementById('useInventory').checked;
-    project.invPos = document.getElementById('inv-pos').value;
-    project.invIcon = document.getElementById('inv-icon').value;
-    project.invBgc = document.getElementById('inv-bgc').value;
-    project.invBga = parseFloat(document.getElementById('inv-bga').value || "0.8");
-    project.invColor = document.getElementById('inv-color').value;
-    project.useCustomPopup = document.getElementById('useCustomPopup').checked;
-    project.useGlobalAudio = document.getElementById('useGlobalAudio').checked;
-    var globalVolEl = document.getElementById("globalAudioVol");
-    var gMusicVol = 0.5;
-    if (globalVolEl) {
-        var gv = parseFloat(globalVolEl.value);
-        gMusicVol = isNaN(gv) ? 0.5 : Math.max(0, Math.min(1, gv));
-    }
-    project.globalMusic = {
-        url: document.getElementById('globalAudioUrl').value,
-        volume: gMusicVol
-    };
-    project.popFont = document.getElementById('pop-font').value;
-    project.popColor = document.getElementById('pop-color').value;
-    project.popBgc = document.getElementById('pop-bgc').value;
-    project.popBga = parseFloat(document.getElementById('pop-bga').value || "0.9");
-    project.popBtnBg = document.getElementById('pop-btn-bg').value;
-    project.popBtnCol = document.getElementById('pop-btn-col').value;
-
-    document.querySelectorAll('.scene-block').forEach(sceneDiv => {
-        let scene = {
-            id: (sceneDiv.querySelector('.sc-id') || { value: "" }).value.trim(),
-            title: (sceneDiv.querySelector('.sc-title') || { value: "" }).value,
-            media: {
-                panoramaUrl: (sceneDiv.querySelector('.sc-img') || { value: "" }).value,
-                ambiance: {
-                    url: sceneDiv.querySelector('.sc-audio') ? sceneDiv.querySelector('.sc-audio').value : "",
-                    volume: (function () {
-                        var el = sceneDiv.querySelector(".sc-audio-vol");
-                        if (!el) return 1;
-                        var av = parseFloat(el.value);
-                        return isNaN(av) ? 1 : Math.max(0, Math.min(1, av));
-                    })()
-                }
-            },
-            hotspots: []
-        };
-        sceneDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
-            scene.hotspots.push(hotspotDomToV2(hsDiv));
-        });
-        project.scenes.push(scene);
-    });
-    return project;
-}
 
 function saveProject() {
     const project = getCurrentProjectData();
