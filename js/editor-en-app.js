@@ -106,6 +106,17 @@ var hexToRgba = EditorSharedUiApi.hexToRgba;
 var buildCss = EditorSharedUiApi.buildCss;
 var applyPickHiddenIfAutoFillInitial = EditorSharedUiApi.applyPickHiddenIfAutoFillInitial;
 var wirePickIdToHiddenIfAutoFill = EditorSharedUiApi.wirePickIdToHiddenIfAutoFill;
+var EditorSharedSelectorCoreApi = window.EditorSharedSelectorCore;
+if (!EditorSharedSelectorCoreApi) {
+    throw new Error("EditorSharedSelectorCore unavailable (js/editor-shared-selector-core.js).");
+}
+var getOwnChoiceField = EditorSharedSelectorCoreApi.getOwnChoiceField;
+var collectChoicesFromList = EditorSharedSelectorCoreApi.collectChoicesFromList;
+var syncSelectorChoicesToTextarea = EditorSharedSelectorCoreApi.syncSelectorChoicesToTextarea;
+var attachSelectorChoicesListeners = EditorSharedSelectorCoreApi.attachSelectorChoicesListeners;
+var selectorMoveChoice = EditorSharedSelectorCoreApi.selectorMoveChoice;
+var selectorRemoveChoice = EditorSharedSelectorCoreApi.selectorRemoveChoice;
+var selectorChoicesFromTextarea = EditorSharedSelectorCoreApi.selectorChoicesFromTextarea;
 
 /** From map: add scene then refresh graph if modal is open. */
 function addSceneFromMap() {
@@ -524,23 +535,6 @@ function getDefaultChoice() {
     return { label: "New choice", actionType: "msg", txt: "<p>Text</p>" };
 }
 
-function collectChoicesFromList(listEl) {
-    if(!listEl) return [];
-    if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(listEl);
-    var cards = Array.prototype.filter.call(listEl.children || [], function(el) {
-        return el.classList && el.classList.contains("sel-choice-card");
-    });
-    return cards.map(function(c) { return cardToChoice(c); });
-}
-
-function getOwnChoiceField(card, selector) {
-    var nodes = card.querySelectorAll(selector);
-    for(var i = 0; i < nodes.length; i++) {
-        if(nodes[i].closest(".sel-choice-card") === card) return nodes[i];
-    }
-    return null;
-}
-
 function cardToChoice(card) {
     if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(card);
     var typeEl = getOwnChoiceField(card, ".sel-action-type");
@@ -591,47 +585,6 @@ function cardToChoice(card) {
     return out;
 }
 
-function syncSelectorChoicesToTextarea(hId) {
-    var hsDiv = document.getElementById("hs_" + hId);
-    if(!hsDiv) return;
-    var ta = hsDiv.querySelector(".f-sel-choices");
-    if(!ta || !ta.hasAttribute("readonly")) return;
-    var root = document.getElementById("sel_choices_root_" + hId);
-    if(!root) return;
-    var arr = collectChoicesFromList(root);
-    ta.value = JSON.stringify(arr, null, 2);
-}
-
-function attachSelectorChoicesListeners(hId) {
-    var wrap = document.getElementById("fields_" + hId);
-    if(!wrap) return;
-    var root = wrap.querySelector(".sel-choices-root");
-    if(!root) return;
-    var sync = function() { syncSelectorChoicesToTextarea(hId); };
-    root.removeEventListener("input", root._selSync);
-    root.removeEventListener("change", root._selSync);
-    root._selSync = sync;
-    root.addEventListener("input", sync);
-    root.addEventListener("change", sync);
-}
-
-function selectorMoveChoice(btn, dir) {
-    var card = btn.closest(".sel-choice-card");
-    if(!card) return;
-    var list = card.parentElement;
-    var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
-    if(dir < 0 && card.previousElementSibling) list.insertBefore(card, card.previousElementSibling);
-    else if(dir > 0 && card.nextElementSibling) list.insertBefore(card.nextElementSibling, card);
-    syncSelectorChoicesToTextarea(hId);
-}
-
-function selectorRemoveChoice(btn) {
-    var card = btn.closest(".sel-choice-card");
-    if(!card) return;
-    var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
-    card.remove();
-    syncSelectorChoicesToTextarea(hId);
-}
 
 function selectorAddChoice(hId) {
     var root = document.getElementById("sel_choices_root_" + hId);
@@ -1149,16 +1102,6 @@ function updateHsFields(hId, opts) {
 }
 
 // --- Save / load project JSON ---
-
-function selectorChoicesFromTextarea(hsDiv, hId) {
-    var ta = hsDiv.querySelector(".f-sel-choices");
-    if(!ta) return [];
-    if(ta.hasAttribute("readonly")) syncSelectorChoicesToTextarea(hId);
-    var arr = [];
-    try { arr = JSON.parse(ta.value || "[]"); } catch(e) { arr = []; }
-    if(!Array.isArray(arr)) arr = [];
-    return arr;
-}
 
 function selectorChoiceLegacyToV2(ch, idx) {
     var out = {

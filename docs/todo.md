@@ -19,6 +19,7 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 - **UX — cible après « + nouvelle scène »** — `addScene` transmet `{ preferSelect, preferVal }` à `refreshAllSceneTargetSelects` ; priorité à ce couple dans `js/editor-quill-scenes.js` pour que le `<select>` qui a ouvert le flux reste sur le **nouvel ID** (évite le premier refresh sans opts qui remettait `dataset.prevValue`). FR : `editeur-app.js` ; EN : `editor-en-app.js`.
 - **Refactor FR/EN — phase 1 (helpers bundle)** — extraction des helpers `.escapegame` communs dans `js/editor-shared-bundle.js`; `editeur-app.js` et `editor-en-app.js` branchés sur cette API partagée; script chargé dans `editeur.html` / `editor_en.html`.
 - **Refactor FR/EN — phase 2 (helpers UI sans i18n)** — extraction dans `js/editor-shared-ui-utils.js` des fonctions communes non localisées (`toggleCollapse`, `toggleAllHotspotsInScene`, `moveUp`, `moveDown`, `buildCss`, auto-fill pick/hidden). `editeur-app.js` / `editor-en-app.js` consomment `window.EditorSharedUi`; script chargé dans les deux HTML.
+- **Refactor FR/EN — phase 3 (cœur selector technique)** — extraction dans `js/editor-shared-selector-core.js` des helpers selector non localisés (`getOwnChoiceField`, `collectChoicesFromList`, sync/listeners textarea JSON, move/remove choice, parse textarea). `editeur-app.js` / `editor-en-app.js` branchés sur `window.EditorSharedSelectorCore`; script chargé dans les deux HTML.
 
 ---
 

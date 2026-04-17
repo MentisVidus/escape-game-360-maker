@@ -13,6 +13,7 @@ This document is for **developers** and **AI assistants** working on the reposit
 | [js/editor-quill-scenes.js](../js/editor-quill-scenes.js) | Quill WYSIWYG for `.editor-rich-text`, scene-ID selects, **`updateQuillTheme()`** (popup colors + font sync), Font/Size whitelist registration. |
 | [js/editor-shared-bundle.js](../js/editor-shared-bundle.js) | Shared FR/EN helpers for `.escapegame` media management (blob session, portable URL rewrite, ZIP asset mapping). |
 | [js/editor-shared-ui-utils.js](../js/editor-shared-ui-utils.js) | Shared FR/EN UI helpers without localized copy (collapse/reorder utilities, no-code CSS generator, pick auto-fill wiring). |
+| [js/editor-shared-selector-core.js](../js/editor-shared-selector-core.js) | Shared FR/EN selector technical core (own-card field lookup, JSON textarea sync/listeners, move/remove choice helpers, textarea parsing). |
 | [js/editeur-app.js](../js/editeur-app.js) | French editor: UI, scenes/hotspots, save/load (`.json` / **`.escapegame`** bundle), previews, **`getCurrentProjectData()`**, map hooks — everything except `generateGame`. |
 | [js/editeur-generate.js](../js/editeur-generate.js) | French: `generateGame()` (player template), **`exportGameWebZip()`** (hosting ZIP), `window.onload` boot. |
 | [js/editor-en-app.js](../js/editor-en-app.js) | English editor — mirrors `editeur-app.js` (including bundle save/load). |
