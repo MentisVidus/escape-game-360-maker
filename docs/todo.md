@@ -17,6 +17,7 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 - **Placeholder scène (grille PNG)** — `EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL` → jsDelivr `media/equirectangular_placeholder_grid.png` (dépôt `MentisVidus/escape-game-360-maker@main`) ; nouvelles scènes + chargement projet sans `panoramaUrl` (FR/EN, `editor-quill-scenes.js`).
 - **Revue documentation (printemps 2026)** — `README.md` (FR+EN), `docs/ARCHITECTURE.md`, `PLAN_EDITEUR_NODAL.md`, `CONTRIBUTING.md`, `docs/README.md`, `SELECTOR_SPEC.md`, `todo.md` : alignement sur **bundle `.escapegame`**, **export ZIP Web**, **HUD audio joueur**, feuille de route et liens croisés.
 - **UX — cible après « + nouvelle scène »** — `addScene` transmet `{ preferSelect, preferVal }` à `refreshAllSceneTargetSelects` ; priorité à ce couple dans `js/editor-quill-scenes.js` pour que le `<select>` qui a ouvert le flux reste sur le **nouvel ID** (évite le premier refresh sans opts qui remettait `dataset.prevValue`). FR : `editeur-app.js` ; EN : `editor-en-app.js`.
+- **Refactor FR/EN — phase 1 (helpers bundle)** — extraction des helpers `.escapegame` communs dans `js/editor-shared-bundle.js`; `editeur-app.js` et `editor-en-app.js` branchés sur cette API partagée; script chargé dans `editeur.html` / `editor_en.html`.
 
 ---
 
@@ -32,7 +33,7 @@ Synthèse des pistes à traiter **plus tard** (pas tout en parallèle). Détail 
 
 ### Refactor code & séparation FR / EN
 
-- Passer en revue **`editeur-app.js`** / **`editor-en-app.js`** : repérer les fonctions **strictement identiques** (aucun texte UI) et les **extraire** vers un ou plusieurs modules JS **thématiques** (ex. `editor-scenes.js`, `editor-hotspots-logic.js`, `editor-bundle-helpers.js`) chargés par les deux HTML — objectif : **ne dupliquer que** ce qui affiche ou formate des chaînes **spécifiques à la langue** (labels, `confirm`, messages d’erreur, placeholders).
+- Passer en revue **`editeur-app.js`** / **`editor-en-app.js`** : repérer les fonctions **strictement identiques** (aucun texte UI) et les **extraire** vers un ou plusieurs modules JS **thématiques** (ex. `editor-scenes.js`, `editor-hotspots-logic.js`) chargés par les deux HTML — objectif : **ne dupliquer que** ce qui affiche ou formate des chaînes **spécifiques à la langue** (labels, `confirm`, messages d’erreur, placeholders). *(Phase 1 bundle déjà faite.)*
 - Vérifier s’il existe du **code mort** ou des chemins jamais appelés côté éditeur dans l’un des deux fichiers.
 
 ### Documentation
