@@ -81,6 +81,21 @@
             closePicker();
         }
 
+        function sanitizeCssDeclarationText(value) {
+            return String(value || "")
+                .replace(/<\/style/gi, "<\\/style")
+                .replace(/[\u0000-\u001F\u007F]/g, " ")
+                .replace(/[\r\n\f]/g, " ");
+        }
+
+        function escapeForCssContentString(value) {
+            return String(value || "")
+                .replace(/\\/g, "\\\\")
+                .replace(/'/g, "\\'")
+                .replace(/[\r\n\f]/g, " ")
+                .replace(/<\/style/gi, "<\\/style");
+        }
+
         function previewScene(sceneLocalId) {
             var scImgEl = doc.querySelector("#scene_" + sceneLocalId + " .sc-img");
             var scImg = scImgEl ? scImgEl.value : "";
@@ -97,8 +112,10 @@
             doc.querySelectorAll("#scene_" + sceneLocalId + " .hotspot-block").forEach(function (hsDiv, index) {
                 var pitch = parseFloat((hsDiv.querySelector(".hs-pitch") || { value: "0" }).value);
                 var yaw = parseFloat((hsDiv.querySelector(".hs-yaw") || { value: "0" }).value);
-                var rawCss = (hsDiv.querySelector(".hs-custom-css") || { value: "" }).value;
-                var hsIdText = (hsDiv.querySelector(".hs-title") || { value: "" }).value || ("HS " + (index + 1));
+                var rawCss = sanitizeCssDeclarationText((hsDiv.querySelector(".hs-custom-css") || { value: "" }).value);
+                var hsIdText = escapeForCssContentString(
+                    (hsDiv.querySelector(".hs-title") || { value: "" }).value || ("HS " + (index + 1))
+                );
                 var hsClass = "prev-hs-" + sceneLocalId + "-" + index;
 
                 previewCSS += "." + hsClass + " { " + rawCss + " outline: 3px dashed red !important; outline-offset: 2px; pointer-events: auto; display: flex; align-items: center; justify-content: center; }\n";
@@ -107,7 +124,7 @@
             });
 
             var styleEl = doc.getElementById("live-preview-styles");
-            if (styleEl) styleEl.innerHTML = previewCSS;
+            if (styleEl) styleEl.textContent = previewCSS;
 
             if (scenePreviewViewer) scenePreviewViewer.destroy();
             scenePreviewViewer = pannellumApi.viewer("scene-preview-panorama", {

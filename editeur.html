@@ -250,6 +250,103 @@
             </div> <!-- /audio-settings-container -->
             </div><!-- /global-sub-audio-body -->
         </div> <!-- /BLOC 3 -->
+
+        <!-- ============================================== -->
+        <!-- BLOC 4 : TIMER ET ÉCRANS DE FIN                -->
+        <!-- ============================================== -->
+        <div class="global-settings-subsection">
+            <div class="scene-header global-settings-subsection-head">
+                <div class="scene-header-main">
+                    <button type="button" class="btn-icon" onclick="toggleCollapse('global-sub-timer-body', this)">▼</button>
+                    <h3 class="scene-block-heading" style="margin:0;">Timer et écrans de fin</h3>
+                </div>
+            </div>
+            <div id="global-sub-timer-body">
+            <label style="font-size: 18px; font-weight: bold; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 20px;">
+                <input type="checkbox" id="useTimer" onchange="document.getElementById('timer-settings-container').style.display = this.checked ? 'flex' : 'none';" style="width: 20px; height: 20px;">
+                Activer le timer (compteur joueur)
+            </label>
+
+            <div id="timer-settings-container" style="display: none; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
+                <div style="flex: 1; min-width: 320px;">
+                    <div class="row" style="margin-bottom: 10px;">
+                        <div class="col" style="flex:1;">
+                            <label for="timerMode">Mode timer :</label>
+                            <select id="timerMode">
+                                <option value="countdown">Compte à rebours</option>
+                                <option value="countup">Chrono (compte croissant)</option>
+                            </select>
+                        </div>
+                        <div class="col" style="flex:1;">
+                            <label for="timerStartSeconds">Durée initiale (secondes) :</label>
+                            <input type="number" id="timerStartSeconds" min="0" step="1" value="1800">
+                        </div>
+                    </div>
+                    <div class="row" style="margin-bottom: 10px;">
+                        <div class="col" style="flex:1;">
+                            <label style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="timerAutoStart" checked>
+                                Démarrage automatique
+                            </label>
+                        </div>
+                        <div class="col" style="flex:1;">
+                            <label style="display:flex;align-items:center;gap:8px;">
+                                <input type="checkbox" id="timerPauseOnPopup">
+                                Mettre en pause pendant les popups
+                            </label>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-bottom: 10px;">
+                        <div class="col" style="flex:1;">
+                            <label for="victorySceneId">ID scène de victoire (optionnel) :</label>
+                            <input type="text" id="victorySceneId" placeholder="ex: fin">
+                        </div>
+                    </div>
+                </div>
+                <div style="flex: 1; min-width: 320px;">
+                    <h4 style="margin: 0 0 10px 0;">Écran Game Over</h4>
+                    <div class="row" style="margin-bottom: 8px;">
+                        <div class="col" style="flex:1;">
+                            <label for="endGameOverTitle">Titre :</label>
+                            <input type="text" id="endGameOverTitle" value="Temps écoulé">
+                        </div>
+                    </div>
+                    <div class="row" style="margin-bottom: 8px;">
+                        <div class="col" style="flex:1;">
+                            <label for="endGameOverBody">Contenu HTML :</label>
+                            <textarea id="endGameOverBody" rows="3" placeholder="<p>Vous avez perdu...</p>"></textarea>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-bottom: 14px;">
+                        <div class="col" style="flex:1;">
+                            <label for="endGameOverBtn">Texte bouton :</label>
+                            <input type="text" id="endGameOverBtn" value="Rejouer">
+                        </div>
+                    </div>
+
+                    <h4 style="margin: 0 0 10px 0;">Écran Victoire</h4>
+                    <div class="row" style="margin-bottom: 8px;">
+                        <div class="col" style="flex:1;">
+                            <label for="endVictoryTitle">Titre :</label>
+                            <input type="text" id="endVictoryTitle" value="Bravo !">
+                        </div>
+                    </div>
+                    <div class="row" style="margin-bottom: 8px;">
+                        <div class="col" style="flex:1;">
+                            <label for="endVictoryBody">Contenu HTML :</label>
+                            <textarea id="endVictoryBody" rows="3" placeholder="<p>Mission accomplie.</p>"></textarea>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col" style="flex:1;">
+                            <label for="endVictoryBtn">Texte bouton :</label>
+                            <input type="text" id="endVictoryBtn" value="Rejouer">
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- /timer-settings-container -->
+            </div><!-- /global-sub-timer-body -->
+        </div> <!-- /BLOC 4 -->
     </div> <!-- /Fin de la colonne principale -->
 	</div>
 </div>
@@ -356,6 +453,7 @@
     <script src="js/editor-shared-hotspot-serialization.js" defer></script>
     <script src="js/editor-shared-action-mappers.js" defer></script>
     <script src="js/editor-shared-hotspot-dom-mapper.js" defer></script>
+    <script src="js/editor-shared-timer.js" defer></script>
     <script src="js/editor-shared-project-serialization.js" defer></script>
     <script src="js/editor-shared-preview-picker.js" defer></script>
     <script src="js/editor-shared-duplication.js" defer></script>

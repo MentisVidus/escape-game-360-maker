@@ -170,6 +170,50 @@
         };
     }
 
+    function normalizeTimerConfig(project) {
+        var p = project || {};
+        var timer = p.timer;
+        if (!timer || typeof timer !== "object") timer = {};
+        function toBool(v, fallback) {
+            if (v === undefined || v === null || v === "") return !!fallback;
+            if (v === false || v === 0) return false;
+            if (v === true || v === 1) return true;
+            var s = String(v).trim().toLowerCase();
+            if (s === "false" || s === "0" || s === "no" || s === "non") return false;
+            if (s === "true" || s === "1" || s === "yes" || s === "oui") return true;
+            return !!fallback;
+        }
+        var mode = String(timer.mode || "countdown").toLowerCase() === "countup" ? "countup" : "countdown";
+        var startSeconds = parseInt(timer.startSeconds, 10);
+        if (isNaN(startSeconds) || startSeconds < 0) startSeconds = 1800;
+        p.timer = {
+            enabled: toBool(timer.enabled, false),
+            mode: mode,
+            startSeconds: startSeconds,
+            autoStart: toBool(timer.autoStart, true),
+            pauseWhenPopupOpen: toBool(timer.pauseWhenPopupOpen, false)
+        };
+
+        p.victorySceneId = p.victorySceneId != null ? String(p.victorySceneId).trim() : "";
+
+        var endScreens = p.endScreens;
+        if (!endScreens || typeof endScreens !== "object") endScreens = {};
+        var gameOver = endScreens.gameOver && typeof endScreens.gameOver === "object" ? endScreens.gameOver : {};
+        var victory = endScreens.victory && typeof endScreens.victory === "object" ? endScreens.victory : {};
+        p.endScreens = {
+            gameOver: {
+                title: gameOver.title != null ? String(gameOver.title) : "",
+                bodyHtml: gameOver.bodyHtml != null ? String(gameOver.bodyHtml) : "",
+                buttonLabel: gameOver.buttonLabel != null ? String(gameOver.buttonLabel) : ""
+            },
+            victory: {
+                title: victory.title != null ? String(victory.title) : "",
+                bodyHtml: victory.bodyHtml != null ? String(victory.bodyHtml) : "",
+                buttonLabel: victory.buttonLabel != null ? String(victory.buttonLabel) : ""
+            }
+        };
+    }
+
     /**
      * Applique les formes canoniques v2 (audio + copy) après parse JSON.
      * @param {Object} project
@@ -185,6 +229,8 @@
         } else {
             project.globalMusic = { url: "", volume: 0.5 };
         }
+
+        normalizeTimerConfig(project);
 
         var scenes = project.scenes;
         if (!Array.isArray(scenes)) project.scenes = [];
@@ -262,6 +308,26 @@
             useCustomPopup: false,
             useGlobalAudio: false,
             globalMusic: { url: "", volume: 0.5 },
+            timer: {
+                enabled: false,
+                mode: "countdown",
+                startSeconds: 1800,
+                autoStart: true,
+                pauseWhenPopupOpen: false
+            },
+            victorySceneId: "",
+            endScreens: {
+                gameOver: {
+                    title: "",
+                    bodyHtml: "",
+                    buttonLabel: ""
+                },
+                victory: {
+                    title: "",
+                    bodyHtml: "",
+                    buttonLabel: ""
+                }
+            },
             popFont: "Arial, sans-serif",
             popColor: "#ffffff",
             popBgc: "#000000",

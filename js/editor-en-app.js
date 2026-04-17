@@ -136,6 +136,12 @@ var HotspotDomMapper = EditorSharedHotspotDomMapperApi.createHotspotDomMapper({
     legacyActionToV2: legacyActionToV2
 });
 var hotspotDomToV2 = HotspotDomMapper.hotspotDomToV2;
+var EditorSharedTimerApi = window.EditorSharedTimer;
+if (!EditorSharedTimerApi) {
+    throw new Error("EditorSharedTimer unavailable (js/editor-shared-timer.js).");
+}
+var readTimerSettingsFromDom = EditorSharedTimerApi.readTimerSettingsFromDom;
+var applyTimerSettingsToDom = EditorSharedTimerApi.applyTimerSettingsToDom;
 var EditorSharedProjectSerializationApi = window.EditorSharedProjectSerialization;
 if (!EditorSharedProjectSerializationApi) {
     throw new Error("EditorSharedProjectSerialization unavailable (js/editor-shared-project-serialization.js).");
@@ -143,7 +149,8 @@ if (!EditorSharedProjectSerializationApi) {
 var ProjectSerializer = EditorSharedProjectSerializationApi.createSerializer({
     EditorCore: window.EditorCore,
     hotspotDomToV2: hotspotDomToV2,
-    document: document
+    document: document,
+    readTimerSettings: readTimerSettingsFromDom
 });
 var getCurrentProjectData = ProjectSerializer.getCurrentProjectData;
 var EditorSharedPreviewPickerApi = window.EditorSharedPreviewPicker;
@@ -1088,6 +1095,7 @@ function applyLoadedProject(project) {
         var gVolDisp = document.getElementById("globalAudioVolVal");
         if (gVolDisp) gVolDisp.textContent = Number(gVolEl.value).toFixed(2);
     }
+    applyTimerSettingsToDom(document, project);
 
     project.scenes.forEach(function (scene) {
         var scMedia = scene.media || {};

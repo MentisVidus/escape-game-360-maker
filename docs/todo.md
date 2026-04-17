@@ -27,6 +27,7 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 - **Refactor FR/EN — phase 8 (shared preview/picker core)** — extraction des outils 360 (`openPicker`, `validerCoordonnees`, `closePicker`, `previewScene`, `closeScenePreview`) dans `js/editor-shared-preview-picker.js`, avec message d’alerte localisable (`Image manquante !` / `Missing image!`). `editeur-app.js` / `editor-en-app.js` branchés sur `window.EditorSharedPreviewPicker`; script chargé dans les deux HTML.
 - **Refactor FR/EN — phase 9 (finalisation mappers V2/legacy hotspot)** — extraction de `actionV2ToLegacyHotspotData` vers `js/editor-shared-action-mappers.js` (factory `createActionMappers`), pour compléter la migration des conversions V2↔legacy hors des fichiers FR/EN. `editeur-app.js` / `editor-en-app.js` branchés sur `ActionMappers.actionV2ToLegacyHotspotData`.
 - **Refactor FR/EN — phase 10 (duplication scène / hotspot)** — extraction de `duplicateHotspot` et `duplicateScene` dans `js/editor-shared-duplication.js` (`createDuplicationHelpers`), avec dépendances injectées (`addHotspot`, `addScene`, `extractHotspotData`, `refreshAllSceneTargetSelects`) et chaînes localisées (prompt, alerte, suffixes `_copie` / `_copy`, titres). Script chargé dans `editeur.html` et `editor_en.html` avant les `*-app.js`.
+- **Timer + écrans de fin — phase A (schéma + UI éditeur)** — ajout des paramètres globaux `timer`, `victorySceneId`, `endScreens` dans `editor-core.js` (defaults + normalisation), ajout des contrôles FR/EN dans `editeur.html` / `editor_en.html`, et branchement save/load via `js/editor-shared-timer.js` + `js/editor-shared-project-serialization.js` + `applyLoadedProject` FR/EN.
 
 ---
 
@@ -66,3 +67,90 @@ Synthèse des pistes à traiter **plus tard** (pas tout en parallèle). Détail 
 ## Notes Windows / ZIP
 
 Décompression : **Propriétés → Débloquer** puis extraire ; si besoin **7-Zip**. Ce n’est pas un défaut du générateur ; une phrase dans la doc joueur (`Lisez-moi.txt` / README) peut suffire.
+
+---
+## Nouveau chantier proposé — Timer + écrans de fin (V1 puis V2)
+
+### Objectif produit
+Ajouter une boucle de fin claire côté joueur avec :
+- un **timer** configurable dans l’éditeur,
+- un **écran Game Over** à l’expiration d’un compte à rebours,
+- un **écran Victoire** (déclencheur simple en V1),
+tout en restant compatible avec le schéma V2 et l’existant FR/EN.
+
+---
+
+### Périmètre V1 (prioritaire)
+
+#### 1) Paramètres globaux projet (éditeur)
+Ajouter dans les réglages globaux :
+- `timer.enabled` (bool)
+- `timer.mode` (`countdown` | `countup`)
+- `timer.startSeconds` (number, utilisé si `countdown`)
+- `timer.autoStart` (bool)
+- `timer.pauseWhenPopupOpen` (bool, optionnel)
+- `victorySceneId` (string, optionnel, V1 simple)
+
+Écrans de fin globaux :
+- `endScreens.gameOver.title`
+- `endScreens.gameOver.bodyHtml`
+- `endScreens.gameOver.buttonLabel`
+- `endScreens.victory.title`
+- `endScreens.victory.bodyHtml`
+- `endScreens.victory.buttonLabel`
+
+#### 2) Runtime joueur
+- Afficher un timer dans le HUD.
+- Démarrer/arrêter selon config.
+- En `countdown`, quand `0` est atteint -> ouvrir écran **Game Over**.
+- Déclencher **Victoire** quand la scène courante == `victorySceneId`.
+- Bouton principal écran de fin : “Rejouer” (reload propre de la partie).
+
+#### 3) Compatibilité
+- Si les champs n’existent pas dans un ancien projet : comportement inchangé (timer désactivé, pas d’écran final forcé).
+- Pas de rupture sur SFX, inventaire, selector, popup.
+
+---
+
+### Périmètre V2 (optionnel, après validation V1)
+
+Overrides par scène :
+- `scene.timerOverride.enabled`
+- `scene.timerOverride.seconds`
+- `scene.timerOverride.onExpire` (`gameOver` | `gotoScene` | `showMessage`)
+- `scene.timerOverride.targetScene` (si `gotoScene`)
+
+Objectif : scènes “pression” avec compte à rebours local.
+
+---
+
+### Découpage en phases (1 commit = 1 thème)
+
+- **Phase A — Schéma + UI éditeur**
+  - Ajouter les champs globaux timer/end screens dans le modèle + formulaires FR/EN.
+- **Phase B — Joueur timer**
+  - HUD timer, mode countup/countdown, expiration -> Game Over.
+- **Phase C — Victoire**
+  - Déclenchement via `victorySceneId` + écran victoire.
+- **Phase D — Overrides scène (V2)**
+  - Compte à rebours local par scène + actions à expiration.
+
+---
+
+### Critères de validation (smoke tests)
+
+- [ ] Projet sans timer: comportement identique à avant.
+- [ ] Timer countdown: décrémente, atteint 0, affiche Game Over.
+- [ ] Timer countup: incrémente sans interrompre le jeu.
+- [ ] `victorySceneId`: arrivée sur la scène cible -> écran victoire.
+- [ ] Bouton “Rejouer”: redémarrage propre.
+- [ ] Save/load JSON + bundle `.escapegame`: paramètres conservés.
+- [ ] FR/EN: labels/messages corrects dans chaque langue.
+- [ ] Aucune régression visible sur selector, inventaire, SFX, transitions.
+
+---
+
+### Notes techniques
+- Conserver la logique technique partagée autant que possible; laisser FR/EN surtout pour les chaînes affichées.
+- Éviter d’introduire i18n complet dans ce chantier (hors scope).
+- Favoriser un ajout progressif pour limiter les risques de régression.

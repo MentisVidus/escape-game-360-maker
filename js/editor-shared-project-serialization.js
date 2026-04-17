@@ -15,6 +15,7 @@
         var EditorCore = options.EditorCore || global.EditorCore;
         var hotspotDomToV2 = options.hotspotDomToV2;
         var doc = options.document || global.document;
+        var readTimerSettings = options.readTimerSettings;
 
         if (!EditorCore || typeof EditorCore.createEmptyProject !== "function") {
             throw new Error("EditorCore with createEmptyProject() is required.");
@@ -52,6 +53,14 @@
             project.popBga = clamp01((doc.getElementById("pop-bga") || { value: "0.9" }).value, 0.9);
             project.popBtnBg = (doc.getElementById("pop-btn-bg") || { value: "#ffffff" }).value;
             project.popBtnCol = (doc.getElementById("pop-btn-col") || { value: "#000000" }).value;
+            if (typeof readTimerSettings === "function") {
+                var timerCfg = readTimerSettings(doc);
+                if (timerCfg && typeof timerCfg === "object") {
+                    project.timer = timerCfg.timer || project.timer;
+                    project.victorySceneId = timerCfg.victorySceneId || "";
+                    project.endScreens = timerCfg.endScreens || project.endScreens;
+                }
+            }
 
             doc.querySelectorAll(".scene-block").forEach(function (sceneDiv) {
                 var scene = {
