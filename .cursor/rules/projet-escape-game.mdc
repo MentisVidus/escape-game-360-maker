@@ -61,5 +61,6 @@ alwaysApply: true
 ## Principes pour l’agent / PR
 - **Changements minimaux** : ne pas refactorer hors périmètre.
 - **FR + EN** : toute modif d’`editeur.html` / `editeur-app.js` / `editeur-generate.js` → miroir **`editor_en.*`** sauf textes UI.
+- **Séparation souple FR/EN** : si une logique n’affiche pas de texte utilisateur, **préférer** un module partagé (`js/editor-shared-*.js`) plutôt qu’une duplication FR/EN ; autoriser des options de locale (ex. labels par défaut) quand cela simplifie le code.
 - Préférer **serveur HTTP local** pour tests complets ; **`file://`** reste un cas réel EPN — tester Quill + SRI après chaque touche aux CDN.
 - Commentaires utiles en **français** dans le code existant ; pas de sur-documentation.

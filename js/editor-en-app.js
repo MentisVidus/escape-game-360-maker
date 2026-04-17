@@ -3,265 +3,28 @@
 let sceneIdCounter = 0; 
 let hsIdCounter = 0;
 
-// 360° picker modal (pitch/yaw)
-let currentPickerHsId = null; 
-let pickerViewer = null; 
-let tempPitch = 0; 
-let tempYaw = 0;
-
-// Full-scene preview Pannellum instance
-let scenePreviewViewer = null;
-
-// --- Portable project bundle .escapegame (ZIP + project.json + assets/) — blob: and ./assets/ URLs ---
-window.bundleAssets = window.bundleAssets || new Map();
-window.bundleAssetPathBlobs = window.bundleAssetPathBlobs || new Map();
-var bundleTrackedObjectUrls = [];
-var bundleLocalMediaTargetEl = null;
-var bundleLocalMediaAccept = "*/*";
-
-function registerBundleBlobUrl(url) {
-    if (url && bundleTrackedObjectUrls.indexOf(url) < 0) bundleTrackedObjectUrls.push(url);
+// --- Portable project bundle .escapegame (ZIP + project.json + assets/) — shared FR/EN helpers ---
+var EditorSharedBundleApi = window.EditorSharedBundle;
+if (!EditorSharedBundleApi) {
+    throw new Error("EditorSharedBundle unavailable (js/editor-shared-bundle.js).");
 }
-
-function revokeEditorBundleSession() {
-    bundleTrackedObjectUrls.forEach(function (u) {
-        try {
-            URL.revokeObjectURL(u);
-        } catch (e) {}
-    });
-    bundleTrackedObjectUrls = [];
-    window.bundleAssets.clear();
-    window.bundleAssetPathBlobs.clear();
-}
-
-function canonicalAssetRef(url) {
-    if (typeof url !== "string") return null;
-    var t = url.trim();
-    if (t.indexOf("\0") >= 0) return null;
-    if (t.startsWith("./assets/")) return t;
-    if (t.startsWith("assets/")) return "./" + t;
-    return null;
-}
-
-function getBlobOrFileForPortableUrl(url) {
-    if (typeof url !== "string") return null;
-    var t = url.trim();
-    if (t.startsWith("blob:")) {
-        if (!window.bundleAssets) return null;
-        return window.bundleAssets.get(t) || window.bundleAssets.get(url) || null;
-    }
-    var c = canonicalAssetRef(t);
-    if (c && window.bundleAssetPathBlobs && window.bundleAssetPathBlobs.has(c)) return window.bundleAssetPathBlobs.get(c);
-    return null;
-}
-
-function eachPortableMediaUrlInProject(project, visit) {
-    function V(u) {
-        if (u == null) return;
-        var s = String(u).trim();
-        if (s) visit(s);
-    }
-    function VifUrlLike(u) {
-        if (u == null) return;
-        var s = String(u).trim();
-        if (!s) return;
-        if (/^(https?:|blob:|data:|\.\/)/i.test(s)) V(s);
-    }
-    if (project.globalMusic && project.globalMusic.url) V(project.globalMusic.url);
-    if (project.globalAudioUrl) V(project.globalAudioUrl);
-    VifUrlLike(project.invIcon);
-    (project.scenes || []).forEach(function (scene) {
-        var media = scene.media || {};
-        V(media.panoramaUrl);
-        if (media.ambianceUrl != null) V(media.ambianceUrl);
-        var amb = media.ambiance;
-        if (typeof amb === "string") V(amb);
-        else if (amb && amb.url) V(amb.url);
-        (scene.hotspots || []).forEach(function (hs) {
-            var app = hs.appearance || {};
-            if (app.ui_img) V(app.ui_img);
-            walkActionMediaUrls(hs.action, V);
-        });
-    });
-}
-
-function walkActionMediaUrls(action, V) {
-    if (!action) return;
-    if (action.sfx && action.sfx.url) V(action.sfx.url);
-    var p = action.payload;
-    if (!p) return;
-    if (p.nested && Array.isArray(p.nested.choices)) {
-        p.nested.choices.forEach(function (ch) {
-            walkActionMediaUrls(ch.action, V);
-        });
-    }
-    if (p.rewardAction) walkActionMediaUrls(p.rewardAction, V);
-}
-
-function rewritePortableUrlsInProjectClone(project, rewriteStr) {
-    function Rw(x) {
-        if (x == null) return x;
-        return rewriteStr(String(x));
-    }
-    if (project.globalMusic && project.globalMusic.url != null) project.globalMusic.url = Rw(project.globalMusic.url);
-    if (project.globalAudioUrl != null) project.globalAudioUrl = Rw(project.globalAudioUrl);
-    if (project.invIcon != null && /^(https?:|blob:|data:|\.\/)/i.test(String(project.invIcon).trim())) {
-        project.invIcon = Rw(project.invIcon);
-    }
-    (project.scenes || []).forEach(function (scene) {
-        var media = scene.media || {};
-        if (media.panoramaUrl != null) media.panoramaUrl = Rw(media.panoramaUrl);
-        if (media.ambianceUrl != null) media.ambianceUrl = Rw(media.ambianceUrl);
-        var amb = media.ambiance;
-        if (typeof amb === "string") scene.media.ambiance = Rw(amb);
-        else if (amb && typeof amb === "object" && amb.url != null) amb.url = Rw(amb.url);
-        (scene.hotspots || []).forEach(function (hs) {
-            var app = hs.appearance || {};
-            if (app.ui_img != null) app.ui_img = Rw(app.ui_img);
-            rewriteActionMediaUrls(hs.action, Rw);
-        });
-    });
-}
-
-function rewriteActionMediaUrls(action, Rw) {
-    if (!action) return;
-    if (action.sfx && action.sfx.url != null) action.sfx.url = Rw(action.sfx.url);
-    var p = action.payload;
-    if (!p) return;
-    if (p.nested && Array.isArray(p.nested.choices)) {
-        p.nested.choices.forEach(function (ch) {
-            rewriteActionMediaUrls(ch.action, Rw);
-        });
-    }
-    if (p.rewardAction) rewriteActionMediaUrls(p.rewardAction, Rw);
-}
-
-function sanitizeBundleFileName(name, fallback) {
-    var base = String(name || fallback || "asset")
-        .split(/[/\\]/)
-        .pop();
-    base = base.replace(/[^a-zA-Z0-9._-]+/g, "_");
-    if (!base || base === "." || base === "..") base = fallback || "asset.bin";
-    return base.slice(0, 120);
-}
-
-function uniqueNameInSet(desired, usedSet) {
-    var dot = desired.lastIndexOf(".");
-    var stem = dot > 0 ? desired.slice(0, dot) : desired;
-    var ext = dot > 0 ? desired.slice(dot) : "";
-    var name = desired;
-    var n = 0;
-    while (usedSet[name]) {
-        n++;
-        name = stem + "_" + n + ext;
-    }
-    usedSet[name] = true;
-    return name;
-}
-
-function deriveBundleNameHint(url, blob) {
-    if (blob instanceof File && blob.name) return blob.name;
-    var c = canonicalAssetRef(String(url || "").trim());
-    if (c) {
-        var seg = c.replace(/^\.\/assets\//, "").split("/");
-        return seg[seg.length - 1] || "asset.bin";
-    }
-    return "media.bin";
-}
-
-function isZipArrayBuffer(buf) {
-    if (!buf || buf.byteLength < 4) return false;
-    var a = new Uint8Array(buf, 0, 4);
-    return a[0] === 0x50 && a[1] === 0x4b;
-}
-
-function openBundleLocalMediaPicker(targetInput, accept) {
-    bundleLocalMediaTargetEl = targetInput;
-    bundleLocalMediaAccept = accept || "*/*";
-    var el = document.getElementById("bundle-media-file");
-    if (!el) return;
-    el.accept = bundleLocalMediaAccept;
-    el.value = "";
-    el.click();
-}
-
-function onBundleLocalMediaSelected(event) {
-    var inp = event.target;
-    var file = inp.files && inp.files[0];
-    var target = bundleLocalMediaTargetEl;
-    bundleLocalMediaTargetEl = null;
-    if (!file || !target) {
-        if (inp) inp.value = "";
-        return;
-    }
-    var old = (target.value || "").trim();
-    if (old.startsWith("blob:")) {
-        if (window.bundleAssets && window.bundleAssets.has(old)) window.bundleAssets.delete(old);
-        try {
-            URL.revokeObjectURL(old);
-        } catch (e) {}
-        var ix = bundleTrackedObjectUrls.indexOf(old);
-        if (ix >= 0) bundleTrackedObjectUrls.splice(ix, 1);
-    }
-    var url = URL.createObjectURL(file);
-    registerBundleBlobUrl(url);
-    window.bundleAssets.set(url, file);
-    target.value = url;
-    target.dispatchEvent(new Event("input", { bubbles: true }));
-    target.dispatchEvent(new Event("change", { bubbles: true }));
-    inp.value = "";
-}
-
-window.collectPortableBundleEmbeds = function (project) {
-    var out = [];
-    var seen = {};
-    eachPortableMediaUrlInProject(project, function (u) {
-        if (!u || seen[u]) return;
-        if (!u.startsWith("blob:") && !canonicalAssetRef(u)) return;
-        var blob = getBlobOrFileForPortableUrl(u);
-        if (!blob) return;
-        seen[u] = true;
-        out.push({ url: u, blob: blob, nameHint: deriveBundleNameHint(u, blob) });
-    });
-    return out;
-};
-
-async function mapZipAssetsToEditorSession(zip) {
-    var pathToBlobUrl = {};
-    var tasks = [];
-    zip.forEach(function (relPath, entry) {
-        if (entry.dir) return;
-        var norm = relPath.replace(/\\/g, "/");
-        if (!norm.startsWith("assets/") || norm === "assets/") return;
-        var inner = norm.slice("assets/".length);
-        if (!inner || inner.endsWith("/")) return;
-        tasks.push(
-            entry.async("blob").then(function (blob) {
-                var relKey = "./assets/" + inner;
-                window.bundleAssetPathBlobs.set(relKey, blob);
-                var baseName = inner.split("/").pop() || "asset.bin";
-                var f = new File([blob], baseName, { type: blob.type || "application/octet-stream" });
-                var blobUrl = URL.createObjectURL(blob);
-                registerBundleBlobUrl(blobUrl);
-                window.bundleAssets.set(blobUrl, f);
-                pathToBlobUrl[relKey] = blobUrl;
-            })
-        );
-    });
-    await Promise.all(tasks);
-    return pathToBlobUrl;
-}
-
-function rewriteLoadedProjectPathsToBlobUrls(project, pathToBlobUrl) {
-    function R(s) {
-        if (typeof s !== "string") return s;
-        var t = s.trim();
-        var c = canonicalAssetRef(t);
-        if (c && pathToBlobUrl[c]) return pathToBlobUrl[c];
-        return s;
-    }
-    rewritePortableUrlsInProjectClone(project, R);
-}
+var registerBundleBlobUrl = EditorSharedBundleApi.registerBundleBlobUrl;
+var revokeEditorBundleSession = EditorSharedBundleApi.revokeEditorBundleSession;
+var canonicalAssetRef = EditorSharedBundleApi.canonicalAssetRef;
+var getBlobOrFileForPortableUrl = EditorSharedBundleApi.getBlobOrFileForPortableUrl;
+var eachPortableMediaUrlInProject = EditorSharedBundleApi.eachPortableMediaUrlInProject;
+var walkActionMediaUrls = EditorSharedBundleApi.walkActionMediaUrls;
+var rewritePortableUrlsInProjectClone = EditorSharedBundleApi.rewritePortableUrlsInProjectClone;
+var rewriteActionMediaUrls = EditorSharedBundleApi.rewriteActionMediaUrls;
+var sanitizeBundleFileName = EditorSharedBundleApi.sanitizeBundleFileName;
+var uniqueNameInSet = EditorSharedBundleApi.uniqueNameInSet;
+var deriveBundleNameHint = EditorSharedBundleApi.deriveBundleNameHint;
+var isZipArrayBuffer = EditorSharedBundleApi.isZipArrayBuffer;
+var openBundleLocalMediaPicker = EditorSharedBundleApi.openBundleLocalMediaPicker;
+var onBundleLocalMediaSelected = EditorSharedBundleApi.onBundleLocalMediaSelected;
+var mapZipAssetsToEditorSession = EditorSharedBundleApi.mapZipAssetsToEditorSession;
+var rewriteLoadedProjectPathsToBlobUrls = EditorSharedBundleApi.rewriteLoadedProjectPathsToBlobUrls;
+window.collectPortableBundleEmbeds = EditorSharedBundleApi.collectPortableBundleEmbeds;
 
 async function saveProjectBundle() {
     if (typeof JSZip === "undefined" || typeof saveAs === "undefined") {
@@ -320,20 +83,119 @@ async function saveProjectBundle() {
     }
 }
 
-function updateScenePreview() { /* reserved e.g. URL validation; .sc-img oninput calls this */ }
-
-// --- UI helpers: collapse, reorder blocks ---
-// Toggle visibility of a scene or hotspot body
-function toggleCollapse(bodyId, btn) {
-    const body = document.getElementById(bodyId);
-    if(body.style.display === 'none') { 
-        body.style.display = ''; 
-        btn.innerHTML = '▼'; 
-    } else { 
-        body.style.display = 'none'; 
-        btn.innerHTML = '▶'; 
-    }
+// --- Shared FR/EN UI helpers (no localized strings) ---
+var EditorSharedUiApi = window.EditorSharedUi;
+if (!EditorSharedUiApi) {
+    throw new Error("EditorSharedUi unavailable (js/editor-shared-ui-utils.js).");
 }
+var updateScenePreview = EditorSharedUiApi.updateScenePreview;
+var toggleCollapse = EditorSharedUiApi.toggleCollapse;
+var toggleAllHotspotsInScene = EditorSharedUiApi.toggleAllHotspotsInScene;
+var moveUp = EditorSharedUiApi.moveUp;
+var moveDown = EditorSharedUiApi.moveDown;
+var hexToRgba = EditorSharedUiApi.hexToRgba;
+var buildCss = EditorSharedUiApi.buildCss;
+var applyPickHiddenIfAutoFillInitial = EditorSharedUiApi.applyPickHiddenIfAutoFillInitial;
+var wirePickIdToHiddenIfAutoFill = EditorSharedUiApi.wirePickIdToHiddenIfAutoFill;
+var EditorSharedSelectorCoreApi = window.EditorSharedSelectorCore;
+if (!EditorSharedSelectorCoreApi) {
+    throw new Error("EditorSharedSelectorCore unavailable (js/editor-shared-selector-core.js).");
+}
+var getOwnChoiceField = EditorSharedSelectorCoreApi.getOwnChoiceField;
+var collectChoicesFromList = EditorSharedSelectorCoreApi.collectChoicesFromList;
+var syncSelectorChoicesToTextarea = EditorSharedSelectorCoreApi.syncSelectorChoicesToTextarea;
+var attachSelectorChoicesListeners = EditorSharedSelectorCoreApi.attachSelectorChoicesListeners;
+var selectorMoveChoice = EditorSharedSelectorCoreApi.selectorMoveChoice;
+var selectorRemoveChoice = EditorSharedSelectorCoreApi.selectorRemoveChoice;
+var selectorChoicesFromTextarea = EditorSharedSelectorCoreApi.selectorChoicesFromTextarea;
+var EditorSharedHotspotSerializationApi = window.EditorSharedHotspotSerialization;
+if (!EditorSharedHotspotSerializationApi) {
+    throw new Error("EditorSharedHotspotSerialization unavailable (js/editor-shared-hotspot-serialization.js).");
+}
+var extractHotspotData = EditorSharedHotspotSerializationApi.extractHotspotData;
+var EditorSharedActionMappersApi = window.EditorSharedActionMappers;
+if (!EditorSharedActionMappersApi) {
+    throw new Error("EditorSharedActionMappers unavailable (js/editor-shared-action-mappers.js).");
+}
+var ActionMappers = EditorSharedActionMappersApi.createActionMappers({
+    EditorCore: window.EditorCore,
+    defaultTransitionLabel: "Continue"
+});
+var selectorChoiceLegacyToV2 = ActionMappers.selectorChoiceLegacyToV2;
+var legacyActionToV2 = ActionMappers.legacyActionToV2;
+var legacyRewardToV2 = ActionMappers.legacyRewardToV2;
+var actionV2ToLegacyChoice = ActionMappers.actionV2ToLegacyChoice;
+var actionV2ToLegacyHotspotData = ActionMappers.actionV2ToLegacyHotspotData;
+var EditorSharedHotspotDomMapperApi = window.EditorSharedHotspotDomMapper;
+if (!EditorSharedHotspotDomMapperApi) {
+    throw new Error("EditorSharedHotspotDomMapper unavailable (js/editor-shared-hotspot-dom-mapper.js).");
+}
+var HotspotDomMapper = EditorSharedHotspotDomMapperApi.createHotspotDomMapper({
+    defaultTransitionLabel: "Continue",
+    selectorChoicesFromTextarea: selectorChoicesFromTextarea,
+    legacyActionToV2: legacyActionToV2
+});
+var hotspotDomToV2 = HotspotDomMapper.hotspotDomToV2;
+var EditorSharedTimerApi = window.EditorSharedTimer;
+if (!EditorSharedTimerApi) {
+    throw new Error("EditorSharedTimer unavailable (js/editor-shared-timer.js).");
+}
+var readTimerSettingsFromDom = EditorSharedTimerApi.readTimerSettingsFromDom;
+var applyTimerSettingsToDom = EditorSharedTimerApi.applyTimerSettingsToDom;
+var EditorSharedProjectSerializationApi = window.EditorSharedProjectSerialization;
+if (!EditorSharedProjectSerializationApi) {
+    throw new Error("EditorSharedProjectSerialization unavailable (js/editor-shared-project-serialization.js).");
+}
+var ProjectSerializer = EditorSharedProjectSerializationApi.createSerializer({
+    EditorCore: window.EditorCore,
+    hotspotDomToV2: hotspotDomToV2,
+    document: document,
+    readTimerSettings: readTimerSettingsFromDom
+});
+var getCurrentProjectData = ProjectSerializer.getCurrentProjectData;
+var EditorSharedPreviewPickerApi = window.EditorSharedPreviewPicker;
+if (!EditorSharedPreviewPickerApi) {
+    throw new Error("EditorSharedPreviewPicker unavailable (js/editor-shared-preview-picker.js).");
+}
+var PreviewPickerApi = EditorSharedPreviewPickerApi.createPreviewPicker({
+    document: document,
+    pannellum: window.pannellum,
+    messages: { missingImageAlert: "Missing image!" }
+});
+var openPicker = PreviewPickerApi.openPicker;
+var validerCoordonnees = PreviewPickerApi.validerCoordonnees;
+var closePicker = PreviewPickerApi.closePicker;
+var previewScene = PreviewPickerApi.previewScene;
+var closeScenePreview = PreviewPickerApi.closeScenePreview;
+
+var EditorSharedDuplicationApi = window.EditorSharedDuplication;
+if (!EditorSharedDuplicationApi) {
+    throw new Error("EditorSharedDuplication unavailable (js/editor-shared-duplication.js).");
+}
+var DuplicationHelpers = EditorSharedDuplicationApi.createDuplicationHelpers({
+    document: document,
+    addHotspot: addHotspot,
+    extractHotspotData: extractHotspotData,
+    addScene: addScene,
+    refreshAllSceneTargetSelects:
+        typeof refreshAllSceneTargetSelects === "function" ? refreshAllSceneTargetSelects : undefined,
+    strings: {
+        duplicateHotspotPrompt: function (sceneList) {
+            return (
+                "Copy this hotspot to which scene?\n" +
+                "(Leave empty to use the current scene)\n\n" +
+                "Scenes:\n" +
+                sceneList
+            );
+        },
+        duplicateHotspotInvalidNumber: "Invalid number. Copied to the current scene.",
+        sceneDefaultTitlePrefix: "Scene ",
+        sceneIdCopySuffix: "_copy",
+        sceneTitleCopySuffix: " (Copy)"
+    }
+});
+var duplicateHotspot = DuplicationHelpers.duplicateHotspot;
+var duplicateScene = DuplicationHelpers.duplicateScene;
 
 /** From map: add scene then refresh graph if modal is open. */
 function addSceneFromMap() {
@@ -351,46 +213,6 @@ function addSceneFromMap() {
     }
 }
 window.addSceneFromMap = addSceneFromMap;
-
-/** Collapse or expand all hotspot main bodies in one scene. */
-function toggleAllHotspotsInScene(sceneNumericId) {
-    const wrap = document.getElementById("hs-container-" + sceneNumericId);
-    if (!wrap) return;
-    const blocks = wrap.querySelectorAll(":scope > .hotspot-block");
-    let anyExpanded = false;
-    blocks.forEach((hb) => {
-        const m = hb.id && hb.id.match(/^hs_(\d+)$/);
-        if (!m) return;
-        const body = document.getElementById("hs_body_" + m[1]);
-        if (body && body.style.display !== "none") anyExpanded = true;
-    });
-    const expand = !anyExpanded;
-    blocks.forEach((hb) => {
-        const m = hb.id && hb.id.match(/^hs_(\d+)$/);
-        if (!m) return;
-        const hId = m[1];
-        const body = document.getElementById("hs_body_" + hId);
-        const btn = hb.querySelector(".hs-block-header-main > .btn-icon");
-        if (!body || !btn) return;
-        if (expand) {
-            body.style.display = "";
-            btn.innerHTML = "▼";
-        } else {
-            body.style.display = "none";
-            btn.innerHTML = "▶";
-        }
-    });
-}
-// Move DOM node up among siblings
-function moveUp(elemId) { 
-    const el = document.getElementById(elemId); 
-    if(el.previousElementSibling) el.parentNode.insertBefore(el, el.previousElementSibling); 
-}
-// Move DOM node down among siblings
-function moveDown(elemId) { 
-    const el = document.getElementById(elemId); 
-    if(el.nextElementSibling) el.parentNode.insertBefore(el.nextElementSibling, el); 
-}
 
 // --- Add scene ---
 // Inserts a new scene block into #scenes-container
@@ -587,119 +409,7 @@ function addHotspot(sceneId, hsData = null) {
     }
 }
 
-// --- Duplicate / export hotspot data ---
-// Serializes one hotspot for copy or JSON save
-function extractHotspotData(hId) {
-    const hsDiv = document.getElementById(`hs_${hId}`);
-    if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(hsDiv);
-    let hs = { 
-        hsTitle: hsDiv.querySelector('.hs-title').value, 
-        pitch: hsDiv.querySelector('.hs-pitch').value, 
-        yaw: hsDiv.querySelector('.hs-yaw').value, 
-        customCss: hsDiv.querySelector('.hs-custom-css').value, 
-        type: hsDiv.querySelector('.hs-type').value 
-    };
-    
-    let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol', 'ui-w', 'ui-h', 'ui-shape', 'ui-bgc', 'ui-bga', 'ui-brd-style', 'ui-brd-w', 'ui-brd-c', 'ui-img'];
-    fields.forEach(f => { 
-        let el = hsDiv.querySelector('.' + f); 
-        if(el) hs[f.replace(/-/g, '_')] = el.value; 
-    });
-    
-    // Expert mode = textarea not readonly
-    if(!hsDiv.querySelector('.hs-custom-css').hasAttribute("readonly")) hs.expertMode = true;
-    if(hs.type === 'selector') {
-        var fc = hsDiv.querySelector('.f-sel-choices');
-        if(fc && !fc.hasAttribute('readonly')) hs.selJsonExpertMode = true;
-    }
-    return hs;
-}
-
-// Prompt for target scene, then duplicate hotspot there
-function duplicateHotspot(currentSId, hId) {
-    let sceneList = ""; 
-    let mapIds = [];
-    
-    // Numbered scene list for the prompt
-    document.querySelectorAll('.scene-block').forEach((sDiv, idx) => {
-        let sid = sDiv.id.split('_')[1];
-        let title = sDiv.querySelector('.sc-title').value || sDiv.querySelector('.sc-id').value || "Scene " + sid;
-        sceneList += `${idx + 1} : ${title}\n`;
-        mapIds.push(sid);
-    });
-    
-    let dest = prompt(`Copy this hotspot to which scene?\n(Leave empty to use the current scene)\n\nScenes:\n${sceneList}`, "");
-    let targetSId = currentSId;
-    
-    if(dest !== null && dest.trim() !== "") {
-        let idx = parseInt(dest) - 1;
-        if(idx >= 0 && idx < mapIds.length) targetSId = mapIds[idx];
-        else alert("Invalid number. Copied to the current scene.");
-    } else if (dest === null) return; // User cancelled prompt
-    
-    // Create duplicate
-    addHotspot(targetSId, extractHotspotData(hId));
-}
-
-// Duplicate scene and all its hotspots (incl. ambient audio URL)
-function duplicateScene(sId) {
-    const sDiv = document.getElementById(`scene_${sId}`);
-    
-    // New scene block
-    const newSId = addScene(
-        sDiv.querySelector('.sc-id').value + "_copy", 
-        sDiv.querySelector('.sc-img').value, 
-        sDiv.querySelector('.sc-title').value + " (Copy)"
-    );
-    
-    const newScDiv = document.getElementById('scene_' + newSId);
-    if (newScDiv && newScDiv.querySelector('.sc-audio') && sDiv.querySelector('.sc-audio')) {
-        newScDiv.querySelector('.sc-audio').value = sDiv.querySelector('.sc-audio').value;
-    }
-    if (newScDiv && newScDiv.querySelector('.sc-audio-vol') && sDiv.querySelector('.sc-audio-vol')) {
-        newScDiv.querySelector('.sc-audio-vol').value = sDiv.querySelector('.sc-audio-vol').value;
-    }
-
-    // Clone each hotspot
-    sDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
-        addHotspot(newSId, extractHotspotData(hsDiv.id.split('_')[1]));
-    });
-    if (typeof refreshAllSceneTargetSelects === "function") {
-        refreshAllSceneTargetSelects();
-    }
-}
-
 // --- CSS helpers (no-code + expert) ---
-// Hex + alpha → rgba(...) for inline CSS
-function hexToRgba(hex, alpha) { 
-    let r = parseInt(hex.slice(1, 3), 16), 
-        g = parseInt(hex.slice(3, 5), 16), 
-        b = parseInt(hex.slice(5, 7), 16); 
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`; 
-}
-
-// Build hotspot CSS string from visual controls
-function buildCss(hId) {
-    const hsDiv = document.querySelector(`#hs_${hId}`);
-    
-    let w = hsDiv.querySelector('.ui-w').value;
-    let h = hsDiv.querySelector('.ui-h').value;
-    let shape = hsDiv.querySelector('.ui-shape').value;
-    let bgc = hsDiv.querySelector('.ui-bgc').value;
-    let bga = hsDiv.querySelector('.ui-bga').value;
-    let brdStyle = hsDiv.querySelector('.ui-brd-style').value;
-    let brdW = hsDiv.querySelector('.ui-brd-w').value;
-    let brdC = hsDiv.querySelector('.ui-brd-c').value;
-    let img = hsDiv.querySelector('.ui-img').value;
-    
-    // Assemble declaration
-    let css = `width: ${w}px; height: ${h}px; background: ${hexToRgba(bgc, bga)}; border-radius: ${shape}; cursor: pointer; display: flex; align-items: center; justify-content: center;`;
-    if (brdStyle !== 'none') css += ` border: ${brdW}px ${brdStyle} ${brdC};`;
-    if (img !== "") css += ` background-image: url('${img}'); background-size: contain; background-repeat: no-repeat; background-position: center;`;
-    
-    // Write into expert / generated textarea
-    hsDiv.querySelector('.hs-custom-css').value = css;
-}
 
 // Toggle between visual CSS editor and freeform textarea
 function toggleExpertMode(hId, forceExpert = false) {
@@ -729,85 +439,6 @@ function toggleExpertMode(hId, forceExpert = false) {
     }
 }
 
-// --- 360° picker & scene preview ---
-// Open fullscreen picker; saves pitch/yaw into selected hotspot
-function openPicker(sceneLocalId, hId) { 
-    const scImg = document.querySelector(`#scene_${sceneLocalId} .sc-img`).value; 
-    if(!scImg) return; 
-    currentPickerHsId = hId; 
-    document.getElementById('picker-modal').style.display = 'flex'; 
-    let imgUrl = scImg; 
-    // Prefix relative image paths for file:// / same-folder hosting (not blob: / data: / http)
-    if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:') && !imgUrl.startsWith('blob:')) imgUrl = "./" + imgUrl; 
-    
-    if(pickerViewer) pickerViewer.destroy(); 
-    pickerViewer = pannellum.viewer('picker-panorama', { "type": "equirectangular", "panorama": imgUrl, "autoLoad": true, "showControls": false }); 
-    
-    // Poll viewer pitch/yaw while modal is open
-    pickerViewer.on('load', function() { 
-        setInterval(function() { 
-            if(pickerViewer && document.getElementById('picker-modal').style.display === 'flex') { 
-                tempPitch = pickerViewer.getPitch(); 
-                tempYaw = pickerViewer.getYaw(); 
-                document.getElementById('live-pitch').innerText = tempPitch.toFixed(1); 
-                document.getElementById('live-yaw').innerText = tempYaw.toFixed(1); 
-            } 
-        }, 100); 
-    }); 
-}
-
-// Apply picked angles to hotspot fields
-function validerCoordonnees() { 
-    document.querySelector(`#hs_${currentPickerHsId} .hs-pitch`).value = tempPitch.toFixed(1); 
-    document.querySelector(`#hs_${currentPickerHsId} .hs-yaw`).value = tempYaw.toFixed(1); 
-    closePicker(); 
-}
-// Close picker and destroy viewer
-function closePicker() { 
-    document.getElementById('picker-modal').style.display = 'none'; 
-    if(pickerViewer) { pickerViewer.destroy(); pickerViewer = null; } 
-    currentPickerHsId = null; 
-}
-
-// Full-screen scene preview with hotspot outlines + labels
-function previewScene(sceneLocalId) { 
-    const scImg = document.querySelector(`#scene_${sceneLocalId} .sc-img`).value; 
-    if(!scImg) { alert("Missing image!"); return; } 
-    document.getElementById('scene-preview-modal').style.display = 'flex'; 
-    
-    let imgUrl = scImg; 
-    if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:') && !imgUrl.startsWith('blob:')) imgUrl = "./" + imgUrl; 
-    
-    let previewCSS = ""; 
-    let hsArray = []; 
-    
-    // Build Pannellum hotSpots from editor fields
-    document.querySelectorAll(`#scene_${sceneLocalId} .hotspot-block`).forEach((hsDiv, index) => { 
-        const pitch = parseFloat(hsDiv.querySelector('.hs-pitch').value); 
-        const yaw = parseFloat(hsDiv.querySelector('.hs-yaw').value); 
-        const rawCss = hsDiv.querySelector('.hs-custom-css').value; 
-        const hsIdText = hsDiv.querySelector('.hs-title').value || ("HS " + (index + 1)); 
-        const hsClass = `prev-hs-${sceneLocalId}-${index}`; 
-        
-        // Red dashed outline so transparent hotspots stay visible
-        previewCSS += `.${hsClass} { ${rawCss} outline: 3px dashed red !important; outline-offset: 2px; pointer-events: auto; display: flex; align-items: center; justify-content: center; }\n`;
-        // ::after label from hotspot note / title
-        previewCSS += `.${hsClass}::after { content: '${hsIdText}'; background: black; color: white; padding: 2px 5px; font-size: 12px; font-weight: bold; border-radius: 3px; }\n`; 
-        
-        hsArray.push({ pitch: pitch, yaw: yaw, cssClass: hsClass }); 
-    }); 
-    
-    document.getElementById('live-preview-styles').innerHTML = previewCSS; 
-    
-    if(scenePreviewViewer) scenePreviewViewer.destroy(); 
-    scenePreviewViewer = pannellum.viewer('scene-preview-panorama', { "type": "equirectangular", "panorama": imgUrl, "autoLoad": true, "hotSpots": hsArray }); 
-}
-// Close preview modal
-function closeScenePreview() { 
-    document.getElementById('scene-preview-modal').style.display = 'none'; 
-    if(scenePreviewViewer) { scenePreviewViewer.destroy(); scenePreviewViewer = null; } 
-}
-
 // --- Selector: choice form + advanced JSON (readonly by default) ---
 var SELECTOR_MAX_DEPTH = 3;
 
@@ -820,23 +451,6 @@ function getDefaultSelectorChoices() {
 
 function getDefaultChoice() {
     return { label: "New choice", actionType: "msg", txt: "<p>Text</p>" };
-}
-
-function collectChoicesFromList(listEl) {
-    if(!listEl) return [];
-    if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(listEl);
-    var cards = Array.prototype.filter.call(listEl.children || [], function(el) {
-        return el.classList && el.classList.contains("sel-choice-card");
-    });
-    return cards.map(function(c) { return cardToChoice(c); });
-}
-
-function getOwnChoiceField(card, selector) {
-    var nodes = card.querySelectorAll(selector);
-    for(var i = 0; i < nodes.length; i++) {
-        if(nodes[i].closest(".sel-choice-card") === card) return nodes[i];
-    }
-    return null;
 }
 
 function cardToChoice(card) {
@@ -889,47 +503,6 @@ function cardToChoice(card) {
     return out;
 }
 
-function syncSelectorChoicesToTextarea(hId) {
-    var hsDiv = document.getElementById("hs_" + hId);
-    if(!hsDiv) return;
-    var ta = hsDiv.querySelector(".f-sel-choices");
-    if(!ta || !ta.hasAttribute("readonly")) return;
-    var root = document.getElementById("sel_choices_root_" + hId);
-    if(!root) return;
-    var arr = collectChoicesFromList(root);
-    ta.value = JSON.stringify(arr, null, 2);
-}
-
-function attachSelectorChoicesListeners(hId) {
-    var wrap = document.getElementById("fields_" + hId);
-    if(!wrap) return;
-    var root = wrap.querySelector(".sel-choices-root");
-    if(!root) return;
-    var sync = function() { syncSelectorChoicesToTextarea(hId); };
-    root.removeEventListener("input", root._selSync);
-    root.removeEventListener("change", root._selSync);
-    root._selSync = sync;
-    root.addEventListener("input", sync);
-    root.addEventListener("change", sync);
-}
-
-function selectorMoveChoice(btn, dir) {
-    var card = btn.closest(".sel-choice-card");
-    if(!card) return;
-    var list = card.parentElement;
-    var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
-    if(dir < 0 && card.previousElementSibling) list.insertBefore(card, card.previousElementSibling);
-    else if(dir > 0 && card.nextElementSibling) list.insertBefore(card.nextElementSibling, card);
-    syncSelectorChoicesToTextarea(hId);
-}
-
-function selectorRemoveChoice(btn) {
-    var card = btn.closest(".sel-choice-card");
-    if(!card) return;
-    var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
-    card.remove();
-    syncSelectorChoicesToTextarea(hId);
-}
 
 function selectorAddChoice(hId) {
     var root = document.getElementById("sel_choices_root_" + hId);
@@ -950,26 +523,6 @@ function selectorAddNestedChoice(btn) {
     }
     list.appendChild(renderChoiceCardElement(getDefaultChoice(), hId, depth + 1));
     syncSelectorChoicesToTextarea(hId);
-}
-
-function applyPickHiddenIfAutoFillInitial(pickIdInput, hiddenIfInput) {
-    if (!pickIdInput || !hiddenIfInput) return;
-    if ((hiddenIfInput.value || "").trim() === "" && (pickIdInput.value || "").trim() !== "") {
-        hiddenIfInput.value = pickIdInput.value.trim();
-        hiddenIfInput.dataset.autoFilled = "1";
-    }
-}
-
-function wirePickIdToHiddenIfAutoFill(pickIdInput, hiddenIfInput) {
-    applyPickHiddenIfAutoFillInitial(pickIdInput, hiddenIfInput);
-    if (!pickIdInput || !hiddenIfInput) return;
-    hiddenIfInput.addEventListener("input", function () { hiddenIfInput.dataset.autoFilled = "0"; });
-    pickIdInput.addEventListener("input", function () {
-        if (hiddenIfInput.dataset.autoFilled === "1" || (hiddenIfInput.value || "").trim() === "") {
-            hiddenIfInput.value = pickIdInput.value.trim();
-            hiddenIfInput.dataset.autoFilled = "1";
-        }
-    });
 }
 
 function buildHotspotAdvancedDrawersHtml() {
@@ -1468,233 +1021,6 @@ function updateHsFields(hId, opts) {
 
 // --- Save / load project JSON ---
 
-function selectorChoicesFromTextarea(hsDiv, hId) {
-    var ta = hsDiv.querySelector(".f-sel-choices");
-    if(!ta) return [];
-    if(ta.hasAttribute("readonly")) syncSelectorChoicesToTextarea(hId);
-    var arr = [];
-    try { arr = JSON.parse(ta.value || "[]"); } catch(e) { arr = []; }
-    if(!Array.isArray(arr)) arr = [];
-    return arr;
-}
-
-function selectorChoiceLegacyToV2(ch, idx) {
-    var out = {
-        id: (ch.id && String(ch.id).trim()) || ("choice_" + (idx + 1)),
-        label: (ch.label && String(ch.label).trim()) || "Option",
-        action: legacyActionToV2(ch.actionType || "msg", ch)
-    };
-    return out;
-}
-
-function legacyActionToV2(type, source) {
-    if(!window.EditorCore) throw new Error("EditorCore unavailable (js/editor-core.js).");
-    var src = source || {};
-    var action = EditorCore.createDefaultAction(type || "msg");
-    var p = action.payload;
-
-    if(src.requiresItem) action.visibility.requiresItem = String(src.requiresItem).trim();
-    if(src.hiddenIfHasItem) action.visibility.hiddenIfHasItem = String(src.hiddenIfHasItem).trim();
-    var gcRaw = src.f_hs_ghost_click != null ? src.f_hs_ghost_click : src.ghostClick;
-    if(gcRaw != null && gcRaw !== "") {
-        var gcs = String(gcRaw).trim().toLowerCase();
-        if(gcs === "no" || gcs === "non" || gcs === "0" || gcRaw === false) action.visibility.clickWhenInvisible = false;
-    }
-    if(src.sfxUrl) action.sfx.url = String(src.sfxUrl).trim();
-    if(src.sfxVolume !== undefined && src.sfxVolume !== null && src.sfxVolume !== "") {
-        var v = parseFloat(src.sfxVolume);
-        if(!isNaN(v)) action.sfx.volume = v;
-    }
-
-    if(action.type === "msg") {
-        p.copy.bodyHtml = src.txt || "";
-    } else if(action.type === "scene") {
-        p.target = src.target || "";
-        p.copy.bodyHtml = src.transTxt || "";
-        p.copy.buttonLabel = src.transBtn || "Continue";
-    } else if(action.type === "pick") {
-        p.itemId = src.itemId || "";
-        p.itemName = src.itemName || "";
-        p.copy.bodyHtml = src.txt || "";
-    } else if(action.type === "req") {
-        p.itemId = src.itemId || "";
-        p.copy.bodyHtml = src.ko || "";
-        p.rewardAction = legacyRewardToV2(src.f_req_action || src.reqAction || "scene", src);
-    } else if(action.type === "pwd") {
-        p.copy.bodyHtml = src.enigmeTxt || src.enigme_txt || src.f_enigme_txt || "";
-        p.answer = src.pwd || src.f_pwd || "";
-        p.rewardAction = legacyRewardToV2(src.f_pwd_action || src.pwdAction || "scene", src);
-    } else if(action.type === "selector") {
-        var nested = src.nested || {};
-        var intro =
-            (nested.copy && nested.copy.bodyHtml != null ? nested.copy.bodyHtml : null) ||
-            nested.introHtml ||
-            "";
-        p.nested = {
-            title: nested.title || "",
-            copy: {
-                bodyHtml: String(intro || ""),
-                buttonLabel: String((nested.copy && nested.copy.buttonLabel) || "")
-            },
-            displayMode: nested.displayMode === "dropdown" ? "dropdown" : "buttons",
-            choices: (Array.isArray(nested.choices) ? nested.choices : []).map(function(ch, idx) {
-                return selectorChoiceLegacyToV2(ch || {}, idx);
-            })
-        };
-    }
-    if(action.type === "selector") action.visibility.clickWhenInvisible = true;
-    return action;
-}
-
-function legacyRewardToV2(kind, src) {
-    if(kind === "msg") {
-        return legacyActionToV2("msg", { txt: src.f_ok_msg || src.okMsg || src.ok_msg || "" });
-    }
-    if(kind === "pick") {
-        return legacyActionToV2("pick", {
-            itemId: src.f_pick_id || src.pickId || "",
-            itemName: src.f_pick_name || src.pickName || "",
-            txt: src.f_pick_msg || src.pickMsg || ""
-        });
-    }
-    return legacyActionToV2("scene", {
-        target: src.f_target || src.target || "",
-        transTxt: src.f_trans_txt || src.transTxt || "",
-        transBtn: src.f_trans_btn || src.transBtn || "Continue"
-    });
-}
-
-function hotspotDomToV2(hsDiv) {
-    if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(hsDiv);
-    var hId = parseInt(hsDiv.id.replace("hs_", ""), 10);
-    var type = hsDiv.querySelector(".hs-type").value;
-    var legacy = {};
-    if(type === "msg") {
-        legacy.txt = (hsDiv.querySelector(".f-txt") || { value: "" }).value;
-    } else if(type === "scene") {
-        legacy.target = (hsDiv.querySelector(".f-target") || { value: "" }).value;
-        legacy.transTxt = (hsDiv.querySelector(".f-trans-txt") || { value: "" }).value;
-        legacy.transBtn = (hsDiv.querySelector(".f-trans-btn") || { value: "Continue" }).value;
-    } else if(type === "pick") {
-        legacy.itemId = (hsDiv.querySelector(".f-item-id") || { value: "" }).value;
-        legacy.itemName = (hsDiv.querySelector(".f-item-name") || { value: "" }).value;
-        legacy.txt = (hsDiv.querySelector(".f-pick-msg") || { value: "" }).value;
-    } else if(type === "req") {
-        legacy.itemId = (hsDiv.querySelector(".f-item-id") || { value: "" }).value;
-        legacy.ko = (hsDiv.querySelector(".f-ko") || { value: "" }).value;
-        legacy.f_req_action = (hsDiv.querySelector(".f-req-action") || { value: "scene" }).value;
-        legacy.f_target = (hsDiv.querySelector(".f-target") || { value: "" }).value;
-        legacy.f_trans_txt = (hsDiv.querySelector(".f-trans-txt") || { value: "" }).value;
-        legacy.f_trans_btn = (hsDiv.querySelector(".f-trans-btn") || { value: "Continue" }).value;
-        legacy.f_ok_msg = (hsDiv.querySelector(".f-ok-msg") || { value: "" }).value;
-        legacy.f_pick_id = (hsDiv.querySelector(".f-pick-id") || { value: "" }).value;
-        legacy.f_pick_name = (hsDiv.querySelector(".f-pick-name") || { value: "" }).value;
-        legacy.f_pick_msg = (hsDiv.querySelector(".f-pick-msg") || { value: "" }).value;
-    } else if(type === "pwd") {
-        legacy.enigmeTxt = (hsDiv.querySelector(".f-enigme-txt") || { value: "" }).value;
-        legacy.pwd = (hsDiv.querySelector(".f-pwd") || { value: "" }).value;
-        legacy.f_pwd_action = (hsDiv.querySelector(".f-pwd-action") || { value: "scene" }).value;
-        legacy.f_target = (hsDiv.querySelector(".f-target") || { value: "" }).value;
-        legacy.f_trans_txt = (hsDiv.querySelector(".f-trans-txt") || { value: "" }).value;
-        legacy.f_trans_btn = (hsDiv.querySelector(".f-trans-btn") || { value: "Continue" }).value;
-        legacy.f_ok_msg = (hsDiv.querySelector(".f-ok-msg") || { value: "" }).value;
-        legacy.f_pick_id = (hsDiv.querySelector(".f-pick-id") || { value: "" }).value;
-        legacy.f_pick_name = (hsDiv.querySelector(".f-pick-name") || { value: "" }).value;
-        legacy.f_pick_msg = (hsDiv.querySelector(".f-pick-msg") || { value: "" }).value;
-    } else if(type === "selector") {
-        legacy.nested = {
-            title: (hsDiv.querySelector(".f-sel-title") || { value: "" }).value,
-            introHtml: (hsDiv.querySelector(".f-sel-intro") || { value: "" }).value,
-            displayMode: (hsDiv.querySelector(".f-sel-display") || { value: "buttons" }).value,
-            choices: selectorChoicesFromTextarea(hsDiv, hId)
-        };
-    }
-    legacy.requiresItem = (hsDiv.querySelector(".f-hs-req-item") || { value: "" }).value;
-    legacy.f_hs_ghost_click = (hsDiv.querySelector(".f-hs-ghost-click") || { value: "yes" }).value;
-    legacy.hiddenIfHasItem = (hsDiv.querySelector(".f-hs-hidden-if") || { value: "" }).value;
-    legacy.sfxUrl = (hsDiv.querySelector(".f-sfx-url") || { value: "" }).value;
-    legacy.sfxVolume = (hsDiv.querySelector(".f-sfx-vol") || { value: "" }).value;
-
-    return {
-        id: hsDiv.id,
-        title: (hsDiv.querySelector(".hs-title") || { value: "" }).value,
-        pitch: parseFloat((hsDiv.querySelector(".hs-pitch") || { value: "0" }).value || "0"),
-        yaw: parseFloat((hsDiv.querySelector(".hs-yaw") || { value: "0" }).value || "0"),
-        customCss: (hsDiv.querySelector(".hs-custom-css") || { value: "" }).value,
-        appearance: {
-            ui_w: (hsDiv.querySelector(".ui-w") || { value: "" }).value,
-            ui_h: (hsDiv.querySelector(".ui-h") || { value: "" }).value,
-            ui_shape: (hsDiv.querySelector(".ui-shape") || { value: "" }).value,
-            ui_bgc: (hsDiv.querySelector(".ui-bgc") || { value: "" }).value,
-            ui_bga: (hsDiv.querySelector(".ui-bga") || { value: "" }).value,
-            ui_img: (hsDiv.querySelector(".ui-img") || { value: "" }).value,
-            ui_brd_style: (hsDiv.querySelector(".ui-brd-style") || { value: "" }).value,
-            ui_brd_w: (hsDiv.querySelector(".ui-brd-w") || { value: "" }).value,
-            ui_brd_c: (hsDiv.querySelector(".ui-brd-c") || { value: "" }).value
-        },
-        action: legacyActionToV2(type, legacy)
-    };
-}
-
-/** Export current editor state in schema v2 (unified action model). */
-function getCurrentProjectData() {
-    if(!window.EditorCore) throw new Error("EditorCore not loaded.");
-    var _scRoot = document.getElementById("scenes-container");
-    if (_scRoot && typeof flushRichEditorsIn === "function") {
-        flushRichEditorsIn(_scRoot);
-    }
-    let project = EditorCore.createEmptyProject();
-    project.title = document.getElementById('gameTitle').value;
-    project.useInv = document.getElementById('useInventory').checked;
-    project.invPos = document.getElementById('inv-pos').value;
-    project.invIcon = document.getElementById('inv-icon').value;
-    project.invBgc = document.getElementById('inv-bgc').value;
-    project.invBga = parseFloat(document.getElementById('inv-bga').value || "0.8");
-    project.invColor = document.getElementById('inv-color').value;
-    project.useCustomPopup = document.getElementById('useCustomPopup').checked;
-    project.useGlobalAudio = document.getElementById('useGlobalAudio').checked;
-    var globalVolEl = document.getElementById("globalAudioVol");
-    var gMusicVol = 0.5;
-    if (globalVolEl) {
-        var gv = parseFloat(globalVolEl.value);
-        gMusicVol = isNaN(gv) ? 0.5 : Math.max(0, Math.min(1, gv));
-    }
-    project.globalMusic = {
-        url: document.getElementById('globalAudioUrl').value,
-        volume: gMusicVol
-    };
-    project.popFont = document.getElementById('pop-font').value;
-    project.popColor = document.getElementById('pop-color').value;
-    project.popBgc = document.getElementById('pop-bgc').value;
-    project.popBga = parseFloat(document.getElementById('pop-bga').value || "0.9");
-    project.popBtnBg = document.getElementById('pop-btn-bg').value;
-    project.popBtnCol = document.getElementById('pop-btn-col').value;
-
-    document.querySelectorAll('.scene-block').forEach(sceneDiv => {
-        let scene = {
-            id: (sceneDiv.querySelector('.sc-id') || { value: "" }).value.trim(),
-            title: (sceneDiv.querySelector('.sc-title') || { value: "" }).value,
-            media: {
-                panoramaUrl: (sceneDiv.querySelector('.sc-img') || { value: "" }).value,
-                ambiance: {
-                    url: sceneDiv.querySelector('.sc-audio') ? sceneDiv.querySelector('.sc-audio').value : "",
-                    volume: (function () {
-                        var el = sceneDiv.querySelector(".sc-audio-vol");
-                        if (!el) return 1;
-                        var av = parseFloat(el.value);
-                        return isNaN(av) ? 1 : Math.max(0, Math.min(1, av));
-                    })()
-                }
-            },
-            hotspots: []
-        };
-        sceneDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
-            scene.hotspots.push(hotspotDomToV2(hsDiv));
-        });
-        project.scenes.push(scene);
-    });
-    return project;
-}
 
 function saveProject() {
     const project = getCurrentProjectData();
@@ -1720,119 +1046,6 @@ function saveProject() {
     document.body.appendChild(lien); 
     lien.click(); 
     document.body.removeChild(lien);
-}
-
-function actionV2ToLegacyChoice(action, label, idx) {
-    var a = action || EditorCore.createDefaultAction("msg");
-    var p = a.payload || {};
-    var out = { label: label || ("Option " + (idx + 1)), actionType: a.type || "msg" };
-    var c = p.copy || {};
-    if(a.type === "msg") {
-        out.txt = c.bodyHtml || "";
-    } else if(a.type === "scene") {
-        out.target = p.target || "";
-        out.transTxt = c.bodyHtml || "";
-        out.transBtn = c.buttonLabel || "Continue";
-    } else if(a.type === "pick") {
-        out.itemId = p.itemId || "";
-        out.itemName = p.itemName || "";
-        out.txt = c.bodyHtml || "";
-    } else if(a.type === "selector") {
-        var n = p.nested || {};
-        var nc = n.copy || {};
-        out.nested = {
-            title: n.title || "",
-            introHtml: nc.bodyHtml || "",
-            displayMode: n.displayMode === "dropdown" ? "dropdown" : "buttons",
-            choices: (Array.isArray(n.choices) ? n.choices : []).map(function(ch, i) {
-                return actionV2ToLegacyChoice(ch.action, ch.label, i);
-            })
-        };
-    }
-    if(a.visibility && a.visibility.requiresItem) out.requiresItem = a.visibility.requiresItem;
-    if(a.visibility && a.visibility.hiddenIfHasItem) out.hiddenIfHasItem = a.visibility.hiddenIfHasItem;
-    if(a.sfx && a.sfx.url) out.sfxUrl = a.sfx.url;
-    if(a.sfx && a.sfx.volume !== undefined) out.sfxVolume = a.sfx.volume;
-    return out;
-}
-
-function actionV2ToLegacyHotspotData(hs) {
-    var a = hs.action || EditorCore.createDefaultAction("msg");
-    var p = a.payload || {};
-    var out = {
-        hsTitle: hs.title || "",
-        pitch: hs.pitch != null ? hs.pitch : 0,
-        yaw: hs.yaw != null ? hs.yaw : 0,
-        customCss: hs.customCss || "",
-        type: a.type || "msg"
-    };
-    var app = hs.appearance || {};
-    if(app.ui_w !== undefined) {
-        out.ui_w = app.ui_w; out.ui_h = app.ui_h; out.ui_shape = app.ui_shape;
-        out.ui_bgc = app.ui_bgc; out.ui_bga = app.ui_bga; out.ui_img = app.ui_img;
-        out.ui_brd_style = app.ui_brd_style; out.ui_brd_w = app.ui_brd_w; out.ui_brd_c = app.ui_brd_c;
-    }
-    var pc = p.copy || {};
-    if(a.type === "msg") {
-        out.f_txt = pc.bodyHtml || "";
-    } else if(a.type === "scene") {
-        out.f_target = p.target || "";
-        out.f_trans_txt = pc.bodyHtml || "";
-        out.f_trans_btn = pc.buttonLabel || "Continue";
-    } else if(a.type === "pick") {
-        out.f_item_id = p.itemId || "";
-        out.f_item_name = p.itemName || "";
-        out.f_pick_msg = pc.bodyHtml || "";
-    } else if(a.type === "req") {
-        out.f_item_id = p.itemId || "";
-        out.f_ko = pc.bodyHtml || "";
-        var r = p.rewardAction || EditorCore.createDefaultAction("scene");
-        var rc = (r.payload && r.payload.copy) || {};
-        out.f_req_action = r.type || "scene";
-        if(r.type === "scene") {
-            out.f_target = (r.payload && r.payload.target) || "";
-            out.f_trans_txt = rc.bodyHtml || "";
-            out.f_trans_btn = rc.buttonLabel || "Continue";
-        } else if(r.type === "msg") {
-            out.f_ok_msg = rc.bodyHtml || "";
-        } else if(r.type === "pick") {
-            out.f_pick_id = (r.payload && r.payload.itemId) || "";
-            out.f_pick_name = (r.payload && r.payload.itemName) || "";
-            out.f_pick_msg = rc.bodyHtml || "";
-        }
-    } else if(a.type === "pwd") {
-        out.f_enigme_txt = pc.bodyHtml || "";
-        out.f_pwd = p.answer || "";
-        var rp = p.rewardAction || EditorCore.createDefaultAction("scene");
-        var rpc = (rp.payload && rp.payload.copy) || {};
-        out.f_pwd_action = rp.type || "scene";
-        if(rp.type === "scene") {
-            out.f_target = (rp.payload && rp.payload.target) || "";
-            out.f_trans_txt = rpc.bodyHtml || "";
-            out.f_trans_btn = rpc.buttonLabel || "Continue";
-        } else if(rp.type === "msg") {
-            out.f_ok_msg = rpc.bodyHtml || "";
-        } else if(rp.type === "pick") {
-            out.f_pick_id = (rp.payload && rp.payload.itemId) || "";
-            out.f_pick_name = (rp.payload && rp.payload.itemName) || "";
-            out.f_pick_msg = rpc.bodyHtml || "";
-        }
-    } else if(a.type === "selector") {
-        var n = p.nested || {};
-        var ncopy = n.copy || {};
-        out.f_sel_title = n.title || "";
-        out.f_sel_intro = ncopy.bodyHtml || "";
-        out.f_sel_display = n.displayMode === "dropdown" ? "dropdown" : "buttons";
-        out.f_sel_choices = JSON.stringify((Array.isArray(n.choices) ? n.choices : []).map(function(c, i) {
-            return actionV2ToLegacyChoice(c.action, c.label, i);
-        }), null, 2);
-    }
-    if(a.sfx && a.sfx.url) out.f_sfx_url = a.sfx.url;
-    if(a.sfx && a.sfx.volume !== undefined) out.f_sfx_vol = a.sfx.volume;
-    if(a.visibility && a.visibility.requiresItem) out.f_hs_req_item = a.visibility.requiresItem;
-    if(a.visibility && a.visibility.clickWhenInvisible === false) out.f_hs_ghost_click = "no";
-    if(a.visibility && a.visibility.hiddenIfHasItem) out.f_hs_hidden_if = a.visibility.hiddenIfHasItem;
-    return out;
 }
 
 function applyLoadedProject(project) {
@@ -1882,6 +1095,7 @@ function applyLoadedProject(project) {
         var gVolDisp = document.getElementById("globalAudioVolVal");
         if (gVolDisp) gVolDisp.textContent = Number(gVolEl.value).toFixed(2);
     }
+    applyTimerSettingsToDom(document, project);
 
     project.scenes.forEach(function (scene) {
         var scMedia = scene.media || {};
