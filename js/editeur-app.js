@@ -3,15 +3,6 @@
 let sceneIdCounter = 0; 
 let hsIdCounter = 0;
 
-// Variables pour l'outil de pointage 360 (Picker)
-let currentPickerHsId = null; 
-let pickerViewer = null; 
-let tempPitch = 0; 
-let tempYaw = 0;
-
-// Variable pour le lecteur de prévisualisation (Preview)
-let scenePreviewViewer = null;
-
 // --- Bundle projet .escapegame (ZIP + project.json + assets/) : helpers partagés FR/EN ---
 var EditorSharedBundleApi = window.EditorSharedBundle;
 if (!EditorSharedBundleApi) {
@@ -158,6 +149,20 @@ var ProjectSerializer = EditorSharedProjectSerializationApi.createSerializer({
     document: document
 });
 var getCurrentProjectData = ProjectSerializer.getCurrentProjectData;
+var EditorSharedPreviewPickerApi = window.EditorSharedPreviewPicker;
+if (!EditorSharedPreviewPickerApi) {
+    throw new Error("EditorSharedPreviewPicker indisponible (js/editor-shared-preview-picker.js).");
+}
+var PreviewPickerApi = EditorSharedPreviewPickerApi.createPreviewPicker({
+    document: document,
+    pannellum: window.pannellum,
+    messages: { missingImageAlert: "Image manquante !" }
+});
+var openPicker = PreviewPickerApi.openPicker;
+var validerCoordonnees = PreviewPickerApi.validerCoordonnees;
+var closePicker = PreviewPickerApi.closePicker;
+var previewScene = PreviewPickerApi.previewScene;
+var closeScenePreview = PreviewPickerApi.closeScenePreview;
 
 /** Depuis la carte : nouvelle scène puis rafraîchissement du graphe si la modale est ouverte. */
 function addSceneFromMap() {
@@ -457,85 +462,6 @@ function toggleExpertMode(hId, forceExpert = false) {
         btn.style.background = "#7f8c8d"; 
         buildCss(hId); // Force la regénération du CSS via les jauges pour écraser le code manuel
     }
-}
-
-// --- FONCTIONS DES OUTILS 360 (Picker et Preview) ---
-// Ouvre la fenêtre pour viser un point précis (Pitch/Yaw)
-function openPicker(sceneLocalId, hId) { 
-    const scImg = document.querySelector(`#scene_${sceneLocalId} .sc-img`).value; 
-    if(!scImg) return; 
-    currentPickerHsId = hId; 
-    document.getElementById('picker-modal').style.display = 'flex'; 
-    let imgUrl = scImg; 
-    // Ajuste le chemin si l'image est locale (pas blob:, data:, http)
-    if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:') && !imgUrl.startsWith('blob:')) imgUrl = "./" + imgUrl; 
-    
-    if(pickerViewer) pickerViewer.destroy(); 
-    pickerViewer = pannellum.viewer('picker-panorama', { "type": "equirectangular", "panorama": imgUrl, "autoLoad": true, "showControls": false }); 
-    
-    // Met à jour les coordonnées en direct pendant qu'on bouge la souris
-    pickerViewer.on('load', function() { 
-        setInterval(function() { 
-            if(pickerViewer && document.getElementById('picker-modal').style.display === 'flex') { 
-                tempPitch = pickerViewer.getPitch(); 
-                tempYaw = pickerViewer.getYaw(); 
-                document.getElementById('live-pitch').innerText = tempPitch.toFixed(1); 
-                document.getElementById('live-yaw').innerText = tempYaw.toFixed(1); 
-            } 
-        }, 100); 
-    }); 
-}
-
-// Valide la visée et écrit les coordonnées dans l'éditeur
-function validerCoordonnees() { 
-    document.querySelector(`#hs_${currentPickerHsId} .hs-pitch`).value = tempPitch.toFixed(1); 
-    document.querySelector(`#hs_${currentPickerHsId} .hs-yaw`).value = tempYaw.toFixed(1); 
-    closePicker(); 
-}
-// Ferme l'outil de visée
-function closePicker() { 
-    document.getElementById('picker-modal').style.display = 'none'; 
-    if(pickerViewer) { pickerViewer.destroy(); pickerViewer = null; } 
-    currentPickerHsId = null; 
-}
-
-// Ouvre l'aperçu d'une scène complète avec tous ses hotspots
-function previewScene(sceneLocalId) { 
-    const scImg = document.querySelector(`#scene_${sceneLocalId} .sc-img`).value; 
-    if(!scImg) { alert("Image manquante !"); return; } 
-    document.getElementById('scene-preview-modal').style.display = 'flex'; 
-    
-    let imgUrl = scImg; 
-    if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:') && !imgUrl.startsWith('blob:')) imgUrl = "./" + imgUrl; 
-    
-    let previewCSS = ""; 
-    let hsArray = []; 
-    
-    // Récupère chaque hotspot de la scène pour le recréer temporairement
-    document.querySelectorAll(`#scene_${sceneLocalId} .hotspot-block`).forEach((hsDiv, index) => { 
-        const pitch = parseFloat(hsDiv.querySelector('.hs-pitch').value); 
-        const yaw = parseFloat(hsDiv.querySelector('.hs-yaw').value); 
-        const rawCss = hsDiv.querySelector('.hs-custom-css').value; 
-        const hsIdText = hsDiv.querySelector('.hs-title').value || ("HS " + (index + 1)); 
-        const hsClass = `prev-hs-${sceneLocalId}-${index}`; 
-        
-        // Ajoute un cadre pointillé rouge pour forcer la visibilité des zones invisibles
-        previewCSS += `.${hsClass} { ${rawCss} outline: 3px dashed red !important; outline-offset: 2px; pointer-events: auto; display: flex; align-items: center; justify-content: center; }\n`;
-        // Ajoute l'étiquette avec le nom du hotspot
-        previewCSS += `.${hsClass}::after { content: '${hsIdText}'; background: black; color: white; padding: 2px 5px; font-size: 12px; font-weight: bold; border-radius: 3px; }\n`; 
-        
-        hsArray.push({ pitch: pitch, yaw: yaw, cssClass: hsClass }); 
-    }); 
-    
-    document.getElementById('live-preview-styles').innerHTML = previewCSS; 
-    
-    if(scenePreviewViewer) scenePreviewViewer.destroy(); 
-    scenePreviewViewer = pannellum.viewer('scene-preview-panorama', { "type": "equirectangular", "panorama": imgUrl, "autoLoad": true, "hotSpots": hsArray }); 
-}
-// Ferme l'aperçu
-function closeScenePreview() { 
-    document.getElementById('scene-preview-modal').style.display = 'none'; 
-    if(scenePreviewViewer) { scenePreviewViewer.destroy(); scenePreviewViewer = null; } 
 }
 
 // --- Selector : formulaire des choix + JSON avancé (lecture seule par défaut) ---

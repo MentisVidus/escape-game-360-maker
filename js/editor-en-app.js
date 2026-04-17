@@ -3,15 +3,6 @@
 let sceneIdCounter = 0; 
 let hsIdCounter = 0;
 
-// 360° picker modal (pitch/yaw)
-let currentPickerHsId = null; 
-let pickerViewer = null; 
-let tempPitch = 0; 
-let tempYaw = 0;
-
-// Full-scene preview Pannellum instance
-let scenePreviewViewer = null;
-
 // --- Portable project bundle .escapegame (ZIP + project.json + assets/) — shared FR/EN helpers ---
 var EditorSharedBundleApi = window.EditorSharedBundle;
 if (!EditorSharedBundleApi) {
@@ -154,6 +145,20 @@ var ProjectSerializer = EditorSharedProjectSerializationApi.createSerializer({
     document: document
 });
 var getCurrentProjectData = ProjectSerializer.getCurrentProjectData;
+var EditorSharedPreviewPickerApi = window.EditorSharedPreviewPicker;
+if (!EditorSharedPreviewPickerApi) {
+    throw new Error("EditorSharedPreviewPicker unavailable (js/editor-shared-preview-picker.js).");
+}
+var PreviewPickerApi = EditorSharedPreviewPickerApi.createPreviewPicker({
+    document: document,
+    pannellum: window.pannellum,
+    messages: { missingImageAlert: "Missing image!" }
+});
+var openPicker = PreviewPickerApi.openPicker;
+var validerCoordonnees = PreviewPickerApi.validerCoordonnees;
+var closePicker = PreviewPickerApi.closePicker;
+var previewScene = PreviewPickerApi.previewScene;
+var closeScenePreview = PreviewPickerApi.closeScenePreview;
 
 /** From map: add scene then refresh graph if modal is open. */
 function addSceneFromMap() {
@@ -450,85 +455,6 @@ function toggleExpertMode(hId, forceExpert = false) {
         btn.style.background = "#7f8c8d"; 
         buildCss(hId); // Overwrite textarea from sliders (discards manual CSS)
     }
-}
-
-// --- 360° picker & scene preview ---
-// Open fullscreen picker; saves pitch/yaw into selected hotspot
-function openPicker(sceneLocalId, hId) { 
-    const scImg = document.querySelector(`#scene_${sceneLocalId} .sc-img`).value; 
-    if(!scImg) return; 
-    currentPickerHsId = hId; 
-    document.getElementById('picker-modal').style.display = 'flex'; 
-    let imgUrl = scImg; 
-    // Prefix relative image paths for file:// / same-folder hosting (not blob: / data: / http)
-    if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:') && !imgUrl.startsWith('blob:')) imgUrl = "./" + imgUrl; 
-    
-    if(pickerViewer) pickerViewer.destroy(); 
-    pickerViewer = pannellum.viewer('picker-panorama', { "type": "equirectangular", "panorama": imgUrl, "autoLoad": true, "showControls": false }); 
-    
-    // Poll viewer pitch/yaw while modal is open
-    pickerViewer.on('load', function() { 
-        setInterval(function() { 
-            if(pickerViewer && document.getElementById('picker-modal').style.display === 'flex') { 
-                tempPitch = pickerViewer.getPitch(); 
-                tempYaw = pickerViewer.getYaw(); 
-                document.getElementById('live-pitch').innerText = tempPitch.toFixed(1); 
-                document.getElementById('live-yaw').innerText = tempYaw.toFixed(1); 
-            } 
-        }, 100); 
-    }); 
-}
-
-// Apply picked angles to hotspot fields
-function validerCoordonnees() { 
-    document.querySelector(`#hs_${currentPickerHsId} .hs-pitch`).value = tempPitch.toFixed(1); 
-    document.querySelector(`#hs_${currentPickerHsId} .hs-yaw`).value = tempYaw.toFixed(1); 
-    closePicker(); 
-}
-// Close picker and destroy viewer
-function closePicker() { 
-    document.getElementById('picker-modal').style.display = 'none'; 
-    if(pickerViewer) { pickerViewer.destroy(); pickerViewer = null; } 
-    currentPickerHsId = null; 
-}
-
-// Full-screen scene preview with hotspot outlines + labels
-function previewScene(sceneLocalId) { 
-    const scImg = document.querySelector(`#scene_${sceneLocalId} .sc-img`).value; 
-    if(!scImg) { alert("Missing image!"); return; } 
-    document.getElementById('scene-preview-modal').style.display = 'flex'; 
-    
-    let imgUrl = scImg; 
-    if (!imgUrl.startsWith('http') && !imgUrl.startsWith('data:') && !imgUrl.startsWith('blob:')) imgUrl = "./" + imgUrl; 
-    
-    let previewCSS = ""; 
-    let hsArray = []; 
-    
-    // Build Pannellum hotSpots from editor fields
-    document.querySelectorAll(`#scene_${sceneLocalId} .hotspot-block`).forEach((hsDiv, index) => { 
-        const pitch = parseFloat(hsDiv.querySelector('.hs-pitch').value); 
-        const yaw = parseFloat(hsDiv.querySelector('.hs-yaw').value); 
-        const rawCss = hsDiv.querySelector('.hs-custom-css').value; 
-        const hsIdText = hsDiv.querySelector('.hs-title').value || ("HS " + (index + 1)); 
-        const hsClass = `prev-hs-${sceneLocalId}-${index}`; 
-        
-        // Red dashed outline so transparent hotspots stay visible
-        previewCSS += `.${hsClass} { ${rawCss} outline: 3px dashed red !important; outline-offset: 2px; pointer-events: auto; display: flex; align-items: center; justify-content: center; }\n`;
-        // ::after label from hotspot note / title
-        previewCSS += `.${hsClass}::after { content: '${hsIdText}'; background: black; color: white; padding: 2px 5px; font-size: 12px; font-weight: bold; border-radius: 3px; }\n`; 
-        
-        hsArray.push({ pitch: pitch, yaw: yaw, cssClass: hsClass }); 
-    }); 
-    
-    document.getElementById('live-preview-styles').innerHTML = previewCSS; 
-    
-    if(scenePreviewViewer) scenePreviewViewer.destroy(); 
-    scenePreviewViewer = pannellum.viewer('scene-preview-panorama', { "type": "equirectangular", "panorama": imgUrl, "autoLoad": true, "hotSpots": hsArray }); 
-}
-// Close preview modal
-function closeScenePreview() { 
-    document.getElementById('scene-preview-modal').style.display = 'none'; 
-    if(scenePreviewViewer) { scenePreviewViewer.destroy(); scenePreviewViewer = null; } 
 }
 
 // --- Selector: choice form + advanced JSON (readonly by default) ---
