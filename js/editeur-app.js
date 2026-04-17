@@ -121,6 +121,11 @@ var attachSelectorChoicesListeners = EditorSharedSelectorCoreApi.attachSelectorC
 var selectorMoveChoice = EditorSharedSelectorCoreApi.selectorMoveChoice;
 var selectorRemoveChoice = EditorSharedSelectorCoreApi.selectorRemoveChoice;
 var selectorChoicesFromTextarea = EditorSharedSelectorCoreApi.selectorChoicesFromTextarea;
+var EditorSharedHotspotSerializationApi = window.EditorSharedHotspotSerialization;
+if (!EditorSharedHotspotSerializationApi) {
+    throw new Error("EditorSharedHotspotSerialization indisponible (js/editor-shared-hotspot-serialization.js).");
+}
+var extractHotspotData = EditorSharedHotspotSerializationApi.extractHotspotData;
 
 /** Depuis la carte : nouvelle scène puis rafraîchissement du graphe si la modale est ouverte. */
 function addSceneFromMap() {
@@ -338,33 +343,6 @@ function addHotspot(sceneId, hsData = null) {
 }
 
 // --- FONCTIONS DE DUPLICATION ---
-// Extrait toutes les données d'un hotspot existant pour pouvoir le copier
-function extractHotspotData(hId) {
-    const hsDiv = document.getElementById(`hs_${hId}`);
-    if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(hsDiv);
-    let hs = { 
-        hsTitle: hsDiv.querySelector('.hs-title').value, 
-        pitch: hsDiv.querySelector('.hs-pitch').value, 
-        yaw: hsDiv.querySelector('.hs-yaw').value, 
-        customCss: hsDiv.querySelector('.hs-custom-css').value, 
-        type: hsDiv.querySelector('.hs-type').value 
-    };
-    
-    let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol', 'ui-w', 'ui-h', 'ui-shape', 'ui-bgc', 'ui-bga', 'ui-brd-style', 'ui-brd-w', 'ui-brd-c', 'ui-img'];
-    fields.forEach(f => { 
-        let el = hsDiv.querySelector('.' + f); 
-        if(el) hs[f.replace(/-/g, '_')] = el.value; 
-    });
-    
-    // Mémorise si le joueur avait activé le mode expert pour ce hotspot
-    if(!hsDiv.querySelector('.hs-custom-css').hasAttribute("readonly")) hs.expertMode = true;
-    if(hs.type === 'selector') {
-        var fc = hsDiv.querySelector('.f-sel-choices');
-        if(fc && !fc.hasAttribute('readonly')) hs.selJsonExpertMode = true;
-    }
-    return hs;
-}
-
 // Demande à l'utilisateur où copier le hotspot, puis le duplique
 function duplicateHotspot(currentSId, hId) {
     let sceneList = ""; 
