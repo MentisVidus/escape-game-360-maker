@@ -134,6 +134,16 @@ var selectorChoiceLegacyToV2 = ActionMappers.selectorChoiceLegacyToV2;
 var legacyActionToV2 = ActionMappers.legacyActionToV2;
 var legacyRewardToV2 = ActionMappers.legacyRewardToV2;
 var actionV2ToLegacyChoice = ActionMappers.actionV2ToLegacyChoice;
+var EditorSharedHotspotDomMapperApi = window.EditorSharedHotspotDomMapper;
+if (!EditorSharedHotspotDomMapperApi) {
+    throw new Error("EditorSharedHotspotDomMapper unavailable (js/editor-shared-hotspot-dom-mapper.js).");
+}
+var HotspotDomMapper = EditorSharedHotspotDomMapperApi.createHotspotDomMapper({
+    defaultTransitionLabel: "Continue",
+    selectorChoicesFromTextarea: selectorChoicesFromTextarea,
+    legacyActionToV2: legacyActionToV2
+});
+var hotspotDomToV2 = HotspotDomMapper.hotspotDomToV2;
 
 /** From map: add scene then refresh graph if modal is open. */
 function addSceneFromMap() {
@@ -1093,78 +1103,6 @@ function updateHsFields(hId, opts) {
 
 // --- Save / load project JSON ---
 
-
-function hotspotDomToV2(hsDiv) {
-    if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(hsDiv);
-    var hId = parseInt(hsDiv.id.replace("hs_", ""), 10);
-    var type = hsDiv.querySelector(".hs-type").value;
-    var legacy = {};
-    if(type === "msg") {
-        legacy.txt = (hsDiv.querySelector(".f-txt") || { value: "" }).value;
-    } else if(type === "scene") {
-        legacy.target = (hsDiv.querySelector(".f-target") || { value: "" }).value;
-        legacy.transTxt = (hsDiv.querySelector(".f-trans-txt") || { value: "" }).value;
-        legacy.transBtn = (hsDiv.querySelector(".f-trans-btn") || { value: "Continue" }).value;
-    } else if(type === "pick") {
-        legacy.itemId = (hsDiv.querySelector(".f-item-id") || { value: "" }).value;
-        legacy.itemName = (hsDiv.querySelector(".f-item-name") || { value: "" }).value;
-        legacy.txt = (hsDiv.querySelector(".f-pick-msg") || { value: "" }).value;
-    } else if(type === "req") {
-        legacy.itemId = (hsDiv.querySelector(".f-item-id") || { value: "" }).value;
-        legacy.ko = (hsDiv.querySelector(".f-ko") || { value: "" }).value;
-        legacy.f_req_action = (hsDiv.querySelector(".f-req-action") || { value: "scene" }).value;
-        legacy.f_target = (hsDiv.querySelector(".f-target") || { value: "" }).value;
-        legacy.f_trans_txt = (hsDiv.querySelector(".f-trans-txt") || { value: "" }).value;
-        legacy.f_trans_btn = (hsDiv.querySelector(".f-trans-btn") || { value: "Continue" }).value;
-        legacy.f_ok_msg = (hsDiv.querySelector(".f-ok-msg") || { value: "" }).value;
-        legacy.f_pick_id = (hsDiv.querySelector(".f-pick-id") || { value: "" }).value;
-        legacy.f_pick_name = (hsDiv.querySelector(".f-pick-name") || { value: "" }).value;
-        legacy.f_pick_msg = (hsDiv.querySelector(".f-pick-msg") || { value: "" }).value;
-    } else if(type === "pwd") {
-        legacy.enigmeTxt = (hsDiv.querySelector(".f-enigme-txt") || { value: "" }).value;
-        legacy.pwd = (hsDiv.querySelector(".f-pwd") || { value: "" }).value;
-        legacy.f_pwd_action = (hsDiv.querySelector(".f-pwd-action") || { value: "scene" }).value;
-        legacy.f_target = (hsDiv.querySelector(".f-target") || { value: "" }).value;
-        legacy.f_trans_txt = (hsDiv.querySelector(".f-trans-txt") || { value: "" }).value;
-        legacy.f_trans_btn = (hsDiv.querySelector(".f-trans-btn") || { value: "Continue" }).value;
-        legacy.f_ok_msg = (hsDiv.querySelector(".f-ok-msg") || { value: "" }).value;
-        legacy.f_pick_id = (hsDiv.querySelector(".f-pick-id") || { value: "" }).value;
-        legacy.f_pick_name = (hsDiv.querySelector(".f-pick-name") || { value: "" }).value;
-        legacy.f_pick_msg = (hsDiv.querySelector(".f-pick-msg") || { value: "" }).value;
-    } else if(type === "selector") {
-        legacy.nested = {
-            title: (hsDiv.querySelector(".f-sel-title") || { value: "" }).value,
-            introHtml: (hsDiv.querySelector(".f-sel-intro") || { value: "" }).value,
-            displayMode: (hsDiv.querySelector(".f-sel-display") || { value: "buttons" }).value,
-            choices: selectorChoicesFromTextarea(hsDiv, hId)
-        };
-    }
-    legacy.requiresItem = (hsDiv.querySelector(".f-hs-req-item") || { value: "" }).value;
-    legacy.f_hs_ghost_click = (hsDiv.querySelector(".f-hs-ghost-click") || { value: "yes" }).value;
-    legacy.hiddenIfHasItem = (hsDiv.querySelector(".f-hs-hidden-if") || { value: "" }).value;
-    legacy.sfxUrl = (hsDiv.querySelector(".f-sfx-url") || { value: "" }).value;
-    legacy.sfxVolume = (hsDiv.querySelector(".f-sfx-vol") || { value: "" }).value;
-
-    return {
-        id: hsDiv.id,
-        title: (hsDiv.querySelector(".hs-title") || { value: "" }).value,
-        pitch: parseFloat((hsDiv.querySelector(".hs-pitch") || { value: "0" }).value || "0"),
-        yaw: parseFloat((hsDiv.querySelector(".hs-yaw") || { value: "0" }).value || "0"),
-        customCss: (hsDiv.querySelector(".hs-custom-css") || { value: "" }).value,
-        appearance: {
-            ui_w: (hsDiv.querySelector(".ui-w") || { value: "" }).value,
-            ui_h: (hsDiv.querySelector(".ui-h") || { value: "" }).value,
-            ui_shape: (hsDiv.querySelector(".ui-shape") || { value: "" }).value,
-            ui_bgc: (hsDiv.querySelector(".ui-bgc") || { value: "" }).value,
-            ui_bga: (hsDiv.querySelector(".ui-bga") || { value: "" }).value,
-            ui_img: (hsDiv.querySelector(".ui-img") || { value: "" }).value,
-            ui_brd_style: (hsDiv.querySelector(".ui-brd-style") || { value: "" }).value,
-            ui_brd_w: (hsDiv.querySelector(".ui-brd-w") || { value: "" }).value,
-            ui_brd_c: (hsDiv.querySelector(".ui-brd-c") || { value: "" }).value
-        },
-        action: legacyActionToV2(type, legacy)
-    };
-}
 
 /** Export current editor state in schema v2 (unified action model). */
 function getCurrentProjectData() {

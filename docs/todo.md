@@ -22,6 +22,7 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 - **Refactor FR/EN — phase 3 (cœur selector technique)** — extraction dans `js/editor-shared-selector-core.js` des helpers selector non localisés (`getOwnChoiceField`, `collectChoicesFromList`, sync/listeners textarea JSON, move/remove choice, parse textarea). `editeur-app.js` / `editor-en-app.js` branchés sur `window.EditorSharedSelectorCore`; script chargé dans les deux HTML.
 - **Refactor FR/EN — phase 4 (sérialisation hotspot)** — extraction de `extractHotspotData` dans `js/editor-shared-hotspot-serialization.js` (duplication/copie hotspot). `editeur-app.js` / `editor-en-app.js` branchés sur `window.EditorSharedHotspotSerialization`; script chargé dans les deux HTML.
 - **Refactor FR/EN — phase 5 (mappers actions legacy↔V2)** — extraction dans `js/editor-shared-action-mappers.js` des conversions `selectorChoiceLegacyToV2`, `legacyActionToV2`, `legacyRewardToV2`, `actionV2ToLegacyChoice` avec options de locale (label transition par défaut). `editeur-app.js` / `editor-en-app.js` branchés sur `window.EditorSharedActionMappers`; script chargé dans les deux HTML.
+- **Refactor FR/EN — phase 6 (shared hotspot DOM mapper core)** — extraction de `hotspotDomToV2` dans `js/editor-shared-hotspot-dom-mapper.js` avec dépendances injectées (`selectorChoicesFromTextarea`, `legacyActionToV2`) et option de locale (`defaultTransitionLabel`). `editeur-app.js` / `editor-en-app.js` branchés sur `window.EditorSharedHotspotDomMapper`; script chargé dans les deux HTML.
 
 ---
 
