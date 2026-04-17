@@ -92,12 +92,16 @@
         var fromRen = rename && rename.from != null ? String(rename.from).trim() : "";
         var toRen = rename && rename.to != null ? String(rename.to).trim() : "";
         document.querySelectorAll("select.f-target, select.sel-scene-target").forEach(function (sel) {
-            var cur =
-                sel.value === NEW_SCENE_VALUE
-                    ? preferSel === sel && preferVal
-                        ? preferVal
-                        : sel.dataset.prevValue || ""
-                    : (sel.value || "").trim();
+            /* Après « + nouvelle scène », addScene() rafraîchit une première fois : il faut forcer la cible sur le nouvel ID (preferSelect + preferVal) avant toute autre logique, sinon cur retombe sur dataset.prevValue. */
+            var pv = preferVal != null ? String(preferVal).trim() : "";
+            var cur;
+            if (preferSel === sel && pv) {
+                cur = pv;
+            } else if (sel.value === NEW_SCENE_VALUE) {
+                cur = sel.dataset.prevValue || "";
+            } else {
+                cur = (sel.value || "").trim();
+            }
             if (fromRen && toRen && cur === fromRen) {
                 cur = toRen;
             }
@@ -140,9 +144,10 @@
         var id = String(raw).trim();
         if (typeof window.addScene === "function") {
             var img = EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL;
-            window.addScene(id, img, "");
+            window.addScene(id, img, "", { preferSelect: sel, preferVal: id });
+        } else {
+            global.refreshAllSceneTargetSelects({ preferSelect: sel, preferVal: id });
         }
-        global.refreshAllSceneTargetSelects({ preferSelect: sel, preferVal: id });
         if (typeof window.refreshProjectMapGraphInPlace === "function") {
             window.refreshProjectMapGraphInPlace();
         }
