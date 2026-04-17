@@ -131,11 +131,102 @@
             return out;
         }
 
+        function actionV2ToLegacyHotspotData(hs) {
+            var src = hs || {};
+            var a = src.action || EditorCore.createDefaultAction("msg");
+            var p = a.payload || {};
+            var out = {
+                hsTitle: src.title || "",
+                pitch: src.pitch != null ? src.pitch : 0,
+                yaw: src.yaw != null ? src.yaw : 0,
+                customCss: src.customCss || "",
+                type: a.type || "msg"
+            };
+            var app = src.appearance || {};
+            if (app.ui_w !== undefined) {
+                out.ui_w = app.ui_w;
+                out.ui_h = app.ui_h;
+                out.ui_shape = app.ui_shape;
+                out.ui_bgc = app.ui_bgc;
+                out.ui_bga = app.ui_bga;
+                out.ui_img = app.ui_img;
+                out.ui_brd_style = app.ui_brd_style;
+                out.ui_brd_w = app.ui_brd_w;
+                out.ui_brd_c = app.ui_brd_c;
+            }
+            var pc = p.copy || {};
+            if (a.type === "msg") {
+                out.f_txt = pc.bodyHtml || "";
+            } else if (a.type === "scene") {
+                out.f_target = p.target || "";
+                out.f_trans_txt = pc.bodyHtml || "";
+                out.f_trans_btn = pc.buttonLabel || defaultTransitionLabel;
+            } else if (a.type === "pick") {
+                out.f_item_id = p.itemId || "";
+                out.f_item_name = p.itemName || "";
+                out.f_pick_msg = pc.bodyHtml || "";
+            } else if (a.type === "req") {
+                out.f_item_id = p.itemId || "";
+                out.f_ko = pc.bodyHtml || "";
+                var r = p.rewardAction || EditorCore.createDefaultAction("scene");
+                var rc = (r.payload && r.payload.copy) || {};
+                out.f_req_action = r.type || "scene";
+                if (r.type === "scene") {
+                    out.f_target = (r.payload && r.payload.target) || "";
+                    out.f_trans_txt = rc.bodyHtml || "";
+                    out.f_trans_btn = rc.buttonLabel || defaultTransitionLabel;
+                } else if (r.type === "msg") {
+                    out.f_ok_msg = rc.bodyHtml || "";
+                } else if (r.type === "pick") {
+                    out.f_pick_id = (r.payload && r.payload.itemId) || "";
+                    out.f_pick_name = (r.payload && r.payload.itemName) || "";
+                    out.f_pick_msg = rc.bodyHtml || "";
+                }
+            } else if (a.type === "pwd") {
+                out.f_enigme_txt = pc.bodyHtml || "";
+                out.f_pwd = p.answer || "";
+                var rp = p.rewardAction || EditorCore.createDefaultAction("scene");
+                var rpc = (rp.payload && rp.payload.copy) || {};
+                out.f_pwd_action = rp.type || "scene";
+                if (rp.type === "scene") {
+                    out.f_target = (rp.payload && rp.payload.target) || "";
+                    out.f_trans_txt = rpc.bodyHtml || "";
+                    out.f_trans_btn = rpc.buttonLabel || defaultTransitionLabel;
+                } else if (rp.type === "msg") {
+                    out.f_ok_msg = rpc.bodyHtml || "";
+                } else if (rp.type === "pick") {
+                    out.f_pick_id = (rp.payload && rp.payload.itemId) || "";
+                    out.f_pick_name = (rp.payload && rp.payload.itemName) || "";
+                    out.f_pick_msg = rpc.bodyHtml || "";
+                }
+            } else if (a.type === "selector") {
+                var n = p.nested || {};
+                var ncopy = n.copy || {};
+                out.f_sel_title = n.title || "";
+                out.f_sel_intro = ncopy.bodyHtml || "";
+                out.f_sel_display = n.displayMode === "dropdown" ? "dropdown" : "buttons";
+                out.f_sel_choices = JSON.stringify(
+                    (Array.isArray(n.choices) ? n.choices : []).map(function (c, i) {
+                        return actionV2ToLegacyChoice(c.action, c.label, i);
+                    }),
+                    null,
+                    2
+                );
+            }
+            if (a.sfx && a.sfx.url) out.f_sfx_url = a.sfx.url;
+            if (a.sfx && a.sfx.volume !== undefined) out.f_sfx_vol = a.sfx.volume;
+            if (a.visibility && a.visibility.requiresItem) out.f_hs_req_item = a.visibility.requiresItem;
+            if (a.visibility && a.visibility.clickWhenInvisible === false) out.f_hs_ghost_click = "no";
+            if (a.visibility && a.visibility.hiddenIfHasItem) out.f_hs_hidden_if = a.visibility.hiddenIfHasItem;
+            return out;
+        }
+
         return {
             selectorChoiceLegacyToV2: selectorChoiceLegacyToV2,
             legacyActionToV2: legacyActionToV2,
             legacyRewardToV2: legacyRewardToV2,
-            actionV2ToLegacyChoice: actionV2ToLegacyChoice
+            actionV2ToLegacyChoice: actionV2ToLegacyChoice,
+            actionV2ToLegacyHotspotData: actionV2ToLegacyHotspotData
         };
     }
 
