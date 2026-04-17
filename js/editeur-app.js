@@ -165,6 +165,35 @@ var closePicker = PreviewPickerApi.closePicker;
 var previewScene = PreviewPickerApi.previewScene;
 var closeScenePreview = PreviewPickerApi.closeScenePreview;
 
+var EditorSharedDuplicationApi = window.EditorSharedDuplication;
+if (!EditorSharedDuplicationApi) {
+    throw new Error("EditorSharedDuplication indisponible (js/editor-shared-duplication.js).");
+}
+var DuplicationHelpers = EditorSharedDuplicationApi.createDuplicationHelpers({
+    document: document,
+    addHotspot: addHotspot,
+    extractHotspotData: extractHotspotData,
+    addScene: addScene,
+    refreshAllSceneTargetSelects:
+        typeof refreshAllSceneTargetSelects === "function" ? refreshAllSceneTargetSelects : undefined,
+    strings: {
+        duplicateHotspotPrompt: function (sceneList) {
+            return (
+                "Dans quelle scène copier ce hotspot ?\n" +
+                "(Laissez vide pour copier dans la scène actuelle)\n\n" +
+                "Choix possibles :\n" +
+                sceneList
+            );
+        },
+        duplicateHotspotInvalidNumber: "Numéro invalide. Copié dans la scène actuelle.",
+        sceneDefaultTitlePrefix: "Scène ",
+        sceneIdCopySuffix: "_copie",
+        sceneTitleCopySuffix: " (Copie)"
+    }
+});
+var duplicateHotspot = DuplicationHelpers.duplicateHotspot;
+var duplicateScene = DuplicationHelpers.duplicateScene;
+
 /** Depuis la carte : nouvelle scène puis rafraîchissement du graphe si la modale est ouverte. */
 function addSceneFromMap() {
     addScene();
@@ -375,61 +404,6 @@ function addHotspot(sceneId, hsData = null) {
     if (_fld && typeof initRichEditorsIn === "function") {
         initRichEditorsIn(_fld);
     }
-    if (typeof refreshAllSceneTargetSelects === "function") {
-        refreshAllSceneTargetSelects();
-    }
-}
-
-// --- FONCTIONS DE DUPLICATION ---
-// Demande à l'utilisateur où copier le hotspot, puis le duplique
-function duplicateHotspot(currentSId, hId) {
-    let sceneList = ""; 
-    let mapIds = [];
-    
-    // Prépare la liste des scènes pour la boîte de dialogue
-    document.querySelectorAll('.scene-block').forEach((sDiv, idx) => {
-        let sid = sDiv.id.split('_')[1];
-        let title = sDiv.querySelector('.sc-title').value || sDiv.querySelector('.sc-id').value || "Scène " + sid;
-        sceneList += `${idx + 1} : ${title}\n`;
-        mapIds.push(sid);
-    });
-    
-    let dest = prompt(`Dans quelle scène copier ce hotspot ?\n(Laissez vide pour copier dans la scène actuelle)\n\nChoix possibles :\n${sceneList}`, "");
-    let targetSId = currentSId;
-    
-    if(dest !== null && dest.trim() !== "") {
-        let idx = parseInt(dest) - 1;
-        if(idx >= 0 && idx < mapIds.length) targetSId = mapIds[idx];
-        else alert("Numéro invalide. Copié dans la scène actuelle.");
-    } else if (dest === null) return; // Si l'utilisateur clique sur Annuler
-    
-    // Crée le nouveau hotspot
-    addHotspot(targetSId, extractHotspotData(hId));
-}
-
-// Duplique une scène entière, en copiant tous ses hotspots
-function duplicateScene(sId) {
-    const sDiv = document.getElementById(`scene_${sId}`);
-    
-    // Crée la nouvelle scène
-    const newSId = addScene(
-        sDiv.querySelector('.sc-id').value + "_copie", 
-        sDiv.querySelector('.sc-img').value, 
-        sDiv.querySelector('.sc-title').value + " (Copie)"
-    );
-    
-    const newScDiv = document.getElementById('scene_' + newSId);
-    if (newScDiv && newScDiv.querySelector('.sc-audio') && sDiv.querySelector('.sc-audio')) {
-        newScDiv.querySelector('.sc-audio').value = sDiv.querySelector('.sc-audio').value;
-    }
-    if (newScDiv && newScDiv.querySelector('.sc-audio-vol') && sDiv.querySelector('.sc-audio-vol')) {
-        newScDiv.querySelector('.sc-audio-vol').value = sDiv.querySelector('.sc-audio-vol').value;
-    }
-
-    // Copie chaque hotspot de l'ancienne scène dans la nouvelle
-    sDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
-        addHotspot(newSId, extractHotspotData(hsDiv.id.split('_')[1]));
-    });
     if (typeof refreshAllSceneTargetSelects === "function") {
         refreshAllSceneTargetSelects();
     }

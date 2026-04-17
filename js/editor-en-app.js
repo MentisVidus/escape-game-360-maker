@@ -161,6 +161,35 @@ var closePicker = PreviewPickerApi.closePicker;
 var previewScene = PreviewPickerApi.previewScene;
 var closeScenePreview = PreviewPickerApi.closeScenePreview;
 
+var EditorSharedDuplicationApi = window.EditorSharedDuplication;
+if (!EditorSharedDuplicationApi) {
+    throw new Error("EditorSharedDuplication unavailable (js/editor-shared-duplication.js).");
+}
+var DuplicationHelpers = EditorSharedDuplicationApi.createDuplicationHelpers({
+    document: document,
+    addHotspot: addHotspot,
+    extractHotspotData: extractHotspotData,
+    addScene: addScene,
+    refreshAllSceneTargetSelects:
+        typeof refreshAllSceneTargetSelects === "function" ? refreshAllSceneTargetSelects : undefined,
+    strings: {
+        duplicateHotspotPrompt: function (sceneList) {
+            return (
+                "Copy this hotspot to which scene?\n" +
+                "(Leave empty to use the current scene)\n\n" +
+                "Scenes:\n" +
+                sceneList
+            );
+        },
+        duplicateHotspotInvalidNumber: "Invalid number. Copied to the current scene.",
+        sceneDefaultTitlePrefix: "Scene ",
+        sceneIdCopySuffix: "_copy",
+        sceneTitleCopySuffix: " (Copy)"
+    }
+});
+var duplicateHotspot = DuplicationHelpers.duplicateHotspot;
+var duplicateScene = DuplicationHelpers.duplicateScene;
+
 /** From map: add scene then refresh graph if modal is open. */
 function addSceneFromMap() {
     addScene();
@@ -368,61 +397,6 @@ function addHotspot(sceneId, hsData = null) {
     if (_fld && typeof initRichEditorsIn === "function") {
         initRichEditorsIn(_fld);
     }
-    if (typeof refreshAllSceneTargetSelects === "function") {
-        refreshAllSceneTargetSelects();
-    }
-}
-
-// --- Duplicate / export hotspot data ---
-// Prompt for target scene, then duplicate hotspot there
-function duplicateHotspot(currentSId, hId) {
-    let sceneList = ""; 
-    let mapIds = [];
-    
-    // Numbered scene list for the prompt
-    document.querySelectorAll('.scene-block').forEach((sDiv, idx) => {
-        let sid = sDiv.id.split('_')[1];
-        let title = sDiv.querySelector('.sc-title').value || sDiv.querySelector('.sc-id').value || "Scene " + sid;
-        sceneList += `${idx + 1} : ${title}\n`;
-        mapIds.push(sid);
-    });
-    
-    let dest = prompt(`Copy this hotspot to which scene?\n(Leave empty to use the current scene)\n\nScenes:\n${sceneList}`, "");
-    let targetSId = currentSId;
-    
-    if(dest !== null && dest.trim() !== "") {
-        let idx = parseInt(dest) - 1;
-        if(idx >= 0 && idx < mapIds.length) targetSId = mapIds[idx];
-        else alert("Invalid number. Copied to the current scene.");
-    } else if (dest === null) return; // User cancelled prompt
-    
-    // Create duplicate
-    addHotspot(targetSId, extractHotspotData(hId));
-}
-
-// Duplicate scene and all its hotspots (incl. ambient audio URL)
-function duplicateScene(sId) {
-    const sDiv = document.getElementById(`scene_${sId}`);
-    
-    // New scene block
-    const newSId = addScene(
-        sDiv.querySelector('.sc-id').value + "_copy", 
-        sDiv.querySelector('.sc-img').value, 
-        sDiv.querySelector('.sc-title').value + " (Copy)"
-    );
-    
-    const newScDiv = document.getElementById('scene_' + newSId);
-    if (newScDiv && newScDiv.querySelector('.sc-audio') && sDiv.querySelector('.sc-audio')) {
-        newScDiv.querySelector('.sc-audio').value = sDiv.querySelector('.sc-audio').value;
-    }
-    if (newScDiv && newScDiv.querySelector('.sc-audio-vol') && sDiv.querySelector('.sc-audio-vol')) {
-        newScDiv.querySelector('.sc-audio-vol').value = sDiv.querySelector('.sc-audio-vol').value;
-    }
-
-    // Clone each hotspot
-    sDiv.querySelectorAll('.hotspot-block').forEach(hsDiv => {
-        addHotspot(newSId, extractHotspotData(hsDiv.id.split('_')[1]));
-    });
     if (typeof refreshAllSceneTargetSelects === "function") {
         refreshAllSceneTargetSelects();
     }
