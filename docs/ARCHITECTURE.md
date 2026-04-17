@@ -15,6 +15,7 @@ This document is for **developers** and **AI assistants** working on the reposit
 | [js/editor-shared-ui-utils.js](../js/editor-shared-ui-utils.js) | Shared FR/EN UI helpers without localized copy (collapse/reorder utilities, no-code CSS generator, pick auto-fill wiring). |
 | [js/editor-shared-selector-core.js](../js/editor-shared-selector-core.js) | Shared FR/EN selector technical core (own-card field lookup, JSON textarea sync/listeners, move/remove choice helpers, textarea parsing). |
 | [js/editor-shared-hotspot-serialization.js](../js/editor-shared-hotspot-serialization.js) | Shared FR/EN hotspot serialization helper (`extractHotspotData`) used by duplication and copy/export flows. |
+| [js/editor-shared-action-mappers.js](../js/editor-shared-action-mappers.js) | Shared FR/EN legacy↔V2 action mappers (`legacyActionToV2`, `legacyRewardToV2`, `selectorChoiceLegacyToV2`, `actionV2ToLegacyChoice`) with locale options (transition label defaults). |
 | [js/editeur-app.js](../js/editeur-app.js) | French editor: UI, scenes/hotspots, save/load (`.json` / **`.escapegame`** bundle), previews, **`getCurrentProjectData()`**, map hooks — everything except `generateGame`. |
 | [js/editeur-generate.js](../js/editeur-generate.js) | French: `generateGame()` (player template), **`exportGameWebZip()`** (hosting ZIP), `window.onload` boot. |
 | [js/editor-en-app.js](../js/editor-en-app.js) | English editor — mirrors `editeur-app.js` (including bundle save/load). |
