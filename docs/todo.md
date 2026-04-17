@@ -28,6 +28,8 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 - **Refactor FR/EN — phase 9 (finalisation mappers V2/legacy hotspot)** — extraction de `actionV2ToLegacyHotspotData` vers `js/editor-shared-action-mappers.js` (factory `createActionMappers`), pour compléter la migration des conversions V2↔legacy hors des fichiers FR/EN. `editeur-app.js` / `editor-en-app.js` branchés sur `ActionMappers.actionV2ToLegacyHotspotData`.
 - **Refactor FR/EN — phase 10 (duplication scène / hotspot)** — extraction de `duplicateHotspot` et `duplicateScene` dans `js/editor-shared-duplication.js` (`createDuplicationHelpers`), avec dépendances injectées (`addHotspot`, `addScene`, `extractHotspotData`, `refreshAllSceneTargetSelects`) et chaînes localisées (prompt, alerte, suffixes `_copie` / `_copy`, titres). Script chargé dans `editeur.html` et `editor_en.html` avant les `*-app.js`.
 - **Timer + écrans de fin — phase A (schéma + UI éditeur)** — ajout des paramètres globaux `timer`, `victorySceneId`, `endScreens` dans `editor-core.js` (defaults + normalisation), ajout des contrôles FR/EN dans `editeur.html` / `editor_en.html`, et branchement save/load via `js/editor-shared-timer.js` + `js/editor-shared-project-serialization.js` + `applyLoadedProject` FR/EN.
+- **Timer joueur — phase B (runtime export)** — `js/editeur-generate.js` + `js/editor-en-generate.js` : JSON embarqué `escape360-timer-config` (timer + copie `endScreens.gameOver`), HUD `#player-timer`, CSS modale Game Over ; logique tick countdown / countup, expiration → écran Game Over (destroy Pannellum, masquage HUD, `location.reload()` sur le bouton) ; option **pause pendant popups** branchée sur paramètres, `afficherPopup`, sélecteur, énigme mot de passe ; `initPlayerTimerAfterStart()` après `startGame` ; garde **`gameOverTriggered`** sur `executeAction` et clics `hotspotDispatcher`.
+- **Timer joueur — phase C (victoire) + sens « démarrage auto »** — `js/editeur-generate.js` + `js/editor-en-generate.js` : modale victoire (`victorySceneId`, contenus `endScreens.victory`), déclenchement sur la scène courante (chargement initial + `scenechange`) ; si `timer.autoStart` est désactivé, le compteur ne tourne qu’après le premier clic hotspot ou la première exécution `executeAction` (ex. choix selector). Aide contextuelle sous la case à cocher dans `editeur.html` / `editor_en.html`.
 
 ---
 
@@ -128,9 +130,9 @@ Objectif : scènes “pression” avec compte à rebours local.
 
 - **Phase A — Schéma + UI éditeur**
   - Ajouter les champs globaux timer/end screens dans le modèle + formulaires FR/EN.
-- **Phase B — Joueur timer**
+- **Phase B — Joueur timer** *(livré : HTML export FR/EN — HUD, config JSON, Game Over, pause popups / réglages / selector / mot de passe)*
   - HUD timer, mode countup/countdown, expiration -> Game Over.
-- **Phase C — Victoire**
+- **Phase C — Victoire** *(livré : runtime export FR/EN + doc UI « auto-start »)*
   - Déclenchement via `victorySceneId` + écran victoire.
 - **Phase D — Overrides scène (V2)**
   - Compte à rebours local par scène + actions à expiration.
@@ -142,7 +144,7 @@ Objectif : scènes “pression” avec compte à rebours local.
 - [ ] Projet sans timer: comportement identique à avant.
 - [ ] Timer countdown: décrémente, atteint 0, affiche Game Over.
 - [ ] Timer countup: incrémente sans interrompre le jeu.
-- [ ] `victorySceneId`: arrivée sur la scène cible -> écran victoire.
+- [x] `victorySceneId`: arrivée sur la scène cible -> écran victoire.
 - [ ] Bouton “Rejouer”: redémarrage propre.
 - [ ] Save/load JSON + bundle `.escapegame`: paramètres conservés.
 - [ ] FR/EN: labels/messages corrects dans chaque langue.
