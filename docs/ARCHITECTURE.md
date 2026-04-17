@@ -45,11 +45,16 @@ flowchart LR
   EC[EditorCore normalize / SCHEMA_VERSION 2]
   F <--> EC
   M <--> F
-  F --> S[saveProject JSON file]
-  S --> L[loadProject]
-  L --> F
-  F --> G[generateGame]
-  G --> P[index.html player]
+
+  F --> SJ[saveProject .json]
+  F --> SB[saveProjectBundle .escapegame]
+  LJ[loadProject .json] --> F
+  LB[loadProject .escapegame] --> F
+
+  F --> GH[generateGame index.html]
+  F --> GZ[exportGameWebZip hosting ZIP]
+  GH --> P1[Standalone player HTML]
+  GZ --> P2[index.html + lib/pannellum + media]
 ```
 
 ---
@@ -87,24 +92,38 @@ The **player** logic is embedded as a large template literal inside `generateGam
 
 ---
 
-## Data flow (classic)
+## Data flow (save/load/export)
 
 ```
-Form DOM  →  saveProject()  →  projet.json / project.json
-projet.json / project.json   →  loadProject()  →  rebuild DOM (addScene, addHotspot)
+Form DOM  →  saveProject()        →  project.json
+Form DOM  →  saveProjectBundle()  →  project.escapegame (ZIP: project.json + assets/)
 
-Form DOM  →  generateGame()  →  index.html (download)
+project.json / project.escapegame  →  loadProject()  →  rebuild DOM (addScene, addHotspot, selector state)
+
+Form DOM  →  generateGame()      →  index.html (CDN Pannellum + current URLs)
+Form DOM  →  exportGameWebZip()  →  ZIP hosting (index.html + lib/ + media/)
 ```
 
 ```mermaid
 flowchart LR
-    A[Editor form DOM] --> B[saveProject]
-    B --> C[project JSON file]
-    C --> D[loadProject]
+    A[Editor form DOM]
+    A --> B1[saveProject]
+    B1 --> C1[project.json]
+    A --> B2[saveProjectBundle]
+    B2 --> C2[project.escapegame]
+
+    C1 --> D[loadProject]
+    C2 --> D
     D --> A
-    A --> E[generateGame]
-    E --> F[index.html download]
-    F --> G[Standalone player]
+
+    A --> E1[generateGame]
+    E1 --> F1[index.html download]
+
+    A --> E2[exportGameWebZip]
+    E2 --> F2[hosting ZIP]
+
+    F1 --> G[Standalone player runtime]
+    F2 --> G
     G --> H[Pannellum viewer]
     G --> I[Inventory + dialogs + audio]
 ```
@@ -122,6 +141,12 @@ Saved files include **`schemaVersion: 2`** (via `EditorCore` / app serialization
 - **`scenes`**: array of scene objects with **`id`**, **`media`** (e.g. `panoramaUrl`, **`ambiance`** as `{ url, volume }`), **`hotspots`**.
 
 Each hotspot carries a unified **`action`** (and legacy-oriented field names may still appear in older docs — the runtime path normalizes toward **`payload.copy`** and **`sfx`**).
+
+- **Visibility flags** live in `action.visibility`:
+  - `requiresItem`
+  - `hiddenIfHasItem`
+  - `clickWhenInvisible` (default `true` in `EditorCore`) for hidden-but-clickable hotspot behavior in the generated player.  
+    Note: selector hotspot remains non-ghost-clickable by design.
 
 ### Portable project bundle — `.escapegame` (editor)
 
@@ -255,7 +280,7 @@ Aligned with [README.md](../README.md):
 - **Chemin A** — **Web hosting ZIP** (`exportGameWebZip`) and **editor bundle** (`.escapegame`) are **implemented**; remaining work is polish, multi-file stories, and stricter **versioning** once the beta stabilizes.
 - **Chemin B (long term)** — **React Flow** (or similar) replacing Drawflow only if the project adopts a richer front-end stack; keep **`EditorCore` + V2** as the contract.
 
-Other ideas: SFX on classic hotspots, **unified in-game menu hub** (see [Audio (player)](#audio-player)), multi-level games + `localStorage` inventory handoff, picked-item persistence across revisits, i18n beyond dual HTML files.
+Other ideas: **unified in-game menu hub** (see [Audio (player)](#audio-player)), editor draft autosave / restore, player progression persistence options, multi-level games + `localStorage` inventory handoff, picked-item persistence across revisits, i18n beyond dual HTML files.
 
 ---
 
