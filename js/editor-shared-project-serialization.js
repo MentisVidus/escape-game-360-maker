@@ -75,6 +75,7 @@
                 if (timerCfg && typeof timerCfg === "object") {
                     project.timer = timerCfg.timer || project.timer;
                     project.victorySceneId = timerCfg.victorySceneId || "";
+                    project.gameOverSceneId = timerCfg.gameOverSceneId || "";
                     project.endScreens = timerCfg.endScreens || project.endScreens;
                 }
             }

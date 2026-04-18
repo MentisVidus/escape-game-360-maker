@@ -44,6 +44,7 @@
                 pauseWhenPopupOpen: toBool(timer.pauseWhenPopupOpen, false)
             },
             victorySceneId: sanitizeText(p.victorySceneId, "").trim(),
+            gameOverSceneId: sanitizeText(p.gameOverSceneId, "").trim(),
             endScreens: {
                 gameOver: {
                     title: sanitizeText(gameOver.title, ""),
@@ -72,6 +73,7 @@
                 pauseWhenPopupOpen: !!(d.getElementById("timerPauseOnPopup") || {}).checked
             },
             victorySceneId: (d.getElementById("victorySceneId") || { value: "" }).value,
+            gameOverSceneId: (d.getElementById("gameOverSceneId") || { value: "" }).value,
             endScreens: {
                 gameOver: {
                     title: (d.getElementById("endGameOverTitle") || { value: "" }).value,
@@ -108,7 +110,9 @@
         if (pauseEl) pauseEl.checked = cfg.timer.pauseWhenPopupOpen;
 
         var victorySceneIdEl = d.getElementById("victorySceneId");
-        if (victorySceneIdEl) victorySceneIdEl.value = cfg.victorySceneId;
+        if (victorySceneIdEl) victorySceneIdEl.value = cfg.victorySceneId || "";
+        var gameOverSceneIdEl = d.getElementById("gameOverSceneId");
+        if (gameOverSceneIdEl) gameOverSceneIdEl.value = cfg.gameOverSceneId || "";
 
         var goTitle = d.getElementById("endGameOverTitle");
         if (goTitle) goTitle.value = cfg.endScreens.gameOver.title;

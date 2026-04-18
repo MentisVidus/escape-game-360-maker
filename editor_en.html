@@ -261,8 +261,8 @@
                 Enable timer (player counter)
             </label>
 
-            <div id="timer-settings-container" style="display: none; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
-                <div style="flex: 1; min-width: 320px;">
+            <div id="timer-settings-container" style="display: none; flex-direction: column; gap: 12px; align-items: flex-start;">
+                <div style="width:100%;max-width:640px;">
                     <div class="row" style="margin-bottom: 10px;">
                         <div class="col" style="flex:1;">
                             <label for="timerMode">Timer mode:</label>
@@ -291,15 +291,32 @@
                             </label>
                         </div>
                     </div>
-                    <div class="row" style="margin-bottom: 10px;">
-                        <div class="col" style="flex:1;">
-                            <label for="victorySceneId">Victory scene ID (optional):</label>
-                            <input type="text" id="victorySceneId" placeholder="e.g. ending">
-                        </div>
-                    </div>
                 </div>
+            </div> <!-- /timer-settings-container (timer only) -->
+
+            <h4 class="scene-block-heading" style="margin:24px 0 10px 0;">Victory scene (optional)</h4>
+            <p style="margin:0 0 10px 0;font-size:14px;color:#555;max-width:720px;">When the player <strong>enters this scene</strong>, the victory screen opens. Independent of the timer.</p>
+            <div class="row" style="margin-bottom: 20px;">
+                <div class="col col-wide" style="max-width:480px;">
+                    <label for="victorySceneId">Scene:</label>
+                    <select id="victorySceneId" class="sel-endstate-scene" title="Scene that triggers victory"></select>
+                </div>
+            </div>
+
+            <h4 class="scene-block-heading" style="margin:0 0 10px 0;">Game over / failure scene (optional)</h4>
+            <p style="margin:0 0 10px 0;font-size:14px;color:#555;max-width:720px;">When the player <strong>enters this scene</strong>, the Game Over modal (texts below) opens. Can be reached via the global timer, a scene pressure timer, or any hotspot “go to scene” action.</p>
+            <div class="row" style="margin-bottom: 20px;">
+                <div class="col col-wide" style="max-width:480px;">
+                    <label for="gameOverSceneId">Scene:</label>
+                    <select id="gameOverSceneId" class="sel-endstate-scene" title="Scene that triggers game over"></select>
+                </div>
+            </div>
+
+            <!-- TODO(UX): extend grey placeholders (not exported) to all suggested-content fields — hotspots, scenes, etc. -->
+            <!-- TODO(UX): replace raw HTML textareas with Quill (.editor-rich-text) for parity with hotspots. -->
+            <div id="end-screens-form-container" style="display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
                 <div style="flex: 1; min-width: 320px;">
-                    <h4 style="margin: 0 0 10px 0;">Game Over screen</h4>
+                    <h4 style="margin: 0 0 10px 0;">Game Over screen (modal)</h4>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
                             <label for="endGameOverTitle">Title:</label>
@@ -318,8 +335,9 @@
                             <input type="text" id="endGameOverBtn" value="Restart">
                         </div>
                     </div>
-
-                    <h4 style="margin: 0 0 10px 0;">Victory screen</h4>
+                </div>
+                <div style="flex: 1; min-width: 320px;">
+                    <h4 style="margin: 0 0 10px 0;">Victory screen (modal)</h4>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
                             <label for="endVictoryTitle">Title:</label>
@@ -339,7 +357,7 @@
                         </div>
                     </div>
                 </div>
-            </div> <!-- /timer-settings-container -->
+            </div> <!-- /end-screens-form-container -->
             </div><!-- /global-sub-timer-body -->
         </div> <!-- /timer block -->
     </div> <!-- /main column -->

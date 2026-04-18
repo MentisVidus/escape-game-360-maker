@@ -218,6 +218,7 @@
         };
 
         p.victorySceneId = p.victorySceneId != null ? String(p.victorySceneId).trim() : "";
+        p.gameOverSceneId = p.gameOverSceneId != null ? String(p.gameOverSceneId).trim() : "";
 
         var endScreens = p.endScreens;
         if (!endScreens || typeof endScreens !== "object") endScreens = {};
@@ -340,6 +341,7 @@
                 pauseWhenPopupOpen: false
             },
             victorySceneId: "",
+            gameOverSceneId: "",
             endScreens: {
                 gameOver: {
                     title: "",

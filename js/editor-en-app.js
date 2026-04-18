@@ -244,6 +244,7 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "", sceneTargetR
             </div>
         </div>
         <div id="scene_body_${sId}">
+            <!-- TODO(UX): Group optional scene fields (ambiance, volume, scene pressure timer) in a collapsed-by-default <details> “Optional settings” — form clutter (test feedback). -->
             <div class="row">
                 <div class="col"><label>Short scene ID (e.g. kitchen):</label><input type="text" class="sc-id" value="${scIdVal}"></div>
                 <div class="col"><label>360° image (https URL or local file):</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-img" style="flex:1;min-width:0" value="${scImgVal}" oninput="updateScenePreview(this)"><button type="button" class="btn-icon" title="Pick a local image file" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'image/*,.jpg,.jpeg,.png,.webp')">📎</button></div></div>

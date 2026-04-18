@@ -88,6 +88,16 @@
 
         /* Éléments de formulaire (Inputs, bouttons) */
         input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; max-width: 100%; }
+        /* Cases / radios : ne pas hériter du width:100% global (sinon label + case se cassent sur plusieurs lignes). */
+        input[type="checkbox"],
+        input[type="radio"] {
+            width: auto;
+            max-width: none;
+            margin-top: 0;
+            margin-bottom: 0;
+            flex-shrink: 0;
+            align-self: center;
+        }
         .row {
             display: flex;
             flex-wrap: wrap;

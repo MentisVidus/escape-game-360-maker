@@ -135,6 +135,7 @@ function buildPlayerHtmlTemplate() {
         startSeconds: timerStartSeconds,
         autoStart: timerAutoStart,
         pauseWhenPopupOpen: timerPauseWhenPopupOpen,
+        gameOverSceneId: String(project.gameOverSceneId || "").trim(),
         gameOver: {
             title: String(endGo.title || "").trim(),
             bodyHtml: String(endGo.bodyHtml || ""),
@@ -493,7 +494,7 @@ function buildPlayerHtmlTemplate() {
     var unlockedHotspots = {};
     var viewer;
 
-    var PLAYER_TIMER_CONFIG = { enabled: false, mode: "countdown", startSeconds: 1800, autoStart: true, pauseWhenPopupOpen: false, gameOver: { title: "", bodyHtml: "", buttonLabel: "Rejouer" } };
+    var PLAYER_TIMER_CONFIG = { enabled: false, mode: "countdown", startSeconds: 1800, autoStart: true, pauseWhenPopupOpen: false, gameOverSceneId: "", gameOver: { title: "", bodyHtml: "", buttonLabel: "Rejouer" } };
     try {
         var _tcEl = document.getElementById("escape360-timer-config");
         if (_tcEl && _tcEl.textContent) {
@@ -606,7 +607,41 @@ function buildPlayerHtmlTemplate() {
             afficherPopup("", msg || "<p></p>");
             return;
         }
+        if (tryNavigateToGameOverSceneFromTimer()) return;
         triggerGameOver();
+    }
+
+    function tryNavigateToGameOverSceneFromTimer() {
+        var gid = PLAYER_TIMER_CONFIG && String(PLAYER_TIMER_CONFIG.gameOverSceneId || "").trim();
+        if (!gid) return false;
+        if (typeof viewer === "undefined" || !viewer || typeof viewer.getScene !== "function" || typeof viewer.loadScene !== "function") return false;
+        var cur = "";
+        try {
+            cur = String(viewer.getScene() || "").trim();
+        } catch (eCur) {}
+        if (cur === gid) return false;
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        timerRunStart = null;
+        try {
+            viewer.loadScene(gid);
+        } catch (eNav) {}
+        return true;
+    }
+
+    function checkGameOverForScene(sceneId) {
+        if (victoryTriggered || gameOverTriggered) return;
+        var gid = PLAYER_TIMER_CONFIG && String(PLAYER_TIMER_CONFIG.gameOverSceneId || "").trim();
+        if (!gid) return;
+        var sid = sceneId != null && sceneId !== "" ? String(sceneId) : "";
+        if (!sid && typeof viewer !== "undefined" && viewer && typeof viewer.getScene === "function") {
+            try {
+                sid = String(viewer.getScene() || "");
+            } catch (eSid) {}
+        }
+        if (String(sid).trim() === gid) triggerGameOver();
     }
 
     function isTimerBlockingUiOpen() {
@@ -696,6 +731,7 @@ function buildPlayerHtmlTemplate() {
             var total = Math.max(0, (PLAYER_TIMER_CONFIG.startSeconds || 0) * 1000);
             timerDisplayMs = Math.max(0, total - elapsed);
             if (timerDisplayMs <= 0) {
+                if (tryNavigateToGameOverSceneFromTimer()) return;
                 triggerGameOver();
                 return;
             }
@@ -963,10 +999,12 @@ function buildPlayerHtmlTemplate() {
             var sid = (sceneId != null && sceneId !== '') ? sceneId : viewer.getScene();
             applySceneAmbiance(sid);
             checkVictoryForScene(sid);
+            if (!victoryTriggered && !gameOverTriggered) checkGameOverForScene(sid);
             if (!victoryTriggered && !gameOverTriggered) onSceneChangedForTimer(sid);
         });
         applySceneAmbiance("${firstSceneId}");
         checkVictoryForScene("${firstSceneId}");
+        if (!victoryTriggered && !gameOverTriggered) checkGameOverForScene("${firstSceneId}");
 
         // Lancement de la musique globale si activée
         if (${useGlobalAudio} && "${globalMusicUrl}" !== "") {

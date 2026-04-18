@@ -267,8 +267,8 @@
                 Activer le timer (compteur joueur)
             </label>
 
-            <div id="timer-settings-container" style="display: none; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
-                <div style="flex: 1; min-width: 320px;">
+            <div id="timer-settings-container" style="display: none; flex-direction: column; gap: 12px; align-items: flex-start;">
+                <div style="width:100%;max-width:640px;">
                     <div class="row" style="margin-bottom: 10px;">
                         <div class="col" style="flex:1;">
                             <label for="timerMode">Mode timer :</label>
@@ -297,15 +297,32 @@
                             </label>
                         </div>
                     </div>
-                    <div class="row" style="margin-bottom: 10px;">
-                        <div class="col" style="flex:1;">
-                            <label for="victorySceneId">ID scène de victoire (optionnel) :</label>
-                            <input type="text" id="victorySceneId" placeholder="ex: fin">
-                        </div>
-                    </div>
                 </div>
+            </div> <!-- /timer-settings-container (timer seul) -->
+
+            <h4 class="scene-block-heading" style="margin:24px 0 10px 0;">Scène de victoire (optionnel)</h4>
+            <p style="margin:0 0 10px 0;font-size:14px;color:#555;max-width:720px;">Lorsque le joueur <strong>entre dans cette scène</strong>, l’écran de victoire s’affiche. Réglage indépendant du timer.</p>
+            <div class="row" style="margin-bottom: 20px;">
+                <div class="col col-wide" style="max-width:480px;">
+                    <label for="victorySceneId">Scène :</label>
+                    <select id="victorySceneId" class="sel-endstate-scene" title="Scène déclenchant la victoire"></select>
+                </div>
+            </div>
+
+            <h4 class="scene-block-heading" style="margin:0 0 10px 0;">Scène de game over / défaite (optionnel)</h4>
+            <p style="margin:0 0 10px 0;font-size:14px;color:#555;max-width:720px;">Lorsque le joueur <strong>entre dans cette scène</strong>, l’écran Game Over (textes ci-dessous) s’affiche. Peut être atteinte par le timer global, le timer local d’une scène, ou un hotspot « changer de scène ».</p>
+            <div class="row" style="margin-bottom: 20px;">
+                <div class="col col-wide" style="max-width:480px;">
+                    <label for="gameOverSceneId">Scène :</label>
+                    <select id="gameOverSceneId" class="sel-endstate-scene" title="Scène déclenchant le game over"></select>
+                </div>
+            </div>
+
+            <!-- TODO(UX): étendre les placeholders « grisés » (non exportés) à tous les champs de suggestion — hotspots, scènes, etc. -->
+            <!-- TODO(UX): remplacer les textarea « Contenu HTML » par Quill (.editor-rich-text) pour cohérence avec le reste de l’éditeur. -->
+            <div id="end-screens-form-container" style="display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
                 <div style="flex: 1; min-width: 320px;">
-                    <h4 style="margin: 0 0 10px 0;">Écran Game Over</h4>
+                    <h4 style="margin: 0 0 10px 0;">Écran Game Over (modale)</h4>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
                             <label for="endGameOverTitle">Titre :</label>
@@ -324,8 +341,9 @@
                             <input type="text" id="endGameOverBtn" value="Rejouer">
                         </div>
                     </div>
-
-                    <h4 style="margin: 0 0 10px 0;">Écran Victoire</h4>
+                </div>
+                <div style="flex: 1; min-width: 320px;">
+                    <h4 style="margin: 0 0 10px 0;">Écran Victoire (modale)</h4>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
                             <label for="endVictoryTitle">Titre :</label>
@@ -345,7 +363,7 @@
                         </div>
                     </div>
                 </div>
-            </div> <!-- /timer-settings-container -->
+            </div> <!-- /end-screens-form-container -->
             </div><!-- /global-sub-timer-body -->
         </div> <!-- /BLOC 4 -->
     </div> <!-- /Fin de la colonne principale -->
