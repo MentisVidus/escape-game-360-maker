@@ -249,10 +249,14 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "", sceneTargetR
             </div>
         </div>
         <div id="scene_body_${sId}">
-            <!-- TODO(UX): Grouper les champs optionnels de scène (ambiance, volume, timer local) dans un bloc <details> « Paramètres optionnels », replié par défaut — alléger le formulaire (retours tests). -->
             <div class="row">
                 <div class="col"><label>ID court système (ex: cuisine) :</label><input type="text" class="sc-id" value="${scIdVal}"></div>
-                <div class="col"><label>Image 360 (URL https… ou fichier local) :</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-img" style="flex:1;min-width:0" value="${scImgVal}" oninput="updateScenePreview(this)"><button type="button" class="btn-icon" title="Choisir un fichier image local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'image/*,.jpg,.jpeg,.png,.webp')">📎</button></div></div>
+                <div class="col col-wide"><label>Image 360 (URL https… ou fichier local) :</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-img" style="flex:1;min-width:0" value="${scImgVal}" oninput="updateScenePreview(this)"><button type="button" class="btn-icon" title="Choisir un fichier image local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'image/*,.jpg,.jpeg,.png,.webp')">📎</button></div></div>
+            </div>
+            <details class="scene-optional-details">
+                <summary class="scene-optional-details-summary">Paramètres optionnels (ambiance, volume, timer local)</summary>
+                <div class="scene-optional-details-inner">
+            <div class="row">
                 <div class="col col-wide"><label>🎵 Audio d'ambiance (URL mp3) :</label><div style="display:flex;gap:6px;align-items:center;width:100%;"><input type="text" class="sc-audio" style="flex:1;min-width:0" placeholder="Optionnel"><button type="button" class="btn-icon" title="Choisir un fichier audio local" onclick="openBundleLocalMediaPicker(this.previousElementSibling, 'audio/*,.mp3,.ogg,.wav,.m4a')">📎</button><button type="button" class="btn-icon" title="Écouter avec le volume réglé sous la ligne" onclick="editorAudioPreviewToggle(this.closest('.scene-block').querySelector('.sc-audio'), this.closest('.scene-block').querySelector('.sc-audio-vol'), this)">▶</button></div></div>
             </div>
             <div class="row">
@@ -285,6 +289,8 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "", sceneTargetR
                     <div class="col col-wide"><label>Message (HTML) :</label><textarea class="sc-timer-override-message-html" rows="2" placeholder="<p>…</p>"></textarea></div>
                 </div>
             </div>
+                </div>
+            </details>
             <h4>Points d'interaction</h4>
             <div id="hs-container-${sId}"></div>
             <button class="btn-add-hs" onclick="addHotspot(${sId})">+ Ajouter un point d'interaction</button>
@@ -1178,6 +1184,14 @@ function applyLoadedProject(project) {
             var ev = tov.onExpire === "gotoScene" || tov.onExpire === "showMessage" ? tov.onExpire : "gameOver";
             if (rowT) rowT.style.display = ev === "gotoScene" ? "flex" : "none";
             if (rowM) rowM.style.display = ev === "showMessage" ? "flex" : "none";
+            var optDetails = scDiv.querySelector(".scene-optional-details");
+            if (optDetails && optDetails instanceof HTMLDetailsElement) {
+                var ambIn =
+                    scDiv.querySelector(".sc-audio") && String(scDiv.querySelector(".sc-audio").value || "").trim();
+                var avOpt = scDiv.querySelector(".sc-audio-vol");
+                var volTweak = avOpt && Math.abs(Number(avOpt.value) - 1) > 0.001;
+                optDetails.open = !!(tov.enabled || ambIn || volTweak);
+            }
         }
 
         (scene.hotspots || []).forEach(function (hs) {
