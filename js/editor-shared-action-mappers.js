@@ -80,15 +80,40 @@
         }
 
         function legacyRewardToV2(kind, src) {
-            if (kind === "msg") {
+            var k = (kind && String(kind).trim().toLowerCase()) || "scene";
+            if (k === "msg") {
                 return legacyActionToV2("msg", { txt: src.f_ok_msg || src.okMsg || src.ok_msg || "" });
             }
-            if (kind === "pick") {
+            if (k === "pick") {
                 return legacyActionToV2("pick", {
                     itemId: src.f_pick_id || src.pickId || "",
                     itemName: src.f_pick_name || src.pickName || "",
                     txt: src.f_pick_msg || src.pickMsg || ""
                 });
+            }
+            if (k === "selector") {
+                var nestedSrc = src.rewardNested || src.f_reward_nested;
+                if (nestedSrc && typeof nestedSrc === "object") {
+                    return legacyActionToV2("selector", { nested: nestedSrc });
+                }
+                var choices = [];
+                var rawCh = src.f_reward_sel_choices != null ? src.f_reward_sel_choices : src.f_reward_sel_choices_json;
+                if (typeof rawCh === "string" && String(rawCh).trim()) {
+                    try {
+                        choices = JSON.parse(rawCh);
+                    } catch (e) {
+                        choices = [];
+                    }
+                }
+                if (!Array.isArray(choices)) choices = [];
+                var intro = src.f_reward_sel_intro != null ? String(src.f_reward_sel_intro) : "";
+                var nested = {
+                    title: src.f_reward_sel_title != null ? String(src.f_reward_sel_title) : "",
+                    introHtml: intro,
+                    displayMode: src.f_reward_sel_display === "dropdown" ? "dropdown" : "buttons",
+                    choices: choices
+                };
+                return legacyActionToV2("selector", { nested: nested });
             }
             return legacyActionToV2("scene", {
                 target: src.f_target || src.target || "",
@@ -112,6 +137,62 @@
                 out.itemId = p.itemId || "";
                 out.itemName = p.itemName || "";
                 out.txt = c.bodyHtml || "";
+            } else if (a.type === "req") {
+                out.itemId = p.itemId || "";
+                out.ko = c.bodyHtml || "";
+                var r1 = p.rewardAction || EditorCore.createDefaultAction("scene");
+                var r1c = (r1.payload && r1.payload.copy) || {};
+                out.f_req_action = r1.type || "scene";
+                if (r1.type === "scene") {
+                    out.f_target = (r1.payload && r1.payload.target) || "";
+                    out.f_trans_txt = r1c.bodyHtml || "";
+                    out.f_trans_btn = r1c.buttonLabel || defaultTransitionLabel;
+                } else if (r1.type === "msg") {
+                    out.f_ok_msg = r1c.bodyHtml || "";
+                } else if (r1.type === "pick") {
+                    out.f_pick_id = (r1.payload && r1.payload.itemId) || "";
+                    out.f_pick_name = (r1.payload && r1.payload.itemName) || "";
+                    out.f_pick_msg = r1c.bodyHtml || "";
+                } else if (r1.type === "selector") {
+                    var rn1 = r1.payload && r1.payload.nested;
+                    var rnc1 = (rn1 && rn1.copy) || {};
+                    out.rewardNested = {
+                        title: (rn1 && rn1.title) || "",
+                        introHtml: rnc1.bodyHtml || "",
+                        displayMode: rn1 && rn1.displayMode === "dropdown" ? "dropdown" : "buttons",
+                        choices: (rn1 && Array.isArray(rn1.choices) ? rn1.choices : []).map(function (ch, i) {
+                            return actionV2ToLegacyChoice(ch.action, ch.label, i);
+                        })
+                    };
+                }
+            } else if (a.type === "pwd") {
+                out.enigmeTxt = c.bodyHtml || "";
+                out.pwd = p.answer || "";
+                var r2 = p.rewardAction || EditorCore.createDefaultAction("scene");
+                var r2c = (r2.payload && r2.payload.copy) || {};
+                out.f_pwd_action = r2.type || "scene";
+                if (r2.type === "scene") {
+                    out.f_target = (r2.payload && r2.payload.target) || "";
+                    out.f_trans_txt = r2c.bodyHtml || "";
+                    out.f_trans_btn = r2c.buttonLabel || defaultTransitionLabel;
+                } else if (r2.type === "msg") {
+                    out.f_ok_msg = r2c.bodyHtml || "";
+                } else if (r2.type === "pick") {
+                    out.f_pick_id = (r2.payload && r2.payload.itemId) || "";
+                    out.f_pick_name = (r2.payload && r2.payload.itemName) || "";
+                    out.f_pick_msg = r2c.bodyHtml || "";
+                } else if (r2.type === "selector") {
+                    var rn2 = r2.payload && r2.payload.nested;
+                    var rnc2 = (rn2 && rn2.copy) || {};
+                    out.rewardNested = {
+                        title: (rn2 && rn2.title) || "",
+                        introHtml: rnc2.bodyHtml || "",
+                        displayMode: rn2 && rn2.displayMode === "dropdown" ? "dropdown" : "buttons",
+                        choices: (rn2 && Array.isArray(rn2.choices) ? rn2.choices : []).map(function (ch, i) {
+                            return actionV2ToLegacyChoice(ch.action, ch.label, i);
+                        })
+                    };
+                }
             } else if (a.type === "selector") {
                 var n = p.nested || {};
                 var nc = n.copy || {};
@@ -181,6 +262,19 @@
                     out.f_pick_id = (r.payload && r.payload.itemId) || "";
                     out.f_pick_name = (r.payload && r.payload.itemName) || "";
                     out.f_pick_msg = rc.bodyHtml || "";
+                } else if (r.type === "selector") {
+                    var rns = r.payload && r.payload.nested;
+                    var rnsc = (rns && rns.copy) || {};
+                    out.f_reward_sel_title = (rns && rns.title) || "";
+                    out.f_reward_sel_intro = rnsc.bodyHtml || "";
+                    out.f_reward_sel_display = rns && rns.displayMode === "dropdown" ? "dropdown" : "buttons";
+                    out.f_reward_sel_choices = JSON.stringify(
+                        (rns && Array.isArray(rns.choices) ? rns.choices : []).map(function (c, i) {
+                            return actionV2ToLegacyChoice(c.action, c.label, i);
+                        }),
+                        null,
+                        2
+                    );
                 }
             } else if (a.type === "pwd") {
                 out.f_enigme_txt = pc.bodyHtml || "";
@@ -198,6 +292,19 @@
                     out.f_pick_id = (rp.payload && rp.payload.itemId) || "";
                     out.f_pick_name = (rp.payload && rp.payload.itemName) || "";
                     out.f_pick_msg = rpc.bodyHtml || "";
+                } else if (rp.type === "selector") {
+                    var rpns = rp.payload && rp.payload.nested;
+                    var rpnsc = (rpns && rpns.copy) || {};
+                    out.f_reward_sel_title = (rpns && rpns.title) || "";
+                    out.f_reward_sel_intro = rpnsc.bodyHtml || "";
+                    out.f_reward_sel_display = rpns && rpns.displayMode === "dropdown" ? "dropdown" : "buttons";
+                    out.f_reward_sel_choices = JSON.stringify(
+                        (rpns && Array.isArray(rpns.choices) ? rpns.choices : []).map(function (c, i) {
+                            return actionV2ToLegacyChoice(c.action, c.label, i);
+                        }),
+                        null,
+                        2
+                    );
                 }
             } else if (a.type === "selector") {
                 var n = p.nested || {};

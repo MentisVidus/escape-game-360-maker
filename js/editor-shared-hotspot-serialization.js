@@ -25,6 +25,10 @@
         "f-sel-intro",
         "f-sel-display",
         "f-sel-choices",
+        "f-reward-sel-title",
+        "f-reward-sel-intro",
+        "f-reward-sel-display",
+        "f-reward-sel-choices",
         "f-hs-req-item",
         "f-hs-ghost-click",
         "f-hs-hidden-if",
@@ -67,6 +71,9 @@
         if (hs.type === "selector") {
             var fc = hsDiv.querySelector(".f-sel-choices");
             if (fc && !fc.hasAttribute("readonly")) hs.selJsonExpertMode = true;
+        }
+        if ((hs.type === "req" || hs.type === "pwd") && typeof global.syncHotspotRewardSelectorJSON === "function") {
+            global.syncHotspotRewardSelectorJSON(hId);
         }
         return hs;
     }
