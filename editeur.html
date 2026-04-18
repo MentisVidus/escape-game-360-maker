@@ -267,8 +267,8 @@
                 Activer le timer (compteur joueur)
             </label>
 
-            <div id="timer-settings-container" style="display: none; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
-                <div style="flex: 1; min-width: 320px;">
+            <div id="timer-settings-container" style="display: none; flex-direction: column; gap: 12px; align-items: flex-start;">
+                <div style="width:100%;max-width:640px;">
                     <div class="row" style="margin-bottom: 10px;">
                         <div class="col" style="flex:1;">
                             <label for="timerMode">Mode timer :</label>
@@ -288,6 +288,7 @@
                                 <input type="checkbox" id="timerAutoStart" checked>
                                 Démarrage automatique
                             </label>
+                            <small style="display:block;color:#7f8c8d;margin-top:4px;max-width:42em;line-height:1.35;">Si décoché, le chrono reste figé jusqu’au premier clic sur un hotspot (ou la première action issue du sélecteur / du moteur d’actions).</small>
                         </div>
                         <div class="col" style="flex:1;">
                             <label style="display:flex;align-items:center;gap:8px;">
@@ -296,55 +297,71 @@
                             </label>
                         </div>
                     </div>
-                    <div class="row" style="margin-bottom: 10px;">
-                        <div class="col" style="flex:1;">
-                            <label for="victorySceneId">ID scène de victoire (optionnel) :</label>
-                            <input type="text" id="victorySceneId" placeholder="ex: fin">
-                        </div>
-                    </div>
                 </div>
+            </div> <!-- /timer-settings-container (timer seul) -->
+
+            <h4 class="scene-block-heading" style="margin:24px 0 10px 0;">Scène de victoire (optionnel)</h4>
+            <p style="margin:0 0 10px 0;font-size:14px;color:#555;max-width:720px;">Lorsque le joueur <strong>entre dans cette scène</strong>, l’écran de victoire s’affiche. Réglage indépendant du timer.</p>
+            <div class="row" style="margin-bottom: 20px;">
+                <div class="col col-wide" style="max-width:480px;">
+                    <label for="victorySceneId">Scène :</label>
+                    <select id="victorySceneId" class="sel-endstate-scene" title="Scène déclenchant la victoire"></select>
+                </div>
+            </div>
+
+            <h4 class="scene-block-heading" style="margin:0 0 10px 0;">Scène de game over / défaite (optionnel)</h4>
+            <p style="margin:0 0 10px 0;font-size:14px;color:#555;max-width:720px;">Lorsque le joueur <strong>entre dans cette scène</strong>, l’écran Game Over (textes ci-dessous) s’affiche. Peut être atteinte par le timer global, le timer local d’une scène, ou un hotspot « changer de scène ».</p>
+            <div class="row" style="margin-bottom: 20px;">
+                <div class="col col-wide" style="max-width:480px;">
+                    <label for="gameOverSceneId">Scène :</label>
+                    <select id="gameOverSceneId" class="sel-endstate-scene" title="Scène déclenchant le game over"></select>
+                </div>
+            </div>
+
+            <div id="end-screens-form-container" style="display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
                 <div style="flex: 1; min-width: 320px;">
-                    <h4 style="margin: 0 0 10px 0;">Écran Game Over</h4>
+                    <h4 style="margin: 0 0 10px 0;">Écran Game Over (modale)</h4>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
                             <label for="endGameOverTitle">Titre :</label>
-                            <input type="text" id="endGameOverTitle" value="Temps écoulé">
+                            <input type="text" id="endGameOverTitle" value="" placeholder="Temps écoulé">
                         </div>
                     </div>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
-                            <label for="endGameOverBody">Contenu HTML :</label>
-                            <textarea id="endGameOverBody" rows="3" placeholder="<p>Vous avez perdu...</p>"></textarea>
+                            <label for="endGameOverBody">Contenu :</label>
+                            <div class="wysiwyg-wrap"><textarea id="endGameOverBody" class="editor-rich-text" rows="3" placeholder="<p>Vous avez perdu...</p>"></textarea></div>
                         </div>
                     </div>
                     <div class="row" style="margin-bottom: 14px;">
                         <div class="col" style="flex:1;">
                             <label for="endGameOverBtn">Texte bouton :</label>
-                            <input type="text" id="endGameOverBtn" value="Rejouer">
+                            <input type="text" id="endGameOverBtn" value="" placeholder="Rejouer">
                         </div>
                     </div>
-
-                    <h4 style="margin: 0 0 10px 0;">Écran Victoire</h4>
+                </div>
+                <div style="flex: 1; min-width: 320px;">
+                    <h4 style="margin: 0 0 10px 0;">Écran Victoire (modale)</h4>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
                             <label for="endVictoryTitle">Titre :</label>
-                            <input type="text" id="endVictoryTitle" value="Bravo !">
+                            <input type="text" id="endVictoryTitle" value="" placeholder="Bravo !">
                         </div>
                     </div>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
-                            <label for="endVictoryBody">Contenu HTML :</label>
-                            <textarea id="endVictoryBody" rows="3" placeholder="<p>Mission accomplie.</p>"></textarea>
+                            <label for="endVictoryBody">Contenu :</label>
+                            <div class="wysiwyg-wrap"><textarea id="endVictoryBody" class="editor-rich-text" rows="3" placeholder="<p>Mission accomplie.</p>"></textarea></div>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col" style="flex:1;">
                             <label for="endVictoryBtn">Texte bouton :</label>
-                            <input type="text" id="endVictoryBtn" value="Rejouer">
+                            <input type="text" id="endVictoryBtn" value="" placeholder="Rejouer">
                         </div>
                     </div>
                 </div>
-            </div> <!-- /timer-settings-container -->
+            </div> <!-- /end-screens-form-container -->
             </div><!-- /global-sub-timer-body -->
         </div> <!-- /BLOC 4 -->
     </div> <!-- /Fin de la colonne principale -->
@@ -446,6 +463,7 @@
     <script src="js/editor-core.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js" integrity="sha512-P2W2rr8ikUPfa31PLBo5bcBQrsa+TNj8jiKadtaIrHQGMo6hQM6RdPjQYxlNguwHz8AwSQ28VkBK6kHBLgd/8g==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
     <script src="js/editor-quill-scenes.js" defer></script>
+    <script src="js/editor-shared-export-text.js" defer></script>
     <script src="js/editor-audio-preview.js" defer></script>
     <script src="js/editor-shared-bundle.js" defer></script>
     <script src="js/editor-shared-ui-utils.js" defer></script>

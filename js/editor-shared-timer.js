@@ -44,6 +44,7 @@
                 pauseWhenPopupOpen: toBool(timer.pauseWhenPopupOpen, false)
             },
             victorySceneId: sanitizeText(p.victorySceneId, "").trim(),
+            gameOverSceneId: sanitizeText(p.gameOverSceneId, "").trim(),
             endScreens: {
                 gameOver: {
                     title: sanitizeText(gameOver.title, ""),
@@ -62,6 +63,23 @@
     function readTimerSettingsFromDom(doc) {
         var d = doc || global.document;
         if (!d) throw new Error("document is required for timer settings.");
+        var Ex = global.EditorSharedExportText;
+        function readPlain(id) {
+            var el = d.getElementById(id);
+            if (!el) return "";
+            if (Ex && typeof Ex.readTimerEndScreenPlainField === "function") {
+                return Ex.readTimerEndScreenPlainField(el);
+            }
+            return el.value != null ? String(el.value) : "";
+        }
+        function readRich(id) {
+            var el = d.getElementById(id);
+            if (!el) return "";
+            if (Ex && typeof Ex.readExportAwareFieldValue === "function") {
+                return Ex.readExportAwareFieldValue(el);
+            }
+            return el.value != null ? String(el.value) : "";
+        }
 
         var raw = {
             timer: {
@@ -72,16 +90,17 @@
                 pauseWhenPopupOpen: !!(d.getElementById("timerPauseOnPopup") || {}).checked
             },
             victorySceneId: (d.getElementById("victorySceneId") || { value: "" }).value,
+            gameOverSceneId: (d.getElementById("gameOverSceneId") || { value: "" }).value,
             endScreens: {
                 gameOver: {
-                    title: (d.getElementById("endGameOverTitle") || { value: "" }).value,
-                    bodyHtml: (d.getElementById("endGameOverBody") || { value: "" }).value,
-                    buttonLabel: (d.getElementById("endGameOverBtn") || { value: "" }).value
+                    title: readPlain("endGameOverTitle"),
+                    bodyHtml: readRich("endGameOverBody"),
+                    buttonLabel: readPlain("endGameOverBtn")
                 },
                 victory: {
-                    title: (d.getElementById("endVictoryTitle") || { value: "" }).value,
-                    bodyHtml: (d.getElementById("endVictoryBody") || { value: "" }).value,
-                    buttonLabel: (d.getElementById("endVictoryBtn") || { value: "" }).value
+                    title: readPlain("endVictoryTitle"),
+                    bodyHtml: readRich("endVictoryBody"),
+                    buttonLabel: readPlain("endVictoryBtn")
                 }
             }
         };
@@ -108,7 +127,9 @@
         if (pauseEl) pauseEl.checked = cfg.timer.pauseWhenPopupOpen;
 
         var victorySceneIdEl = d.getElementById("victorySceneId");
-        if (victorySceneIdEl) victorySceneIdEl.value = cfg.victorySceneId;
+        if (victorySceneIdEl) victorySceneIdEl.value = cfg.victorySceneId || "";
+        var gameOverSceneIdEl = d.getElementById("gameOverSceneId");
+        if (gameOverSceneIdEl) gameOverSceneIdEl.value = cfg.gameOverSceneId || "";
 
         var goTitle = d.getElementById("endGameOverTitle");
         if (goTitle) goTitle.value = cfg.endScreens.gameOver.title;
@@ -123,6 +144,16 @@
         if (vBody) vBody.value = cfg.endScreens.victory.bodyHtml;
         var vBtn = d.getElementById("endVictoryBtn");
         if (vBtn) vBtn.value = cfg.endScreens.victory.buttonLabel;
+
+        var endRoot = d.getElementById("end-screens-form-container");
+        if (endRoot) {
+            if (typeof global.destroyRichEditorsIn === "function") {
+                global.destroyRichEditorsIn(endRoot);
+            }
+            if (typeof global.initRichEditorsIn === "function") {
+                global.initRichEditorsIn(endRoot);
+            }
+        }
     }
 
     global.EditorSharedTimer = {

@@ -119,6 +119,58 @@ function buildPlayerHtmlTemplate() {
     const popBtnBg = useCustomPopup ? (project.popBtnBg || "#27ae60") : "#27ae60";
     const popBtnCol = useCustomPopup ? (project.popBtnCol || "#ffffff") : "#ffffff";
 
+    const timerCfg = project.timer || {};
+    const timerEnabled = !!timerCfg.enabled;
+    const timerMode = timerCfg.mode === "countup" ? "countup" : "countdown";
+    const timerStartSeconds = Math.max(0, parseInt(timerCfg.startSeconds, 10) || 0);
+    const timerAutoStart = timerCfg.autoStart !== false;
+    const timerPauseWhenPopupOpen = !!timerCfg.pauseWhenPopupOpen;
+    const endGo = (project.endScreens && project.endScreens.gameOver) || {};
+    const playerTimerPayload = {
+        enabled: timerEnabled,
+        mode: timerMode,
+        startSeconds: timerStartSeconds,
+        autoStart: timerAutoStart,
+        pauseWhenPopupOpen: timerPauseWhenPopupOpen,
+        gameOverSceneId: String(project.gameOverSceneId || "").trim(),
+        gameOver: {
+            title: String(endGo.title || "").trim(),
+            bodyHtml: String(endGo.bodyHtml || ""),
+            buttonLabel: String(endGo.buttonLabel || "Restart").trim() || "Restart"
+        }
+    };
+    const playerTimerJson = JSON.stringify(playerTimerPayload).replace(/</g, "\\u003c");
+
+    const victorySceneId = String(project.victorySceneId || "").trim();
+    const endVictory = (project.endScreens && project.endScreens.victory) || {};
+    const playerVictoryPayload = {
+        sceneId: victorySceneId,
+        title: String(endVictory.title || "").trim(),
+        bodyHtml: String(endVictory.bodyHtml || ""),
+        buttonLabel: String(endVictory.buttonLabel || "Restart").trim() || "Restart"
+    };
+    const playerVictoryJson = JSON.stringify(playerVictoryPayload).replace(/</g, "\\u003c");
+
+    var sceneTimerOverridesMapBuild = {};
+    (project.scenes || []).forEach(function (sc) {
+        if (!sc || sc.id == null || String(sc.id).trim() === "") return;
+        var ov = sc.timerOverride;
+        if (!ov || !ov.enabled) return;
+        var sec = Math.max(0, parseInt(ov.seconds, 10) || 0);
+        if (sec <= 0) return;
+        var exp = String(ov.onExpire || "gameOver").toLowerCase();
+        if (exp === "gotoscene") exp = "gotoScene";
+        if (exp === "showmessage") exp = "showMessage";
+        if (exp !== "gotoScene" && exp !== "showMessage") exp = "gameOver";
+        sceneTimerOverridesMapBuild[String(sc.id).trim()] = {
+            seconds: sec,
+            onExpire: exp,
+            targetScene: ov.targetScene != null ? String(ov.targetScene).trim() : "",
+            messageHtml: ov.messageHtml != null ? String(ov.messageHtml) : ""
+        };
+    });
+    const sceneTimerOverridesJson = JSON.stringify(sceneTimerOverridesMapBuild).replace(/</g, "\\u003c");
+
     let scenesConfig = {};
     let firstSceneId = "";
     let customStylesCSS = "";
@@ -339,6 +391,18 @@ function buildPlayerHtmlTemplate() {
             background: ${popBtnBg}; color: ${popBtnCol}; font-size: 0.95rem;
         }
         .settings-close-btn:hover { filter: brightness(1.08); }
+        #player-timer {
+            display: none; margin-top: 8px; padding: 6px 12px; border-radius: 8px; background: rgba(0,0,0,0.55); color: #fff;
+            font-variant-numeric: tabular-nums; font-size: clamp(0.9rem, 3.5vmin, 1.25rem); border: 1px solid rgba(255,255,255,0.25);
+        }
+        #player-timer.is-visible { display: block; }
+        #end-screen-modal, #victory-screen-modal { display: none; position: fixed; inset: 0; z-index: 11000; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
+        #end-screen-modal.is-open, #victory-screen-modal.is-open { display: flex; }
+        .end-screen-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.78); }
+        .end-screen-panel {
+            position: relative; z-index: 1; max-width: 520px; width: 100%; padding: 22px 24px; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.55); text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
     </style>
 </head>
 <body>
@@ -359,6 +423,7 @@ function buildPlayerHtmlTemplate() {
             ${hasInv ? `<button type="button" id="inv-toggle" class="player-hud-btn" onclick="toggleInv()" aria-label="Inventory">${invIconHTML}</button>` : ""}
             <button type="button" id="settings-toggle" class="player-hud-btn" onclick="togglePlayerSettings()" title="Settings" aria-label="Settings">⚙</button>
         </div>
+        <div id="player-timer" class="${timerEnabled ? "is-visible" : ""}" aria-live="polite">00:00</div>
         ${hasInv ? `<div id="inv-panel">
             <h3>Inventory</h3>
             <ul id="inv-list"><li style="color:gray; font-style:italic;">Empty</li></ul>
@@ -394,15 +459,365 @@ function buildPlayerHtmlTemplate() {
             </div>
         </div>
     </div>
+
+    <div id="end-screen-modal" role="dialog" aria-modal="true" aria-labelledby="end-screen-title">
+        <div class="end-screen-backdrop"></div>
+        <div class="end-screen-panel" style="font-family:${popFont};color:${popColor};background:${popBg};">
+            <h2 id="end-screen-title" style="margin:0 0 12px 0;font-size:1.35rem;"></h2>
+            <div id="end-screen-body" class="play-html-rich" style="text-align:left;margin-bottom:16px;"></div>
+            <button type="button" id="end-screen-restart" class="settings-close-btn" onclick="location.reload()">Restart</button>
+        </div>
+    </div>
+
+    <div id="victory-screen-modal" role="dialog" aria-modal="true" aria-labelledby="victory-screen-title">
+        <div class="end-screen-backdrop"></div>
+        <div class="end-screen-panel" style="font-family:${popFont};color:${popColor};background:${popBg};">
+            <h2 id="victory-screen-title" style="margin:0 0 12px 0;font-size:1.35rem;"></h2>
+            <div id="victory-screen-body" class="play-html-rich" style="text-align:left;margin-bottom:16px;"></div>
+            <button type="button" id="victory-screen-restart" class="settings-close-btn" onclick="location.reload()">Restart</button>
+        </div>
+    </div>
     
     <!-- Pannellum mount node -->
     <div id="panorama"></div>
+    <script type="application/json" id="escape360-timer-config">${playerTimerJson}</script>
+    <script type="application/json" id="escape360-victory-config">${playerVictoryJson}</script>
+    <script type="application/json" id="escape360-scene-timer-overrides">${sceneTimerOverridesJson}</script>
 
 <script>
     // Player state
     var inventaire = {}; 
     var unlockedHotspots = {};
     var viewer;
+
+    var PLAYER_TIMER_CONFIG = { enabled: false, mode: "countdown", startSeconds: 1800, autoStart: true, pauseWhenPopupOpen: false, gameOverSceneId: "", gameOver: { title: "", bodyHtml: "", buttonLabel: "Restart" } };
+    try {
+        var _tcEl = document.getElementById("escape360-timer-config");
+        if (_tcEl && _tcEl.textContent) {
+            var _tcParsed = JSON.parse(_tcEl.textContent);
+            if (_tcParsed && typeof _tcParsed === "object") PLAYER_TIMER_CONFIG = _tcParsed;
+        }
+    } catch (eTimerCfg) {}
+    var PLAYER_VICTORY_CONFIG = { sceneId: "", title: "", bodyHtml: "", buttonLabel: "Restart" };
+    try {
+        var _vEl = document.getElementById("escape360-victory-config");
+        if (_vEl && _vEl.textContent) {
+            var _vParsed = JSON.parse(_vEl.textContent);
+            if (_vParsed && typeof _vParsed === "object") PLAYER_VICTORY_CONFIG = _vParsed;
+        }
+    } catch (eVictoryCfg) {}
+    var sceneTimerOverridesMap = {};
+    try {
+        var _stoEl = document.getElementById("escape360-scene-timer-overrides");
+        if (_stoEl && _stoEl.textContent) {
+            var _stoParsed = JSON.parse(_stoEl.textContent);
+            if (_stoParsed && typeof _stoParsed === "object") sceneTimerOverridesMap = _stoParsed;
+        }
+    } catch (eSto) {}
+    var activeScenePressure = null;
+    var pressRunStart = null;
+    var pressPausedAccum = 0;
+    var pressTotalMs = 0;
+    var gameOverTriggered = false;
+    var victoryTriggered = false;
+    var timerDisplayMs = 0;
+    var timerRunStart = null;
+    var timerPausedAccum = 0;
+    var timerBlockingDepth = 0;
+    var timerInterval = null;
+    var timerClockStarted = false;
+
+    function hasSceneTimerOverrides() {
+        for (var k in sceneTimerOverridesMap) {
+            if (sceneTimerOverridesMap[k] && (sceneTimerOverridesMap[k].seconds || 0) > 0) return true;
+        }
+        return false;
+    }
+    function ensurePlayerTimerTick() {
+        if (timerInterval) return;
+        timerInterval = setInterval(tickPlayerTimer, 250);
+    }
+    function clearScenePressureState() {
+        activeScenePressure = null;
+        pressRunStart = null;
+        pressPausedAccum = 0;
+        pressTotalMs = 0;
+    }
+    function pressTimerOnEnterPause() {
+        if (!activeScenePressure) return;
+        if (pressRunStart != null) {
+            pressPausedAccum += Date.now() - pressRunStart;
+            pressRunStart = null;
+        }
+    }
+    function pressTimerOnLeavePauseIfNeeded() {
+        if (!activeScenePressure || gameOverTriggered || victoryTriggered) return;
+        if (isTimerPausedNow()) return;
+        if (pressRunStart == null) pressRunStart = Date.now();
+    }
+    function onSceneChangedForTimer(newSid) {
+        if (gameOverTriggered || victoryTriggered) return;
+        if (typeof viewer === "undefined" || !viewer) return;
+        var sid = newSid != null && newSid !== "" ? String(newSid) : "";
+        if (!sid) {
+            try { sid = String(viewer.getScene() || ""); } catch (e0) {}
+        }
+        sid = String(sid || "").trim();
+        if (activeScenePressure && activeScenePressure.sceneId === sid) return;
+        if (activeScenePressure && activeScenePressure.sceneId !== sid) {
+            clearScenePressureState();
+            timerOnLeavePauseIfNeeded();
+        }
+        var ov = sceneTimerOverridesMap[sid];
+        if (!ov || (ov.seconds || 0) <= 0) {
+            tickPlayerTimer();
+            return;
+        }
+        activeScenePressure = {
+            sceneId: sid,
+            onExpire: ov.onExpire || "gameOver",
+            targetScene: String(ov.targetScene || "").trim(),
+            messageHtml: String(ov.messageHtml || "")
+        };
+        pressTotalMs = Math.max(0, (ov.seconds || 0) * 1000);
+        pressPausedAccum = 0;
+        pressRunStart = isTimerPausedNow() ? null : Date.now();
+        if (PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled && timerClockStarted) timerOnEnterPause();
+        var tel = document.getElementById("player-timer");
+        if (tel) tel.classList.add("is-visible");
+        ensurePlayerTimerTick();
+        tickPlayerTimer();
+    }
+    function handleSceneTimerExpired() {
+        if (!activeScenePressure) return;
+        var exp = activeScenePressure.onExpire || "gameOver";
+        var tgt = activeScenePressure.targetScene;
+        var msg = activeScenePressure.messageHtml || "";
+        clearScenePressureState();
+        timerOnLeavePauseIfNeeded();
+        if (exp === "gotoScene" && tgt && typeof viewer !== "undefined" && viewer && typeof viewer.loadScene === "function") {
+            try { viewer.loadScene(tgt); } catch (eLs) {}
+            return;
+        }
+        if (exp === "showMessage") {
+            afficherPopup("", msg || "<p></p>");
+            return;
+        }
+        if (tryNavigateToGameOverSceneFromTimer()) return;
+        triggerGameOver();
+    }
+
+    function tryNavigateToGameOverSceneFromTimer() {
+        var gid = PLAYER_TIMER_CONFIG && String(PLAYER_TIMER_CONFIG.gameOverSceneId || "").trim();
+        if (!gid) return false;
+        if (typeof viewer === "undefined" || !viewer || typeof viewer.getScene !== "function" || typeof viewer.loadScene !== "function") return false;
+        var cur = "";
+        try {
+            cur = String(viewer.getScene() || "").trim();
+        } catch (eCur) {}
+        if (cur === gid) return false;
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        timerRunStart = null;
+        try {
+            viewer.loadScene(gid);
+        } catch (eNav) {}
+        return true;
+    }
+
+    function checkGameOverForScene(sceneId) {
+        if (victoryTriggered || gameOverTriggered) return;
+        var gid = PLAYER_TIMER_CONFIG && String(PLAYER_TIMER_CONFIG.gameOverSceneId || "").trim();
+        if (!gid) return;
+        var sid = sceneId != null && sceneId !== "" ? String(sceneId) : "";
+        if (!sid && typeof viewer !== "undefined" && viewer && typeof viewer.getScene === "function") {
+            try {
+                sid = String(viewer.getScene() || "");
+            } catch (eSid) {}
+        }
+        if (String(sid).trim() === gid) triggerGameOver();
+    }
+
+    function isTimerBlockingUiOpen() {
+        var sm = document.getElementById("settings-modal");
+        if (sm && sm.classList.contains("is-open")) return true;
+        return timerBlockingDepth > 0;
+    }
+    function isTimerPausedNow() {
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.pauseWhenPopupOpen || !isTimerBlockingUiOpen()) return false;
+        return !!((PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled) || activeScenePressure);
+    }
+    function timerNotifyBlockingOpen() {
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) return;
+        if (!PLAYER_TIMER_CONFIG.enabled && !activeScenePressure) return;
+        var wasPaused = isTimerPausedNow();
+        timerBlockingDepth++;
+        if (!wasPaused && isTimerPausedNow()) {
+            timerOnEnterPause();
+            pressTimerOnEnterPause();
+        }
+    }
+    function timerNotifyBlockingClose() {
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.pauseWhenPopupOpen) return;
+        if (!PLAYER_TIMER_CONFIG.enabled && !activeScenePressure) return;
+        if (timerBlockingDepth > 0) timerBlockingDepth--;
+        timerOnLeavePauseIfNeeded();
+        pressTimerOnLeavePauseIfNeeded();
+    }
+    function timerOnEnterPause() {
+        if (timerRunStart != null) {
+            timerPausedAccum += Date.now() - timerRunStart;
+            timerRunStart = null;
+        }
+    }
+    function timerOnLeavePauseIfNeeded() {
+        if (gameOverTriggered || victoryTriggered) return;
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled) return;
+        if (isTimerPausedNow()) return;
+        if (timerRunStart == null && (PLAYER_TIMER_CONFIG.autoStart || timerClockStarted)) timerRunStart = Date.now();
+    }
+    function maybeStartDeferredTimer() {
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled || gameOverTriggered || victoryTriggered) return;
+        if (PLAYER_TIMER_CONFIG.autoStart || timerClockStarted) return;
+        timerClockStarted = true;
+        if (!isTimerPausedNow()) timerRunStart = Date.now();
+        tickPlayerTimer();
+    }
+    function formatTimerMs(ms) {
+        var s = Math.floor(Math.max(0, ms) / 1000);
+        var m = Math.floor(s / 60);
+        s = s % 60;
+        return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    }
+    function updateTimerHudLabel() {
+        var el = document.getElementById("player-timer");
+        if (!el) return;
+        el.textContent = formatTimerMs(timerDisplayMs);
+    }
+    function tickPlayerTimer() {
+        if (gameOverTriggered || victoryTriggered) return;
+        if (activeScenePressure) {
+            if (isTimerPausedNow()) {
+                updateTimerHudLabel();
+                return;
+            }
+            var nowP = Date.now();
+            var elapsedP = pressPausedAccum + (pressRunStart != null ? nowP - pressRunStart : 0);
+            timerDisplayMs = Math.max(0, pressTotalMs - elapsedP);
+            updateTimerHudLabel();
+            if (timerDisplayMs <= 0) handleSceneTimerExpired();
+            return;
+        }
+        if (!PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled) return;
+        if (!timerClockStarted) {
+            updateTimerHudLabel();
+            return;
+        }
+        if (isTimerPausedNow()) {
+            updateTimerHudLabel();
+            return;
+        }
+        var now = Date.now();
+        var elapsed = timerPausedAccum + (timerRunStart != null ? now - timerRunStart : 0);
+        if (PLAYER_TIMER_CONFIG.mode === "countup") {
+            timerDisplayMs = elapsed;
+        } else {
+            var total = Math.max(0, (PLAYER_TIMER_CONFIG.startSeconds || 0) * 1000);
+            timerDisplayMs = Math.max(0, total - elapsed);
+            if (timerDisplayMs <= 0) {
+                if (tryNavigateToGameOverSceneFromTimer()) return;
+                triggerGameOver();
+                return;
+            }
+        }
+        updateTimerHudLabel();
+    }
+    function triggerGameOver() {
+        if (gameOverTriggered || victoryTriggered) return;
+        clearScenePressureState();
+        gameOverTriggered = true;
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        timerRunStart = null;
+        if (PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.mode === "countdown") timerDisplayMs = 0;
+        updateTimerHudLabel();
+        var go = (PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.gameOver) || {};
+        var tEl = document.getElementById("end-screen-title");
+        var bEl = document.getElementById("end-screen-body");
+        var btn = document.getElementById("end-screen-restart");
+        if (tEl) tEl.textContent = go.title || "";
+        if (bEl) bEl.innerHTML = go.bodyHtml || "";
+        if (btn) btn.textContent = go.buttonLabel || "Restart";
+        var mod = document.getElementById("end-screen-modal");
+        if (mod) mod.classList.add("is-open");
+        try {
+            if (typeof viewer !== "undefined" && viewer && typeof viewer.destroy === "function") viewer.destroy();
+        } catch (eGo) {}
+        var hud = document.getElementById("player-hud");
+        if (hud) hud.style.display = "none";
+    }
+    function triggerVictory() {
+        if (victoryTriggered || gameOverTriggered) return;
+        if (!PLAYER_VICTORY_CONFIG || !String(PLAYER_VICTORY_CONFIG.sceneId || "").trim()) return;
+        clearScenePressureState();
+        victoryTriggered = true;
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        timerRunStart = null;
+        var vc = PLAYER_VICTORY_CONFIG || {};
+        var tEl = document.getElementById("victory-screen-title");
+        var bEl = document.getElementById("victory-screen-body");
+        var btn = document.getElementById("victory-screen-restart");
+        if (tEl) tEl.textContent = vc.title || "";
+        if (bEl) bEl.innerHTML = vc.bodyHtml || "";
+        if (btn) btn.textContent = vc.buttonLabel || "Restart";
+        var mod = document.getElementById("victory-screen-modal");
+        if (mod) mod.classList.add("is-open");
+        try {
+            if (typeof viewer !== "undefined" && viewer && typeof viewer.destroy === "function") viewer.destroy();
+        } catch (eVic) {}
+        var hud = document.getElementById("player-hud");
+        if (hud) hud.style.display = "none";
+    }
+    function checkVictoryForScene(sceneId) {
+        if (victoryTriggered || gameOverTriggered) return;
+        if (!PLAYER_VICTORY_CONFIG || !String(PLAYER_VICTORY_CONFIG.sceneId || "").trim()) return;
+        var sid = sceneId != null && sceneId !== "" ? String(sceneId) : "";
+        if (!sid && typeof viewer !== "undefined" && viewer && typeof viewer.getScene === "function") {
+            try { sid = String(viewer.getScene() || ""); } catch (eSid) {}
+        }
+        if (sid === String(PLAYER_VICTORY_CONFIG.sceneId).trim()) triggerVictory();
+    }
+    function initPlayerTimerAfterStart() {
+        if (victoryTriggered || gameOverTriggered) return;
+        var globOn = PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.enabled;
+        if (globOn) {
+            var el = document.getElementById("player-timer");
+            if (el) el.classList.add("is-visible");
+            gameOverTriggered = false;
+            timerPausedAccum = 0;
+            timerBlockingDepth = 0;
+            timerRunStart = null;
+            timerClockStarted = !!PLAYER_TIMER_CONFIG.autoStart;
+            if (PLAYER_TIMER_CONFIG.mode === "countup") {
+                timerDisplayMs = 0;
+            } else {
+                timerDisplayMs = Math.max(0, (PLAYER_TIMER_CONFIG.startSeconds || 0) * 1000);
+            }
+            updateTimerHudLabel();
+            if (!isTimerPausedNow() && timerClockStarted) timerRunStart = Date.now();
+        }
+        if (globOn || hasSceneTimerOverrides()) {
+            ensurePlayerTimerTick();
+            tickPlayerTimer();
+        }
+    }
 
     // --- Audio channels ---
     var sceneAmbianceClips = ${sceneAmbianceJson};
@@ -536,11 +951,21 @@ function buildPlayerHtmlTemplate() {
         if (mod.classList.contains("is-open")) { closePlayerSettings(); return; }
         syncPlayerAudioSlidersToUi();
         mod.classList.add("is-open");
+        if (PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.pauseWhenPopupOpen && (PLAYER_TIMER_CONFIG.enabled || activeScenePressure)) {
+            timerOnEnterPause();
+            pressTimerOnEnterPause();
+        }
     }
 
     function closePlayerSettings() {
         var mod = document.getElementById("settings-modal");
-        if (mod) mod.classList.remove("is-open");
+        if (!mod) return;
+        var wasOpen = mod.classList.contains("is-open");
+        mod.classList.remove("is-open");
+        if (wasOpen && PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.pauseWhenPopupOpen && (PLAYER_TIMER_CONFIG.enabled || activeScenePressure)) {
+            timerOnLeavePauseIfNeeded();
+            pressTimerOnLeavePauseIfNeeded();
+        }
     }
 
     function applySceneAmbiance(sceneId) {
@@ -554,6 +979,8 @@ function buildPlayerHtmlTemplate() {
 
     // --- Start (after splash click) ---
     function startGame() {
+        gameOverTriggered = false;
+        victoryTriggered = false;
         document.getElementById('start-screen').style.display = 'none';
         loadPlayerAudioPrefsFromStorage();
         syncPlayerAudioSlidersToUi();
@@ -567,13 +994,20 @@ function buildPlayerHtmlTemplate() {
         viewer.on('scenechange', function(sceneId) {
             var sid = (sceneId != null && sceneId !== '') ? sceneId : viewer.getScene();
             applySceneAmbiance(sid);
+            checkVictoryForScene(sid);
+            if (!victoryTriggered && !gameOverTriggered) checkGameOverForScene(sid);
+            if (!victoryTriggered && !gameOverTriggered) onSceneChangedForTimer(sid);
         });
         applySceneAmbiance("${firstSceneId}");
+        checkVictoryForScene("${firstSceneId}");
+        if (!victoryTriggered && !gameOverTriggered) checkGameOverForScene("${firstSceneId}");
 
         // Optional looped background music
         if (${useGlobalAudio} && "${globalMusicUrl}" !== "") {
             audioSys.playMusic("${globalMusicUrl}", ${globalMusicVol});
         }
+        if (!victoryTriggered) initPlayerTimerAfterStart();
+        if (!victoryTriggered && !gameOverTriggered) onSceneChangedForTimer("${firstSceneId}");
     }
     
     function toggleInv() { 
@@ -591,6 +1025,8 @@ function buildPlayerHtmlTemplate() {
     // Leaf action (msg / scene / pick) — shared engine for classic hotspots and future selector choices (see docs/SELECTOR_SPEC.md)
     // fromSelector: if true, do not hide hotspot after pick (same div must reopen the selector)
     function executeAction(payload, hsDiv, fromSelector) {
+        if (gameOverTriggered || victoryTriggered) return;
+        maybeStartDeferredTimer();
         if(payload.sfxUrl != null && String(payload.sfxUrl).trim() !== '') {
             audioSys.playSFX(String(payload.sfxUrl).trim(), payload.sfxVolume);
         }
@@ -715,6 +1151,7 @@ function buildPlayerHtmlTemplate() {
         if(o) o.remove();
         selectorHistory = [];
         selectorHsDiv = null;
+        timerNotifyBlockingClose();
     }
     function selectorBack() {
         if(selectorHistory.length <= 1) {
@@ -873,6 +1310,7 @@ function buildPlayerHtmlTemplate() {
         overlay.appendChild(panel);
         document.body.appendChild(overlay);
         renderSelectorPanel();
+        timerNotifyBlockingOpen();
     }
 
     function hotspotDispatcher(hsDiv, args) {
@@ -880,10 +1318,12 @@ function buildPlayerHtmlTemplate() {
         hotspotRegistry.push(hsDiv);
         applyHotspotVisibility(hsDiv, args);
         hsDiv.onclick = function() {
+            if (gameOverTriggered || victoryTriggered) return;
             var visOk = isActionVisible(args);
             if(!visOk) {
                 if(!ghostPointerWhenHidden(args) || !shouldHideHotspotVisually(args)) return;
             }
+            maybeStartDeferredTimer();
             if(args.type === 'selector') { openSelector(args, hsDiv); }
             else if(args.type === 'msg') { executeAction({ type: 'msg', txt: args.txt, sfxUrl: args.sfxUrl, sfxVolume: args.sfxVolume }, hsDiv); }
             else if(args.type === 'scene') { executeAction({ type: 'scene', target: args.target, transTxt: args.transTxt, transBtn: args.transBtn, sfxUrl: args.sfxUrl, sfxVolume: args.sfxVolume }, hsDiv); }
@@ -907,7 +1347,7 @@ function buildPlayerHtmlTemplate() {
                 
                 var pwdBackdrop = document.createElement('div');
                 pwdBackdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
-                pwdBackdrop.onclick = function(e) { if(e.target === pwdBackdrop) { audioSys.stopSFX(); document.body.removeChild(pwdBackdrop); } };
+                pwdBackdrop.onclick = function(e) { if(e.target === pwdBackdrop) { audioSys.stopSFX(); timerNotifyBlockingClose(); document.body.removeChild(pwdBackdrop); } };
                 var msg = document.createElement('div');
                 msg.style.cssText = 'background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;';
                 msg.onclick = function(e){ e.stopPropagation(); };
@@ -927,6 +1367,7 @@ function buildPlayerHtmlTemplate() {
                 btn.style.cssText = 'margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;';
                 btn.onclick = function() {
                     if(inp.value.toLowerCase().trim() === args.pwd) { 
+                        timerNotifyBlockingClose();
                         document.body.removeChild(pwdBackdrop); 
                         unlockedHotspots[args.id] = true; 
                         executeReward(args, hsDiv); 
@@ -942,11 +1383,12 @@ function buildPlayerHtmlTemplate() {
                 cls.innerHTML = "X"; 
                 cls.setAttribute('aria-label','Close');
                 cls.style.cssText = 'position:absolute;top:8px;right:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;';
-                cls.onclick = function() { audioSys.stopSFX(); document.body.removeChild(pwdBackdrop); }; 
+                cls.onclick = function() { audioSys.stopSFX(); timerNotifyBlockingClose(); document.body.removeChild(pwdBackdrop); }; 
                 
                 msg.appendChild(cls); 
                 pwdBackdrop.appendChild(msg);
-                document.body.appendChild(pwdBackdrop); 
+                document.body.appendChild(pwdBackdrop);
+                timerNotifyBlockingOpen();
                 setTimeout(function(){ inp.focus(); }, 100);
             }
         };
@@ -970,6 +1412,7 @@ function buildPlayerHtmlTemplate() {
         backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
         function closePopup() {
             audioSys.stopSFX();
+            timerNotifyBlockingClose();
             if (backdrop.parentNode) document.body.removeChild(backdrop);
         }
         backdrop.onclick = function(e) { if(e.target === backdrop) closePopup(); };
@@ -996,6 +1439,7 @@ function buildPlayerHtmlTemplate() {
         msg.appendChild(btn); 
         backdrop.appendChild(msg);
         document.body.appendChild(backdrop);
+        timerNotifyBlockingOpen();
     }
 <\/script>
 </body>

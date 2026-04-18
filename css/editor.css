@@ -88,6 +88,16 @@
 
         /* Éléments de formulaire (Inputs, bouttons) */
         input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; max-width: 100%; }
+        /* Cases / radios : ne pas hériter du width:100% global (sinon label + case se cassent sur plusieurs lignes). */
+        input[type="checkbox"],
+        input[type="radio"] {
+            width: auto;
+            max-width: none;
+            margin-top: 0;
+            margin-bottom: 0;
+            flex-shrink: 0;
+            align-self: center;
+        }
         .row {
             display: flex;
             flex-wrap: wrap;
@@ -102,6 +112,24 @@
         .col-wide {
             flex: 2 1 280px;
             min-width: min(100%, 200px);
+        }
+        /* Bloc repliable : ambiance / volume / timer local par scène */
+        .scene-optional-details {
+            margin: 10px 0 14px 0;
+            border: 1px solid #dce4ec;
+            border-radius: 6px;
+            padding: 0 12px 10px;
+            background: #f8fafc;
+        }
+        .scene-optional-details > summary.scene-optional-details-summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #2c3e50;
+            padding: 10px 4px 8px;
+            list-style-position: outside;
+        }
+        .scene-optional-details-inner {
+            padding-top: 2px;
         }
         button { cursor: pointer; padding: 10px 15px; border: none; border-radius: 5px; font-weight: bold; color: white; transition: 0.2s; }
         

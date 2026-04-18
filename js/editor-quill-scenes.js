@@ -65,6 +65,23 @@
         return html;
     };
 
+    /** Options pour <select> « scène de victoire / game over » : valeur vide + scènes existantes (pas d’option + nouvelle scène). */
+    global.buildEndStateSceneSelectOptionsHtml = function (selectedVal) {
+        var ids = global.getAllSceneIdsFromDom();
+        var sel = (selectedVal || "").trim();
+        var noneLabel = isEn() ? "— None —" : "— Aucune —";
+        var html = '<option value="">' + escapeAttr(noneLabel) + "</option>";
+        ids.forEach(function (id) {
+            var esc = escapeAttr(id);
+            html += '<option value="' + esc + '"' + (id === sel ? " selected" : "") + ">" + esc + "</option>";
+        });
+        if (sel && ids.indexOf(sel) === -1) {
+            var e = escapeAttr(sel);
+            html += '<option value="' + e + '" selected>' + e + " (?)</option>";
+        }
+        return html;
+    };
+
     /**
      * @param {string} cssClass — f-target | sel-scene-target
      * @param {string} [selectedVal]
@@ -112,6 +129,20 @@
                 if (ids.length) sel.value = ids[0];
             }
             sel.dataset.prevValue = sel.value;
+        });
+        document.querySelectorAll("select.sel-endstate-scene").forEach(function (sel) {
+            var pv = preferVal != null ? String(preferVal).trim() : "";
+            var cur;
+            if (preferSel === sel && pv !== undefined) {
+                cur = pv;
+            } else {
+                cur = (sel.value || "").trim();
+            }
+            if (fromRen && toRen && cur === fromRen) {
+                cur = toRen;
+            }
+            sel.innerHTML = global.buildEndStateSceneSelectOptionsHtml(cur);
+            sel.value = cur;
         });
     };
 
@@ -330,10 +361,13 @@
             var host = document.createElement("div");
             host.className = "wysiwyg-quill-host";
             wrap.appendChild(host);
-            var q = new Quill(host, {
+            var ph = (ta.getAttribute("placeholder") || "").trim();
+            var quillOpts = {
                 theme: "snow",
                 modules: { toolbar: quillToolbar() },
-            });
+            };
+            if (ph) quillOpts.placeholder = ph;
+            var q = new Quill(host, quillOpts);
             var srcUser = quillSourceUser();
             q.on("text-change", function (delta, oldDelta, source) {
                 if (source === srcUser) {

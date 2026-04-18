@@ -19,8 +19,12 @@
 
         function val(el, sel, fallback) {
             var node = el.querySelector(sel);
-            if (node && node.value !== undefined) return node.value;
-            return fallback != null ? fallback : "";
+            if (!node || node.value === undefined) return fallback != null ? fallback : "";
+            var Ex = global.EditorSharedExportText;
+            if (Ex && typeof Ex.readExportAwareFieldValue === "function") {
+                return Ex.readExportAwareFieldValue(node);
+            }
+            return node.value;
         }
 
         function hotspotDomToV2(hsDiv) {
