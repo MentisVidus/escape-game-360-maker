@@ -1330,3 +1330,10 @@ function updatePreview() {
         updateQuillTheme();
     }
 }
+
+(function initEndScreenRichEditors() {
+    var root = document.getElementById("end-screens-form-container");
+    if (root && typeof initRichEditorsIn === "function") {
+        initRichEditorsIn(root);
+    }
+})();

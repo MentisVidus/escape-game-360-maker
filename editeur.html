@@ -319,7 +319,6 @@
             </div>
 
             <!-- TODO(UX): étendre les placeholders « grisés » (non exportés) à tous les champs de suggestion — hotspots, scènes, etc. -->
-            <!-- TODO(UX): remplacer les textarea « Contenu HTML » par Quill (.editor-rich-text) pour cohérence avec le reste de l’éditeur. -->
             <div id="end-screens-form-container" style="display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
                 <div style="flex: 1; min-width: 320px;">
                     <h4 style="margin: 0 0 10px 0;">Écran Game Over (modale)</h4>
@@ -331,8 +330,8 @@
                     </div>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
-                            <label for="endGameOverBody">Contenu HTML :</label>
-                            <textarea id="endGameOverBody" rows="3" placeholder="<p>Vous avez perdu...</p>"></textarea>
+                            <label for="endGameOverBody">Contenu :</label>
+                            <div class="wysiwyg-wrap"><textarea id="endGameOverBody" class="editor-rich-text" rows="3" placeholder="<p>Vous avez perdu...</p>"></textarea></div>
                         </div>
                     </div>
                     <div class="row" style="margin-bottom: 14px;">
@@ -352,8 +351,8 @@
                     </div>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
-                            <label for="endVictoryBody">Contenu HTML :</label>
-                            <textarea id="endVictoryBody" rows="3" placeholder="<p>Mission accomplie.</p>"></textarea>
+                            <label for="endVictoryBody">Contenu :</label>
+                            <div class="wysiwyg-wrap"><textarea id="endVictoryBody" class="editor-rich-text" rows="3" placeholder="<p>Mission accomplie.</p>"></textarea></div>
                         </div>
                     </div>
                     <div class="row">

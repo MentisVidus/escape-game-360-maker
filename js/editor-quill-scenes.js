@@ -361,10 +361,13 @@
             var host = document.createElement("div");
             host.className = "wysiwyg-quill-host";
             wrap.appendChild(host);
-            var q = new Quill(host, {
+            var ph = (ta.getAttribute("placeholder") || "").trim();
+            var quillOpts = {
                 theme: "snow",
                 modules: { toolbar: quillToolbar() },
-            });
+            };
+            if (ph) quillOpts.placeholder = ph;
+            var q = new Quill(host, quillOpts);
             var srcUser = quillSourceUser();
             q.on("text-change", function (delta, oldDelta, source) {
                 if (source === srcUser) {

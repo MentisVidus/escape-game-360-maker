@@ -313,7 +313,6 @@
             </div>
 
             <!-- TODO(UX): extend grey placeholders (not exported) to all suggested-content fields — hotspots, scenes, etc. -->
-            <!-- TODO(UX): replace raw HTML textareas with Quill (.editor-rich-text) for parity with hotspots. -->
             <div id="end-screens-form-container" style="display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start;">
                 <div style="flex: 1; min-width: 320px;">
                     <h4 style="margin: 0 0 10px 0;">Game Over screen (modal)</h4>
@@ -325,8 +324,8 @@
                     </div>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
-                            <label for="endGameOverBody">HTML content:</label>
-                            <textarea id="endGameOverBody" rows="3" placeholder="<p>You failed...</p>"></textarea>
+                            <label for="endGameOverBody">Content:</label>
+                            <div class="wysiwyg-wrap"><textarea id="endGameOverBody" class="editor-rich-text" rows="3" placeholder="<p>You failed...</p>"></textarea></div>
                         </div>
                     </div>
                     <div class="row" style="margin-bottom: 14px;">
@@ -346,8 +345,8 @@
                     </div>
                     <div class="row" style="margin-bottom: 8px;">
                         <div class="col" style="flex:1;">
-                            <label for="endVictoryBody">HTML content:</label>
-                            <textarea id="endVictoryBody" rows="3" placeholder="<p>Mission complete.</p>"></textarea>
+                            <label for="endVictoryBody">Content:</label>
+                            <div class="wysiwyg-wrap"><textarea id="endVictoryBody" class="editor-rich-text" rows="3" placeholder="<p>Mission complete.</p>"></textarea></div>
                         </div>
                     </div>
                     <div class="row">

@@ -49,6 +49,10 @@
             if (scenesRoot && typeof global.flushRichEditorsIn === "function") {
                 global.flushRichEditorsIn(scenesRoot);
             }
+            var endScreensRoot = doc.getElementById("end-screens-form-container");
+            if (endScreensRoot && typeof global.flushRichEditorsIn === "function") {
+                global.flushRichEditorsIn(endScreensRoot);
+            }
 
             var project = EditorCore.createEmptyProject();
             project.title = (doc.getElementById("gameTitle") || { value: "" }).value;
