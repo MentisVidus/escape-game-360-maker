@@ -31,6 +31,13 @@
             if (typeof global.flushRichEditorsIn === "function") global.flushRichEditorsIn(hsDiv);
             var hId = parseInt(hsDiv.id.replace("hs_", ""), 10);
             var type = hsDiv.querySelector(".hs-type").value;
+            if (
+                (type === "req" || type === "pwd") &&
+                typeof global.syncHotspotRewardSelectorJSON === "function" &&
+                !isNaN(hId)
+            ) {
+                global.syncHotspotRewardSelectorJSON(hId);
+            }
             var legacy = {};
 
             if (type === "msg") {
@@ -47,24 +54,38 @@
                 legacy.itemId = val(hsDiv, ".f-item-id", "");
                 legacy.ko = val(hsDiv, ".f-ko", "");
                 legacy.f_req_action = val(hsDiv, ".f-req-action", "scene");
-                legacy.f_target = val(hsDiv, ".f-target", "");
-                legacy.f_trans_txt = val(hsDiv, ".f-trans-txt", "");
-                legacy.f_trans_btn = val(hsDiv, ".f-trans-btn", defaultTransitionLabel);
-                legacy.f_ok_msg = val(hsDiv, ".f-ok-msg", "");
-                legacy.f_pick_id = val(hsDiv, ".f-pick-id", "");
-                legacy.f_pick_name = val(hsDiv, ".f-pick-name", "");
-                legacy.f_pick_msg = val(hsDiv, ".f-pick-msg", "");
+                if (legacy.f_req_action === "selector") {
+                    legacy.f_reward_sel_title = val(hsDiv, ".f-reward-sel-title", "");
+                    legacy.f_reward_sel_intro = val(hsDiv, ".f-reward-sel-intro", "");
+                    legacy.f_reward_sel_display = val(hsDiv, ".f-reward-sel-display", "buttons");
+                    legacy.f_reward_sel_choices = val(hsDiv, ".f-reward-sel-choices", "[]");
+                } else {
+                    legacy.f_target = val(hsDiv, ".f-target", "");
+                    legacy.f_trans_txt = val(hsDiv, ".f-trans-txt", "");
+                    legacy.f_trans_btn = val(hsDiv, ".f-trans-btn", defaultTransitionLabel);
+                    legacy.f_ok_msg = val(hsDiv, ".f-ok-msg", "");
+                    legacy.f_pick_id = val(hsDiv, ".f-pick-id", "");
+                    legacy.f_pick_name = val(hsDiv, ".f-pick-name", "");
+                    legacy.f_pick_msg = val(hsDiv, ".f-pick-msg", "");
+                }
             } else if (type === "pwd") {
                 legacy.enigmeTxt = val(hsDiv, ".f-enigme-txt", "");
                 legacy.pwd = val(hsDiv, ".f-pwd", "");
                 legacy.f_pwd_action = val(hsDiv, ".f-pwd-action", "scene");
-                legacy.f_target = val(hsDiv, ".f-target", "");
-                legacy.f_trans_txt = val(hsDiv, ".f-trans-txt", "");
-                legacy.f_trans_btn = val(hsDiv, ".f-trans-btn", defaultTransitionLabel);
-                legacy.f_ok_msg = val(hsDiv, ".f-ok-msg", "");
-                legacy.f_pick_id = val(hsDiv, ".f-pick-id", "");
-                legacy.f_pick_name = val(hsDiv, ".f-pick-name", "");
-                legacy.f_pick_msg = val(hsDiv, ".f-pick-msg", "");
+                if (legacy.f_pwd_action === "selector") {
+                    legacy.f_reward_sel_title = val(hsDiv, ".f-reward-sel-title", "");
+                    legacy.f_reward_sel_intro = val(hsDiv, ".f-reward-sel-intro", "");
+                    legacy.f_reward_sel_display = val(hsDiv, ".f-reward-sel-display", "buttons");
+                    legacy.f_reward_sel_choices = val(hsDiv, ".f-reward-sel-choices", "[]");
+                } else {
+                    legacy.f_target = val(hsDiv, ".f-target", "");
+                    legacy.f_trans_txt = val(hsDiv, ".f-trans-txt", "");
+                    legacy.f_trans_btn = val(hsDiv, ".f-trans-btn", defaultTransitionLabel);
+                    legacy.f_ok_msg = val(hsDiv, ".f-ok-msg", "");
+                    legacy.f_pick_id = val(hsDiv, ".f-pick-id", "");
+                    legacy.f_pick_name = val(hsDiv, ".f-pick-name", "");
+                    legacy.f_pick_msg = val(hsDiv, ".f-pick-msg", "");
+                }
             } else if (type === "selector") {
                 legacy.nested = {
                     title: val(hsDiv, ".f-sel-title", ""),

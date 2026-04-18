@@ -63,11 +63,19 @@ Payload minimal :
     },
     {
       "id": "choice_2",
-      "label": "Désactiver l’alarme",
+      "label": "Boîte mail",
       "actionType": "pwd",
       "enigmeTxt": "…",
       "pwd": "1234",
-      "onSuccess": { "actionType": "scene", "target": "couloir" }
+      "f_pwd_action": "selector",
+      "rewardNested": {
+        "title": "Messages",
+        "introHtml": "",
+        "choices": [
+          { "id": "m1", "label": "Mail 1", "actionType": "msg", "txt": "…" },
+          { "id": "m2", "label": "Mail 2", "actionType": "msg", "txt": "…" }
+        ]
+      }
     }
   ]
 }
@@ -89,6 +97,13 @@ Payload minimal :
 | `displayMode` | Sur un niveau (`nested` ou racine via l’éditeur) : `buttons` (défaut) ou `dropdown`. |
 
 Les autres champs reprennent la **même sémantique** que les champs actuels des hotspots (ex. `txt`, `target`, `itemId`, `ko`, `transTxt`, etc.) pour que `executeAction` reste unique.
+
+### 3.2 bis — `req` / `pwd` sur les choix et récompense « sous-menu » (implémenté)
+
+- **Choix `actionType: "req"`** : `itemId`, `ko` (message si l’objet manque), puis **`f_req_action`** (`scene` \| `msg` \| `pick` \| `selector`) et les champs de récompense alignés sur l’éditeur (ex. `target` / `transTxt` / `f_ok_msg` / `f_pick_*`). Si la récompense est **`selector`**, un objet **`rewardNested`** (`title`, `introHtml`, `displayMode`, `choices[]`) décrit le sous-menu (même forme qu’un `nested` de sous-selector).
+- **Choix `actionType: "pwd"`** : `enigmeTxt`, `pwd`, **`f_pwd_action`** et mêmes récompenses ; mémorisation succès par clé runtime `selpwd_` + `choice.id` (stable dans le JSON V2).
+- **Hotspots classiques `req` / `pwd`** : la liste déroulante de récompense inclut **« Ouvrir un menu (selector) »** ; les champs du menu récompense sont sérialisés en **`f_reward_sel_*`** (titre, intro, présentation, JSON des choix) côté formulaire, puis mappés vers `rewardAction.type === "selector"` en V2.
+- **Runtime** : `executeReward` gère aussi **`action === "selector"`** + `rewardSelector` (fermeture du menu courant si besoin, puis `openSelector`). Cas d’usage type **terminal** : hotspot `pwd` → récompense selector ; ou ligne « Boîte mail » en `pwd` dans un menu → `rewardNested` listant les mails.
 
 ### 3.3 Équivalence “hotspot classique = selector à un choix”
 

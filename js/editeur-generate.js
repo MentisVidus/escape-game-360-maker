@@ -186,6 +186,7 @@ function buildPlayerHtmlTemplate() {
         var p = a.payload || {};
         var c = p.copy || {};
         var out = { label: choice.label || "Option", actionType: a.type || "msg" };
+        if(choice.id) out.id = choice.id;
         if(a.type === "msg") out.txt = c.bodyHtml || "";
         else if(a.type === "scene") {
             out.target = p.target || "";
@@ -195,6 +196,56 @@ function buildPlayerHtmlTemplate() {
             out.itemId = p.itemId || "";
             out.itemName = p.itemName || "";
             out.txt = c.bodyHtml || "";
+        } else if(a.type === "req") {
+            out.itemId = p.itemId || "";
+            out.ko = c.bodyHtml || "";
+            var r = p.rewardAction || {};
+            var rc = (r.payload && r.payload.copy) || {};
+            out.f_req_action = r.type || "scene";
+            if(r.type === "scene") {
+                out.target = (r.payload && r.payload.target) || "";
+                out.transTxt = rc.bodyHtml || "";
+                out.transBtn = rc.buttonLabel || "Continuer";
+            } else if(r.type === "msg") out.f_ok_msg = rc.bodyHtml || "";
+            else if(r.type === "pick") {
+                out.f_pick_id = (r.payload && r.payload.itemId) || "";
+                out.f_pick_name = (r.payload && r.payload.itemName) || "";
+                out.f_pick_msg = rc.bodyHtml || "";
+            } else if(r.type === "selector") {
+                var rrn = r.payload && r.payload.nested;
+                var rrnc = (rrn && rrn.copy) || {};
+                out.rewardNested = {
+                    title: (rrn && rrn.title) || "",
+                    introHtml: rrnc.bodyHtml || "",
+                    displayMode: rrn && rrn.displayMode === "dropdown" ? "dropdown" : "buttons",
+                    choices: (rrn && Array.isArray(rrn.choices) ? rrn.choices : []).map(choiceV2ToLegacy)
+                };
+            }
+        } else if(a.type === "pwd") {
+            out.enigmeTxt = c.bodyHtml || "";
+            out.pwd = (p.answer || "").toLowerCase().trim();
+            var rp = p.rewardAction || {};
+            var rpc = (rp.payload && rp.payload.copy) || {};
+            out.f_pwd_action = rp.type || "scene";
+            if(rp.type === "scene") {
+                out.target = (rp.payload && rp.payload.target) || "";
+                out.transTxt = rpc.bodyHtml || "";
+                out.transBtn = rpc.buttonLabel || "Continuer";
+            } else if(rp.type === "msg") out.f_ok_msg = rpc.bodyHtml || "";
+            else if(rp.type === "pick") {
+                out.f_pick_id = (rp.payload && rp.payload.itemId) || "";
+                out.f_pick_name = (rp.payload && rp.payload.itemName) || "";
+                out.f_pick_msg = rpc.bodyHtml || "";
+            } else if(rp.type === "selector") {
+                var rpn = rp.payload && rp.payload.nested;
+                var rpnc = (rpn && rpn.copy) || {};
+                out.rewardNested = {
+                    title: (rpn && rpn.title) || "",
+                    introHtml: rpnc.bodyHtml || "",
+                    displayMode: rpn && rpn.displayMode === "dropdown" ? "dropdown" : "buttons",
+                    choices: (rpn && Array.isArray(rpn.choices) ? rpn.choices : []).map(choiceV2ToLegacy)
+                };
+            }
         } else if(a.type === "selector") {
             var n = p.nested || {};
             var nc = n.copy || {};
@@ -241,6 +292,15 @@ function buildPlayerHtmlTemplate() {
                 args.pickId = (r.payload && r.payload.itemId) || "";
                 args.pickName = (r.payload && r.payload.itemName) || "";
                 args.pickMsg = rc.bodyHtml || "";
+            } else if(args.action === "selector") {
+                var rrn = r.payload && r.payload.nested;
+                var rrnc = (rrn && rrn.copy) || {};
+                args.rewardSelector = {
+                    title: (rrn && rrn.title) || "",
+                    introHtml: rrnc.bodyHtml || "",
+                    displayMode: rrn && rrn.displayMode === "dropdown" ? "dropdown" : "buttons",
+                    choices: (rrn && Array.isArray(rrn.choices) ? rrn.choices : []).map(choiceV2ToLegacy)
+                };
             }
         } else if(args.type === "pwd") {
             args.enigmeTxt = pc.bodyHtml || "";
@@ -257,6 +317,15 @@ function buildPlayerHtmlTemplate() {
                 args.pickId = (rp.payload && rp.payload.itemId) || "";
                 args.pickName = (rp.payload && rp.payload.itemName) || "";
                 args.pickMsg = rpc.bodyHtml || "";
+            } else if(args.action === "selector") {
+                var rpn = rp.payload && rp.payload.nested;
+                var rpnc = (rpn && rpn.copy) || {};
+                args.rewardSelector = {
+                    title: (rpn && rpn.title) || "",
+                    introHtml: rpnc.bodyHtml || "",
+                    displayMode: rpn && rpn.displayMode === "dropdown" ? "dropdown" : "buttons",
+                    choices: (rpn && Array.isArray(rpn.choices) ? rpn.choices : []).map(choiceV2ToLegacy)
+                };
             }
         } else if(args.type === "selector") {
             var n = p.nested || {};
@@ -1051,14 +1120,46 @@ function buildPlayerHtmlTemplate() {
         }
     }
 
-    // Récompense après énigme mot de passe ou objet requis (branches internes scene / msg / pick)
+    function choiceRewardToArgs(choice) {
+        var act = choice.f_req_action != null && choice.f_req_action !== "" ? choice.f_req_action : (choice.f_pwd_action != null && choice.f_pwd_action !== "" ? choice.f_pwd_action : "scene");
+        if(act === "selector" && choice.rewardNested) {
+            var rn = choice.rewardNested;
+            return {
+                action: "selector",
+                rewardSelector: {
+                    title: rn.title || "",
+                    introHtml: rn.introHtml || "",
+                    displayMode: rn.displayMode === "dropdown" ? "dropdown" : "buttons",
+                    choices: Array.isArray(rn.choices) ? rn.choices : []
+                }
+            };
+        }
+        var out = { action: act };
+        if(act === "scene") {
+            out.target = choice.target || "";
+            out.transTxt = choice.transTxt || "";
+            out.transBtn = choice.transBtn || "Continuer";
+        } else if(act === "msg") out.okMsg = choice.f_ok_msg || "";
+        else if(act === "pick") {
+            out.pickId = choice.f_pick_id || "";
+            out.pickName = choice.f_pick_name || "";
+            out.pickMsg = choice.f_pick_msg || "";
+        }
+        return out;
+    }
+
+    // Récompense après énigme mot de passe ou objet requis (branches internes scene / msg / pick / selector)
     function executeReward(args, hsDiv) {
-        if(args.action === 'scene') {
-            executeAction({ type: 'scene', target: args.target, transTxt: args.transTxt, transBtn: args.transBtn }, hsDiv);
-        } else if(args.action === 'msg') {
-            executeAction({ type: 'msg', txt: args.okMsg }, hsDiv);
-        } else if(args.action === 'pick') {
-            executeAction({ type: 'pick', itemId: args.pickId, itemName: args.pickName, txt: args.pickMsg }, hsDiv);
+        if(args.action === "selector" && args.rewardSelector) {
+            openSelector(args.rewardSelector, hsDiv);
+            return;
+        }
+        if(args.action === "scene") {
+            executeAction({ type: "scene", target: args.target, transTxt: args.transTxt, transBtn: args.transBtn }, hsDiv);
+        } else if(args.action === "msg") {
+            executeAction({ type: "msg", txt: args.okMsg }, hsDiv);
+        } else if(args.action === "pick") {
+            executeAction({ type: "pick", itemId: args.pickId, itemName: args.pickName, txt: args.pickMsg }, hsDiv);
         }
     }
 
@@ -1168,6 +1269,91 @@ function buildPlayerHtmlTemplate() {
     }
     function runSelectorChoice(choice) {
         if(!choice) return;
+        if(choice.actionType === "req") {
+            if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== "") {
+                audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
+            }
+            var rid = choice.itemId != null ? String(choice.itemId).trim() : "";
+            if(!rid || !inventaire[rid]) {
+                afficherPopup("", choice.ko || "");
+                return;
+            }
+            var hReq = selectorHsDiv;
+            closeSelectorOverlay(false);
+            executeReward(choiceRewardToArgs(choice), hReq);
+            return;
+        }
+        if(choice.actionType === "pwd") {
+            if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== "") {
+                audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
+            }
+            var pwdKey = "selpwd_" + String(choice.id || "choice");
+            if(unlockedHotspots[pwdKey]) {
+                var hPwd = selectorHsDiv;
+                closeSelectorOverlay(false);
+                executeReward(choiceRewardToArgs(choice), hPwd);
+                return;
+            }
+            var pwdBackdrop = document.createElement("div");
+            pwdBackdrop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;";
+            pwdBackdrop.onclick = function (e) {
+                if(e.target === pwdBackdrop) {
+                    audioSys.stopSFX();
+                    timerNotifyBlockingClose();
+                    document.body.removeChild(pwdBackdrop);
+                }
+            };
+            var msg = document.createElement("div");
+            msg.style.cssText = "background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;";
+            msg.onclick = function (e) {
+                e.stopPropagation();
+            };
+            msg.innerHTML = "<div class='play-html-rich'>" + (choice.enigmeTxt || "") + "</div><br><br>";
+            var inp = document.createElement("input");
+            inp.type = "text";
+            inp.style.cssText = "margin-top:15px;padding:10px;width:80%;font-size:16px;text-align:center;font-family:inherit;";
+            msg.appendChild(inp);
+            msg.appendChild(document.createElement("br"));
+            var err = document.createElement("div");
+            err.style.color = "red";
+            err.style.marginTop = "10px";
+            msg.appendChild(err);
+            var btn = document.createElement("button");
+            btn.innerHTML = "[ VALIDER ]";
+            btn.style.cssText = "margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;";
+            btn.onclick = function () {
+                if(inp.value.toLowerCase().trim() === (choice.pwd || "")) {
+                    timerNotifyBlockingClose();
+                    document.body.removeChild(pwdBackdrop);
+                    unlockedHotspots[pwdKey] = true;
+                    var hPwd2 = selectorHsDiv;
+                    closeSelectorOverlay(false);
+                    executeReward(choiceRewardToArgs(choice), hPwd2);
+                } else {
+                    err.innerHTML = "RÉPONSE INCORRECTE";
+                    inp.value = "";
+                    inp.focus();
+                }
+            };
+            msg.appendChild(btn);
+            var cls = document.createElement("button");
+            cls.innerHTML = "X";
+            cls.setAttribute("aria-label", "Fermer");
+            cls.style.cssText = "position:absolute;top:8px;right:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;";
+            cls.onclick = function () {
+                audioSys.stopSFX();
+                timerNotifyBlockingClose();
+                document.body.removeChild(pwdBackdrop);
+            };
+            msg.appendChild(cls);
+            pwdBackdrop.appendChild(msg);
+            document.body.appendChild(pwdBackdrop);
+            timerNotifyBlockingOpen();
+            setTimeout(function () {
+                inp.focus();
+            }, 100);
+            return;
+        }
         if(choice.actionType === 'selector') {
             if(choice.sfxUrl != null && String(choice.sfxUrl).trim() !== '') {
                 audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);

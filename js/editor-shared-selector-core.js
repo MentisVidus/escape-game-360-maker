@@ -51,6 +51,18 @@
         root.addEventListener("change", sync);
     }
 
+    function maybeSyncHotspotRewardRoot(listEl, hId) {
+        if (
+            listEl &&
+            listEl.classList &&
+            listEl.classList.contains("sel-choices-reward-root") &&
+            typeof global.syncHotspotRewardSelectorJSON === "function" &&
+            !isNaN(hId)
+        ) {
+            global.syncHotspotRewardSelectorJSON(hId);
+        }
+    }
+
     function selectorMoveChoice(btn, dir) {
         var card = btn.closest(".sel-choice-card");
         if (!card) return;
@@ -59,14 +71,17 @@
         if (dir < 0 && card.previousElementSibling) list.insertBefore(card, card.previousElementSibling);
         else if (dir > 0 && card.nextElementSibling) list.insertBefore(card.nextElementSibling, card);
         syncSelectorChoicesToTextarea(hId);
+        maybeSyncHotspotRewardRoot(list, hId);
     }
 
     function selectorRemoveChoice(btn) {
         var card = btn.closest(".sel-choice-card");
         if (!card) return;
+        var list = card.parentElement;
         var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
         card.remove();
         syncSelectorChoicesToTextarea(hId);
+        maybeSyncHotspotRewardRoot(list, hId);
     }
 
     function selectorChoicesFromTextarea(hsDiv, hId) {

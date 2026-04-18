@@ -417,7 +417,7 @@ function addHotspot(sceneId, hsData = null) {
 
     // Remplissage des champs dynamiques avec les données sauvegardées (si on charge un projet)
     if(hsData) {
-        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
+        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
         fields.forEach(f => {
             let el = hsDiv.querySelector('.' + f);
             if(el && hsData[f.replace(/-/g, '_')] !== undefined) {
@@ -436,6 +436,14 @@ function addHotspot(sceneId, hsData = null) {
             if (_pickFld) {
                 applyPickHiddenIfAutoFillInitial(_pickFld.querySelector(".f-item-id"), _pickFld.querySelector(".f-hs-hidden-if"));
             }
+        }
+        if (hsData.type === "req" || hsData.type === "pwd") {
+            initHotspotRewardSelectorForm(hId);
+        }
+    } else {
+        var _tNew = hsDiv.querySelector(".hs-type").value;
+        if (_tNew === "req" || _tNew === "pwd") {
+            initHotspotRewardSelectorForm(hId);
         }
     }
     var _fld = document.getElementById("fields_" + hId);
@@ -536,6 +544,76 @@ function cardToChoice(card) {
         var dm = getOwnChoiceField(card, ".sel-nested-display");
         if(dm && dm.value === "dropdown") nest.displayMode = "dropdown";
         out.nested = nest;
+    } else if(type === "req") {
+        var ri = getOwnChoiceField(card, ".sel-req-item-id");
+        var rk = getOwnChoiceField(card, ".sel-req-ko");
+        out.itemId = ri ? ri.value.trim() : "";
+        out.ko = rf(rk);
+        var rts = getOwnChoiceField(card, ".sel-req-reward-type");
+        var rknd = rts ? rts.value : "scene";
+        out.f_req_action = rknd;
+        if(rknd === "scene") {
+            var rt = getOwnChoiceField(card, ".sel-reward-scene-target");
+            var rtx = getOwnChoiceField(card, ".sel-reward-scene-trans");
+            var rtb = getOwnChoiceField(card, ".sel-reward-scene-btn");
+            out.target = rt ? rt.value : "";
+            out.transTxt = rf(rtx);
+            out.transBtn = rtb && rtb.value.trim() ? rtb.value : "";
+        } else if(rknd === "msg") {
+            var om = getOwnChoiceField(card, ".sel-reward-ok-msg");
+            out.f_ok_msg = rf(om);
+        } else if(rknd === "pick") {
+            var pid = getOwnChoiceField(card, ".sel-reward-pick-id");
+            var pnm = getOwnChoiceField(card, ".sel-reward-pick-name");
+            var ptx = getOwnChoiceField(card, ".sel-reward-pick-msg");
+            out.f_pick_id = pid ? pid.value : "";
+            out.f_pick_name = pnm ? pnm.value : "";
+            out.f_pick_msg = rf(ptx);
+        } else if(rknd === "selector") {
+            var rlist = card.querySelector(".sel-reward-nested-list");
+            out.rewardNested = {
+                title: rf(getOwnChoiceField(card, ".sel-reward-title")),
+                introHtml: rf(getOwnChoiceField(card, ".sel-reward-intro")),
+                choices: collectChoicesFromList(rlist)
+            };
+            var rdm = getOwnChoiceField(card, ".sel-reward-display");
+            if(rdm && rdm.value === "dropdown") out.rewardNested.displayMode = "dropdown";
+        }
+    } else if(type === "pwd") {
+        var pe = getOwnChoiceField(card, ".sel-pwd-enigme");
+        var pp = getOwnChoiceField(card, ".sel-pwd-answer");
+        out.enigmeTxt = rf(pe);
+        out.pwd = pp ? pp.value.trim() : "";
+        var pts = getOwnChoiceField(card, ".sel-pwd-reward-type");
+        var pknd = pts ? pts.value : "scene";
+        out.f_pwd_action = pknd;
+        if(pknd === "scene") {
+            var pt = getOwnChoiceField(card, ".sel-reward-scene-target");
+            var ptx2 = getOwnChoiceField(card, ".sel-reward-scene-trans");
+            var ptb2 = getOwnChoiceField(card, ".sel-reward-scene-btn");
+            out.target = pt ? pt.value : "";
+            out.transTxt = rf(ptx2);
+            out.transBtn = ptb2 && ptb2.value.trim() ? ptb2.value : "";
+        } else if(pknd === "msg") {
+            var om2 = getOwnChoiceField(card, ".sel-reward-ok-msg");
+            out.f_ok_msg = rf(om2);
+        } else if(pknd === "pick") {
+            var pid2 = getOwnChoiceField(card, ".sel-reward-pick-id");
+            var pnm2 = getOwnChoiceField(card, ".sel-reward-pick-name");
+            var ptx3 = getOwnChoiceField(card, ".sel-reward-pick-msg");
+            out.f_pick_id = pid2 ? pid2.value : "";
+            out.f_pick_name = pnm2 ? pnm2.value : "";
+            out.f_pick_msg = rf(ptx3);
+        } else if(pknd === "selector") {
+            var rlist2 = card.querySelector(".sel-reward-nested-list");
+            out.rewardNested = {
+                title: rf(getOwnChoiceField(card, ".sel-reward-title")),
+                introHtml: rf(getOwnChoiceField(card, ".sel-reward-intro")),
+                choices: collectChoicesFromList(rlist2)
+            };
+            var rdm2 = getOwnChoiceField(card, ".sel-reward-display");
+            if(rdm2 && rdm2.value === "dropdown") out.rewardNested.displayMode = "dropdown";
+        }
     }
     var req = getOwnChoiceField(card, ".sel-opt-req");
     if(req && req.value.trim()) out.requiresItem = req.value.trim();
@@ -563,7 +641,8 @@ function selectorAddChoice(hId) {
 function selectorAddNestedChoice(btn) {
     var list = btn.previousElementSibling;
     var card = btn.closest(".sel-choice-card");
-    if(!list || !list.classList.contains("sel-nested-list") || !card) return;
+    if(!list || !card) return;
+    if(!list.classList.contains("sel-nested-list") && !list.classList.contains("sel-reward-nested-list")) return;
     var hId = parseInt(card.closest(".hotspot-block").id.replace("hs_", ""), 10);
     var depth = parseInt(card.dataset.depth || "0", 10);
     if(depth + 1 >= SELECTOR_MAX_DEPTH) {
@@ -711,6 +790,170 @@ function appendSelectorChoiceAdvancedDrawers(card, ch) {
     card.appendChild(detSfx);
 }
 
+/** Récompense scene/msg/pick/selector pour un choix « objet requis » ou « mot de passe » (éditeur). */
+function appendSelectorChoiceRewardUI(container, ch, hsIdNum, depth, mode) {
+    ch = ch || {};
+    var canRewardSelector = depth < SELECTOR_MAX_DEPTH - 1;
+    var rk = mode === "req" ? "f_req_action" : "f_pwd_action";
+    var act = ch[rk] || "scene";
+    if (ch.rewardNested && typeof ch.rewardNested === "object") act = "selector";
+
+    var lbRw = document.createElement("label");
+    lbRw.style.marginTop = "12px";
+    lbRw.style.fontWeight = "600";
+    lbRw.style.display = "block";
+    lbRw.style.color = "#27ae60";
+    lbRw.textContent =
+        mode === "req" ? "Si l'objet requis est présent — récompense :" : "Quand le mot de passe est correct :";
+    var selRw = document.createElement("select");
+    selRw.className = mode === "req" ? "sel-req-reward-type" : "sel-pwd-reward-type";
+    [["scene", "Changer de scène"], ["msg", "Afficher un message"], ["pick", "Donner un objet"]].forEach(function (o) {
+        var oc = document.createElement("option");
+        oc.value = o[0];
+        oc.textContent = o[1];
+        if (act === o[0]) oc.selected = true;
+        selRw.appendChild(oc);
+    });
+    if (canRewardSelector) {
+        var osel = document.createElement("option");
+        osel.value = "selector";
+        osel.textContent = "Ouvrir un sous-menu (selector)";
+        if (act === "selector") osel.selected = true;
+        selRw.appendChild(osel);
+    }
+    container.appendChild(lbRw);
+    container.appendChild(selRw);
+
+    var pan = document.createElement("div");
+    pan.className = "sel-reward-panel";
+    pan.style.marginTop = "10px";
+
+    var segScene = document.createElement("div");
+    segScene.className = "sel-rew-seg";
+    segScene.setAttribute("data-reward", "scene");
+    segScene.style.display = act === "scene" ? "block" : "none";
+    if (typeof buildSceneTargetSelect === "function") {
+        segScene.innerHTML =
+            "<label>Scène cible :</label>" +
+            buildSceneTargetSelect("sel-reward-scene-target", ch.target || "") +
+            "<label>Texte de transition :</label><div class=\"wysiwyg-wrap\"><textarea class=\"sel-reward-scene-trans editor-rich-text\" rows=\"2\"></textarea></div><label>Libellé du bouton :</label><input type=\"text\" class=\"sel-reward-scene-btn\" placeholder=\"Continuer\">";
+    } else {
+        segScene.innerHTML =
+            "<label>Scène cible :</label><input type=\"text\" class=\"sel-reward-scene-target\" value=\"\">" +
+            "<label>Texte de transition :</label><div class=\"wysiwyg-wrap\"><textarea class=\"sel-reward-scene-trans editor-rich-text\" rows=\"2\"></textarea></div><label>Libellé du bouton :</label><input type=\"text\" class=\"sel-reward-scene-btn\" placeholder=\"Continuer\">";
+        segScene.querySelector(".sel-reward-scene-target").value = ch.target || "";
+    }
+    var tr = segScene.querySelector(".sel-reward-scene-trans");
+    if (tr) tr.value = ch.transTxt || "";
+    var tb = segScene.querySelector(".sel-reward-scene-btn");
+    if (tb) tb.value = ch.transBtn != null && String(ch.transBtn).trim() !== "" ? ch.transBtn : "";
+    pan.appendChild(segScene);
+
+    var segMsg = document.createElement("div");
+    segMsg.className = "sel-rew-seg";
+    segMsg.setAttribute("data-reward", "msg");
+    segMsg.style.display = act === "msg" ? "block" : "none";
+    var lm = document.createElement("label");
+    lm.textContent = "Message :";
+    var wm = document.createElement("div");
+    wm.className = "wysiwyg-wrap";
+    var tm = document.createElement("textarea");
+    tm.className = "sel-reward-ok-msg editor-rich-text";
+    tm.rows = 2;
+    tm.value = ch.f_ok_msg || ch.okMsg || "";
+    wm.appendChild(tm);
+    segMsg.appendChild(lm);
+    segMsg.appendChild(wm);
+    pan.appendChild(segMsg);
+
+    var segPick = document.createElement("div");
+    segPick.className = "sel-rew-seg";
+    segPick.setAttribute("data-reward", "pick");
+    segPick.style.display = act === "pick" ? "block" : "none";
+    var rp = document.createElement("div");
+    rp.className = "row";
+    rp.innerHTML =
+        "<div class=\"col\"><label>Nouvel ID objet :</label><input type=\"text\" class=\"sel-reward-pick-id\" value=\"\"></div><div class=\"col\"><label>Nom :</label><input type=\"text\" class=\"sel-reward-pick-name\" value=\"\"></div>";
+    rp.querySelector(".sel-reward-pick-id").value = ch.f_pick_id || ch.pickId || "";
+    rp.querySelector(".sel-reward-pick-name").value = ch.f_pick_name || ch.pickName || "";
+    var lp = document.createElement("label");
+    lp.textContent = "Texte trouvaille :";
+    var wp = document.createElement("div");
+    wp.className = "wysiwyg-wrap";
+    var tp = document.createElement("textarea");
+    tp.className = "sel-reward-pick-msg editor-rich-text";
+    tp.rows = 2;
+    tp.value = ch.f_pick_msg || ch.pickMsg || "";
+    wp.appendChild(tp);
+    segPick.appendChild(rp);
+    segPick.appendChild(lp);
+    segPick.appendChild(wp);
+    pan.appendChild(segPick);
+
+    var segSel = document.createElement("div");
+    segSel.className = "sel-rew-seg";
+    segSel.setAttribute("data-reward", "selector");
+    segSel.style.display = act === "selector" ? "block" : "none";
+    var rn = ch.rewardNested || {};
+    var lt = document.createElement("label");
+    lt.textContent = "Titre du sous-menu :";
+    var it = document.createElement("input");
+    it.type = "text";
+    it.className = "sel-reward-title";
+    it.value = rn.title || "";
+    var li = document.createElement("label");
+    li.textContent = "Introduction (optionnel) :";
+    var wi = document.createElement("div");
+    wi.className = "wysiwyg-wrap";
+    var ti = document.createElement("textarea");
+    ti.className = "sel-reward-intro editor-rich-text";
+    ti.rows = 2;
+    ti.value = rn.introHtml || (rn.copy && rn.copy.bodyHtml) || "";
+    wi.appendChild(ti);
+    var ld = document.createElement("label");
+    ld.textContent = "Présentation des sous-choix :";
+    var sd = document.createElement("select");
+    sd.className = "sel-reward-display";
+    sd.innerHTML =
+        "<option value=\"buttons\">Boutons</option><option value=\"dropdown\">Liste déroulante + Valider</option>";
+    if (rn.displayMode === "dropdown") sd.value = "dropdown";
+    var nestedList = document.createElement("div");
+    nestedList.className = "sel-choices-list sel-reward-nested-list";
+    var arr = Array.isArray(rn.choices) && rn.choices.length ? rn.choices : [getDefaultChoice()];
+    if (!isNaN(hsIdNum)) {
+        arr.forEach(function (nch) {
+            nestedList.appendChild(renderChoiceCardElement(nch, hsIdNum, depth + 1));
+        });
+    }
+    var btnAdd = document.createElement("button");
+    btnAdd.type = "button";
+    btnAdd.className = "btn-add-hs";
+    btnAdd.textContent = "+ Ajouter un choix au sous-menu";
+    btnAdd.onclick = function () {
+        selectorAddNestedChoice(btnAdd);
+    };
+    segSel.appendChild(lt);
+    segSel.appendChild(it);
+    segSel.appendChild(li);
+    segSel.appendChild(wi);
+    segSel.appendChild(ld);
+    segSel.appendChild(sd);
+    segSel.appendChild(nestedList);
+    segSel.appendChild(btnAdd);
+    pan.appendChild(segSel);
+
+    container.appendChild(pan);
+
+    function updRewardSeg() {
+        var v = selRw.value;
+        pan.querySelectorAll(".sel-rew-seg").forEach(function (seg) {
+            seg.style.display = seg.getAttribute("data-reward") === v ? "block" : "none";
+        });
+    }
+    selRw.addEventListener("change", updRewardSeg);
+    updRewardSeg();
+}
+
 function selectorRebuildActionFields(card, ch, hsHotspotId) {
     ch = ch || {};
     var type = card.querySelector(".sel-action-type").value;
@@ -795,6 +1038,56 @@ function selectorRebuildActionFields(card, ch, hsHotspotId) {
         container.appendChild(lp);
         container.appendChild(wp);
         wirePickIdToHiddenIfAutoFill(rp.querySelector(".sel-pick-id"), getOwnChoiceField(card, ".sel-opt-hidden"));
+    } else if(type === "req") {
+        var lItem = document.createElement("label");
+        lItem.textContent = "ID objet requis :";
+        var iItem = document.createElement("input");
+        iItem.type = "text";
+        iItem.className = "sel-req-item-id";
+        iItem.style.width = "100%";
+        iItem.style.maxWidth = "100%";
+        iItem.style.boxSizing = "border-box";
+        iItem.value = ch.itemId || "";
+        container.appendChild(lItem);
+        container.appendChild(iItem);
+        var lKo = document.createElement("label");
+        lKo.style.color = "#c0392b";
+        lKo.style.marginTop = "8px";
+        lKo.style.display = "block";
+        lKo.textContent = "Si l'objet est absent (message) :";
+        var wKo = document.createElement("div");
+        wKo.className = "wysiwyg-wrap";
+        var tKo = document.createElement("textarea");
+        tKo.className = "sel-req-ko editor-rich-text";
+        tKo.rows = 2;
+        tKo.value = ch.ko || "";
+        wKo.appendChild(tKo);
+        container.appendChild(lKo);
+        container.appendChild(wKo);
+        appendSelectorChoiceRewardUI(container, ch, hsIdNum, depth, "req");
+    } else if(type === "pwd") {
+        var lPe = document.createElement("label");
+        lPe.textContent = "Énigme / question :";
+        var wPe = document.createElement("div");
+        wPe.className = "wysiwyg-wrap";
+        var tPe = document.createElement("textarea");
+        tPe.className = "sel-pwd-enigme editor-rich-text";
+        tPe.rows = 2;
+        tPe.value = ch.enigmeTxt || "";
+        wPe.appendChild(tPe);
+        container.appendChild(lPe);
+        container.appendChild(wPe);
+        var lPa = document.createElement("label");
+        lPa.textContent = "Réponse attendue :";
+        var iPa = document.createElement("input");
+        iPa.type = "text";
+        iPa.className = "sel-pwd-answer";
+        iPa.style.width = "100%";
+        iPa.style.boxSizing = "border-box";
+        iPa.value = ch.pwd || "";
+        container.appendChild(lPa);
+        container.appendChild(iPa);
+        appendSelectorChoiceRewardUI(container, ch, hsIdNum, depth, "pwd");
     } else if(type === "selector") {
         if(isNaN(hsIdNum)) return;
         var nest = ch.nested || {};
@@ -896,18 +1189,16 @@ function renderChoiceCardElement(ch, hId, depth) {
     lblA.textContent = "Action :";
     var selA = document.createElement("select");
     selA.className = "sel-action-type";
-    var opts = depth >= SELECTOR_MAX_DEPTH - 1
-        ? [
-            ["msg", "Afficher un message"],
-            ["scene", "Aller à une autre scène"],
-            ["pick", "Ramasser un objet"]
-          ]
-        : [
-            ["msg", "Afficher un message"],
-            ["scene", "Aller à une autre scène"],
-            ["pick", "Ramasser un objet"],
-            ["selector", "Sous-menu (menu imbriqué)"]
-          ];
+    var opts = [
+        ["msg", "Afficher un message"],
+        ["scene", "Aller à une autre scène"],
+        ["pick", "Ramasser un objet"],
+        ["req", "Objet requis"],
+        ["pwd", "Mot de passe"]
+    ];
+    if (depth < SELECTOR_MAX_DEPTH - 1) {
+        opts.push(["selector", "Sous-menu (menu imbriqué)"]);
+    }
     opts.forEach(function(o) {
         var oel = document.createElement("option");
         oel.value = o[0];
@@ -988,6 +1279,55 @@ function toggleSelectorJsonExpert(hId, forceExpert) {
     }
 }
 
+function syncHotspotRewardSelectorJSON(hId) {
+    var root = document.getElementById("reward_sel_root_" + hId);
+    var ta = document.querySelector("#hs_" + hId + " .f-reward-sel-choices");
+    if (!root || !ta) return;
+    var arr = collectChoicesFromList(root);
+    ta.value = JSON.stringify(arr, null, 2);
+}
+
+function initHotspotRewardSelectorForm(hId) {
+    var hsDiv = document.getElementById("hs_" + hId);
+    var root = document.getElementById("reward_sel_root_" + hId);
+    var ta = hsDiv && hsDiv.querySelector(".f-reward-sel-choices");
+    if (!hsDiv || !root || !ta) return;
+    if (typeof destroyRichEditorsIn === "function") destroyRichEditorsIn(root);
+    var arr;
+    try {
+        arr = JSON.parse(ta.value.trim());
+    } catch (e) {
+        arr = [];
+    }
+    if (!Array.isArray(arr) || arr.length === 0) arr = getDefaultSelectorChoices();
+    root.innerHTML = "";
+    arr.forEach(function (ch) {
+        root.appendChild(renderChoiceCardElement(ch, hId, 0));
+    });
+    var wrap = document.getElementById("fields_" + hId);
+    if (wrap) {
+        var sync = function () {
+            syncHotspotRewardSelectorJSON(hId);
+        };
+        wrap.removeEventListener("input", wrap._hsRwSync, true);
+        wrap.removeEventListener("change", wrap._hsRwSync, true);
+        wrap._hsRwSync = sync;
+        wrap.addEventListener("input", sync, true);
+        wrap.addEventListener("change", sync, true);
+    }
+    if (typeof initRichEditorsIn === "function") initRichEditorsIn(root);
+    syncHotspotRewardSelectorJSON(hId);
+}
+
+function hotspotRewardSelectorAddChoice(hId) {
+    var root = document.getElementById("reward_sel_root_" + hId);
+    if (!root) return;
+    root.appendChild(renderChoiceCardElement(getDefaultChoice(), hId, 0));
+    syncHotspotRewardSelectorJSON(hId);
+}
+
+window.syncHotspotRewardSelectorJSON = syncHotspotRewardSelectorJSON;
+
 // --- FONCTION : AFFICHER LES BONS CHAMPS SELON LE TYPE DE HOTSPOT ---
 // opts.deferSelectorInit : si true, ne pas appeler initSelectorChoicesForm (chargement projet / duplication après coup)
 function updateHsFields(hId, opts) {
@@ -1015,12 +1355,23 @@ function updateHsFields(hId, opts) {
         <label style="margin-top:10px; color:#27ae60;"><b>Si PRÉSENT (Récompense) :</b></label>
         <select class="f-req-action" onchange="document.getElementById('req_res_${hId}').className = 'res-' + this.value">
             <option value="scene">Changer de scène</option><option value="msg">Afficher un message</option><option value="pick">Donner NOUVEL objet</option>
+            <option value="selector">Ouvrir un menu (selector)</option>
         </select>
         <div id="req_res_${hId}" class="res-scene" style="margin-top:10px;">
-            <style>#req_res_${hId} .s-scene, #req_res_${hId} .s-msg, #req_res_${hId} .s-pick { display: none; } #req_res_${hId}.res-scene .s-scene { display: block; } #req_res_${hId}.res-msg .s-msg { display: block; } #req_res_${hId}.res-pick .s-pick { display: block; }</style>
+            <style>#req_res_${hId} .s-scene, #req_res_${hId} .s-msg, #req_res_${hId} .s-pick, #req_res_${hId} .s-reward-selector { display: none; } #req_res_${hId}.res-scene .s-scene { display: block; } #req_res_${hId}.res-msg .s-msg { display: block; } #req_res_${hId}.res-pick .s-pick { display: block; } #req_res_${hId}.res-selector .s-reward-selector { display: block; }</style>
             <div class="s-scene"><label>Aller vers la scène :</label>${sceneSel}<label>Texte transition :</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Bouton :</label><input type="text" class="f-trans-btn" value="" placeholder="Entrer"></div>
             <div class="s-msg"><label>Message :</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2" placeholder="Ouvert !"></textarea></div></div>
             <div class="s-pick"><div class="row"><div class="col"><label>Nouvel ID objet :</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Nouveau Nom :</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Texte trouvaille :</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2" placeholder="Trouvé !"></textarea></div></div>
+            <div class="s-reward-selector">
+                <label>Titre du menu récompense :</label><input type="text" class="f-reward-sel-title" value="" placeholder="Menu">
+                <label>Introduction (optionnel) :</label><div class="wysiwyg-wrap"><textarea class="f-reward-sel-intro editor-rich-text" rows="2"></textarea></div>
+                <label>Présentation des choix :</label>
+                <select class="f-reward-sel-display"><option value="buttons" selected>Boutons</option><option value="dropdown">Liste déroulante + Valider</option></select>
+                <p style="margin:8px 0 4px 0;font-size:0.9em;color:#555;">Choix du sous-menu déverrouillé :</p>
+                <div id="reward_sel_root_${hId}" class="sel-choices-list sel-choices-reward-root"></div>
+                <button type="button" class="btn-add-hs" onclick="hotspotRewardSelectorAddChoice(${hId})">+ Ajouter un choix</button>
+                <textarea class="f-reward-sel-choices css-editor" rows="4" readonly style="display:none;font-family:Consolas,monospace;font-size:11px;"></textarea>
+            </div>
         </div>${hsAdvancedHtml}`;
     }
     else if(type === 'scene') {
@@ -1033,12 +1384,23 @@ function updateHsFields(hId, opts) {
         <label style="margin-top:10px;"><b>Récompense quand résolu :</b></label>
         <select class="f-pwd-action" onchange="document.getElementById('pwd_res_${hId}').className = 'res-' + this.value">
             <option value="scene">Changer de scène</option><option value="msg">Afficher un message</option><option value="pick">Donner un objet</option>
+            <option value="selector">Ouvrir un menu (selector)</option>
         </select>
         <div id="pwd_res_${hId}" class="res-scene" style="margin-top:10px;">
-            <style>#pwd_res_${hId} .s-scene, #pwd_res_${hId} .s-msg, #pwd_res_${hId} .s-pick { display: none; } #pwd_res_${hId}.res-scene .s-scene { display: block; } #pwd_res_${hId}.res-msg .s-msg { display: block; } #pwd_res_${hId}.res-pick .s-pick { display: block; }</style>
+            <style>#pwd_res_${hId} .s-scene, #pwd_res_${hId} .s-msg, #pwd_res_${hId} .s-pick, #pwd_res_${hId} .s-reward-selector { display: none; } #pwd_res_${hId}.res-scene .s-scene { display: block; } #pwd_res_${hId}.res-msg .s-msg { display: block; } #pwd_res_${hId}.res-pick .s-pick { display: block; } #pwd_res_${hId}.res-selector .s-reward-selector { display: block; }</style>
             <div class="s-scene"><label>Aller vers la scène :</label>${sceneSel}<label>Texte transition :</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Bouton :</label><input type="text" class="f-trans-btn" value="" placeholder="Entrer"></div>
             <div class="s-msg"><label>Message :</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2" placeholder="Déverrouillé !"></textarea></div></div>
             <div class="s-pick"><div class="row"><div class="col"><label>ID objet :</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Nom :</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Texte trouvaille :</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2" placeholder="Trouvé."></textarea></div></div>
+            <div class="s-reward-selector">
+                <label>Titre du menu récompense :</label><input type="text" class="f-reward-sel-title" value="" placeholder="Menu">
+                <label>Introduction (optionnel) :</label><div class="wysiwyg-wrap"><textarea class="f-reward-sel-intro editor-rich-text" rows="2"></textarea></div>
+                <label>Présentation des choix :</label>
+                <select class="f-reward-sel-display"><option value="buttons" selected>Boutons</option><option value="dropdown">Liste déroulante + Valider</option></select>
+                <p style="margin:8px 0 4px 0;font-size:0.9em;color:#555;">Choix du sous-menu déverrouillé :</p>
+                <div id="reward_sel_root_${hId}" class="sel-choices-list sel-choices-reward-root"></div>
+                <button type="button" class="btn-add-hs" onclick="hotspotRewardSelectorAddChoice(${hId})">+ Ajouter un choix</button>
+                <textarea class="f-reward-sel-choices css-editor" rows="4" readonly style="display:none;font-family:Consolas,monospace;font-size:11px;"></textarea>
+            </div>
         </div>${hsAdvancedHtml}`;
     }
     else if(type === 'selector') {
