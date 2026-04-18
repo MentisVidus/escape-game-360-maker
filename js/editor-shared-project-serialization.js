@@ -85,9 +85,15 @@
             }
 
             doc.querySelectorAll(".scene-block").forEach(function (sceneDiv) {
+                var titleEl = sceneDiv.querySelector(".sc-title");
+                var titleVal =
+                    titleEl && global.EditorSharedExportText &&
+                    typeof global.EditorSharedExportText.readExportAwareFieldValue === "function"
+                        ? global.EditorSharedExportText.readExportAwareFieldValue(titleEl)
+                        : (sceneDiv.querySelector(".sc-title") || { value: "" }).value;
                 var scene = {
                     id: (sceneDiv.querySelector(".sc-id") || { value: "" }).value.trim(),
-                    title: (sceneDiv.querySelector(".sc-title") || { value: "" }).value,
+                    title: titleVal,
                     media: {
                         panoramaUrl: (sceneDiv.querySelector(".sc-img") || { value: "" }).value,
                         ambiance: {

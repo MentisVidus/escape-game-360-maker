@@ -489,33 +489,41 @@ function getDefaultChoice() {
 
 function cardToChoice(card) {
     if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(card);
+    var Ex = global.EditorSharedExportText;
+    function rf(el) {
+        return el && Ex && typeof Ex.readExportAwareFieldValue === "function"
+            ? Ex.readExportAwareFieldValue(el)
+            : el && el.value !== undefined
+              ? el.value
+              : "";
+    }
     var typeEl = getOwnChoiceField(card, ".sel-action-type");
     var type = typeEl ? typeEl.value : "msg";
     var labelEl = getOwnChoiceField(card, ".sel-label");
     var label = ((labelEl && labelEl.value) || "").trim();
-    var out = { label: label || "Option", actionType: type };
+    var out = { label: label, actionType: type };
     if(type === "msg") {
         var t = getOwnChoiceField(card, ".sel-msg-txt");
-        out.txt = t ? t.value : "";
+        out.txt = rf(t);
     } else if(type === "scene") {
         var scTarget = getOwnChoiceField(card, ".sel-scene-target");
         var scTrans = getOwnChoiceField(card, ".sel-scene-trans");
         var scBtn = getOwnChoiceField(card, ".sel-scene-btn");
         out.target = scTarget ? scTarget.value : "";
-        out.transTxt = scTrans ? scTrans.value : "";
-        out.transBtn = scBtn ? scBtn.value : "";
+        out.transTxt = rf(scTrans);
+        out.transBtn = rf(scBtn);
     } else if(type === "pick") {
         var pkId = getOwnChoiceField(card, ".sel-pick-id");
         var pkName = getOwnChoiceField(card, ".sel-pick-name");
         var pkTxt = getOwnChoiceField(card, ".sel-pick-txt");
         out.itemId = pkId ? pkId.value : "";
         out.itemName = pkName ? pkName.value : "";
-        out.txt = pkTxt ? pkTxt.value : "";
+        out.txt = rf(pkTxt);
     } else if(type === "selector") {
         var nestedListEl = card.querySelector(".sel-action-fields .sel-nested-list");
         var nest = {
-            title: (getOwnChoiceField(card, ".sel-nested-title") || { value: "" }).value,
-            introHtml: (getOwnChoiceField(card, ".sel-nested-intro") || { value: "" }).value,
+            title: rf(getOwnChoiceField(card, ".sel-nested-title")),
+            introHtml: rf(getOwnChoiceField(card, ".sel-nested-intro")),
             choices: collectChoicesFromList(nestedListEl)
         };
         var dm = getOwnChoiceField(card, ".sel-nested-display");
@@ -753,7 +761,8 @@ function selectorRebuildActionFields(card, ch, hsHotspotId) {
         var i3 = document.createElement("input");
         i3.type = "text";
         i3.className = "sel-scene-btn";
-        i3.value = ch.transBtn || "Continue";
+        i3.placeholder = "Continue";
+        i3.value = ch.transBtn != null && String(ch.transBtn).trim() !== "" ? ch.transBtn : "";
         container.appendChild(l2);
         container.appendChild(w2);
         container.appendChild(l3);
@@ -867,7 +876,12 @@ function renderChoiceCardElement(ch, hId, depth) {
     var inpL = document.createElement("input");
     inpL.type = "text";
     inpL.className = "sel-label";
-    inpL.value = ch.label || "";
+    if (ch.label === "New choice") {
+        inpL.value = "";
+        inpL.placeholder = "New choice";
+    } else {
+        inpL.value = ch.label || "";
+    }
 
     var lblA = document.createElement("label");
     lblA.textContent = "Action:";
@@ -979,32 +993,32 @@ function updateHsFields(hId, opts) {
     var hsAdvancedHtml = buildHotspotAdvancedDrawersHtml();
 
     if(type === 'msg') {
-        container.innerHTML = `<label>Displayed text:</label><div class="wysiwyg-wrap"><textarea class="f-txt editor-rich-text" rows="3">Well done.</textarea></div>${hsAdvancedHtml}`;
+        container.innerHTML = `<label>Displayed text:</label><div class="wysiwyg-wrap"><textarea class="f-txt editor-rich-text" rows="3" placeholder="Well done."></textarea></div>${hsAdvancedHtml}`;
     }
     else if(type === 'pick') {
-        container.innerHTML = `<div class="row"><div class="col"><label>Item ID:</label><input type="text" class="f-item-id" value="key"></div><div class="col"><label>Name:</label><input type="text" class="f-item-name" value="Golden key"></div></div><label>Narration:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2">You find a key.</textarea></div>${hsAdvancedHtml}`;
+        container.innerHTML = `<div class="row"><div class="col"><label>Item ID:</label><input type="text" class="f-item-id" value="key"></div><div class="col"><label>Name:</label><input type="text" class="f-item-name" value="Golden key"></div></div><label>Narration:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2" placeholder="You find a key."></textarea></div>${hsAdvancedHtml}`;
     }
     else if(type === 'req') {
         container.innerHTML = `
         <label>Required item ID:</label><input type="text" class="f-item-id" value="key">
-        <label style="color:red;">If missing:</label><div class="wysiwyg-wrap"><textarea class="f-ko editor-rich-text" rows="2">Locked.</textarea></div>
+        <label style="color:red;">If missing:</label><div class="wysiwyg-wrap"><textarea class="f-ko editor-rich-text" rows="2" placeholder="Locked."></textarea></div>
         <label style="margin-top:10px; color:#27ae60;"><b>If player has item:</b></label>
         <select class="f-req-action" onchange="document.getElementById('req_res_${hId}').className = 'res-' + this.value">
             <option value="scene">Change scene</option><option value="msg">Show message</option><option value="pick">Give new item</option>
         </select>
         <div id="req_res_${hId}" class="res-scene" style="margin-top:10px;">
             <style>#req_res_${hId} .s-scene, #req_res_${hId} .s-msg, #req_res_${hId} .s-pick { display: none; } #req_res_${hId}.res-scene .s-scene { display: block; } #req_res_${hId}.res-msg .s-msg { display: block; } #req_res_${hId}.res-pick .s-pick { display: block; }</style>
-            <div class="s-scene"><label>Go to scene:</label>${sceneSel}<label>Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="Enter"></div>
-            <div class="s-msg"><label>Message:</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2">Unlocked!</textarea></div></div>
-            <div class="s-pick"><div class="row"><div class="col"><label>New item ID:</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>New name:</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Find message:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2">Found!</textarea></div></div>
+            <div class="s-scene"><label>Go to scene:</label>${sceneSel}<label>Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="" placeholder="Enter"></div>
+            <div class="s-msg"><label>Message:</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2" placeholder="Unlocked!"></textarea></div></div>
+            <div class="s-pick"><div class="row"><div class="col"><label>New item ID:</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>New name:</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Find message:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2" placeholder="Found!"></textarea></div></div>
         </div>${hsAdvancedHtml}`;
     }
     else if(type === 'scene') {
-        container.innerHTML = `<label>Go to scene:</label>${sceneSel}<label style="color:#2980b9;">Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="Continue">${hsAdvancedHtml}`;
+        container.innerHTML = `<label>Go to scene:</label>${sceneSel}<label style="color:#2980b9;">Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="" placeholder="Continue">${hsAdvancedHtml}`;
     }
     else if(type === 'pwd') {
         container.innerHTML = `
-        <label>Puzzle / question:</label><div class="wysiwyg-wrap"><textarea class="f-enigme-txt editor-rich-text" rows="2">Code:</textarea></div>
+        <label>Puzzle / question:</label><div class="wysiwyg-wrap"><textarea class="f-enigme-txt editor-rich-text" rows="2" placeholder="Code:"></textarea></div>
         <label>Expected answer:</label><input type="text" class="f-pwd" value="1234">
         <label style="margin-top:10px;"><b>When solved:</b></label>
         <select class="f-pwd-action" onchange="document.getElementById('pwd_res_${hId}').className = 'res-' + this.value">
@@ -1012,15 +1026,15 @@ function updateHsFields(hId, opts) {
         </select>
         <div id="pwd_res_${hId}" class="res-scene" style="margin-top:10px;">
             <style>#pwd_res_${hId} .s-scene, #pwd_res_${hId} .s-msg, #pwd_res_${hId} .s-pick { display: none; } #pwd_res_${hId}.res-scene .s-scene { display: block; } #pwd_res_${hId}.res-msg .s-msg { display: block; } #pwd_res_${hId}.res-pick .s-pick { display: block; }</style>
-            <div class="s-scene"><label>Go to scene:</label>${sceneSel}<label>Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="Enter"></div>
-            <div class="s-msg"><label>Message:</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2">Unlocked!</textarea></div></div>
-            <div class="s-pick"><div class="row"><div class="col"><label>Item ID:</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Name:</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Find message:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2">Found.</textarea></div></div>
+            <div class="s-scene"><label>Go to scene:</label>${sceneSel}<label>Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="" placeholder="Enter"></div>
+            <div class="s-msg"><label>Message:</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2" placeholder="Unlocked!"></textarea></div></div>
+            <div class="s-pick"><div class="row"><div class="col"><label>Item ID:</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Name:</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Find message:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2" placeholder="Found."></textarea></div></div>
         </div>${hsAdvancedHtml}`;
     }
     else if(type === 'selector') {
         var defaultSelJson = JSON.stringify(getDefaultSelectorChoices(), null, 2);
         container.innerHTML = `
-        <label>Menu title:</label><input type="text" class="f-sel-title" value="Choose an action">
+        <label>Menu title:</label><input type="text" class="f-sel-title" value="" placeholder="Choose an action">
         <label>Introduction (optional):</label><div class="wysiwyg-wrap"><textarea class="f-sel-intro editor-rich-text" rows="2"></textarea></div>
         <label>Choice layout:</label>
         <select class="f-sel-display">

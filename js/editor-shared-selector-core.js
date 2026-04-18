@@ -80,6 +80,9 @@
             arr = [];
         }
         if (!Array.isArray(arr)) arr = [];
+        if (typeof global.sanitizeSelectorChoicesForExport === "function") {
+            arr = global.sanitizeSelectorChoicesForExport(arr) || arr;
+        }
         return arr;
     }
 

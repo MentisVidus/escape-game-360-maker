@@ -55,7 +55,12 @@
 
         HOTSPOT_COPY_FIELDS.forEach(function (f) {
             var el = hsDiv.querySelector("." + f);
-            if (el) hs[f.replace(/-/g, "_")] = el.value;
+            if (!el) return;
+            var Ex = global.EditorSharedExportText;
+            hs[f.replace(/-/g, "_")] =
+                Ex && typeof Ex.readExportAwareFieldValue === "function"
+                    ? Ex.readExportAwareFieldValue(el)
+                    : el.value;
         });
 
         if (!hsDiv.querySelector(".hs-custom-css").hasAttribute("readonly")) hs.expertMode = true;
