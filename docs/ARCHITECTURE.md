@@ -18,6 +18,7 @@ This document is for **developers** and **AI assistants** working on the reposit
 | [js/editor-shared-action-mappers.js](../js/editor-shared-action-mappers.js) | Shared FR/EN legacy↔V2 action mappers (`legacyActionToV2`, `legacyRewardToV2`, `selectorChoiceLegacyToV2`, `actionV2ToLegacyChoice`, `actionV2ToLegacyHotspotData`) with locale options (transition label defaults). |
 | [js/editor-shared-hotspot-dom-mapper.js](../js/editor-shared-hotspot-dom-mapper.js) | Shared FR/EN hotspot DOM mapper core (`hotspotDomToV2`) with locale options and injected dependencies (`selectorChoicesFromTextarea`, `legacyActionToV2`). |
 | [js/editor-shared-timer.js](../js/editor-shared-timer.js) | Shared FR/EN timer/end-screens settings helpers (`readTimerSettingsFromDom`, `applyTimerSettingsToDom`, `normalizeTimerConfig`) used by editor serialization/load UI wiring. |
+| [js/editor-shared-export-text.js](../js/editor-shared-export-text.js) | Optional **export sanitization** for editor “template” copy (placeholder defaults, Quill-empty HTML, selector choices) so `getCurrentProjectData()` / timer read paths do not persist boilerplate text. |
 | [js/editor-shared-project-serialization.js](../js/editor-shared-project-serialization.js) | Shared FR/EN project serialization core (`getCurrentProjectData`) with injected dependencies (`EditorCore`, `hotspotDomToV2`) to keep save/export mapping logic aligned between locales. |
 | [js/editor-shared-preview-picker.js](../js/editor-shared-preview-picker.js) | Shared FR/EN 360 tools core for picker + scene preview (`openPicker`, `validerCoordonnees`, `closePicker`, `previewScene`, `closeScenePreview`) with locale message options. |
 | [js/editor-shared-duplication.js](../js/editor-shared-duplication.js) | Shared FR/EN duplication helpers (`duplicateHotspot`, `duplicateScene`) with injected `addHotspot` / `addScene` / `extractHotspotData` and locale strings for prompts and copy suffixes. |
@@ -101,6 +102,12 @@ Rich text fields use **Quill 1.x** (Snow theme), initialized by [`js/editor-quil
 The **player** logic is embedded as a large template literal inside `generateGame()`. Changing gameplay requires editing that template (or extracting a shared script later).
 
 - **Per-scene pressure timer (V2)** — optional `scene.timerOverride` on each scene (`enabled`, `seconds`, `onExpire`: `gameOver` | `gotoScene` | `showMessage`, plus `targetScene` / `messageHtml` when relevant). The form saves it in project JSON; `editeur-generate.js` / `editor-en-generate.js` embed a map for the runtime as `#escape360-scene-timer-overrides`. While that scene is active, the HUD shows the local countdown (global timer pauses if it was running); leaving the scene cancels the local timer unless it already expired.
+
+- **Global timer + end-state scenes (V1 + extensions)** — Project JSON (normalized in [`js/editor-core.js`](../js/editor-core.js)) includes **`timer`**, **`victorySceneId`**, **`gameOverSceneId`**, and **`endScreens`** (`gameOver` / `victory` titles, rich `bodyHtml`, button labels). The generated player embeds:
+  - **`#escape360-timer-config`** — JSON with `timer` flags, `gameOverSceneId`, and the **game over** copy block consumed by the HUD / modals.
+  - **`#escape360-victory-config`** — JSON with `sceneId` (= `victorySceneId`) and **victory** copy.
+  - **`#escape360-scene-timer-overrides`** — per-scene pressure map (see above).
+  **Runtime behavior (FR + EN templates):** the HUD shows the global timer when enabled; on **countdown** expiry, the player may **`loadScene(gameOverSceneId)`** if set and the current scene differs, then the **Game Over** modal opens on `scenechange` when the active scene equals `gameOverSceneId` (or immediately if already on that scene). **Victory** opens when the active scene equals `victorySceneId`. Scene pressure with `onExpire: gameOver` follows the same navigation-or-modal pattern before ending the run.
 
 ---
 

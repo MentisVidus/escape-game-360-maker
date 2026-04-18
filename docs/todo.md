@@ -85,8 +85,8 @@ Décompression : **Propriétés → Débloquer** puis extraire ; si besoin **7-Z
 ### Objectif produit
 Ajouter une boucle de fin claire côté joueur avec :
 - un **timer** configurable dans l’éditeur,
-- un **écran Game Over** à l’expiration d’un compte à rebours,
-- un **écran Victoire** (déclencheur simple en V1),
+- un **écran Game Over** à l’expiration d’un compte à rebours (et option **scène Game Over** dédiée),
+- un **écran Victoire** (déclencheur simple en V1 + option **scène de victoire**),
 tout en restant compatible avec le schéma V2 et l’existant FR/EN.
 
 ---
@@ -101,6 +101,7 @@ Ajouter dans les réglages globaux :
 - `timer.autoStart` (bool)
 - `timer.pauseWhenPopupOpen` (bool, optionnel)
 - `victorySceneId` (string, optionnel, V1 simple)
+- `gameOverSceneId` (string, optionnel) — scène dédiée : lorsque le joueur **entre** dans cette scène, la modale **Game Over** s’affiche (contenus `endScreens.gameOver`). Peut être atteinte par expiration du timer global, par le timer local d’une scène (`onExpire: gameOver`), ou par tout hotspot « aller à la scène ».
 
 Écrans de fin globaux :
 - `endScreens.gameOver.title`
@@ -113,8 +114,9 @@ Ajouter dans les réglages globaux :
 #### 2) Runtime joueur
 - Afficher un timer dans le HUD.
 - Démarrer/arrêter selon config.
-- En `countdown`, quand `0` est atteint -> ouvrir écran **Game Over**.
+- En `countdown`, quand `0` est atteint -> ouvrir écran **Game Over** (ou, si `gameOverSceneId` est défini et que la scène courante est différente, **navigation** vers cette scène puis modale au `scenechange`).
 - Déclencher **Victoire** quand la scène courante == `victorySceneId`.
+- Déclencher **Game Over** (modale) quand la scène courante == `gameOverSceneId` (y compris après navigation depuis timer / pression locale / hotspot).
 - Bouton principal écran de fin : “Rejouer” (reload propre de la partie).
 
 #### 3) Compatibilité
@@ -148,12 +150,15 @@ Objectif : scènes “pression” avec compte à rebours local.
 
 ---
 
-### Critères de validation (smoke tests)
+### Critères de validation (smoke tests — exécution manuelle)
+
+Ces points ne sont pas couverts par une CI automatique dans le dépôt : à valider lors d’une session de test (éditeur FR/EN, export `index.html` ou ZIP, joueur). Cocher au fil des campagnes QA.
 
 - [ ] Projet sans timer: comportement identique à avant.
 - [ ] Timer countdown: décrémente, atteint 0, affiche Game Over.
 - [ ] Timer countup: incrémente sans interrompre le jeu.
 - [x] `victorySceneId`: arrivée sur la scène cible -> écran victoire.
+- [ ] `gameOverSceneId`: entrée sur la scène cible -> modale Game Over ; expiration timer / pression locale avec navigation si configurée.
 - [ ] Bouton “Rejouer”: redémarrage propre.
 - [ ] Save/load JSON + bundle `.escapegame`: paramètres conservés.
 - [ ] FR/EN: labels/messages corrects dans chaque langue.
