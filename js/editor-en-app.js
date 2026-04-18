@@ -489,7 +489,7 @@ function getDefaultChoice() {
 
 function cardToChoice(card) {
     if (typeof flushRichEditorsIn === "function") flushRichEditorsIn(card);
-    var Ex = global.EditorSharedExportText;
+    var Ex = typeof window !== "undefined" ? window.EditorSharedExportText : undefined;
     function rf(el) {
         return el && Ex && typeof Ex.readExportAwareFieldValue === "function"
             ? Ex.readExportAwareFieldValue(el)
