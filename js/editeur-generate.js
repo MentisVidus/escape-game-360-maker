@@ -1589,12 +1589,14 @@ function buildPlayerHtmlTemplate() {
     function majInventaireUI() {
         var ul = document.getElementById('inv-list'); 
         ul.innerHTML = ""; 
-        var c = 0;
-        for(var k in inventaire) { 
-            ul.innerHTML += "<li style='margin-bottom:5px;'>• " + inventaire[k].name + "</li>"; 
-            c++; 
+        var visible = 0;
+        for(var k in inventaire) {
+            var nm = inventaire[k] && inventaire[k].name != null ? String(inventaire[k].name) : "";
+            if (nm.trim() === "") continue;
+            ul.innerHTML += "<li style='margin-bottom:5px;'>• " + nm + "</li>";
+            visible++;
         }
-        if(c === 0) ul.innerHTML = '<li style="color:gray; font-style:italic;">Vide</li>';
+        if (visible === 0) ul.innerHTML = '<li style="color:gray; font-style:italic;">Vide</li>';
     }
     
     // Boîte de dialogue — même « chrome » visuel que le selector (overlay + panneau arrondi)
