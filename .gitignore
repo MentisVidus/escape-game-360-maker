@@ -9,8 +9,8 @@ Desktop.ini
 node_modules/
 xflow/react/node_modules/
 
-# Build Vite (décommenter si vous ne versionnez pas le bundle)
-# xflow/react/dist/
+# Build Vite Chemin B (sources dans xflow/react/ ; build local requis pour ?reactMap=1)
+xflow/react/dist/
 
 # Fichiers locaux de travail (jeux générés / exports)
 # Décommentez si vous ne voulez pas versionner certains dossiers :

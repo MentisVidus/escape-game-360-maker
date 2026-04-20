@@ -5,7 +5,7 @@ Tout ce qui concerne la **vue graphe** de l’éditeur est regroupé ici, en deu
 | Dossier | Contenu |
 |---------|---------|
 | **`draw/`** | Carte **Drawflow** actuelle : `project-graph.js`, `project-graph.css` (modale « Carte du projet », vues Focus / complète / acyclique, panneau latéral). |
-| **`react/`** | Réservé au futur **Vite + React + React Flow** (Chemin B) — voir `react/README.md` et [docs/PLAN_REACT_INTEGRATION.md](../docs/PLAN_REACT_INTEGRATION.md). |
+| **`react/`** | **Vite + React + React Flow** (Chemin B, branche `feat/react-map`) — `npm install` / `npm run build` **dans ce dossier** ; sortie `dist/` ignorée par git (voir `react/README.md`). |
 
 Les pages racine **`editeur.html`** / **`editor_en.html`** chargent la carte via **`xflow/draw/project-graph.*`**.
 

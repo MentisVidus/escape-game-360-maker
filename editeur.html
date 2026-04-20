@@ -455,6 +455,10 @@
     </div>
     <div id="project-map-body" class="project-map-body">
         <div id="project-map-canvas-wrap" class="project-map-canvas-wrap">
+            <div id="react-map-root-wrap" class="project-map-react-root-wrap" hidden>
+                <p class="project-map-react-beta-hint">Graphe lecture seule (React Flow, expérimentation) — la carte Drawflow reste inchangée en dessous.</p>
+                <div id="react-map-root"></div>
+            </div>
             <button type="button" id="project-map-fab-settings" class="project-map-fab project-map-fab-settings" title="Paramètres généraux du jeu">⚙</button>
             <button type="button" id="project-map-fab-add-scene" class="project-map-fab project-map-fab-add-scene" title="Nouvelle scène">+</button>
             <div id="project-drawflow"></div>
@@ -497,5 +501,27 @@
     <script src="js/editeur-app.js" defer></script>
     <script src="js/editeur-generate.js" defer></script>
     <script src="xflow/draw/project-graph.js" defer></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        function reactMapFlagOn() {
+            try {
+                if (new URLSearchParams(location.search).get("reactMap") === "1") return true;
+                if (localStorage.getItem("reactMap") === "1") return true;
+            } catch (e) { /* ignore */ }
+            return false;
+        }
+        if (!reactMapFlagOn()) return;
+        var wrap = document.getElementById("react-map-root-wrap");
+        if (wrap) wrap.removeAttribute("hidden");
+        var link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = "xflow/react/dist/editor-map.css";
+        document.head.appendChild(link);
+        var s = document.createElement("script");
+        s.type = "module";
+        s.src = "xflow/react/dist/editor-map.js";
+        document.head.appendChild(s);
+    });
+    </script>
 </body>
 </html>

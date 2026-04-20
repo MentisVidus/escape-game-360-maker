@@ -84,6 +84,34 @@
     transition: flex-basis 0.2s ease;
 }
 
+/* Chemin B — bandeau React Flow (lecture seule), affiché seulement avec ?reactMap=1 ou localStorage reactMap=1 */
+.project-map-react-root-wrap {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-bottom: 1px solid #3d4450;
+    background: #23272e;
+}
+
+.project-map-react-root-wrap[hidden] {
+    display: none !important;
+}
+
+.project-map-react-beta-hint {
+    margin: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #bdc3c7;
+    background: #1a1d24;
+}
+
+#project-map-canvas-wrap #react-map-root {
+    width: 100%;
+    height: 220px;
+    min-height: 180px;
+}
+
 /* Boutons flottants sur la carte (paramètres globaux, nouvelle scène) */
 .project-map-fab {
     position: absolute;
