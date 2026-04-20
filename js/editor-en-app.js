@@ -77,6 +77,12 @@ async function saveProjectBundle() {
             .trim()
             .slice(0, 80);
         saveAs(outBlob, (baseTitle || "EscapeGame") + ".escapegame");
+        try {
+            await localDraftManager.markSynchronizedAfterSave("bundle-save");
+            await refreshLocalDraftStatusUi();
+        } catch (eSync) {
+            console.error("draft.error", eSync);
+        }
     } catch (e) {
         console.error(e);
         alert("Failed to save .escapegame: " + (e && e.message ? e.message : String(e)));
@@ -153,6 +159,215 @@ var ProjectSerializer = EditorSharedProjectSerializationApi.createSerializer({
     readTimerSettings: readTimerSettingsFromDom
 });
 var getCurrentProjectData = ProjectSerializer.getCurrentProjectData;
+
+var EditorSharedLocalDraftApi = window.EditorSharedLocalDraft;
+if (!EditorSharedLocalDraftApi) {
+    throw new Error("EditorSharedLocalDraft unavailable (js/editor-shared-local-draft.js).");
+}
+var localDraftManager = EditorSharedLocalDraftApi.createManager({
+    getCurrentProjectData: getCurrentProjectData,
+    eachPortableMediaUrlInProject: eachPortableMediaUrlInProject,
+    rewritePortableUrlsInProjectClone: rewritePortableUrlsInProjectClone,
+    getBlobOrFileForPortableUrl: getBlobOrFileForPortableUrl,
+    registerBundleBlobUrl: registerBundleBlobUrl,
+    bundleAssetsMap: window.bundleAssets
+});
+var localDraftAutosaveTimer = null;
+var localDraftInitDone = false;
+
+function formatLocalDraftDate(iso) {
+    var d = new Date(iso || Date.now());
+    if (isNaN(d.getTime())) return String(iso || "");
+    return d.toLocaleString("en-GB");
+}
+
+function localDraftSourceLabel(src) {
+    if (src === "bundle") return "bundle";
+    if (src === "file") return "file";
+    return "session";
+}
+
+function ensureLocalDraftStatusBar() {
+    var existing = document.getElementById("local-draft-statusbar");
+    if (existing) return existing;
+    var bar = document.createElement("div");
+    bar.id = "local-draft-statusbar";
+    bar.style.cssText =
+        "position:fixed;left:0;right:0;bottom:0;z-index:12000;background:#1f2937;color:#f9fafb;" +
+        "border-top:1px solid rgba(255,255,255,0.15);padding:8px 12px;font-size:12px;" +
+        "display:flex;align-items:center;gap:12px;flex-wrap:wrap;";
+    bar.innerHTML =
+        "<strong style='font-size:12px;'>Local draft</strong>" +
+        "<span id='local-draft-status-text' style='opacity:.95;'>Initializing...</span>" +
+        "<label style='display:inline-flex;align-items:center;gap:6px;'><input type='checkbox' id='local-draft-enable' checked> Enable</label>" +
+        "<label style='display:inline-flex;align-items:center;gap:6px;'><input type='checkbox' id='local-draft-light'> Light mode (no media)</label>" +
+        "<button type='button' id='local-draft-save-now' style='background:#2563eb;color:#fff;border:none;border-radius:4px;padding:5px 8px;cursor:pointer;'>Snapshot now</button>" +
+        "<button type='button' id='local-draft-clear' style='background:#dc2626;color:#fff;border:none;border-radius:4px;padding:5px 8px;cursor:pointer;'>Clear draft</button>";
+    document.body.appendChild(bar);
+    var curPad = parseInt(String(globalThis.getComputedStyle(document.body).paddingBottom || "0"), 10);
+    if (!isFinite(curPad) || curPad < 78) document.body.style.paddingBottom = "78px";
+    document.getElementById("local-draft-enable").addEventListener("change", async function (e) {
+        localDraftManager.setEnabled(!!e.target.checked);
+        await refreshLocalDraftStatusUi();
+    });
+    document.getElementById("local-draft-light").addEventListener("change", async function (e) {
+        localDraftManager.setLightMode(!!e.target.checked);
+        await refreshLocalDraftStatusUi();
+    });
+    document.getElementById("local-draft-save-now").addEventListener("click", async function () {
+        try {
+            await localDraftManager.captureSnapshot("manual");
+        } catch (e) {
+            console.error("draft.error", e);
+            alert("Local snapshot failed: " + (e && e.message ? e.message : String(e)));
+        }
+        await refreshLocalDraftStatusUi();
+    });
+    document.getElementById("local-draft-clear").addEventListener("click", async function () {
+        if (!confirm("Clear local drafts for this tab?")) return;
+        try {
+            await localDraftManager.purgeCurrentTabDrafts();
+        } catch (e) {
+            console.error("draft.error", e);
+        }
+        await refreshLocalDraftStatusUi();
+    });
+    return bar;
+}
+
+async function refreshLocalDraftStatusUi() {
+    ensureLocalDraftStatusBar();
+    var info;
+    try {
+        info = await localDraftManager.getUiStorageState();
+    } catch (e) {
+        var failText = document.getElementById("local-draft-status-text");
+        if (failText) {
+            failText.textContent = "Local draft unavailable (IndexedDB blocked or unsupported).";
+            failText.style.color = "#fca5a5";
+        }
+        console.error("draft.error", e);
+        return;
+    }
+    var textEl = document.getElementById("local-draft-status-text");
+    var enEl = document.getElementById("local-draft-enable");
+    var lmEl = document.getElementById("local-draft-light");
+    if (enEl) enEl.checked = !!info.enabled;
+    if (lmEl) lmEl.checked = !!info.lightMode;
+    if (!textEl) return;
+    if (!info.estimate.supported) {
+        textEl.textContent = "IndexedDB without quota estimate in this browser.";
+        textEl.style.color = "#f9fafb";
+        return;
+    }
+    var used = info.estimate.usedMo.toFixed(1);
+    var quota = info.estimate.quotaMo.toFixed(1);
+    var ratio = (info.estimate.ratio * 100).toFixed(1);
+    var msg = "Storage: " + used + " MB / " + quota + " MB (" + ratio + "%)";
+    if (info.warnLevel === "high") {
+        msg += " - High warning (>=90%): consider light mode.";
+        textEl.style.color = "#fca5a5";
+    } else if (info.warnLevel === "low") {
+        msg += " - Warning (>=80%).";
+        textEl.style.color = "#fcd34d";
+    } else {
+        textEl.style.color = "#86efac";
+    }
+    textEl.textContent = msg;
+}
+
+function scheduleLocalDraftAutosave(reason) {
+    if (!localDraftManager.isEnabled()) return;
+    if (localDraftAutosaveTimer) clearTimeout(localDraftAutosaveTimer);
+    localDraftAutosaveTimer = setTimeout(async function () {
+        try {
+            await localDraftManager.captureSnapshot(reason || "autosave");
+            await refreshLocalDraftStatusUi();
+        } catch (e) {
+            console.error("draft.error", e);
+        }
+    }, 45000);
+}
+
+function noteLocalDraftDirty() {
+    if (!localDraftManager.isEnabled()) return;
+    scheduleLocalDraftAutosave("dirty");
+}
+
+async function maybeRestoreLocalDraftOnStartup() {
+    var incompatible = await localDraftManager.listIncompatibleDrafts();
+    if (incompatible.length > 0) {
+        var purgeOld = confirm(
+            "Incompatible local drafts from an older version were found (" +
+                incompatible.length +
+                "). Ignore and delete them?"
+        );
+        if (purgeOld) await localDraftManager.clearIncompatibleDrafts();
+    }
+    var drafts = await localDraftManager.listRestorableDrafts();
+    if (!drafts.length) return;
+    var max = Math.min(drafts.length, 9);
+    var lines = [];
+    for (var i = 0; i < max; i++) {
+        var d = drafts[i];
+        var flags = [];
+        if (d.status === "synchronized") flags.push("sync");
+        if (d.lightMode) flags.push("light");
+        lines.push(
+            i +
+                1 +
+                ". " +
+                (d.projectTitleSnapshot || "(Untitled)") +
+                " - " +
+                formatLocalDraftDate(d.savedAt) +
+                " - " +
+                (d.sceneCount || 0) +
+                " scene(s) - " +
+                localDraftSourceLabel(d.sourceHint) +
+                (flags.length ? " [" + flags.join(", ") + "]" : "")
+        );
+    }
+    lines.push("");
+    lines.push("Enter a number to restore (leave empty to skip).");
+    var pick = prompt("Local drafts found:\n\n" + lines.join("\n"), "1");
+    if (pick == null || String(pick).trim() === "") return;
+    var idx = Number(pick);
+    if (!isFinite(idx) || idx < 1 || idx > max) return;
+    var selected = drafts[idx - 1];
+    var restored = await localDraftManager.restoreDraftById(selected.id);
+    applyLoadedProject(restored.project);
+    localDraftManager.setSourceHint(restored.draft.sourceHint || "none");
+    if (restored.missingMedia && restored.missingMedia.length > 0) {
+        alert(
+            "Partial restore: " +
+                restored.missingMedia.length +
+                " missing media file(s). Check related fields."
+        );
+    }
+}
+
+async function initLocalDraftFeature() {
+    if (localDraftInitDone) return;
+    localDraftInitDone = true;
+    ensureLocalDraftStatusBar();
+    document.addEventListener("input", noteLocalDraftDirty, true);
+    document.addEventListener("change", noteLocalDraftDirty, true);
+    try {
+        await refreshLocalDraftStatusUi();
+        await maybeRestoreLocalDraftOnStartup();
+        await refreshLocalDraftStatusUi();
+    } catch (e) {
+        console.error("draft.error", e);
+    }
+    setTimeout(async function () {
+        try {
+            await localDraftManager.markOpeningSuccessfulAndPurgeSynced();
+            await refreshLocalDraftStatusUi();
+        } catch (e) {
+            console.error("draft.error", e);
+        }
+    }, 60000);
+}
 var EditorSharedPreviewPickerApi = window.EditorSharedPreviewPicker;
 if (!EditorSharedPreviewPickerApi) {
     throw new Error("EditorSharedPreviewPicker unavailable (js/editor-shared-preview-picker.js).");
@@ -1456,6 +1671,12 @@ function saveProject() {
     document.body.appendChild(lien); 
     lien.click(); 
     document.body.removeChild(lien);
+    localDraftManager
+        .markSynchronizedAfterSave("json-save")
+        .then(refreshLocalDraftStatusUi)
+        .catch(function (e) {
+            console.error("draft.error", e);
+        });
 }
 
 function applyLoadedProject(project) {
@@ -1609,6 +1830,12 @@ function loadProject(event) {
                         return mapZipAssetsToEditorSession(o.zip).then(function (pathMap) {
                             rewriteLoadedProjectPathsToBlobUrls(project, pathMap);
                             applyLoadedProject(project);
+                            localDraftManager.setSourceHint("bundle");
+                            localDraftManager.captureSnapshot("force").catch(function (eCap) {
+                                console.error("draft.error", eCap);
+                            });
+                            return refreshLocalDraftStatusUi();
+                        }).then(function () {
                             inputEl.value = "";
                         });
                     })
@@ -1618,6 +1845,13 @@ function loadProject(event) {
                 var project = EditorCore.parseProjectJSON(text);
                 revokeEditorBundleSession();
                 applyLoadedProject(project);
+                localDraftManager.setSourceHint("file");
+                localDraftManager
+                    .captureSnapshot("force")
+                    .then(refreshLocalDraftStatusUi)
+                    .catch(function (eCap) {
+                        console.error("draft.error", eCap);
+                    });
                 inputEl.value = "";
             }
         } catch (err) {
@@ -1700,3 +1934,9 @@ function updatePreview() {
         initRichEditorsIn(root);
     }
 })();
+
+window.addEventListener("load", function () {
+    setTimeout(function () {
+        initLocalDraftFeature();
+    }, 80);
+});
