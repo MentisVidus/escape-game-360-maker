@@ -32,10 +32,17 @@ Détails techniques utiles : les nœuds custom exposent des **`Handle`** (`in` /
 
 ### B2 (première tranche) — structure depuis le graphe
 
-Sur les nœuds **scène** : **+** appelle `addHotspotSkeletonFromMapSceneIndex` (FR : `editeur-app.js`, EN : `editor-en-app.js`) → `addHotspot` + rafraîchissement carte + panneau sur le nouveau hotspot ; **×** supprime la scène (confirm, bloqué s’il n’y a qu’une scène). Sur les nœuds **hotspot** : **×** supprime le hotspot (confirm). Les **transitions** restent à éditer dans le formulaire / panneau (pas de tirage de lien seul dans cette PR).
+Sur les nœuds **scène** : **+** appelle `addHotspotSkeletonFromMapSceneIndex` (FR : `editeur-app.js`, EN : `editor-en-app.js`) → `addHotspot` + rafraîchissement carte + panneau sur le nouveau hotspot ; **×** supprime la scène (confirm, bloqué s’il n’y a qu’une scène). Sur les nœuds **hotspot** : **×** supprime le hotspot (confirm).
 
-### Vers B3 (sous-graphes)
+### B2 (suite — à faire avant le gros B3)
 
-Amorce : sur le graphe, les hotspots en action **selector** affichent le **nombre de choix** (`payload.nested.choices`) sous le type — pas encore un sous-flot interactif (scène = groupe, selector = îlot dédié : chantier suivant).
+**Priorité** : finir le périmètre **B2** (édition structurelle / transitions plus lisibles depuis le graphe) avant le chantier **B3** (sous-graphes scène / selector). Pistes documentées :
+
+- **Transitions « évidentes »** : depuis le graphe (ex. choix de scène cible pour une action `scene`, ou autre flux guidé), sans remplacer tout le formulaire.
+- **Nouvelle scène** : raccourci sur un nœud ou équivalent (aujourd’hui le FAB **+** de la modale appelle `addSceneFromMap`).
+
+### B3 (sous-graphes) — plus tard
+
+Scène = groupe, selector = sous-flot interactif (voir [PLAN_EDITEUR_NODAL.md](../../docs/PLAN_EDITEUR_NODAL.md) §9). En attendant, une **pastille d’info** seulement : les hotspots **selector** affichent le **nombre de choix** (`payload.nested.choices`) sous le type — ce n’est pas le sous-flot B3, seulement une aide à la lecture du graphe.
 
 Voir aussi [docs/PLAN_REACT_INTEGRATION.md](../../docs/PLAN_REACT_INTEGRATION.md).
