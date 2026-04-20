@@ -661,7 +661,7 @@ function buildPlayerHtmlTemplate() {
     function updateContinueButtonState() {
         var btn = document.getElementById("player-continue-btn");
         if (!btn) return;
-        var canContinue = !!(playerSaveEnabled && pendingLocalSaveEnvelope && pendingLocalSaveEnvelope.state);
+        var canContinue = !!(pendingLocalSaveEnvelope && pendingLocalSaveEnvelope.state);
         btn.disabled = !canContinue;
         btn.style.opacity = canContinue ? "1" : ".7";
         btn.style.cursor = canContinue ? "pointer" : "not-allowed";
@@ -671,10 +671,14 @@ function buildPlayerHtmlTemplate() {
         syncPlayerSaveCheckboxes();
         updateContinueButtonState();
         if (!playerSaveEnabled) {
-            setPlayerSaveStatus("Local save disabled.");
+            setPlayerSaveStatus(
+                pendingLocalSaveEnvelope
+                    ? "Auto-save disabled. Local continue still available."
+                    : "Auto-save disabled."
+            );
             return;
         }
-        setPlayerSaveStatus("Local save enabled (1 slot).");
+        setPlayerSaveStatus("Auto-save enabled (1 slot).");
         refreshLatestPlayerSaveMeta().catch(function () {});
     }
     function getCurrentSceneIdSafe() {
@@ -802,10 +806,15 @@ function buildPlayerHtmlTemplate() {
             var env = await readLatestPlayerSaveEnvelope();
             if (env && validatePlayerSaveEnvelope(env).ok) {
                 pendingLocalSaveEnvelope = env;
-                setPlayerSaveStatus("Local save ready (" + String(env.meta.savedAt || "") + ").");
+                setPlayerSaveStatus(
+                    (playerSaveEnabled ? "Local save ready" : "Local continue ready (auto-save OFF)") +
+                        " (" +
+                        String(env.meta.savedAt || "") +
+                        ")."
+                );
             } else {
                 pendingLocalSaveEnvelope = null;
-                setPlayerSaveStatus(playerSaveEnabled ? "No compatible local save." : "Local save disabled.");
+                setPlayerSaveStatus(playerSaveEnabled ? "No compatible local save." : "Auto-save disabled.");
             }
         } catch (eRead) {
             pendingLocalSaveEnvelope = null;
@@ -813,9 +822,11 @@ function buildPlayerHtmlTemplate() {
         }
         updateContinueButtonState();
     }
-    async function savePlayerProgressNow(reason) {
-        if (!playerSaveEnabled) {
-            setPlayerSaveStatus("Local save disabled.");
+    async function savePlayerProgressNow(reason, opts) {
+        opts = opts || {};
+        var force = !!opts.force || reason === "manual" || reason === "load";
+        if (!playerSaveEnabled && !force) {
+            setPlayerSaveStatus("Auto-save disabled.");
             return { skipped: true, reason: "disabled" };
         }
         if (typeof viewer === "undefined" || !viewer) {
@@ -841,7 +852,7 @@ function buildPlayerHtmlTemplate() {
         if (!playerSaveEnabled) return;
         if (playerSaveDebounce) clearTimeout(playerSaveDebounce);
         playerSaveDebounce = setTimeout(function () {
-            savePlayerProgressNow(reason || "auto").catch(function (eSave) {
+            savePlayerProgressNow(reason || "auto", { force: false }).catch(function (eSave) {
                 console.error("player.save.error", eSave);
             });
         }, 450);
@@ -904,10 +915,6 @@ function buildPlayerHtmlTemplate() {
         updateTimerHudLabel();
     }
     async function continueSavedGame() {
-        if (!playerSaveEnabled) {
-            alert("Enable local save first to continue.");
-            return;
-        }
         try {
             var env = await readLatestPlayerSaveEnvelope();
             var check = validatePlayerSaveEnvelope(env);
@@ -926,10 +933,6 @@ function buildPlayerHtmlTemplate() {
         }
     }
     async function loadPlayerProgressFromSettings() {
-        if (!playerSaveEnabled) {
-            alert("Enable local save to use load.");
-            return;
-        }
         if (!viewer) {
             await continueSavedGame();
             return;
@@ -2027,7 +2030,7 @@ function buildPlayerHtmlTemplate() {
 
     syncPlayerSaveCheckboxes();
     updateContinueButtonState();
-    setPlayerSaveStatus("Enable local save to unlock Continue.");
+    setPlayerSaveStatus("Auto-save is OFF by default. You can still load local continue data.");
     refreshLatestPlayerSaveMeta().catch(function () {});
     installPlayerSaveLifecycleHooks();
 <\/script>
