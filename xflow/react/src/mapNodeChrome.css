@@ -42,6 +42,15 @@
   filter: brightness(1.08);
 }
 
+.rf-map-selector-hint {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.72rem;
+  color: #f4d35e;
+  font-weight: 600;
+}
+
 /* Nœuds carte — React Flow (sans wrapper .drawflow-node) */
 .rf-map-scene-root.rf-map-scene-active-wrap .xflow-node-scene {
   box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.5), 0 4px 14px rgba(0, 0, 0, 0.35);

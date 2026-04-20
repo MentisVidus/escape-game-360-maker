@@ -40,6 +40,8 @@ export type MapHotspotNodeData = {
   sceneIndex: number;
   hotspotIndex: number;
   parentSceneKey: string;
+  /** Présent si action `selector` : nombre de choix (amorce B3 / lisibilité graphe). */
+  selectorChoiceCount?: number;
 };
 
 export type MapRedirectNodeData = {
@@ -177,6 +179,16 @@ export function hotspotActionType(hs: EditorHotspot | undefined): string {
     return String((hs as { type: string }).type);
   }
   return "?";
+}
+
+/** Nombre de choix pour une action selector V2 (sinon `undefined`). */
+export function selectorChoiceCount(hs: EditorHotspot | undefined): number | undefined {
+  const a = hs?.action as LooseAction;
+  if (!a || a.type !== "selector") return undefined;
+  const nested = (a.payload || {}) as Record<string, unknown>;
+  const nest = nested.nested as Record<string, unknown> | undefined;
+  const choices = nest && Array.isArray(nest.choices) ? nest.choices : [];
+  return choices.length;
 }
 
 export function findSceneByKey(
@@ -370,6 +382,7 @@ function buildGraphFull(
     hotspots.forEach((hs, hi) => {
       const label = hotspotLabel(hs as EditorHotspot, hi);
       const at = hotspotActionType(hs as EditorHotspot);
+      const selN = selectorChoiceCount(hs as EditorHotspot);
       const hsId = `hs:${sk}:${hi}`;
       const hx = sx + HS_OFFSET_X;
       const hy = sy + HS_OFFSET_Y + hi * HS_STEP_Y;
@@ -385,6 +398,7 @@ function buildGraphFull(
           hotspotIndex: hi,
           parentSceneKey: sk,
           lang,
+          ...(selN !== undefined ? { selectorChoiceCount: selN } : {}),
         } satisfies MapHotspotNodeData & { lang: EditorLang },
       });
       pushMapEdge(edges, sceneNodeId, hsId);
@@ -484,6 +498,7 @@ function buildGraphFocus(
   hotspots.forEach((hs, hi) => {
     const label = hotspotLabel(hs as EditorHotspot, hi);
     const at = hotspotActionType(hs as EditorHotspot);
+    const selN = selectorChoiceCount(hs as EditorHotspot);
     const hsId = `hs:${activeKey}:${hi}`;
     nodes.push({
       id: hsId,
@@ -497,6 +512,7 @@ function buildGraphFocus(
         hotspotIndex: hi,
         parentSceneKey: activeKey,
         lang,
+        ...(selN !== undefined ? { selectorChoiceCount: selN } : {}),
       } satisfies MapHotspotNodeData & { lang: EditorLang },
     });
     pushMapEdge(edges, activeId, hsId);
@@ -584,6 +600,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
       const hy = baseHy + i * HS_STEP;
       const label = hotspotLabel(hs as EditorHotspot, i);
       const at = hotspotActionType(hs as EditorHotspot);
+      const selN = selectorChoiceCount(hs as EditorHotspot);
       const hsRfId = `hs:${sk}:${i}`;
       nodes.push({
         id: hsRfId,
@@ -597,6 +614,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
           hotspotIndex: i,
           parentSceneKey: sk,
           lang,
+          ...(selN !== undefined ? { selectorChoiceCount: selN } : {}),
         } satisfies MapHotspotNodeData & { lang: EditorLang },
       });
       pushMapEdge(edges, sceneRfId, hsRfId);

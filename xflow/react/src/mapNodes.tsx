@@ -126,6 +126,13 @@ export function MapHotspotNode({ data }: HotspotNodeProps) {
         <div className="xflow-node-sub">
           {labAction} {data.actionType}
         </div>
+        {data.actionType === "selector" && data.selectorChoiceCount !== undefined ? (
+          <div className="rf-map-selector-hint">
+            {en
+              ? `Selector · ${data.selectorChoiceCount} choice${data.selectorChoiceCount === 1 ? "" : "s"}`
+              : `Menu · ${data.selectorChoiceCount} choix`}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -34,4 +34,8 @@ Détails techniques utiles : les nœuds custom exposent des **`Handle`** (`in` /
 
 Sur les nœuds **scène** : **+** appelle `addHotspotSkeletonFromMapSceneIndex` (FR : `editeur-app.js`, EN : `editor-en-app.js`) → `addHotspot` + rafraîchissement carte + panneau sur le nouveau hotspot ; **×** supprime la scène (confirm, bloqué s’il n’y a qu’une scène). Sur les nœuds **hotspot** : **×** supprime le hotspot (confirm). Les **transitions** restent à éditer dans le formulaire / panneau (pas de tirage de lien seul dans cette PR).
 
+### Vers B3 (sous-graphes)
+
+Amorce : sur le graphe, les hotspots en action **selector** affichent le **nombre de choix** (`payload.nested.choices`) sous le type — pas encore un sous-flot interactif (scène = groupe, selector = îlot dédié : chantier suivant).
+
 Voir aussi [docs/PLAN_REACT_INTEGRATION.md](../../docs/PLAN_REACT_INTEGRATION.md).
