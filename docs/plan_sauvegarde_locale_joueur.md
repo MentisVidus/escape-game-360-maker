@@ -125,7 +125,7 @@ Structure type:
 Au démarrage, proposer:
 
 - **Continuer** (dernière sauvegarde locale compatible);
-- **Charger un fichier de sauvegarde** (input file `.escapeprogress`);
+- **Charger un fichier de sauvegarde** (input file `.escapegame`);
 - **Nouvelle partie** (purge locale + reset runtime).
 
 Règles :
@@ -186,26 +186,29 @@ Avec debounce court pour éviter les écritures en rafale.
 
 ## 13. Plan d'implémentation proposé
 
-### Phase A — socle technique
+### Phase A — socle technique *(livrée)*
 
 - Créer le module shared storage core (IDB + erreurs + quotas).
 - Ajouter helpers sérialisation/désérialisation de l'état joueur.
 
-### Phase B — sauvegarde locale runtime
+### Phase B — sauvegarde locale runtime *(livrée)*
 
 - Capture/restore de progression.
 - Écran titre: Continuer / Nouvelle partie.
 
-### Phase C — fichier manuel
+### Phase C — fichier manuel *(livrée)*
 
-- Export `.escapeprogress`.
+- Export `.escapegame`.
 - Import depuis écran titre.
 - Validation `gameFingerprint`.
 
-### Phase D — option éditeur + modes
+### Phase D — option éditeur + modes *(livrée)*
 
 - Paramètres de génération `none/manual/auto`.
 - Branchement HUD/runtime selon config.
+
+**État global:** implémentation terminée côté code (A→D).  
+La clôture fonctionnelle passe maintenant par la campagne QA manuelle (section 14).
 
 ---
 
