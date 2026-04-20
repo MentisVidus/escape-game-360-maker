@@ -510,6 +510,7 @@ function buildPlayerHtmlTemplate() {
         <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
             <button onclick="startGame(false)" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Commencer l'aventure</button>
             <button id="player-continue-btn" onclick="continueSavedGame()" disabled style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #334155; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); opacity: .7;">Continuer</button>
+            <button onclick="promptImportPlayerSaveFile()" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #0f766e; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Charger un fichier .escapegame</button>
         </div>
         <div id="player-save-start-status" style="margin-top:10px;font-size:0.9em;opacity:0.85;"></div>
     </div>
@@ -557,8 +558,10 @@ function buildPlayerHtmlTemplate() {
                     Sauvegarde locale de progression (1 slot)
                 </label>
                 <div class="settings-close-row" style="margin-top:8px;justify-content:flex-start;">
-                    <button type="button" class="settings-close-btn" onclick="savePlayerProgressNow('manual')">Sauvegarder</button>
+                    <button type="button" class="settings-close-btn" onclick="savePlayerProgressNow('manual',{force:true})">Sauvegarder local</button>
                     <button type="button" class="settings-close-btn" onclick="loadPlayerProgressFromSettings()">Charger</button>
+                    <button type="button" class="settings-close-btn" onclick="exportPlayerSaveFile()">Exporter .escapegame</button>
+                    <button type="button" class="settings-close-btn" onclick="promptImportPlayerSaveFile()">Importer .escapegame</button>
                     <button type="button" class="settings-close-btn" onclick="clearPlayerProgressWithConfirm()">Effacer</button>
                 </div>
                 <span class="settings-val" id="player-save-settings-status"></span>
@@ -568,6 +571,7 @@ function buildPlayerHtmlTemplate() {
             </div>
         </div>
     </div>
+    <input type="file" id="player-save-file-input" accept=".escapegame,application/json" style="display:none" onchange="onPlayerSaveFileInputChange(event)">
 
     <div id="end-screen-modal" role="dialog" aria-modal="true" aria-labelledby="end-screen-title">
         <div class="end-screen-backdrop"></div>
@@ -639,6 +643,7 @@ function buildPlayerHtmlTemplate() {
     var PLAYER_SAVE_DB_VERSION = 1;
     var PLAYER_SAVE_STORE = "saves";
     var PLAYER_SAVE_SLOT_ID = "latest";
+    var PLAYER_SAVE_FILE_EXT = ".escapegame";
     var PLAYER_SAVE_KIND = "escape360-player-save";
     var PLAYER_SAVE_SCHEMA_VERSION = 1;
     var PLAYER_GAME_FINGERPRINT = "${playerGameFingerprint}";
@@ -649,6 +654,48 @@ function buildPlayerHtmlTemplate() {
 
     function cloneJson(x) {
         return JSON.parse(JSON.stringify(x));
+    }
+    function stampFileTime(d) {
+        function p2(v) {
+            return String(v).padStart(2, "0");
+        }
+        return (
+            d.getFullYear() +
+            "-" +
+            p2(d.getMonth() + 1) +
+            "-" +
+            p2(d.getDate()) +
+            "_" +
+            p2(d.getHours()) +
+            "-" +
+            p2(d.getMinutes())
+        );
+    }
+    function sanitizeFileStem(s) {
+        return String(s || "escape_game")
+            .replace(/[\\/:*?"<>|]+/g, "_")
+            .trim()
+            .slice(0, 80);
+    }
+    function readTextFile(file) {
+        return new Promise(function (resolve, reject) {
+            if (!file) {
+                reject(new Error("No file provided"));
+                return;
+            }
+            if (typeof file.text === "function") {
+                file.text().then(resolve, reject);
+                return;
+            }
+            var fr = new FileReader();
+            fr.onload = function () {
+                resolve(String(fr.result || ""));
+            };
+            fr.onerror = function () {
+                reject(fr.error || new Error("File read failed"));
+            };
+            fr.readAsText(file);
+        });
     }
     function setPlayerSaveStatus(msg) {
         var s1 = document.getElementById("player-save-start-status");
@@ -804,6 +851,24 @@ function buildPlayerHtmlTemplate() {
         await idbTxDone(tx);
         if (!rec || !rec.envelope) return null;
         return rec.envelope;
+    }
+    async function writeLatestPlayerSaveEnvelope(envelope) {
+        var rec = {
+            id: PLAYER_SAVE_SLOT_ID,
+            savedAt:
+                envelope && envelope.meta && envelope.meta.savedAt
+                    ? String(envelope.meta.savedAt)
+                    : new Date().toISOString(),
+            gameFingerprint:
+                envelope && envelope.meta && envelope.meta.gameFingerprint
+                    ? String(envelope.meta.gameFingerprint)
+                    : PLAYER_GAME_FINGERPRINT,
+            envelope: envelope
+        };
+        var db = await openPlayerSaveDb();
+        var tx = db.transaction([PLAYER_SAVE_STORE], "readwrite");
+        tx.objectStore(PLAYER_SAVE_STORE).put(rec);
+        await idbTxDone(tx);
     }
     async function refreshLatestPlayerSaveMeta() {
         try {
@@ -963,6 +1028,70 @@ function buildPlayerHtmlTemplate() {
         } catch (eLoad2) {
             console.error("player.save.error", eLoad2);
             alert("Chargement local impossible.");
+        }
+    }
+    async function exportPlayerSaveFile() {
+        try {
+            var res = await savePlayerProgressNow("manual", { force: true });
+            if (!res || !res.ok || !res.envelope) {
+                alert("Impossible de générer la sauvegarde fichier.");
+                return;
+            }
+            var text = JSON.stringify(res.envelope, null, 2);
+            var blob = new Blob([text], { type: "application/json;charset=utf-8" });
+            var a = document.createElement("a");
+            var base = sanitizeFileStem("${title}") || "escape_game";
+            a.href = URL.createObjectURL(blob);
+            a.download = base + "_player-save_" + stampFileTime(new Date()) + PLAYER_SAVE_FILE_EXT;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setPlayerSaveStatus("Fichier de sauvegarde exporté.");
+        } catch (eExport) {
+            console.error("player.save.error", eExport);
+            alert("Export de sauvegarde impossible.");
+        }
+    }
+    function promptImportPlayerSaveFile() {
+        var inp = document.getElementById("player-save-file-input");
+        if (!inp) return;
+        inp.value = "";
+        inp.click();
+    }
+    async function onPlayerSaveFileInputChange(ev) {
+        var file = ev && ev.target && ev.target.files ? ev.target.files[0] : null;
+        if (!file) return;
+        try {
+            var text = await readTextFile(file);
+            var raw = JSON.parse(String(text || ""));
+            var check = validatePlayerSaveEnvelope(raw);
+            if (!check.ok) {
+                alert("Fichier .escapegame invalide ou incompatible avec ce jeu.");
+                return;
+            }
+            pendingLocalSaveEnvelope = raw;
+            await writeLatestPlayerSaveEnvelope(raw);
+            updateContinueButtonState();
+            if (typeof viewer === "undefined" || !viewer) {
+                pendingRestoreEnvelope = raw;
+                setPlayerSaveStatus("Fichier chargé. Reprise de partie...");
+                startGame(true);
+                return;
+            }
+            pendingRestoreEnvelope = raw;
+            applyRestoredMapsFromEnvelope(raw);
+            var target = String((raw.state && raw.state.sceneId) || "").trim();
+            if (target && typeof viewer.loadScene === "function") {
+                try {
+                    viewer.loadScene(target);
+                } catch (eLs) {}
+            }
+            applyRestoredTimerFromEnvelope(raw);
+            pendingRestoreEnvelope = null;
+            setPlayerSaveStatus("Fichier .escapegame chargé.");
+        } catch (eImport) {
+            console.error("player.save.error", eImport);
+            alert("Impossible de lire ce fichier de sauvegarde.");
         }
     }
     function installPlayerSaveLifecycleHooks() {

@@ -78,8 +78,8 @@ Plan détaillé (nouveau) : **`docs/plan_sauvegarde_locale_joueur.md`**.
 - ~~Sauvegarde locale joueur : privilégier **IndexedDB** (réutilisation du socle technique partagé avec l’éditeur).~~ — **Fait (Phase B)** : slot local unique branché dans le runtime joueur (FR/EN), avec reprise d’état (scène, inventaire, unlocks, timer).
 - ~~Slot local : **1 seul slot** (écrasement volontaire du précédent pour éviter l’accumulation en phase de test).~~ — **Fait (Phase B)** : clé `latest` unique.
 - ~~Écran titre joueur : **Continuer** + activation explicite via case à cocher sur l’écran de démarrage.~~ — **Fait (Phase B)**.
-- En cours : compléter l’écran titre avec **Charger une sauvegarde fichier** / **Nouvelle partie** fully guidé.
-- À faire : sauvegarde manuelle joueur en `.escapegame` (signature interne dédiée) + import fichier.
+- ~~Sauvegarde manuelle joueur en `.escapegame` + import fichier~~ — **Fait (Phase C)** : export/import manuel `.escapegame` (FR/EN), validation `kind/saveSchemaVersion/gameFingerprint`, import possible depuis l’écran titre et depuis les réglages en cours de partie.
+- En cours : compléter l’écran titre avec un parcours **Nouvelle partie** explicite (bouton dédié + reset guidé).
 - À faire : option éditeur complète **none/manual/auto** (par défaut `manual`) et propagation stricte dans l’export joueur.
 
 ---
