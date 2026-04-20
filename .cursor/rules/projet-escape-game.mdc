@@ -62,5 +62,8 @@ alwaysApply: true
 - **Changements minimaux** : ne pas refactorer hors périmètre.
 - **FR + EN** : toute modif d’`editeur.html` / `editeur-app.js` / `editeur-generate.js` → miroir **`editor_en.*`** sauf textes UI.
 - **Séparation souple FR/EN** : si une logique n’affiche pas de texte utilisateur, **préférer** un module partagé (`js/editor-shared-*.js`) plutôt qu’une duplication FR/EN ; autoriser des options de locale (ex. labels par défaut) quand cela simplifie le code.
+- **Shared-first obligatoire** : pour toute nouvelle logique non triviale (événements DOM, autosave, parsing, transformation, hooks, UI structure identique), créer/étendre un module `js/editor-shared-*.js` et n’injecter que les chaînes/actions localisées depuis FR/EN.
+- **Éviter la duplication FR/EN** : ne dupliquer dans `editeur-app.js` / `editor-en-app.js` que les libellés, placeholders et messages. Si >~30 lignes identiques apparaissent dans les deux fichiers, stopper et factoriser.
+- **Alternative explicite** : si la factorisation devient trop coûteuse et que les différences de langue touchent la logique, ouvrir un chantier i18n (dictionnaire + clés) au lieu de recopier du code technique.
 - Préférer **serveur HTTP local** pour tests complets ; **`file://`** reste un cas réel EPN — tester Quill + SRI après chaque touche aux CDN.
 - Commentaires utiles en **français** dans le code existant ; pas de sur-documentation.
