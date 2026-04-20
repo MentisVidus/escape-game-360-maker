@@ -46,6 +46,21 @@ function uniqueOfflineMediaName(desired, usedSet) {
     return name;
 }
 
+function computePlayerGameFingerprint(project) {
+    var json = "";
+    try {
+        json = JSON.stringify(project || {});
+    } catch (e) {
+        json = String((project && project.title) || "");
+    }
+    var h = 2166136261;
+    for (var i = 0; i < json.length; i++) {
+        h ^= json.charCodeAt(i);
+        h = (h * 16777619) >>> 0;
+    }
+    return "g" + h.toString(16);
+}
+
 var WEB_ZIP_BAT_WINDOWS_EN =
     "@echo off\r\n" +
     "echo Starting local server for the escape game...\r\n" +
@@ -76,6 +91,7 @@ var WEB_ZIP_README_EN =
 function buildPlayerHtmlTemplate() {
     // 1. Globals from project v2
     const project = getCurrentProjectData();
+    const playerGameFingerprint = computePlayerGameFingerprint(project);
     const title = project.title || "My awesome game";
     const hasInv = project.useInv !== false;
     const invPos = project.invPos || "top-right";
@@ -482,8 +498,16 @@ function buildPlayerHtmlTemplate() {
 
     <!-- Start screen: user gesture unlocks autoplay policy -->
     <div id="start-screen" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; color: white;">
-        <h1 style="font-size: 3em; margin-bottom: 30px;">${title}</h1>
-        <button onclick="startGame()" style="padding: 15px 30px; font-size: 1.2em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Start adventure</button>
+        <h1 style="font-size: 3em; margin-bottom: 20px;">${title}</h1>
+        <label style="display:flex;align-items:center;gap:8px;margin:0 0 16px 0;font-size:0.95em;opacity:0.95;">
+            <input type="checkbox" id="player-save-enable-start" onchange="onPlayerSaveToggleChanged(this.checked)">
+            Enable local save (1 slot)
+        </label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+            <button onclick="startGame(false)" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Start adventure</button>
+            <button id="player-continue-btn" onclick="continueSavedGame()" disabled style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #334155; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); opacity: .7;">Continue</button>
+        </div>
+        <div id="player-save-start-status" style="margin-top:10px;font-size:0.9em;opacity:0.85;"></div>
     </div>
 
     <!-- Player HUD: optional inventory + settings -->
@@ -522,6 +546,18 @@ function buildPlayerHtmlTemplate() {
                 <label for="set-sfx">Sound effects</label>
                 <input type="range" id="set-sfx" min="0" max="1" step="0.05" value="1" oninput="onPlayerAudioSliderInput('sfx')">
                 <span class="settings-val" id="set-sfx-val">1.00</span>
+            </div>
+            <div class="settings-row">
+                <label style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="player-save-enable-settings" onchange="onPlayerSaveToggleChanged(this.checked)">
+                    Local progression save (1 slot)
+                </label>
+                <div class="settings-close-row" style="margin-top:8px;justify-content:flex-start;">
+                    <button type="button" class="settings-close-btn" onclick="savePlayerProgressNow('manual')">Save</button>
+                    <button type="button" class="settings-close-btn" onclick="loadPlayerProgressFromSettings()">Load</button>
+                    <button type="button" class="settings-close-btn" onclick="clearPlayerProgressWithConfirm()">Clear</button>
+                </div>
+                <span class="settings-val" id="player-save-settings-status"></span>
             </div>
             <div class="settings-close-row">
                 <button type="button" class="settings-close-btn" onclick="closePlayerSettings()">Close</button>
@@ -595,6 +631,342 @@ function buildPlayerHtmlTemplate() {
     var timerBlockingDepth = 0;
     var timerInterval = null;
     var timerClockStarted = false;
+    var PLAYER_SAVE_DB_NAME = "escape360-player-progress";
+    var PLAYER_SAVE_DB_VERSION = 1;
+    var PLAYER_SAVE_STORE = "saves";
+    var PLAYER_SAVE_SLOT_ID = "latest";
+    var PLAYER_SAVE_KIND = "escape360-player-save";
+    var PLAYER_SAVE_SCHEMA_VERSION = 1;
+    var PLAYER_GAME_FINGERPRINT = "${playerGameFingerprint}";
+    var playerSaveEnabled = false;
+    var pendingLocalSaveEnvelope = null;
+    var pendingRestoreEnvelope = null;
+    var playerSaveDebounce = null;
+
+    function cloneJson(x) {
+        return JSON.parse(JSON.stringify(x));
+    }
+    function setPlayerSaveStatus(msg) {
+        var s1 = document.getElementById("player-save-start-status");
+        var s2 = document.getElementById("player-save-settings-status");
+        if (s1) s1.textContent = msg || "";
+        if (s2) s2.textContent = msg || "";
+    }
+    function syncPlayerSaveCheckboxes() {
+        var cStart = document.getElementById("player-save-enable-start");
+        var cSet = document.getElementById("player-save-enable-settings");
+        if (cStart) cStart.checked = !!playerSaveEnabled;
+        if (cSet) cSet.checked = !!playerSaveEnabled;
+    }
+    function updateContinueButtonState() {
+        var btn = document.getElementById("player-continue-btn");
+        if (!btn) return;
+        var canContinue = !!(playerSaveEnabled && pendingLocalSaveEnvelope && pendingLocalSaveEnvelope.state);
+        btn.disabled = !canContinue;
+        btn.style.opacity = canContinue ? "1" : ".7";
+        btn.style.cursor = canContinue ? "pointer" : "not-allowed";
+    }
+    function onPlayerSaveToggleChanged(checked) {
+        playerSaveEnabled = !!checked;
+        syncPlayerSaveCheckboxes();
+        updateContinueButtonState();
+        if (!playerSaveEnabled) {
+            setPlayerSaveStatus("Local save disabled.");
+            return;
+        }
+        setPlayerSaveStatus("Local save enabled (1 slot).");
+        refreshLatestPlayerSaveMeta().catch(function () {});
+    }
+    function getCurrentSceneIdSafe() {
+        if (typeof viewer === "undefined" || !viewer || typeof viewer.getScene !== "function") return "";
+        try {
+            return String(viewer.getScene() || "").trim();
+        } catch (e) {
+            return "";
+        }
+    }
+    function buildPlayerSaveState() {
+        if (typeof tickPlayerTimer === "function") {
+            try {
+                tickPlayerTimer();
+            } catch (eTick) {}
+        }
+        return {
+            sceneId: getCurrentSceneIdSafe(),
+            inventaire: cloneJson(inventaire || {}),
+            unlockedHotspots: cloneJson(unlockedHotspots || {}),
+            timer: {
+                activeScenePressure: activeScenePressure
+                    ? {
+                          sceneId: String(activeScenePressure.sceneId || ""),
+                          onExpire: String(activeScenePressure.onExpire || "gameOver"),
+                          targetScene: String(activeScenePressure.targetScene || ""),
+                          messageHtml: String(activeScenePressure.messageHtml || ""),
+                          remainingMs: Math.max(0, Number(timerDisplayMs || 0))
+                      }
+                    : null,
+                global: {
+                    mode:
+                        PLAYER_TIMER_CONFIG && PLAYER_TIMER_CONFIG.mode === "countup"
+                            ? "countup"
+                            : "countdown",
+                    clockStarted: !!timerClockStarted,
+                    displayMs: Math.max(0, Number(timerDisplayMs || 0))
+                }
+            }
+        };
+    }
+    function buildPlayerSaveEnvelope(label) {
+        return {
+            meta: {
+                kind: PLAYER_SAVE_KIND,
+                saveSchemaVersion: PLAYER_SAVE_SCHEMA_VERSION,
+                gameFingerprint: PLAYER_GAME_FINGERPRINT,
+                savedAt: new Date().toISOString(),
+                slotId: PLAYER_SAVE_SLOT_ID,
+                label: String(label || "").trim()
+            },
+            state: buildPlayerSaveState()
+        };
+    }
+    function validatePlayerSaveEnvelope(env) {
+        if (!env || typeof env !== "object") return { ok: false, reason: "invalid-object" };
+        var m = env.meta || {};
+        if (m.kind !== PLAYER_SAVE_KIND) return { ok: false, reason: "wrong-kind" };
+        if (Number(m.saveSchemaVersion || 0) !== PLAYER_SAVE_SCHEMA_VERSION) {
+            return { ok: false, reason: "unsupported-schema" };
+        }
+        if (String(m.gameFingerprint || "").trim() !== PLAYER_GAME_FINGERPRINT) {
+            return { ok: false, reason: "wrong-game" };
+        }
+        return { ok: true };
+    }
+    function idbReqAsPromise(req) {
+        return new Promise(function (resolve, reject) {
+            req.onsuccess = function () {
+                resolve(req.result);
+            };
+            req.onerror = function () {
+                reject(req.error || new Error("IndexedDB request error"));
+            };
+        });
+    }
+    function idbTxDone(tx) {
+        return new Promise(function (resolve, reject) {
+            tx.oncomplete = function () {
+                resolve();
+            };
+            tx.onerror = function () {
+                reject(tx.error || new Error("IndexedDB transaction error"));
+            };
+            tx.onabort = function () {
+                reject(tx.error || new Error("IndexedDB transaction aborted"));
+            };
+        });
+    }
+    function openPlayerSaveDb() {
+        return new Promise(function (resolve, reject) {
+            if (!("indexedDB" in window)) {
+                reject(new Error("IndexedDB unsupported"));
+                return;
+            }
+            var req = window.indexedDB.open(PLAYER_SAVE_DB_NAME, PLAYER_SAVE_DB_VERSION);
+            req.onupgradeneeded = function () {
+                var db = req.result;
+                var store = db.objectStoreNames.contains(PLAYER_SAVE_STORE)
+                    ? req.transaction.objectStore(PLAYER_SAVE_STORE)
+                    : db.createObjectStore(PLAYER_SAVE_STORE, { keyPath: "id" });
+                if (!store.indexNames.contains("bySavedAt")) {
+                    store.createIndex("bySavedAt", "savedAt", { unique: false });
+                }
+            };
+            req.onsuccess = function () {
+                resolve(req.result);
+            };
+            req.onerror = function () {
+                reject(req.error || new Error("Failed to open save DB"));
+            };
+        });
+    }
+    async function readLatestPlayerSaveEnvelope() {
+        var db = await openPlayerSaveDb();
+        var tx = db.transaction([PLAYER_SAVE_STORE], "readonly");
+        var store = tx.objectStore(PLAYER_SAVE_STORE);
+        var rec = await idbReqAsPromise(store.get(PLAYER_SAVE_SLOT_ID));
+        await idbTxDone(tx);
+        if (!rec || !rec.envelope) return null;
+        return rec.envelope;
+    }
+    async function refreshLatestPlayerSaveMeta() {
+        try {
+            var env = await readLatestPlayerSaveEnvelope();
+            if (env && validatePlayerSaveEnvelope(env).ok) {
+                pendingLocalSaveEnvelope = env;
+                setPlayerSaveStatus("Local save ready (" + String(env.meta.savedAt || "") + ").");
+            } else {
+                pendingLocalSaveEnvelope = null;
+                setPlayerSaveStatus(playerSaveEnabled ? "No compatible local save." : "Local save disabled.");
+            }
+        } catch (eRead) {
+            pendingLocalSaveEnvelope = null;
+            setPlayerSaveStatus("Local save unavailable.");
+        }
+        updateContinueButtonState();
+    }
+    async function savePlayerProgressNow(reason) {
+        if (!playerSaveEnabled) {
+            setPlayerSaveStatus("Local save disabled.");
+            return { skipped: true, reason: "disabled" };
+        }
+        if (typeof viewer === "undefined" || !viewer) {
+            return { skipped: true, reason: "viewer-not-ready" };
+        }
+        var envelope = buildPlayerSaveEnvelope(reason || "auto");
+        var rec = {
+            id: PLAYER_SAVE_SLOT_ID,
+            savedAt: envelope.meta.savedAt,
+            gameFingerprint: envelope.meta.gameFingerprint,
+            envelope: envelope
+        };
+        var db = await openPlayerSaveDb();
+        var tx = db.transaction([PLAYER_SAVE_STORE], "readwrite");
+        tx.objectStore(PLAYER_SAVE_STORE).put(rec);
+        await idbTxDone(tx);
+        pendingLocalSaveEnvelope = envelope;
+        setPlayerSaveStatus("Saved locally at " + envelope.meta.savedAt + ".");
+        updateContinueButtonState();
+        return { ok: true, envelope: envelope };
+    }
+    function queuePlayerProgressSave(reason) {
+        if (!playerSaveEnabled) return;
+        if (playerSaveDebounce) clearTimeout(playerSaveDebounce);
+        playerSaveDebounce = setTimeout(function () {
+            savePlayerProgressNow(reason || "auto").catch(function (eSave) {
+                console.error("player.save.error", eSave);
+            });
+        }, 450);
+    }
+    async function clearPlayerProgressNow() {
+        var db = await openPlayerSaveDb();
+        var tx = db.transaction([PLAYER_SAVE_STORE], "readwrite");
+        tx.objectStore(PLAYER_SAVE_STORE).delete(PLAYER_SAVE_SLOT_ID);
+        await idbTxDone(tx);
+        pendingLocalSaveEnvelope = null;
+        setPlayerSaveStatus("Local save cleared.");
+        updateContinueButtonState();
+    }
+    async function clearPlayerProgressWithConfirm() {
+        if (!confirm("Clear local progression save?")) return;
+        try {
+            await clearPlayerProgressNow();
+        } catch (eClear) {
+            console.error("player.save.error", eClear);
+            setPlayerSaveStatus("Unable to clear local save.");
+        }
+    }
+    function applyRestoredMapsFromEnvelope(env) {
+        if (!env || !env.state) return;
+        var st = env.state || {};
+        inventaire = st.inventaire && typeof st.inventaire === "object" ? cloneJson(st.inventaire) : {};
+        unlockedHotspots =
+            st.unlockedHotspots && typeof st.unlockedHotspots === "object"
+                ? cloneJson(st.unlockedHotspots)
+                : {};
+        majInventaireUI();
+        refreshAllHotspotVisibility();
+    }
+    function applyRestoredTimerFromEnvelope(env) {
+        if (!env || !env.state || !env.state.timer) return;
+        var t = env.state.timer;
+        if (t.activeScenePressure && activeScenePressure) {
+            var rem = Math.max(0, Number(t.activeScenePressure.remainingMs || timerDisplayMs || 0));
+            pressTotalMs = rem;
+            pressPausedAccum = 0;
+            pressRunStart = isTimerPausedNow() ? null : Date.now();
+            timerDisplayMs = rem;
+            updateTimerHudLabel();
+            return;
+        }
+        if (!t.global || !PLAYER_TIMER_CONFIG || !PLAYER_TIMER_CONFIG.enabled) return;
+        var disp = Math.max(0, Number(t.global.displayMs || 0));
+        timerClockStarted = !!t.global.clockStarted;
+        if (PLAYER_TIMER_CONFIG.mode === "countup") {
+            timerPausedAccum = disp;
+            timerDisplayMs = disp;
+            timerRunStart = timerClockStarted && !isTimerPausedNow() ? Date.now() : null;
+        } else {
+            var total = Math.max(0, Number(PLAYER_TIMER_CONFIG.startSeconds || 0) * 1000);
+            var rem2 = Math.max(0, Math.min(total, disp));
+            timerPausedAccum = total - rem2;
+            timerDisplayMs = rem2;
+            timerRunStart = timerClockStarted && !isTimerPausedNow() ? Date.now() : null;
+        }
+        updateTimerHudLabel();
+    }
+    async function continueSavedGame() {
+        if (!playerSaveEnabled) {
+            alert("Enable local save first to continue.");
+            return;
+        }
+        try {
+            var env = await readLatestPlayerSaveEnvelope();
+            var check = validatePlayerSaveEnvelope(env);
+            if (!check.ok) {
+                pendingLocalSaveEnvelope = null;
+                updateContinueButtonState();
+                alert("No compatible local save for this game.");
+                return;
+            }
+            pendingLocalSaveEnvelope = env;
+            pendingRestoreEnvelope = env;
+            startGame(true);
+        } catch (eLoad) {
+            console.error("player.save.error", eLoad);
+            alert("Unable to load local save.");
+        }
+    }
+    async function loadPlayerProgressFromSettings() {
+        if (!playerSaveEnabled) {
+            alert("Enable local save to use load.");
+            return;
+        }
+        if (!viewer) {
+            await continueSavedGame();
+            return;
+        }
+        try {
+            var env = await readLatestPlayerSaveEnvelope();
+            var check = validatePlayerSaveEnvelope(env);
+            if (!check.ok) {
+                alert("No compatible local save.");
+                return;
+            }
+            pendingLocalSaveEnvelope = env;
+            pendingRestoreEnvelope = env;
+            applyRestoredMapsFromEnvelope(env);
+            var target = String((env.state && env.state.sceneId) || "").trim();
+            if (target && typeof viewer.loadScene === "function") {
+                try {
+                    viewer.loadScene(target);
+                } catch (eLs) {}
+            }
+            applyRestoredTimerFromEnvelope(env);
+            closePlayerSettings();
+            setPlayerSaveStatus("Progress restored.");
+        } catch (eLoad2) {
+            console.error("player.save.error", eLoad2);
+            alert("Local load failed.");
+        }
+    }
+    function installPlayerSaveLifecycleHooks() {
+        document.addEventListener("visibilitychange", function () {
+            if (!document.hidden) return;
+            savePlayerProgressNow("hidden").catch(function () {});
+        });
+        window.addEventListener("beforeunload", function () {
+            savePlayerProgressNow("beforeunload").catch(function () {});
+        });
+    }
 
     function hasSceneTimerOverrides() {
         for (var k in sceneTimerOverridesMap) {
@@ -1046,18 +1418,32 @@ function buildPlayerHtmlTemplate() {
         audioSys.playAmbiance(clip.url, clip.volume);
     }
 
+    var PLAYER_SCENES_CONFIG = ${jsonScenes};
+
     // --- Start (after splash click) ---
-    function startGame() {
+    function startGame(fromContinue) {
         gameOverTriggered = false;
         victoryTriggered = false;
+        if (!fromContinue) pendingRestoreEnvelope = null;
         document.getElementById('start-screen').style.display = 'none';
         loadPlayerAudioPrefsFromStorage();
         syncPlayerAudioSlidersToUi();
-        
+        if (pendingRestoreEnvelope && pendingRestoreEnvelope.state) {
+            applyRestoredMapsFromEnvelope(pendingRestoreEnvelope);
+        }
+        var initialSceneId = "${firstSceneId}";
+        var restoredSceneId =
+            pendingRestoreEnvelope &&
+            pendingRestoreEnvelope.state &&
+            String(pendingRestoreEnvelope.state.sceneId || "").trim();
+        if (restoredSceneId && PLAYER_SCENES_CONFIG && PLAYER_SCENES_CONFIG[restoredSceneId]) {
+            initialSceneId = restoredSceneId;
+        }
+
         // Pannellum viewer
-        viewer = pannellum.viewer('panorama', { 
-            "default": { "firstScene": "${firstSceneId}", "sceneFadeDuration": 1500, "autoLoad": true, "showFullscreenCtrl": false }, 
-            "scenes": ${jsonScenes} 
+        viewer = pannellum.viewer('panorama', {
+            "default": { "firstScene": initialSceneId, "sceneFadeDuration": 1500, "autoLoad": true, "showFullscreenCtrl": false },
+            "scenes": PLAYER_SCENES_CONFIG
         });
 
         viewer.on('scenechange', function(sceneId) {
@@ -1066,17 +1452,23 @@ function buildPlayerHtmlTemplate() {
             checkVictoryForScene(sid);
             if (!victoryTriggered && !gameOverTriggered) checkGameOverForScene(sid);
             if (!victoryTriggered && !gameOverTriggered) onSceneChangedForTimer(sid);
+            queuePlayerProgressSave("scenechange");
         });
-        applySceneAmbiance("${firstSceneId}");
-        checkVictoryForScene("${firstSceneId}");
-        if (!victoryTriggered && !gameOverTriggered) checkGameOverForScene("${firstSceneId}");
+        applySceneAmbiance(initialSceneId);
+        checkVictoryForScene(initialSceneId);
+        if (!victoryTriggered && !gameOverTriggered) checkGameOverForScene(initialSceneId);
 
         // Optional looped background music
         if (${useGlobalAudio} && "${globalMusicUrl}" !== "") {
             audioSys.playMusic("${globalMusicUrl}", ${globalMusicVol});
         }
         if (!victoryTriggered) initPlayerTimerAfterStart();
-        if (!victoryTriggered && !gameOverTriggered) onSceneChangedForTimer("${firstSceneId}");
+        if (!victoryTriggered && !gameOverTriggered) onSceneChangedForTimer(initialSceneId);
+        if (pendingRestoreEnvelope) {
+            applyRestoredTimerFromEnvelope(pendingRestoreEnvelope);
+            pendingRestoreEnvelope = null;
+        }
+        queuePlayerProgressSave("start");
     }
     
     function toggleInv() { 
@@ -1113,6 +1505,7 @@ function buildPlayerHtmlTemplate() {
             openInventoryPanelIfVisible();
             afficherPopup("", payload.txt);
             refreshAllHotspotVisibility();
+            queuePlayerProgressSave("pick");
         }
     }
 
@@ -1324,6 +1717,7 @@ function buildPlayerHtmlTemplate() {
                     var hPwd2 = selectorHsDiv;
                     closeSelectorOverlay(false);
                     executeReward(choiceRewardToArgs(choice), hPwd2);
+                    queuePlayerProgressSave("unlock");
                 } else {
                     err.innerHTML = "INCORRECT ANSWER";
                     inp.value = "";
@@ -1557,6 +1951,7 @@ function buildPlayerHtmlTemplate() {
                         document.body.removeChild(pwdBackdrop); 
                         unlockedHotspots[args.id] = true; 
                         executeReward(args, hsDiv); 
+                        queuePlayerProgressSave("unlock");
                     } else { 
                         err.innerHTML = "WRONG ANSWER"; 
                         inp.value = ""; 
@@ -1629,6 +2024,12 @@ function buildPlayerHtmlTemplate() {
         document.body.appendChild(backdrop);
         timerNotifyBlockingOpen();
     }
+
+    syncPlayerSaveCheckboxes();
+    updateContinueButtonState();
+    setPlayerSaveStatus("Enable local save to unlock Continue.");
+    refreshLatestPlayerSaveMeta().catch(function () {});
+    installPlayerSaveLifecycleHooks();
 <\/script>
 </body>
 </html>`;
