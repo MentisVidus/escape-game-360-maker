@@ -64,7 +64,7 @@
                 "#local-draft-dock .dock-icon{width:46px;height:46px;border-radius:999px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.25);transition:transform .15s ease,filter .15s ease}" +
                 "#local-draft-dock .dock-icon:hover{transform:translateY(-1px);filter:brightness(1.08)}" +
                 "#local-draft-dock .dock-icon svg{width:24px;height:24px;display:block}" +
-                "#local-draft-dock .dock-panel{min-width:290px;max-width:min(32vw,380px);background:#1f2937;color:#f9fafb;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px;box-shadow:0 10px 24px rgba(0,0,0,.25);transform:translateX(-14px);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}" +
+                "#local-draft-dock .dock-panel{min-width:290px;max-width:min(32vw,380px);background:rgba(31,41,55,.9);backdrop-filter:blur(2px);color:#f9fafb;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px;box-shadow:0 10px 24px rgba(0,0,0,.25);transform:translateX(-14px);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}" +
                 "#local-draft-dock .dock-panel.is-open{transform:translateX(0);opacity:1;pointer-events:auto}" +
                 "#local-draft-dock .dock-section{display:none}" +
                 "#local-draft-dock .dock-section.is-open{display:block}";
@@ -206,6 +206,34 @@
                         ? t("panelLoadTitle", "Load")
                         : t("panelMapTitle", "Map");
             }
+            function closePanel() {
+                var panel = doc.getElementById("local-draft-panel");
+                if (!panel || !panel.classList.contains("is-open")) return;
+                panel.classList.remove("is-open");
+                panel.setAttribute("data-kind", "");
+                var secSave = doc.getElementById("local-draft-panel-save");
+                var secLoad = doc.getElementById("local-draft-panel-load");
+                var secMap = doc.getElementById("local-draft-panel-map");
+                if (secSave) secSave.classList.remove("is-open");
+                if (secLoad) secLoad.classList.remove("is-open");
+                if (secMap) secMap.classList.remove("is-open");
+            }
+            function setupOutsideClickClose() {
+                if (dock.__outsideCloseBound) return;
+                dock.__outsideCloseBound = true;
+                doc.addEventListener(
+                    "mousedown",
+                    function (ev) {
+                        var panel = doc.getElementById("local-draft-panel");
+                        if (!panel || !panel.classList.contains("is-open")) return;
+                        var target = ev.target;
+                        if (!target) return;
+                        if (dock.contains(target)) return;
+                        closePanel();
+                    },
+                    true
+                );
+            }
 
             doc.getElementById("local-draft-icon-save").addEventListener("click", function () {
                 showPanel("save", this);
@@ -235,6 +263,7 @@
                     );
                 }
                 await refreshStatusUi();
+                closePanel();
             });
             doc.getElementById("local-draft-clear").addEventListener("click", async function () {
                 if (!confirm(t("confirmClearDrafts", "Clear local drafts for this tab?"))) return;
@@ -244,30 +273,39 @@
                     console.error("draft.error", e);
                 }
                 await refreshStatusUi();
+                closePanel();
             });
             doc.getElementById("local-draft-export-json").addEventListener("click", function () {
                 saveJson();
+                closePanel();
             });
             doc.getElementById("local-draft-export-bundle").addEventListener("click", function () {
                 saveBundle();
+                closePanel();
             });
             doc.getElementById("local-draft-load-file").addEventListener("click", function () {
                 triggerLoadFile();
+                closePanel();
             });
             doc.getElementById("local-draft-open-map").addEventListener("click", function () {
                 if (typeof global.openProjectMap === "function") global.openProjectMap();
+                closePanel();
             });
             doc.getElementById("local-draft-close-map").addEventListener("click", function () {
                 if (typeof global.closeProjectMap === "function") global.closeProjectMap();
+                closePanel();
             });
             doc.getElementById("local-draft-map-view-focus").addEventListener("click", function () {
                 if (typeof global.setProjectMapView === "function") global.setProjectMapView("focus");
+                closePanel();
             });
             doc.getElementById("local-draft-map-view-full").addEventListener("click", function () {
                 if (typeof global.setProjectMapView === "function") global.setProjectMapView("full");
+                closePanel();
             });
             doc.getElementById("local-draft-map-view-tree").addEventListener("click", function () {
                 if (typeof global.setProjectMapView === "function") global.setProjectMapView("tree");
+                closePanel();
             });
             doc.getElementById("local-draft-map-narration-only").addEventListener("change", function (e) {
                 var ch = doc.getElementById("project-map-narration-only");
@@ -276,6 +314,7 @@
                     ch.dispatchEvent(new Event("change", { bubbles: true }));
                 }
             });
+            setupOutsideClickClose();
 
             return dock;
         }
