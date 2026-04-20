@@ -60,8 +60,8 @@ Synthèse des pistes à traiter **plus tard** (pas tout en parallèle). Détail 
 
 ### Documentation
 
-- **`docs/ARCHITECTURE.md`** : le **diagramme Mermaid** (flux sauvegarde / rechargement / bundle) n’est plus fidèle au comportement actuel — le **mettre à jour** ou le remplacer par un schéma à jour (JSON V2, `.escapegame`, `blob:`, export ZIP, Quill…).
-- **Doc « guide éditeur »** (nouveau fichier ou refonte ciblée) : reprendre les **fonctions principales**, leurs **interactions** (liste + carte + panneau latéral + selector + export), et une **amorce de vision** éditeur full nodal (ex. React) — incluant l’idée de **nœuds réutilisables** en logique (ex. même primitive « slider 0–1 » pour volume SFX vs opacité hotspot, avec **noms / rôles UI distincts** côté produit). Croiser **`docs/PLAN_EDITEUR_NODAL.md`** (Chemin B).
+- **`docs/ARCHITECTURE.md`** : le **diagramme Mermaid** (flux sauvegarde / rechargement / bundle) n’est plus fidèle au comportement actuel — le **mettre à jour** ou le remplacer par un schéma à jour (JSON V2, `.escapegame`, `blob:`, export ZIP, Quill, brouillon IndexedDB, `playerSaveMode`…).
+- **Doc « guide éditeur »** (nouveau fichier ou refonte ciblée) : reprendre les **fonctions principales**, leurs **interactions** (liste + carte + panneau latéral + selector + export), et une **amorce de vision** éditeur full nodal (ex. React) — incluant l’idée de **nœuds réutilisables** en logique (ex. même primitive « slider 0–1 » pour volume SFX vs opacité hotspot, avec **noms / rôles UI distincts** côté produit). Croiser **`docs/PLAN_EDITEUR_NODAL.md`** (Chemin B) et **`docs/PLAN_NODAL_PEDAGOGIE.md`** (intention pédagogique).
 
 ### Éditeur — brouillon / récupération après F5 accidentel
 
@@ -89,93 +89,28 @@ Plan détaillé (nouveau) : **`docs/plan_sauvegarde_locale_joueur.md`**.
 Décompression : **Propriétés → Débloquer** puis extraire ; si besoin **7-Zip**. Ce n’est pas un défaut du générateur ; une phrase dans la doc joueur (`Lisez-moi.txt` / README) peut suffire.
 
 ---
-## Nouveau chantier proposé — Timer + écrans de fin (V1 puis V2)
 
-### Objectif produit
-Ajouter une boucle de fin claire côté joueur avec :
-- un **timer** configurable dans l’éditeur,
-- un **écran Game Over** à l’expiration d’un compte à rebours (et option **scène Game Over** dédiée),
-- un **écran Victoire** (déclencheur simple en V1 + option **scène de victoire**),
-tout en restant compatible avec le schéma V2 et l’existant FR/EN.
+## Archive — Timer + écrans de fin (**livré**)
 
----
+Le périmètre détaillé (V1/V2, phases A–D) est **implémenté** ; le résumé technique est dans **`docs/ARCHITECTURE.md`** (timer global, `victorySceneId`, `gameOverSceneId`, `scene.timerOverride`, JSON embarqués côté joueur). Les entrées correspondantes sont aussi dans la section **Traitée** ci-dessus.
 
-### Périmètre V1 (prioritaire)
+**Checklist QA manuelle** (pas de CI — à cocher au fil des campagnes) :
 
-#### 1) Paramètres globaux projet (éditeur)
-Ajouter dans les réglages globaux :
-- `timer.enabled` (bool)
-- `timer.mode` (`countdown` | `countup`)
-- `timer.startSeconds` (number, utilisé si `countdown`)
-- `timer.autoStart` (bool)
-- `timer.pauseWhenPopupOpen` (bool, optionnel)
-- `victorySceneId` (string, optionnel, V1 simple)
-- `gameOverSceneId` (string, optionnel) — scène dédiée : lorsque le joueur **entre** dans cette scène, la modale **Game Over** s’affiche (contenus `endScreens.gameOver`). Peut être atteinte par expiration du timer global, par le timer local d’une scène (`onExpire: gameOver`), ou par tout hotspot « aller à la scène ».
-
-Écrans de fin globaux :
-- `endScreens.gameOver.title`
-- `endScreens.gameOver.bodyHtml`
-- `endScreens.gameOver.buttonLabel`
-- `endScreens.victory.title`
-- `endScreens.victory.bodyHtml`
-- `endScreens.victory.buttonLabel`
-
-#### 2) Runtime joueur
-- Afficher un timer dans le HUD.
-- Démarrer/arrêter selon config.
-- En `countdown`, quand `0` est atteint -> ouvrir écran **Game Over** (ou, si `gameOverSceneId` est défini et que la scène courante est différente, **navigation** vers cette scène puis modale au `scenechange`).
-- Déclencher **Victoire** quand la scène courante == `victorySceneId`.
-- Déclencher **Game Over** (modale) quand la scène courante == `gameOverSceneId` (y compris après navigation depuis timer / pression locale / hotspot).
-- Bouton principal écran de fin : “Rejouer” (reload propre de la partie).
-
-#### 3) Compatibilité
-- Si les champs n’existent pas dans un ancien projet : comportement inchangé (timer désactivé, pas d’écran final forcé).
-- Pas de rupture sur SFX, inventaire, selector, popup.
-
----
-
-### Périmètre V2 (optionnel, après validation V1)
-
-Overrides par scène :
-- `scene.timerOverride.enabled`
-- `scene.timerOverride.seconds`
-- `scene.timerOverride.onExpire` (`gameOver` | `gotoScene` | `showMessage`)
-- `scene.timerOverride.targetScene` (si `gotoScene`)
-
-Objectif : scènes “pression” avec compte à rebours local.
-
----
-
-### Découpage en phases (1 commit = 1 thème)
-
-- **Phase A — Schéma + UI éditeur**
-  - Ajouter les champs globaux timer/end screens dans le modèle + formulaires FR/EN.
-- **Phase B — Joueur timer** *(livré : HTML export FR/EN — HUD, config JSON, Game Over, pause popups / réglages / selector / mot de passe)*
-  - HUD timer, mode countup/countdown, expiration -> Game Over.
-- **Phase C — Victoire** *(livré : runtime export FR/EN + doc UI « auto-start »)*
-  - Déclenchement via `victorySceneId` + écran victoire.
-- **Phase D — Overrides scène (V2)** *(livré : `scene.timerOverride` + runtime HUD / `scenechange`)*
-  - Compte à rebours local par scène + actions à expiration.
-
----
-
-### Critères de validation (smoke tests — exécution manuelle)
-
-Ces points ne sont pas couverts par une CI automatique dans le dépôt : à valider lors d’une session de test (éditeur FR/EN, export `index.html` ou ZIP, joueur). Cocher au fil des campagnes QA.
-
-- [ ] Projet sans timer: comportement identique à avant.
-- [ ] Timer countdown: décrémente, atteint 0, affiche Game Over.
-- [ ] Timer countup: incrémente sans interrompre le jeu.
-- [x] `victorySceneId`: arrivée sur la scène cible -> écran victoire.
-- [ ] `gameOverSceneId`: entrée sur la scène cible -> modale Game Over ; expiration timer / pression locale avec navigation si configurée.
-- [ ] Bouton “Rejouer”: redémarrage propre.
-- [ ] Save/load JSON + bundle `.escapegame`: paramètres conservés.
-- [ ] FR/EN: labels/messages corrects dans chaque langue.
+- [ ] Projet sans timer : comportement identique à avant.
+- [ ] Timer countdown : décrémente, atteint 0, affiche Game Over.
+- [ ] Timer countup : incrémente sans interrompre le jeu.
+- [x] `victorySceneId` : arrivée sur la scène cible → écran victoire.
+- [ ] `gameOverSceneId` : entrée sur la scène cible → modale Game Over ; expiration timer / pression locale avec navigation si configurée.
+- [ ] Bouton « Rejouer » : redémarrage propre.
+- [ ] Save/load JSON + bundle `.escapegame` : paramètres conservés.
+- [ ] FR/EN : labels/messages corrects dans chaque langue.
 - [ ] Aucune régression visible sur selector, inventaire, SFX, transitions.
 
 ---
 
-### Notes techniques
-- Conserver la logique technique partagée autant que possible; laisser FR/EN surtout pour les chaînes affichées.
-- Éviter d’introduire i18n complet dans ce chantier (hors scope).
-- Favoriser un ajout progressif pour limiter les risques de régression.
+## Orientation produit (discussion, sans calendrier)
+
+- **Pause ajout de grosses fonctions** : produit déjà riche ; polish UI et tests manuels peuvent suffire pendant un temps.
+- **Chemin B — graphe nodal** : intérêt pédagogique pour un **vrai** graphe (au-delà de Drawflow). **React Flow** (ou équivalent) reste l’option documentée dans `docs/PLAN_EDITEUR_NODAL.md` / `docs/ARCHITECTURE.md` : **remplacer la couche « vue graphe »** en gardant **`EditorCore` + JSON V2** comme contrat ; le formulaire liste / panneau latéral peut rester l’éditeur détaillé — pas besoin de « tout casser » le pipeline `project.json` / `.escapegame` / génération joueur.
+
+**Quand ce chantier redémarrera** : spike ou PR dédiée (build tool si besoin, montage dans la modale carte, lecture depuis `getCurrentProjectData()`, puis aller-retour minimal graphe ↔ DOM / sélection comme aujourd’hui).

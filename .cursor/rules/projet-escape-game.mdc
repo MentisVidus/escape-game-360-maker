@@ -24,12 +24,14 @@ alwaysApply: true
 - **`js/editeur-app.js`** / **`js/editor-en-app.js`** — UI, formulaires, `getCurrentProjectData()`, `saveProject` / `loadProject` (`.json` / **`.escapegame`**), `saveProjectBundle`, hotspots, selector, previews. **Garder FR et EN alignés** (voir `docs/CONTRIBUTING.md`).
 - **`js/editor-quill-scenes.js`** — Quill sur `.editor-rich-text`, listes `f-target` / `sel-scene-target`, **`updateQuillTheme()`** (sync couleurs + police popups), enregistrement **Font** / **Size** Quill, **délégation `blur`/`change`/`focusin` sur `document.body` pour `.sc-id`** (panneau latéral carte : les blocs ne sont plus dans `#scenes-container`).
 - **`js/editeur-generate.js`** / **`js/editor-en-generate.js`** — `buildPlayerHtmlTemplate()` (HTML joueur), `generateGame()` (avertissement si médias locaux), `exportGameWebZip()` ; adaptateurs **V2 → runtime joueur** (`choiceV2ToLegacy`, `actionV2ToPlayerArgs`, …). Le joueur est un **gros template literal** dans `generateGame()`.
-- **`xflow/project-graph.js`** — Drawflow : vues **focus** / **full** / **tree**, filtre narration, panneau latéral (**montage DOM** des `.scene-block` / hotspots dans `#project-map-side-content`).
+- **`xflow/draw/project-graph.js`** — Drawflow : vues **focus** / **full** / **tree**, filtre narration, panneau latéral (**montage DOM** des `.scene-block` / hotspots dans `#project-map-side-content`).
 - **`css/editor.css`** — Chrome éditeur + styles Quill (`.ql-font-*`, tailles, labels picker FR/EN).
 
 ## Documentation à lire avant gros changements
 - `docs/ARCHITECTURE.md` — flux, JSON, carte, Quill, audio, pièges **selector**.
-- `docs/PLAN_EDITEUR_NODAL.md` — état livré V2 / hybride, suite (bundle, React long terme).
+- `docs/PLAN_EDITEUR_NODAL.md` — état livré V2 / hybride, Chemin B (React Flow, jalons).
+- `docs/PLAN_NODAL_PEDAGOGIE.md` — intention produit / pédagogie nodale (complément au plan nodal).
+- `docs/PLAN_REACT_INTEGRATION.md` — branche Git `feat/react-map`, Vite **`xflow/react/`**, Drawflow **`xflow/draw/`**, intégration sans casser l’éditeur vanilla.
 - `docs/SELECTOR_SPEC.md` — menus à choix, imbrication, SFX.
 - `docs/CONTRIBUTING.md` — synchro FR/EN.
 - `docs/todo.md` — backlog court (tâches / bugs repérés en test), distinct des specs ; voir aussi `.cursor/rules/todo.mdc`.

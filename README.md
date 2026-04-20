@@ -15,7 +15,7 @@ L’éditeur repose sur une **couche headless** ([`js/editor-core.js`](js/editor
 - **Textes enrichis** : contenus HTML dans **`payload.copy`** (champs `bodyHtml`, `buttonLabel` selon le type d’action).
 - **Audio** : forme normalisée **`{ url, volume }`** pour la musique globale, l’ambiance par scène et les effets sonores des actions.
 
-Pour le détail technique (carte Drawflow, panneau latéral, Quill, flux selector) : **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** et **[docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md)**.
+Pour le détail technique (carte Drawflow, panneau latéral, Quill, flux selector) : **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** et **[docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md)**. Intention **pédagogique** du nodal (publics, repères Scratch / LEGO) : **[docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md)**.
 
 ---
 
@@ -37,7 +37,9 @@ Pour le détail technique (carte Drawflow, panneau latéral, Quill, flux selecto
 ### Documentation (développeurs & assistants IA)
 
 * [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — dépôt, **JSON V2**, **`.escapegame`**, export ZIP Web, carte, Quill, Pannellum, audio, HUD joueur, selector.
-* [docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md) — vision **nodale / hybride**, état d’avancement, suite produit.
+* [docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md) — vision **nodale / hybride**, état d’avancement, Chemin B (React Flow).
+* [docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md) — **pédagogie & intention** (EPN, graphe vs formulaire, anti-spaghetti).
+* [docs/PLAN_REACT_INTEGRATION.md](docs/PLAN_REACT_INTEGRATION.md) — **branche Git + React** (`main` stable, **`xflow/react/`** Vite ; carte Drawflow **`xflow/draw/`**).
 * [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — synchronisation FR/EN, bonnes pratiques.
 * [docs/SELECTOR_SPEC.md](docs/SELECTOR_SPEC.md) — menus à choix, imbrication, SFX.
 * [docs/todo.md](docs/todo.md) — mini backlog technique (tests, suivi), distinct des specs.
@@ -134,7 +136,7 @@ A **headless** layer ([`js/editor-core.js`](js/editor-core.js)) defines a **univ
 - **Rich text** lives under **`payload.copy`** (e.g. `bodyHtml`, `buttonLabel` depending on action type).
 - **Audio** uses **`{ url, volume }`** for global music, per-scene ambiance, and action SFX.
 
-See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md)** for technical depth.
+See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md)** for technical depth. Nodal **pedagogy & product intent**: **[docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md)**.
 
 ---
 
@@ -157,7 +159,9 @@ See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/PLAN_EDITEUR_NO
 ### Technical documentation
 
 * [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — repo layout, **V2 JSON**, **`.escapegame`**, Web ZIP export, map, Quill, Pannellum, audio, player HUD, selector.
-* [docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md) — hybrid / nodal vision, status, next steps.
+* [docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md) — hybrid / nodal vision, status, Chemin B (React Flow).
+* [docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md) — pedagogy & intent (workshop audiences, graph vs form).
+* [docs/PLAN_REACT_INTEGRATION.md](docs/PLAN_REACT_INTEGRATION.md) — **Git branch + React** (stable `main`, **`xflow/react/`** Vite; Drawflow map **`xflow/draw/`**).
 * [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — FR/EN sync, safe changes.
 * [docs/SELECTOR_SPEC.md](docs/SELECTOR_SPEC.md) — choice menus, nesting, SFX.
 * [docs/todo.md](docs/todo.md) — short technical backlog (tests, tracking), not a functional spec.

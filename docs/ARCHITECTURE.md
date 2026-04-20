@@ -19,14 +19,17 @@ This document is for **developers** and **AI assistants** working on the reposit
 | [js/editor-shared-hotspot-dom-mapper.js](../js/editor-shared-hotspot-dom-mapper.js) | Shared FR/EN hotspot DOM mapper core (`hotspotDomToV2`) with locale options and injected dependencies (`selectorChoicesFromTextarea`, `legacyActionToV2`). |
 | [js/editor-shared-timer.js](../js/editor-shared-timer.js) | Shared FR/EN timer/end-screens settings helpers (`readTimerSettingsFromDom`, `applyTimerSettingsToDom`, `normalizeTimerConfig`) used by editor serialization/load UI wiring. |
 | [js/editor-shared-export-text.js](../js/editor-shared-export-text.js) | Optional **export sanitization** for editor “template” copy (placeholder defaults, Quill-empty HTML, selector choices) so `getCurrentProjectData()` / timer read paths do not persist boilerplate text. |
+| [js/editor-shared-local-draft.js](../js/editor-shared-local-draft.js) | **Editor local draft** — IndexedDB snapshots (JSON + blobs), quota, per-tab keys; consumed by FR/EN `*-app.js`. |
+| [js/editor-shared-local-draft-ui.js](../js/editor-shared-local-draft-ui.js) | **Draft dock / restore UX** — shared strings via options from `editeur-app.js` / `editor-en-app.js`. |
 | [js/editor-shared-project-serialization.js](../js/editor-shared-project-serialization.js) | Shared FR/EN project serialization core (`getCurrentProjectData`) with injected dependencies (`EditorCore`, `hotspotDomToV2`) to keep save/export mapping logic aligned between locales. |
+| [js/player-shared-save.js](../js/player-shared-save.js) | **Player progression** — IndexedDB quicksave, optional manual save bundle import/export; driven by project `playerSaveMode` in generated FR/EN players. |
 | [js/editor-shared-preview-picker.js](../js/editor-shared-preview-picker.js) | Shared FR/EN 360 tools core for picker + scene preview (`openPicker`, `validerCoordonnees`, `closePicker`, `previewScene`, `closeScenePreview`) with locale message options. |
 | [js/editor-shared-duplication.js](../js/editor-shared-duplication.js) | Shared FR/EN duplication helpers (`duplicateHotspot`, `duplicateScene`) with injected `addHotspot` / `addScene` / `extractHotspotData` and locale strings for prompts and copy suffixes. |
 | [js/editeur-app.js](../js/editeur-app.js) | French editor: UI, scenes/hotspots, save/load (`.json` / **`.escapegame`** bundle), previews, **`getCurrentProjectData()`**, map hooks — everything except `generateGame`. |
 | [js/editeur-generate.js](../js/editeur-generate.js) | French: `generateGame()` (player template), **`exportGameWebZip()`** (hosting ZIP), `window.onload` boot. |
 | [js/editor-en-app.js](../js/editor-en-app.js) | English editor — mirrors `editeur-app.js` (including bundle save/load). |
 | [js/editor-en-generate.js](../js/editor-en-generate.js) | English: `generateGame()` + **`exportGameWebZip()`** + boot; mirrors `editeur-generate.js`. |
-| [xflow/project-graph.js](../xflow/project-graph.js) | **Drawflow** map: build graph from project, views (focus / full / tree), narration filter, side panel **DOM mount**. |
+| [xflow/draw/project-graph.js](../xflow/draw/project-graph.js) | **Drawflow** map: build graph from project, views (focus / full / tree), narration filter, side panel **DOM mount**. |
 | [README.md](../README.md) | User-facing documentation (FR + EN). |
 
 There is **no build step**. Open either HTML file from disk or host statically (e.g. GitHub Pages). HTML files live at the repo root; assets use relative paths (`css/`, `js/`). Typical load order: **Drawflow** → **editor-core.js** → **Quill** → **editor-quill-scenes.js** → **`*-app.js`** → **`*-generate.js`** (see each HTML file for exact `defer` order).
@@ -72,7 +75,7 @@ flowchart LR
 
 ## Hybrid UI — Drawflow map & side panel
 
-The **project map** is a fullscreen modal using [Drawflow](https://github.com/jerosoler/Drawflow) ([`xflow/project-graph.js`](../xflow/project-graph.js)).
+The **project map** is a fullscreen modal using [Drawflow](https://github.com/jerosoler/Drawflow) ([`xflow/draw/project-graph.js`](../xflow/draw/project-graph.js)).
 
 - **Views**: **Focus** (active scene + compact targets, double-click to refocus), **Full** (BFS-style layout from the first scene), **Tree** (acyclic / “narrative” style flow with **alias** nodes for revisits).
 - **Narration mode**: optional filter (checkbox) to emphasize **scene transitions** in the graph.
@@ -235,7 +238,7 @@ flowchart TD
 | `updatePreview` | Inventory + dialog preview; calls **`updateQuillTheme()`** when present. |
 | `generateGame` | Read project → build player template → download **`index.html`**. |
 | `exportGameWebZip` | Read project → fetch Pannellum → build **hosting ZIP** (`lib/`, `media/`, …). |
-| `refreshProjectMapGraphInPlace` / `setProjectMapView` | Regenerate or switch map view (`project-graph.js`). |
+| `refreshProjectMapGraphInPlace` / `setProjectMapView` | Regenerate or switch map view (`xflow/draw/project-graph.js`). |
 
 Hotspot **types** in the player are handled in **`hotspotDispatcher`** inside the generated script.
 
@@ -299,7 +302,9 @@ Aligned with [README.md](../README.md):
 - **Chemin A** — **Web hosting ZIP** (`exportGameWebZip`) and **editor bundle** (`.escapegame`) are **implemented**; remaining work is polish, multi-file stories, and stricter **versioning** once the beta stabilizes.
 - **Chemin B (long term)** — **React Flow** (or similar) replacing Drawflow only if the project adopts a richer front-end stack; keep **`EditorCore` + V2** as the contract.
 
-Other ideas: **unified in-game menu hub** (see [Audio (player)](#audio-player)), editor draft autosave / restore, player progression persistence options, multi-level games + `localStorage` inventory handoff, picked-item persistence across revisits, i18n beyond dual HTML files.
+**Local persistence (delivered)** — **Editor**: IndexedDB draft pipeline (`editor-shared-local-draft.js`, UI dock). **Player**: progression + manual save files via `playerSaveMode` (`none` / `manual` / `auto`) and `player-shared-save.js` in the generated template. Design notes: [PLAN_SAUVEGARDE_LOCALE_EDITEUR.md](./PLAN_SAUVEGARDE_LOCALE_EDITEUR.md), [plan_sauvegarde_locale_joueur.md](./plan_sauvegarde_locale_joueur.md).
+
+Other ideas: **unified in-game menu hub** (see [Audio (player)](#audio-player)), **undo / redo** or “revert to last draft snapshot” (see `docs/todo.md`), multi-level games + `localStorage` inventory handoff, picked-item persistence across revisits, i18n beyond dual HTML files.
 
 ---
 
