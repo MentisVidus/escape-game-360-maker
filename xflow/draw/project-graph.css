@@ -112,6 +112,25 @@
     min-height: 180px;
 }
 
+/* B1 — React Flow remplace Drawflow dans la zone carte (?reactMap=1) */
+#project-map-canvas-wrap.project-map-react-primary #project-drawflow {
+    display: none !important;
+}
+
+#project-map-canvas-wrap.project-map-react-primary #react-map-root-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-bottom: none;
+}
+
+#project-map-canvas-wrap.project-map-react-primary #react-map-root {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+}
+
 /* Boutons flottants sur la carte (paramètres globaux, nouvelle scène) */
 .project-map-fab {
     position: absolute;

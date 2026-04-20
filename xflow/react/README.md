@@ -1,6 +1,6 @@
 # xflow/react — React Flow + Vite (Chemin B)
 
-Micro-app **Vite + React + TypeScript + @xyflow/react** pour le jalon **B0** (graphe lecture seule). La carte **Drawflow** (`xflow/draw/`) reste la vue principale ; ce bundle est chargé **uniquement** si le feature flag est actif (`?reactMap=1` ou `localStorage.setItem('reactMap','1')`).
+Micro-app **Vite + React + TypeScript + @xyflow/react**. Avec **`?reactMap=1`** (ou `localStorage.setItem('reactMap','1')`), la modale carte utilise **React Flow à la place de Drawflow** (**jalon B1** : vues Focus / complète / arbre, mode narration, double-clic focus, panneau latéral DOM inchangé). Sans flag, seul **Drawflow** est utilisé.
 
 ## Build (option B — artifacts non versionnés)
 
@@ -26,6 +26,6 @@ Ouvre l’URL indiquée par Vite ; le conteneur `#react-map-root` est dans `inde
 
 1. `npm run build` dans `xflow/react/`.
 2. Ouvrir `editeur.html?reactMap=1` ou `editor_en.html?reactMap=1` (ou activer le flag via `localStorage`).
-3. Ouvrir la **Carte du projet** : bandeau React Flow au-dessus de Drawflow ; données issues de `getCurrentProjectData()` si disponible, sinon graphe **mock** à deux nœuds.
+3. Ouvrir la **Carte du projet** : graphe React Flow pleine zone (Drawflow masqué) ; données `getCurrentProjectData()` ; comportement aligné sur `xflow/draw/project-graph.js`.
 
 Voir aussi [docs/PLAN_REACT_INTEGRATION.md](../../docs/PLAN_REACT_INTEGRATION.md).

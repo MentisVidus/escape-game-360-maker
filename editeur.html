@@ -456,7 +456,7 @@
     <div id="project-map-body" class="project-map-body">
         <div id="project-map-canvas-wrap" class="project-map-canvas-wrap">
             <div id="react-map-root-wrap" class="project-map-react-root-wrap" hidden>
-                <p class="project-map-react-beta-hint">Graphe lecture seule (React Flow, expérimentation) — la carte Drawflow reste inchangée en dessous.</p>
+                <p class="project-map-react-beta-hint">Carte React Flow (bêta, ?reactMap=1) — remplace la grille Drawflow ; mêmes vues Focus / complète / arbre et panneau latéral.</p>
                 <div id="react-map-root"></div>
             </div>
             <button type="button" id="project-map-fab-settings" class="project-map-fab project-map-fab-settings" title="Paramètres généraux du jeu">⚙</button>
@@ -511,6 +511,7 @@
             return false;
         }
         if (!reactMapFlagOn()) return;
+        window.__useReactProjectMap = true;
         var wrap = document.getElementById("react-map-root-wrap");
         if (wrap) wrap.removeAttribute("hidden");
         var link = document.createElement("link");

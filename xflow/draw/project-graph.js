@@ -237,10 +237,15 @@
      * Regénère le graphe (même mode / même scène focus) après édition dans le panneau.
      */
     function refreshProjectMapGraphInPlace() {
-        var ed = window._projectMapEditor;
-        if (!ed || typeof getCurrentProjectData !== "function") return;
         var modal = document.getElementById("project-map-modal");
         if (!modal || modal.style.display === "none") return;
+        if (window.__useReactProjectMap) {
+            restoreProjectMapSidePanelDomOnly();
+            document.dispatchEvent(new CustomEvent("react-project-map", { detail: { type: "refresh" } }));
+            return;
+        }
+        var ed = window._projectMapEditor;
+        if (!ed || typeof getCurrentProjectData !== "function") return;
         restoreProjectMapSidePanelDomOnly();
         var project = getCurrentProjectData();
         var mode = window._projectMapViewMode || "focus";
@@ -356,16 +361,14 @@
         if (body) body.classList.add("project-map-side-open");
     }
 
-    function onProjectMapNodeSelected(nodeId) {
+    /**
+     * Montage panneau latéral depuis les métadonnées d’un nœud (Drawflow ou React Flow).
+     * @param {object|null|undefined} d — node.data (kind scene|hotspot|redirect)
+     */
+    function mountProjectMapSelectionFromMapData(d) {
         var mode = window._projectMapViewMode;
         if (mode !== "focus" && mode !== "tree") return;
-
-        var ed = window._projectMapEditor;
-        if (!ed || typeof ed.getNodeFromId !== "function") return;
-        var node = ed.getNodeFromId(String(nodeId));
-        if (!node || !node.data) return;
-        var d = node.data;
-        if (d.kind === "redirect") return;
+        if (!d || d.kind === "redirect") return;
 
         var el = null;
         var title = "";
@@ -383,6 +386,27 @@
         }
         if (!el) return;
         mountBlockInSidePanel(el, title);
+    }
+
+    function onProjectMapNodeSelected(nodeId) {
+        var ed = window._projectMapEditor;
+        if (!ed || typeof ed.getNodeFromId !== "function") return;
+        var node = ed.getNodeFromId(String(nodeId));
+        if (!node || !node.data) return;
+        mountProjectMapSelectionFromMapData(node.data);
+    }
+
+    function setReactProjectMapLayout(active) {
+        var wrap = document.getElementById("project-map-canvas-wrap");
+        var draw = document.getElementById("project-drawflow");
+        if (!wrap || !draw) return;
+        if (active) {
+            wrap.classList.add("project-map-react-primary");
+            draw.style.display = "none";
+        } else {
+            wrap.classList.remove("project-map-react-primary");
+            draw.style.display = "";
+        }
     }
 
     function ensureProjectMapDrawflowEvents() {
@@ -916,9 +940,17 @@
      * @param {string} mode — 'focus' | 'full' | 'tree'
      */
     function setProjectMapView(mode) {
+        window._projectMapViewMode = mode;
+        if (window.__useReactProjectMap) {
+            if (typeof getCurrentProjectData !== "function") return;
+            document.dispatchEvent(
+                new CustomEvent("react-project-map", { detail: { type: "setView", mode: mode } })
+            );
+            updateProjectMapToolbar(mode);
+            return;
+        }
         var ed = window._projectMapEditor;
         if (!ed || typeof getCurrentProjectData !== "function") return;
-        window._projectMapViewMode = mode;
         ed.clear();
         var project = getCurrentProjectData();
         var opts = { viewMode: mode };
@@ -1009,9 +1041,23 @@
             console.error("Map: missing elements or getCurrentProjectData.");
             return;
         }
-        modal.style.display = "flex";
-
         var project = getCurrentProjectData();
+
+        if (window.__useReactProjectMap) {
+            modal.style.display = "flex";
+            setReactProjectMapLayout(true);
+            ensureProjectMapSideCloseButton();
+            ensureProjectMapFabButtons();
+            ensureProjectMapNarrationCheckbox();
+            window._projectMapViewMode = "focus";
+            window._projectMapActiveSceneKey =
+                project.scenes && project.scenes.length > 0 ? sceneKey(project.scenes[0], 0) : null;
+            updateProjectMapToolbar("focus");
+            document.dispatchEvent(new CustomEvent("react-project-map", { detail: { type: "open" } }));
+            return;
+        }
+
+        modal.style.display = "flex";
 
         if (!window._projectMapEditor) {
             if (typeof Drawflow === "undefined") {
@@ -1042,6 +1088,10 @@
 
     function closeProjectMap() {
         restoreProjectMapSidePanelDomOnly();
+        if (window.__useReactProjectMap) {
+            setReactProjectMapLayout(false);
+            document.dispatchEvent(new CustomEvent("react-project-map", { detail: { type: "close" } }));
+        }
         var modal = document.getElementById("project-map-modal");
         if (modal) modal.style.display = "none";
     }
@@ -1061,4 +1111,14 @@
     window.setProjectMapView = setProjectMapView;
     window.sceneKeyFromProjectScene = sceneKey;
     window.mountProjectMapSidePanelElement = mountProjectMapSidePanelElement;
+    window.mountProjectMapSelectionFromMapData = mountProjectMapSelectionFromMapData;
+    window.updateProjectMapToolbar = updateProjectMapToolbar;
+    window._projectMapReactBridge = {
+        mountFromNodeData: mountProjectMapSelectionFromMapData,
+        clearSelectionAndRefresh: function () {
+            restoreProjectMapSidePanelDomOnly();
+            document.dispatchEvent(new CustomEvent("react-project-map", { detail: { type: "refresh" } }));
+        },
+        setToolbar: updateProjectMapToolbar
+    };
 })();

@@ -1,0 +1,64 @@
+/* Nœuds carte — React Flow (sans wrapper .drawflow-node) */
+.rf-map-scene-root.rf-map-scene-active-wrap .xflow-node-scene {
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.5), 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.rf-map-scene-root.rf-map-scene-collapsed-wrap {
+  cursor: pointer;
+}
+
+.rf-map-scene-root.rf-map-scene-collapsed-wrap .xflow-node-scene {
+  opacity: 0.92;
+  border-style: dashed;
+  border-color: #52b788;
+  max-width: 200px;
+}
+
+.rf-map-scene-root.rf-map-scene-tree-wrap .xflow-node-scene {
+  border-color: #3498db;
+}
+
+.rf-map-scene-root.rf-map-scene-full-wrap .xflow-node-scene {
+  box-shadow: 0 0 0 1px rgba(52, 152, 219, 0.25);
+}
+
+.rf-map-redirect-root .xflow-node-redirect-inner {
+  min-width: 120px;
+  max-width: 200px;
+  padding: 12px 18px;
+  background: #8e44ad;
+  border: 2px dashed rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  color: #ffffff;
+  text-align: center;
+}
+
+.rf-map-redirect-root .xflow-node-redirect-inner .xflow-node-title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.92);
+  opacity: 1;
+}
+
+.rf-map-redirect-root .xflow-node-redirect-inner .xflow-node-body {
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #ffffff;
+}
+
+.rf-map-redirect-root .xflow-node-redirect-inner .xflow-node-sub {
+  margin-top: 6px;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.88);
+  opacity: 1;
+}
+
+.rf-map-redirect-root .xflow-node-redirect-inner .xflow-node-sub code {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 1px 5px;
+  border-radius: 4px;
+}

@@ -447,7 +447,7 @@
     <div id="project-map-body" class="project-map-body">
         <div id="project-map-canvas-wrap" class="project-map-canvas-wrap">
             <div id="react-map-root-wrap" class="project-map-react-root-wrap" hidden>
-                <p class="project-map-react-beta-hint">Read-only graph (React Flow, experimental) — the Drawflow map below is unchanged.</p>
+                <p class="project-map-react-beta-hint">React Flow map (beta, ?reactMap=1) — replaces the Drawflow canvas; same Focus / full / tree views and side panel.</p>
                 <div id="react-map-root"></div>
             </div>
             <button type="button" id="project-map-fab-settings" class="project-map-fab project-map-fab-settings" title="Global game settings">⚙</button>
@@ -502,6 +502,7 @@
             return false;
         }
         if (!reactMapFlagOn()) return;
+        window.__useReactProjectMap = true;
         var wrap = document.getElementById("react-map-root-wrap");
         if (wrap) wrap.removeAttribute("hidden");
         var link = document.createElement("link");
