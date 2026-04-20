@@ -77,6 +77,12 @@ async function saveProjectBundle() {
             .trim()
             .slice(0, 80);
         saveAs(outBlob, (baseTitle || "EscapeGame") + ".escapegame");
+        try {
+            await localDraftManager.markSynchronizedAfterSave("bundle-save");
+            await refreshLocalDraftStatusUi();
+        } catch (eSync) {
+            console.error("draft.error", eSync);
+        }
     } catch (e) {
         console.error(e);
         alert("Failed to save .escapegame: " + (e && e.message ? e.message : String(e)));
@@ -153,6 +159,92 @@ var ProjectSerializer = EditorSharedProjectSerializationApi.createSerializer({
     readTimerSettings: readTimerSettingsFromDom
 });
 var getCurrentProjectData = ProjectSerializer.getCurrentProjectData;
+
+var EditorSharedLocalDraftApi = window.EditorSharedLocalDraft;
+if (!EditorSharedLocalDraftApi) {
+    throw new Error("EditorSharedLocalDraft unavailable (js/editor-shared-local-draft.js).");
+}
+var localDraftManager = EditorSharedLocalDraftApi.createManager({
+    getCurrentProjectData: getCurrentProjectData,
+    eachPortableMediaUrlInProject: eachPortableMediaUrlInProject,
+    rewritePortableUrlsInProjectClone: rewritePortableUrlsInProjectClone,
+    getBlobOrFileForPortableUrl: getBlobOrFileForPortableUrl,
+    registerBundleBlobUrl: registerBundleBlobUrl,
+    bundleAssetsMap: window.bundleAssets
+});
+var EditorSharedLocalDraftUiApi = window.EditorSharedLocalDraftUi;
+if (!EditorSharedLocalDraftUiApi) {
+    throw new Error("EditorSharedLocalDraftUi unavailable (js/editor-shared-local-draft-ui.js).");
+}
+var localDraftUi = EditorSharedLocalDraftUiApi.createLocalDraftUi({
+    document: document,
+    manager: localDraftManager,
+    applyLoadedProject: applyLoadedProject,
+    autosaveDelayMs: 45000,
+    openSuccessDelayMs: 60000,
+    strings: {
+        dateLocale: "en-GB",
+        sourceBundle: "bundle",
+        sourceFile: "file",
+        sourceSession: "session",
+        titleSave: "Save",
+        titleLoad: "Load",
+        titleMap: "Map",
+        panelSaveTitle: "Local draft",
+        panelLoadTitle: "Load",
+        panelMapTitle: "Map",
+        statusInit: "Initializing...",
+        labelEnable: "Enable",
+        labelLightMode: "Light mode (no media)",
+        btnSnapshot: "Snapshot",
+        btnClear: "Clear",
+        btnSaveJson: "Save .json",
+        btnSaveBundle: "Save .escapegame",
+        loadHelp: "Load a project from a local file.",
+        btnLoadFile: "Open .json / .escapegame",
+        mapHelp: "Quick map access.",
+        btnOpenMap: "Open map",
+        btnCloseMap: "Close map",
+        btnMapViewFocus: "Focus view",
+        btnMapViewFull: "Full graph",
+        btnMapViewTree: "Acyclic view",
+        labelMapNarration: "Narration mode",
+        statusUnavailable: "Local draft unavailable (IndexedDB blocked or unsupported).",
+        statusNoEstimate: "IndexedDB without quota estimate in this browser.",
+        statusStoragePrefix: "Storage: ",
+        unitMo: "MB",
+        statusWarnHigh: "High warning (>=90%): consider light mode.",
+        statusWarnLow: "Warning (>=80%).",
+        alertSnapshotFailPrefix: "Local snapshot failed: ",
+        confirmClearDrafts: "Clear local drafts for this tab?",
+        confirmIncompatiblePurge:
+            "Incompatible local drafts from an older version were found ({count}). Ignore and delete them?",
+        flagSync: "sync",
+        flagLight: "light",
+        untitledProject: "(Untitled)",
+        labelScenes: "scene(s)",
+        restorePromptHelp: "Enter a number to restore (leave empty to skip).",
+        restorePromptTitle: "Local drafts found:",
+        alertPartialRestorePrefix: "Partial restore: ",
+        alertPartialRestoreSuffix: "missing media file(s). Check related fields."
+    },
+    actions: {
+        saveJson: function () {
+            saveProject();
+        },
+        saveBundle: function () {
+            void saveProjectBundle();
+        },
+        triggerLoadFile: function () {
+            var inp = document.getElementById("file-import");
+            if (inp) inp.click();
+        }
+    }
+});
+var refreshLocalDraftStatusUi = localDraftUi.refreshStatusUi;
+var noteLocalDraftDirty = localDraftUi.noteDirty;
+var initLocalDraftFeature = localDraftUi.init;
+
 var EditorSharedPreviewPickerApi = window.EditorSharedPreviewPicker;
 if (!EditorSharedPreviewPickerApi) {
     throw new Error("EditorSharedPreviewPicker unavailable (js/editor-shared-preview-picker.js).");
@@ -1456,6 +1548,12 @@ function saveProject() {
     document.body.appendChild(lien); 
     lien.click(); 
     document.body.removeChild(lien);
+    localDraftManager
+        .markSynchronizedAfterSave("json-save")
+        .then(refreshLocalDraftStatusUi)
+        .catch(function (e) {
+            console.error("draft.error", e);
+        });
 }
 
 function applyLoadedProject(project) {
@@ -1609,6 +1707,12 @@ function loadProject(event) {
                         return mapZipAssetsToEditorSession(o.zip).then(function (pathMap) {
                             rewriteLoadedProjectPathsToBlobUrls(project, pathMap);
                             applyLoadedProject(project);
+                            localDraftManager.setSourceHint("bundle");
+                            localDraftManager.captureSnapshot("force").catch(function (eCap) {
+                                console.error("draft.error", eCap);
+                            });
+                            return refreshLocalDraftStatusUi();
+                        }).then(function () {
                             inputEl.value = "";
                         });
                     })
@@ -1618,6 +1722,13 @@ function loadProject(event) {
                 var project = EditorCore.parseProjectJSON(text);
                 revokeEditorBundleSession();
                 applyLoadedProject(project);
+                localDraftManager.setSourceHint("file");
+                localDraftManager
+                    .captureSnapshot("force")
+                    .then(refreshLocalDraftStatusUi)
+                    .catch(function (eCap) {
+                        console.error("draft.error", eCap);
+                    });
                 inputEl.value = "";
             }
         } catch (err) {
@@ -1700,3 +1811,9 @@ function updatePreview() {
         initRichEditorsIn(root);
     }
 })();
+
+window.addEventListener("load", function () {
+    setTimeout(function () {
+        initLocalDraftFeature();
+    }, 80);
+});
