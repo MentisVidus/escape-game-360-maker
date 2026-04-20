@@ -1613,6 +1613,12 @@ function applyLoadedProject(project) {
         var gVolDisp = document.getElementById("globalAudioVolVal");
         if (gVolDisp) gVolDisp.textContent = Number(gVolEl.value).toFixed(2);
     }
+    var psmEl = document.getElementById("playerSaveMode");
+    if (psmEl) {
+        var mode = project.playerSave && project.playerSave.mode ? String(project.playerSave.mode) : "manual";
+        if (mode !== "none" && mode !== "auto") mode = "manual";
+        psmEl.value = mode;
+    }
     applyTimerSettingsToDom(document, project);
 
     project.scenes.forEach(function (scene) {

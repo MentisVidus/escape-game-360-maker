@@ -238,6 +238,15 @@
         };
     }
 
+    function normalizePlayerSaveConfig(project) {
+        var p = project || {};
+        var ps = p.playerSave;
+        if (!ps || typeof ps !== "object") ps = {};
+        var mode = String(ps.mode || "manual").toLowerCase();
+        if (mode !== "none" && mode !== "auto") mode = "manual";
+        p.playerSave = { mode: mode };
+    }
+
     /**
      * Applique les formes canoniques v2 (audio + copy) après parse JSON.
      * @param {Object} project
@@ -255,6 +264,7 @@
         }
 
         normalizeTimerConfig(project);
+        normalizePlayerSaveConfig(project);
 
         var scenes = project.scenes;
         if (!Array.isArray(scenes)) project.scenes = [];
@@ -353,6 +363,9 @@
                     bodyHtml: "",
                     buttonLabel: ""
                 }
+            },
+            playerSave: {
+                mode: "manual"
             },
             popFont: "Arial, sans-serif",
             popColor: "#ffffff",

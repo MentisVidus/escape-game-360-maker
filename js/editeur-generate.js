@@ -169,6 +169,9 @@ function buildPlayerHtmlTemplate() {
         buttonLabel: String(endVictory.buttonLabel || "Rejouer").trim() || "Rejouer"
     };
     const playerVictoryJson = JSON.stringify(playerVictoryPayload).replace(/</g, "\\u003c");
+    var psm = project.playerSave && project.playerSave.mode ? String(project.playerSave.mode).toLowerCase() : "manual";
+    if (psm !== "none" && psm !== "auto") psm = "manual";
+    const playerSaveCfgJson = JSON.stringify({ mode: psm }).replace(/</g, "\\u003c");
 
     var sceneTimerOverridesMapBuild = {};
     (project.scenes || []).forEach(function (sc) {
@@ -510,7 +513,7 @@ function buildPlayerHtmlTemplate() {
         <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
             <button onclick="startGame(false)" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Commencer l'aventure</button>
             <button id="player-continue-btn" onclick="continueSavedGame()" disabled style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #334155; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); opacity: .7;">Continuer</button>
-            <button onclick="promptImportPlayerSaveFile()" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #0f766e; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Charger un fichier .escapegame</button>
+            <button id="player-import-start-btn" onclick="promptImportPlayerSaveFile()" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #0f766e; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Charger un fichier .escapegame</button>
         </div>
         <div id="player-save-start-status" style="margin-top:10px;font-size:0.9em;opacity:0.85;"></div>
     </div>
@@ -596,6 +599,7 @@ function buildPlayerHtmlTemplate() {
     <script type="application/json" id="escape360-timer-config">${playerTimerJson}</script>
     <script type="application/json" id="escape360-victory-config">${playerVictoryJson}</script>
     <script type="application/json" id="escape360-scene-timer-overrides">${sceneTimerOverridesJson}</script>
+    <script type="application/json" id="escape360-player-save-config">${playerSaveCfgJson}</script>
 
 <script>
     // Variables du joueur
@@ -627,6 +631,14 @@ function buildPlayerHtmlTemplate() {
             if (_stoParsed && typeof _stoParsed === "object") sceneTimerOverridesMap = _stoParsed;
         }
     } catch (eSto) {}
+    var PLAYER_SAVE_CONFIG = { mode: "manual" };
+    try {
+        var _pscEl = document.getElementById("escape360-player-save-config");
+        if (_pscEl && _pscEl.textContent) {
+            var _pscParsed = JSON.parse(_pscEl.textContent);
+            if (_pscParsed && typeof _pscParsed === "object") PLAYER_SAVE_CONFIG = _pscParsed;
+        }
+    } catch (ePsc) {}
     var activeScenePressure = null;
     var pressRunStart = null;
     var pressPausedAccum = 0;
@@ -706,21 +718,39 @@ function buildPlayerHtmlTemplate() {
     function syncPlayerSaveCheckboxes() {
         var cStart = document.getElementById("player-save-enable-start");
         var cSet = document.getElementById("player-save-enable-settings");
-        if (cStart) cStart.checked = !!playerSaveEnabled;
-        if (cSet) cSet.checked = !!playerSaveEnabled;
+        if (cStart) {
+            cStart.checked = !!playerSaveEnabled;
+            cStart.disabled = true;
+        }
+        if (cSet) {
+            cSet.checked = !!playerSaveEnabled;
+            cSet.disabled = true;
+        }
     }
     function updateContinueButtonState() {
         var btn = document.getElementById("player-continue-btn");
         if (!btn) return;
+        var mode = String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase();
+        if (mode === "none") {
+            btn.disabled = true;
+            btn.style.opacity = ".5";
+            btn.style.cursor = "not-allowed";
+            return;
+        }
         var canContinue = !!(pendingLocalSaveEnvelope && pendingLocalSaveEnvelope.state);
         btn.disabled = !canContinue;
         btn.style.opacity = canContinue ? "1" : ".7";
         btn.style.cursor = canContinue ? "pointer" : "not-allowed";
     }
     function onPlayerSaveToggleChanged(checked) {
-        playerSaveEnabled = !!checked;
+        var mode = String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase();
+        playerSaveEnabled = mode === "auto";
         syncPlayerSaveCheckboxes();
         updateContinueButtonState();
+        if (mode === "none") {
+            setPlayerSaveStatus("Sauvegarde progression désactivée par l'éditeur.");
+            return;
+        }
         if (!playerSaveEnabled) {
             setPlayerSaveStatus(
                 pendingLocalSaveEnvelope
@@ -731,6 +761,18 @@ function buildPlayerHtmlTemplate() {
         }
         setPlayerSaveStatus("Auto-save activé (1 slot).");
         refreshLatestPlayerSaveMeta().catch(function () {});
+    }
+    function applyPlayerSaveModeUi() {
+        var mode = String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase();
+        if (mode !== "none" && mode !== "auto") mode = "manual";
+        playerSaveEnabled = mode === "auto";
+        syncPlayerSaveCheckboxes();
+        var startImportBtn = document.getElementById("player-import-start-btn");
+        if (startImportBtn) startImportBtn.style.display = mode === "none" ? "none" : "";
+        var saveArea = document.getElementById("player-save-enable-settings");
+        if (saveArea && saveArea.parentElement && saveArea.parentElement.parentElement) {
+            saveArea.parentElement.parentElement.style.display = mode === "none" ? "none" : "";
+        }
     }
     function getCurrentSceneIdSafe() {
         if (typeof viewer === "undefined" || !viewer || typeof viewer.getScene !== "function") return "";
@@ -893,6 +935,10 @@ function buildPlayerHtmlTemplate() {
     }
     async function savePlayerProgressNow(reason, opts) {
         opts = opts || {};
+        var mode = String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase();
+        if (mode === "none") {
+            return { skipped: true, reason: "mode-none" };
+        }
         var force = !!opts.force || reason === "manual" || reason === "load";
         if (!playerSaveEnabled && !force) {
             setPlayerSaveStatus("Auto-save désactivé.");
@@ -984,6 +1030,10 @@ function buildPlayerHtmlTemplate() {
         updateTimerHudLabel();
     }
     async function continueSavedGame() {
+        if (String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase() === "none") {
+            alert("La sauvegarde joueur est désactivée dans ce jeu.");
+            return;
+        }
         try {
             var env = await readLatestPlayerSaveEnvelope();
             var check = validatePlayerSaveEnvelope(env);
@@ -1002,6 +1052,10 @@ function buildPlayerHtmlTemplate() {
         }
     }
     async function loadPlayerProgressFromSettings() {
+        if (String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase() === "none") {
+            alert("La sauvegarde joueur est désactivée dans ce jeu.");
+            return;
+        }
         if (!viewer) {
             await continueSavedGame();
             return;
@@ -1031,6 +1085,10 @@ function buildPlayerHtmlTemplate() {
         }
     }
     async function exportPlayerSaveFile() {
+        if (String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase() === "none") {
+            alert("La sauvegarde joueur est désactivée dans ce jeu.");
+            return;
+        }
         try {
             var res = await savePlayerProgressNow("manual", { force: true });
             if (!res || !res.ok || !res.envelope) {
@@ -1053,6 +1111,10 @@ function buildPlayerHtmlTemplate() {
         }
     }
     function promptImportPlayerSaveFile() {
+        if (String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase() === "none") {
+            alert("La sauvegarde joueur est désactivée dans ce jeu.");
+            return;
+        }
         var inp = document.getElementById("player-save-file-input");
         if (!inp) return;
         inp.value = "";
@@ -2162,10 +2224,13 @@ function buildPlayerHtmlTemplate() {
         timerNotifyBlockingOpen();
     }
 
-    syncPlayerSaveCheckboxes();
+    applyPlayerSaveModeUi();
     updateContinueButtonState();
-    setPlayerSaveStatus("Auto-save désactivé par défaut. Vous pouvez quand même charger une reprise locale.");
-    refreshLatestPlayerSaveMeta().catch(function () {});
+    if (String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase() === "none") {
+        setPlayerSaveStatus("Sauvegarde progression désactivée par l'éditeur.");
+    } else {
+        refreshLatestPlayerSaveMeta().catch(function () {});
+    }
     installPlayerSaveLifecycleHooks();
 <\/script>
 </body>
