@@ -67,7 +67,11 @@
                 "#local-draft-dock .dock-panel{min-width:290px;max-width:min(32vw,380px);background:rgba(31,41,55,.9);backdrop-filter:blur(2px);color:#f9fafb;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px;box-shadow:0 10px 24px rgba(0,0,0,.25);transform:translateX(-14px);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}" +
                 "#local-draft-dock .dock-panel.is-open{transform:translateX(0);opacity:1;pointer-events:auto}" +
                 "#local-draft-dock .dock-section{display:none}" +
-                "#local-draft-dock .dock-section.is-open{display:block}";
+                "#local-draft-dock .dock-section.is-open{display:block}" +
+                "#local-draft-dock .dock-map-view-btn{background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer}" +
+                "#local-draft-dock .dock-map-view-btn.is-active{background:#2563eb}" +
+                "#local-draft-dock .dock-map-close-btn{background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer}" +
+                "#local-draft-dock .dock-map-close-btn.is-open{background:#dc2626}";
             doc.head.appendChild(st);
         }
 
@@ -149,18 +153,18 @@
                 "<button type='button' id='local-draft-open-map' style='background:#0f766e;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>" +
                 t("btnOpenMap", "Open map") +
                 "</button>" +
-                "<button type='button' id='local-draft-close-map' style='background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>" +
+                "<button type='button' id='local-draft-close-map' class='dock-map-close-btn'>" +
                 t("btnCloseMap", "Close map") +
                 "</button>" +
                 "</div>" +
                 "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;'>" +
-                "<button type='button' id='local-draft-map-view-focus' style='background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>" +
+                "<button type='button' id='local-draft-map-view-focus' class='dock-map-view-btn'>" +
                 t("btnMapViewFocus", "Focus view") +
                 "</button>" +
-                "<button type='button' id='local-draft-map-view-full' style='background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>" +
+                "<button type='button' id='local-draft-map-view-full' class='dock-map-view-btn'>" +
                 t("btnMapViewFull", "Full graph") +
                 "</button>" +
-                "<button type='button' id='local-draft-map-view-tree' style='background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>" +
+                "<button type='button' id='local-draft-map-view-tree' class='dock-map-view-btn'>" +
                 t("btnMapViewTree", "Acyclic view") +
                 "</button>" +
                 "</div>" +
@@ -194,6 +198,7 @@
                 secSave.classList.toggle("is-open", kind === "save");
                 secLoad.classList.toggle("is-open", kind === "load");
                 secMap.classList.toggle("is-open", kind === "map");
+                if (kind === "map") refreshMapButtonsState();
                 if (anchorEl && typeof anchorEl.offsetTop === "number") {
                     panel.style.marginTop = String(anchorEl.offsetTop) + "px";
                 } else {
@@ -217,6 +222,22 @@
                 if (secSave) secSave.classList.remove("is-open");
                 if (secLoad) secLoad.classList.remove("is-open");
                 if (secMap) secMap.classList.remove("is-open");
+            }
+            function isMapOpen() {
+                var modal = doc.getElementById("project-map-modal");
+                return !!(modal && modal.style.display !== "none");
+            }
+            function refreshMapButtonsState() {
+                var btnFocus = doc.getElementById("local-draft-map-view-focus");
+                var btnFull = doc.getElementById("local-draft-map-view-full");
+                var btnTree = doc.getElementById("local-draft-map-view-tree");
+                var btnClose = doc.getElementById("local-draft-close-map");
+                if (!btnFocus || !btnFull || !btnTree || !btnClose) return;
+                var mode = String(global._projectMapViewMode || "focus");
+                btnFocus.classList.toggle("is-active", mode === "focus");
+                btnFull.classList.toggle("is-active", mode === "full");
+                btnTree.classList.toggle("is-active", mode === "tree");
+                btnClose.classList.toggle("is-open", isMapOpen());
             }
             function setupOutsideClickClose() {
                 if (dock.__outsideCloseBound) return;
@@ -289,22 +310,27 @@
             });
             doc.getElementById("local-draft-open-map").addEventListener("click", function () {
                 if (typeof global.openProjectMap === "function") global.openProjectMap();
+                refreshMapButtonsState();
                 closePanel();
             });
             doc.getElementById("local-draft-close-map").addEventListener("click", function () {
                 if (typeof global.closeProjectMap === "function") global.closeProjectMap();
+                refreshMapButtonsState();
                 closePanel();
             });
             doc.getElementById("local-draft-map-view-focus").addEventListener("click", function () {
                 if (typeof global.setProjectMapView === "function") global.setProjectMapView("focus");
+                refreshMapButtonsState();
                 closePanel();
             });
             doc.getElementById("local-draft-map-view-full").addEventListener("click", function () {
                 if (typeof global.setProjectMapView === "function") global.setProjectMapView("full");
+                refreshMapButtonsState();
                 closePanel();
             });
             doc.getElementById("local-draft-map-view-tree").addEventListener("click", function () {
                 if (typeof global.setProjectMapView === "function") global.setProjectMapView("tree");
+                refreshMapButtonsState();
                 closePanel();
             });
             doc.getElementById("local-draft-map-narration-only").addEventListener("change", function (e) {
@@ -315,6 +341,7 @@
                 }
             });
             setupOutsideClickClose();
+            refreshMapButtonsState();
 
             return dock;
         }
@@ -338,10 +365,14 @@
                 var src = doc.getElementById("project-map-narration-only");
                 var dst = doc.getElementById("local-draft-map-narration-only");
                 if (src && dst) dst.checked = !!src.checked;
+                var closeBtn = doc.getElementById("local-draft-close-map");
+                if (closeBtn) closeBtn.classList.add("is-open");
             };
             global.closeProjectMap = function () {
                 setMapHeaderCompactMode(false);
                 _close.apply(this, arguments);
+                var closeBtn = doc.getElementById("local-draft-close-map");
+                if (closeBtn) closeBtn.classList.remove("is-open");
             };
             global.__localDraftMapHookInstalled = true;
         }
