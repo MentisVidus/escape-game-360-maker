@@ -39,6 +39,7 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 ## Idées / plus tard (non bloquant)
 
 - **Règle Cursor** du type *« maintenir la doc à jour »* lors d’ajouts de fonction — seulement si le backlog léger le justifie (éviter les règles `alwaysApply` sans effet).
+- **Undo / redo éditeur** (hors MVP sauvegarde locale) : démarrer par un retour au dernier snapshot/brouillon via le pipeline de chargement existant, puis envisager une vraie pile d’historique plus tard.
 
 ---
 
@@ -63,6 +64,8 @@ Synthèse des pistes à traiter **plus tard** (pas tout en parallèle). Détail 
 - **Doc « guide éditeur »** (nouveau fichier ou refonte ciblée) : reprendre les **fonctions principales**, leurs **interactions** (liste + carte + panneau latéral + selector + export), et une **amorce de vision** éditeur full nodal (ex. React) — incluant l’idée de **nœuds réutilisables** en logique (ex. même primitive « slider 0–1 » pour volume SFX vs opacité hotspot, avec **noms / rôles UI distincts** côté produit). Croiser **`docs/PLAN_EDITEUR_NODAL.md`** (Chemin B).
 
 ### Éditeur — brouillon / récupération après F5 accidentel
+
+Plan détaillé (risques, options, phases) : **`docs/PLAN_SAUVEGARDE_LOCALE_EDITEUR.md`**.
 
 - **Sauvegarde locale** (ex. `localStorage` ou **IndexedDB** pour gros projets) du brouillon éditeur pour limiter la perte sur actualisation ou crash.
 - **Contraintes** : éviter une écriture à **chaque frappe** ; privilégier **snapshot périodique** (ex. toutes les *n* minutes) + éventuellement à la fermeture d’onglet (`beforeunload` léger) ; **quota / rotation** (une ou quelques versions, purge explicite dans l’UI « Effacer le brouillon » / paramètres).

@@ -6,6 +6,7 @@
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | FR/EN sync, how to change code safely |
 | [SELECTOR_SPEC.md](./SELECTOR_SPEC.md) | Spec + implementation status for hotspot **`selector`** (menus, nesting, SFX) |
 | [PLAN_EDITEUR_NODAL.md](./PLAN_EDITEUR_NODAL.md) | **Hybrid / nodal** vision — V2, side panel, bundle & Web ZIP **delivered**; selector-as-graph-node & React Flow = future |
+| [PLAN_SAUVEGARDE_LOCALE_EDITEUR.md](./PLAN_SAUVEGARDE_LOCALE_EDITEUR.md) | **Brouillon éditeur** (localStorage / IndexedDB) : objectifs, risques, triggers, FR/EN, bundle `blob:` — *planification* |
 | [todo.md](./todo.md) | Short **living backlog** (tests, follow-ups) — not a functional spec like ARCHITECTURE / PLAN / SELECTOR_SPEC |
 | [`js/editor-core.js`](../js/editor-core.js) | **Headless** core: `EditorCore`, schema V2, `payload.copy`, `{ url, volume }` audio, `DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL`, no DOM |
 | [`js/editor-quill-scenes.js`](../js/editor-quill-scenes.js) | Quill WYSIWYG, scene target selects, `updateQuillTheme()` |
