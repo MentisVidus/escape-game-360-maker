@@ -367,7 +367,7 @@
      */
     function mountProjectMapSelectionFromMapData(d) {
         var mode = window._projectMapViewMode;
-        if (mode !== "focus" && mode !== "tree") return;
+        if (mode !== "focus" && mode !== "tree" && mode !== "full") return;
         if (!d || d.kind === "redirect") return;
 
         var el = null;

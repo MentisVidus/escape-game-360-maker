@@ -101,8 +101,8 @@ function InnerMap() {
     setEdges(pack.edges);
   }, [pack, setNodes, setEdges]);
 
-  const selectable =
-    window._projectMapViewMode === "focus" || window._projectMapViewMode === "tree";
+  const mode = window._projectMapViewMode || "focus";
+  const selectable = mode === "focus" || mode === "tree" || mode === "full";
 
   const onNodeClick = useCallback(
     (_: MouseEvent, node: Node) => {
@@ -117,23 +117,21 @@ function InnerMap() {
     window._projectMapReactBridge?.clearSelectionAndRefresh();
   }, []);
 
-  const onNodeDoubleClick = useCallback(
-    (_: MouseEvent, node: Node) => {
-      if (node.type !== "mapScene") return;
-      const d = node.data as {
-        chrome?: string;
-        sceneKey?: string;
-      };
-      if (d.chrome !== "collapsed" || !d.sceneKey) return;
-      window._projectMapActiveSceneKey = d.sceneKey;
-      window._projectMapViewMode = "focus";
-      window._projectMapReactBridge?.setToolbar("focus");
-      document.dispatchEvent(
-        new CustomEvent("react-project-map", { detail: { type: "setView", mode: "focus" } })
-      );
-    },
-    []
-  );
+  const onNodeDoubleClick = useCallback((evt: MouseEvent, node: Node) => {
+    evt.stopPropagation();
+    if (node.type !== "mapScene") return;
+    const d = node.data as {
+      chrome?: string;
+      sceneKey?: string;
+    };
+    if (d.chrome !== "collapsed" || !d.sceneKey) return;
+    window._projectMapActiveSceneKey = d.sceneKey;
+    window._projectMapViewMode = "focus";
+    window._projectMapReactBridge?.setToolbar("focus");
+    document.dispatchEvent(
+      new CustomEvent("react-project-map", { detail: { type: "setView", mode: "focus" } })
+    );
+  }, []);
 
   return (
     <div style={{ width: "100%", height: "100%", minHeight: 200 }}>
@@ -152,7 +150,12 @@ function InnerMap() {
         elementsSelectable={selectable}
         panOnDrag
         zoomOnScroll
+        zoomOnDoubleClick={false}
         fitView
+        defaultEdgeOptions={{
+          type: "smoothstep",
+          style: { stroke: "#9eb0c8", strokeWidth: 2 },
+        }}
         onInit={({ fitView }) => fitView({ padding: 0.15 })}
         proOptions={{ hideAttribution: true }}
       >

@@ -131,6 +131,12 @@
     min-height: 0;
 }
 
+/* Arêtes React Flow lisibles sur fond sombre */
+#project-map-canvas-wrap.project-map-react-primary .react-flow__edge-path {
+    stroke: #9eb0c8;
+    stroke-width: 2;
+}
+
 /* Boutons flottants sur la carte (paramètres globaux, nouvelle scène) */
 .project-map-fab {
     position: absolute;

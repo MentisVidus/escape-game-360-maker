@@ -28,4 +28,6 @@ Ouvre l’URL indiquée par Vite ; le conteneur `#react-map-root` est dans `inde
 2. Ouvrir `editeur.html?reactMap=1` ou `editor_en.html?reactMap=1` (ou activer le flag via `localStorage`).
 3. Ouvrir la **Carte du projet** : graphe React Flow pleine zone (Drawflow masqué) ; données `getCurrentProjectData()` ; comportement aligné sur `xflow/draw/project-graph.js`.
 
+Détails techniques utiles : les nœuds custom exposent des **`Handle`** (`in` / `out`) pour que les arêtes s’affichent ; **`zoomOnDoubleClick={false}`** pour que le double-clic refocus en mode Focus ne soit pas mangé par le zoom pane.
+
 Voir aussi [docs/PLAN_REACT_INTEGRATION.md](../../docs/PLAN_REACT_INTEGRATION.md).

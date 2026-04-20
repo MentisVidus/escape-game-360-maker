@@ -29,6 +29,8 @@ export type MapSceneNodeData = {
   sceneKey: string;
   sceneIndex: number;
   viewMode: "active" | "collapsed" | "full" | "tree";
+  /** Vue arbre : scène jamais atteinte depuis la scène d’entrée (îlot orphelin). */
+  orphanIsland?: boolean;
 };
 
 export type MapHotspotNodeData = {
@@ -310,6 +312,18 @@ function nextEdgeId(): string {
   return `e:${edgeSeq++}`;
 }
 
+/** Arêtes avec handles explicites (nœuds custom @xyflow/react). */
+function pushMapEdge(edges: Edge[], source: string, target: string): void {
+  edges.push({
+    id: nextEdgeId(),
+    source,
+    target,
+    sourceHandle: "out",
+    targetHandle: "in",
+    type: "smoothstep",
+  });
+}
+
 function buildGraphFull(
   project: EditorProject,
   lang: EditorLang,
@@ -373,17 +387,13 @@ function buildGraphFull(
           lang,
         } satisfies MapHotspotNodeData & { lang: EditorLang },
       });
-      edges.push({
-        id: nextEdgeId(),
-        source: sceneNodeId,
-        target: hsId,
-      });
+      pushMapEdge(edges, sceneNodeId, hsId);
       const targetIds = getTargetSceneIdsFromHotspot(hs as EditorHotspot);
       for (let tj = 0; tj < targetIds.length; tj++) {
         const targetId = targetIds[tj];
         const targetNid = sceneKeyToRfId[targetId];
         if (targetNid) {
-          edges.push({ id: nextEdgeId(), source: hsId, target: targetNid });
+          pushMapEdge(edges, hsId, targetNid);
         }
       }
     });
@@ -489,13 +499,13 @@ function buildGraphFocus(
         lang,
       } satisfies MapHotspotNodeData & { lang: EditorLang },
     });
-    edges.push({ id: nextEdgeId(), source: activeId, target: hsId });
+    pushMapEdge(edges, activeId, hsId);
     const targetIds = getTargetSceneIdsFromHotspot(hs as EditorHotspot);
     for (let tk = 0; tk < targetIds.length; tk++) {
       const targetId = targetIds[tk];
       const targetNid = sceneKeyToRfId[targetId];
       if (targetNid) {
-        edges.push({ id: nextEdgeId(), source: hsId, target: targetNid });
+        pushMapEdge(edges, hsId, targetNid);
       }
     }
   });
@@ -514,6 +524,8 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
   const TARGET_STAGGER_Y = 88;
 
   const visitedFull = new Set<string>();
+  /** Scènes pour lesquelles un nœud `sc:…` a été créé sur le graphe (y compris îlots orphelins). */
+  const placedSceneKeys = new Set<string>();
   let redirectCounter = 0;
 
   function redirectNodeData(targetKey: string): MapRedirectNodeData & { lang: EditorLang } {
@@ -543,6 +555,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
     }
 
     visitedFull.add(sk);
+    placedSceneKeys.add(sk);
 
     const title = sceneTitleForGraph(meta.scene, meta.index, lang);
     const sceneRfId = `sc:${sk}`;
@@ -586,7 +599,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
           lang,
         } satisfies MapHotspotNodeData & { lang: EditorLang },
       });
-      edges.push({ id: nextEdgeId(), source: sceneRfId, target: hsRfId });
+      pushMapEdge(edges, sceneRfId, hsRfId);
 
       const targets = getTargetSceneIdsFromHotspot(hs as EditorHotspot);
       if (targets.length === 0) {
@@ -601,7 +614,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
         if (!visitedFull.has(target)) {
           const sub = placeScene(target, branchX, yBranch);
           if (sub.rootSceneRfId) {
-            edges.push({ id: nextEdgeId(), source: hsRfId, target: sub.rootSceneRfId });
+            pushMapEdge(edges, hsRfId, sub.rootSceneRfId);
           }
           branchX = sub.right + SUBTREE_GAP;
           subtreeRight = Math.max(subtreeRight, sub.right);
@@ -613,7 +626,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
             position: { x: x + REDIRECT_DX, y: yBranch },
             data: redirectNodeData(target),
           });
-          edges.push({ id: nextEdgeId(), source: hsRfId, target: redId });
+          pushMapEdge(edges, hsRfId, redId);
           subtreeRight = Math.max(subtreeRight, x + REDIRECT_DX + 200);
         }
       }
@@ -625,6 +638,39 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
 
   const entryKey = sceneKey(scenes[0], 0);
   placeScene(entryKey, 60, 320);
+
+  const ORPHAN_GAP_X = 100;
+  const ORPHAN_STEP_Y = 140;
+  let maxRight = 60;
+  for (const n of nodes) {
+    maxRight = Math.max(maxRight, n.position.x + 260);
+  }
+  const orphanBaseX = maxRight + ORPHAN_GAP_X;
+  let orphanY = 60;
+  let orphanIndex = 0;
+  scenes.forEach((scene, si) => {
+    const sk = sceneKey(scene, si);
+    if (placedSceneKeys.has(sk)) return;
+    placedSceneKeys.add(sk);
+    const title = sceneTitleForGraph(scene, si, lang);
+    nodes.push({
+      id: `sc:${sk}`,
+      type: "mapScene",
+      position: { x: orphanBaseX, y: orphanY + orphanIndex * ORPHAN_STEP_Y },
+      data: {
+        kind: "scene",
+        label: title,
+        scId: sceneIdLabel(scene),
+        sceneKey: sk,
+        sceneIndex: si,
+        viewMode: "tree",
+        lang,
+        chrome: "tree" as const,
+        orphanIsland: true,
+      },
+    });
+    orphanIndex++;
+  });
 }
 
 /** Construit nœuds / arêtes alignés sur project-graph.js (vues focus, full, tree + narration). */
