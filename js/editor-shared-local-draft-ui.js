@@ -59,8 +59,8 @@
             var st = doc.createElement("style");
             st.id = "local-draft-dock-style";
             st.textContent =
-                "#local-draft-dock{position:fixed;left:10px;top:22vh;z-index:12050;display:flex;align-items:flex-start;gap:8px}" +
-                "#local-draft-dock .dock-rail{display:flex;flex-direction:column;gap:8px}" +
+                "#local-draft-dock{position:fixed;left:10px;top:22vh;z-index:12050;display:flex;align-items:flex-start;gap:8px;pointer-events:none}" +
+                "#local-draft-dock .dock-rail{display:flex;flex-direction:column;gap:8px;pointer-events:auto}" +
                 "#local-draft-dock .dock-icon{width:46px;height:46px;border-radius:999px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.25);transition:transform .15s ease,filter .15s ease}" +
                 "#local-draft-dock .dock-icon:hover{transform:translateY(-1px);filter:brightness(1.08)}" +
                 "#local-draft-dock .dock-icon svg{width:24px;height:24px;display:block}" +
