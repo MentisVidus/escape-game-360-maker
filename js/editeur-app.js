@@ -310,6 +310,81 @@ function addSceneFromMap() {
 }
 window.addSceneFromMap = addSceneFromMap;
 
+/** Chemin B (carte React) : ajoute un hotspot vide à la scène (index 0 = première dans #scenes-container). */
+function addHotspotSkeletonFromMapSceneIndex(sceneIndex) {
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var el = blocks[sceneIndex];
+    if (!el || !el.id) return;
+    var m = /^scene_(\d+)$/.exec(el.id);
+    if (!m) return;
+    var sid = parseInt(m[1], 10);
+    if (typeof addHotspot !== "function") return;
+    addHotspot(sid, null);
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+    var wrap = el.querySelector('[id^="hs-container-"]');
+    var hss = wrap ? wrap.querySelectorAll(":scope > .hotspot-block") : null;
+    var lastHs = hss && hss.length ? hss[hss.length - 1] : null;
+    if (lastHs && typeof window.mountProjectMapSidePanelElement === "function") {
+        window.mountProjectMapSidePanelElement(lastHs);
+    }
+}
+window.addHotspotSkeletonFromMapSceneIndex = addHotspotSkeletonFromMapSceneIndex;
+
+/** Chemin B : supprime la scène à l’index DOM (si au moins 2 scènes). */
+function deleteSceneFromMapByIndex(sceneIndex) {
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    if (blocks.length <= 1) {
+        alert("Impossible de supprimer la seule scène du projet.");
+        return;
+    }
+    var el = blocks[sceneIndex];
+    if (!el) return;
+    if (
+        !confirm(
+            "Supprimer cette scène et tous ses points d'interaction ? Cette action est irréversible."
+        )
+    ) {
+        return;
+    }
+    el.remove();
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.deleteSceneFromMapByIndex = deleteSceneFromMapByIndex;
+
+/** Chemin B : supprime le hotspot à (sceneIndex, hotspotIndex) dans le DOM. */
+function deleteHotspotFromMapIndices(sceneIndex, hotspotIndex) {
+    if (typeof sceneIndex !== "number" || sceneIndex < 0 || typeof hotspotIndex !== "number" || hotspotIndex < 0) {
+        return;
+    }
+    var sceneEl = document.querySelectorAll("#scenes-container > .scene-block")[sceneIndex];
+    if (!sceneEl) return;
+    var wrap = sceneEl.querySelector('[id^="hs-container-"]');
+    if (!wrap) return;
+    var hss = wrap.querySelectorAll(":scope > .hotspot-block");
+    var hb = hss[hotspotIndex];
+    if (!hb) return;
+    if (!confirm("Supprimer ce point d'interaction ? Cette action est irréversible.")) return;
+    hb.remove();
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.deleteHotspotFromMapIndices = deleteHotspotFromMapIndices;
 
 // --- FONCTION : AJOUTER UNE SCÈNE ---
 // Crée le code HTML d'une nouvelle scène et l'injecte dans la page

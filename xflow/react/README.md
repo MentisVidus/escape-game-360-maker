@@ -30,4 +30,8 @@ Ouvre l’URL indiquée par Vite ; le conteneur `#react-map-root` est dans `inde
 
 Détails techniques utiles : les nœuds custom exposent des **`Handle`** (`in` / `out`) pour que les arêtes s’affichent ; **`zoomOnDoubleClick={false}`** pour que le double-clic refocus en mode Focus ne soit pas mangé par le zoom pane.
 
+### B2 (première tranche) — structure depuis le graphe
+
+Sur les nœuds **scène** : **+** appelle `addHotspotSkeletonFromMapSceneIndex` (FR : `editeur-app.js`, EN : `editor-en-app.js`) → `addHotspot` + rafraîchissement carte + panneau sur le nouveau hotspot ; **×** supprime la scène (confirm, bloqué s’il n’y a qu’une scène). Sur les nœuds **hotspot** : **×** supprime le hotspot (confirm). Les **transitions** restent à éditer dans le formulaire / panneau (pas de tirage de lien seul dans cette PR).
+
 Voir aussi [docs/PLAN_REACT_INTEGRATION.md](../../docs/PLAN_REACT_INTEGRATION.md).

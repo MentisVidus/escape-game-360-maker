@@ -306,6 +306,82 @@ function addSceneFromMap() {
 }
 window.addSceneFromMap = addSceneFromMap;
 
+/** Path B (React map): add an empty hotspot to the scene (index 0 = first in #scenes-container). */
+function addHotspotSkeletonFromMapSceneIndex(sceneIndex) {
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var el = blocks[sceneIndex];
+    if (!el || !el.id) return;
+    var m = /^scene_(\d+)$/.exec(el.id);
+    if (!m) return;
+    var sid = parseInt(m[1], 10);
+    if (typeof addHotspot !== "function") return;
+    addHotspot(sid, null);
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+    var wrap = el.querySelector('[id^="hs-container-"]');
+    var hss = wrap ? wrap.querySelectorAll(":scope > .hotspot-block") : null;
+    var lastHs = hss && hss.length ? hss[hss.length - 1] : null;
+    if (lastHs && typeof window.mountProjectMapSidePanelElement === "function") {
+        window.mountProjectMapSidePanelElement(lastHs);
+    }
+}
+window.addHotspotSkeletonFromMapSceneIndex = addHotspotSkeletonFromMapSceneIndex;
+
+/** Path B: delete the scene at DOM index (requires at least two scenes). */
+function deleteSceneFromMapByIndex(sceneIndex) {
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    if (blocks.length <= 1) {
+        alert("Cannot delete the only scene in the project.");
+        return;
+    }
+    var el = blocks[sceneIndex];
+    if (!el) return;
+    if (
+        !confirm(
+            "Delete this scene and all its hotspots? This cannot be undone."
+        )
+    ) {
+        return;
+    }
+    el.remove();
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.deleteSceneFromMapByIndex = deleteSceneFromMapByIndex;
+
+/** Path B: delete hotspot at (sceneIndex, hotspotIndex) in the DOM. */
+function deleteHotspotFromMapIndices(sceneIndex, hotspotIndex) {
+    if (typeof sceneIndex !== "number" || sceneIndex < 0 || typeof hotspotIndex !== "number" || hotspotIndex < 0) {
+        return;
+    }
+    var sceneEl = document.querySelectorAll("#scenes-container > .scene-block")[sceneIndex];
+    if (!sceneEl) return;
+    var wrap = sceneEl.querySelector('[id^="hs-container-"]');
+    if (!wrap) return;
+    var hss = wrap.querySelectorAll(":scope > .hotspot-block");
+    var hb = hss[hotspotIndex];
+    if (!hb) return;
+    if (!confirm("Delete this hotspot? This cannot be undone.")) return;
+    hb.remove();
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.deleteHotspotFromMapIndices = deleteHotspotFromMapIndices;
+
 // --- Add scene ---
 // Inserts a new scene block into #scenes-container
 /** @param {Object} [sceneTargetRefreshOpts] — forwarded to refreshAllSceneTargetSelects (e.g. { preferSelect, preferVal } after “+ New scene”). */

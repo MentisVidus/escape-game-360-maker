@@ -1,3 +1,47 @@
+/* Barre d’actions B2 sur les nœuds (ne pas déclencher la sélection du nœud) */
+.rf-map-node-actions {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 3;
+  display: flex;
+  gap: 3px;
+  pointer-events: auto;
+}
+
+.rf-map-scene-root,
+.rf-map-hotspot-root {
+  position: relative;
+}
+
+.rf-map-node-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rf-map-node-btn-add {
+  background: #27ae60;
+}
+
+.rf-map-node-btn-del {
+  background: #c0392b;
+}
+
+.rf-map-node-btn:hover {
+  filter: brightness(1.08);
+}
+
 /* Nœuds carte — React Flow (sans wrapper .drawflow-node) */
 .rf-map-scene-root.rf-map-scene-active-wrap .xflow-node-scene {
   box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.5), 0 4px 14px rgba(0, 0, 0, 0.35);
