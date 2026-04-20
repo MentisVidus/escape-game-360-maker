@@ -508,10 +508,10 @@ function buildPlayerHtmlTemplate() {
         <h1 style="font-size: 3em; margin-bottom: 20px;">${title}</h1>
         <label style="display:flex;align-items:center;gap:8px;margin:0 0 16px 0;font-size:0.95em;opacity:0.95;">
             <input type="checkbox" id="player-save-enable-start" onchange="onPlayerSaveToggleChanged(this.checked)">
-            Activer la sauvegarde locale (1 slot)
+            Activer la sauvegarde rapide auto (1 slot)
         </label>
         <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-            <button onclick="startGame(false)" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Commencer l'aventure</button>
+            <button onclick="startNewGameFromTitle()" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Nouvelle partie</button>
             <button id="player-continue-btn" onclick="continueSavedGame()" disabled style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #334155; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); opacity: .7;">Continuer</button>
             <button id="player-import-start-btn" onclick="promptImportPlayerSaveFile()" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #0f766e; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Charger un fichier .escapegame</button>
         </div>
@@ -558,10 +558,10 @@ function buildPlayerHtmlTemplate() {
             <div class="settings-row">
                 <label style="display:flex;align-items:center;gap:8px;">
                     <input type="checkbox" id="player-save-enable-settings" onchange="onPlayerSaveToggleChanged(this.checked)">
-                    Sauvegarde locale de progression (1 slot)
+                    Sauvegarde rapide auto de progression (1 slot)
                 </label>
                 <div class="settings-close-row" style="margin-top:8px;justify-content:flex-start;">
-                    <button type="button" class="settings-close-btn" onclick="savePlayerProgressNow('manual',{force:true})">Sauvegarder local</button>
+                    <button type="button" class="settings-close-btn" onclick="savePlayerProgressNow('manual',{force:true})">Sauvegarde rapide</button>
                     <button type="button" class="settings-close-btn" onclick="loadPlayerProgressFromSettings()">Charger</button>
                     <button type="button" class="settings-close-btn" onclick="exportPlayerSaveFile()">Exporter .escapegame</button>
                     <button type="button" class="settings-close-btn" onclick="promptImportPlayerSaveFile()">Importer .escapegame</button>
@@ -748,18 +748,18 @@ function buildPlayerHtmlTemplate() {
         syncPlayerSaveCheckboxes();
         updateContinueButtonState();
         if (mode === "none") {
-            setPlayerSaveStatus("Sauvegarde progression désactivée par l'éditeur.");
+            setPlayerSaveStatus("Sauvegarde rapide désactivée par l'éditeur.");
             return;
         }
         if (!playerSaveEnabled) {
             setPlayerSaveStatus(
                 pendingLocalSaveEnvelope
-                    ? "Auto-save désactivé. Reprise locale toujours disponible."
-                    : "Auto-save désactivé."
+                    ? "Sauvegarde rapide auto OFF. Reprise disponible."
+                    : "Sauvegarde rapide auto OFF."
             );
             return;
         }
-        setPlayerSaveStatus("Auto-save activé (1 slot).");
+        setPlayerSaveStatus("Sauvegarde rapide auto ON (1 slot).");
         refreshLatestPlayerSaveMeta().catch(function () {});
     }
     function applyPlayerSaveModeUi() {
@@ -918,18 +918,24 @@ function buildPlayerHtmlTemplate() {
             if (env && validatePlayerSaveEnvelope(env).ok) {
                 pendingLocalSaveEnvelope = env;
                 setPlayerSaveStatus(
-                    (playerSaveEnabled ? "Sauvegarde locale prête" : "Reprise locale prête (auto-save OFF)") +
+                    (playerSaveEnabled
+                        ? "Reprise sauvegarde rapide prête"
+                        : "Reprise sauvegarde rapide prête (auto OFF)") +
                         " (" +
                         String(env.meta.savedAt || "") +
                         ")."
                 );
             } else {
                 pendingLocalSaveEnvelope = null;
-                setPlayerSaveStatus(playerSaveEnabled ? "Aucune sauvegarde locale compatible." : "Auto-save désactivé.");
+                setPlayerSaveStatus(
+                    playerSaveEnabled
+                        ? "Aucune sauvegarde rapide compatible."
+                        : "Sauvegarde rapide auto OFF."
+                );
             }
         } catch (eRead) {
             pendingLocalSaveEnvelope = null;
-            setPlayerSaveStatus("Sauvegarde locale indisponible.");
+            setPlayerSaveStatus("Sauvegarde rapide indisponible.");
         }
         updateContinueButtonState();
     }
@@ -941,7 +947,7 @@ function buildPlayerHtmlTemplate() {
         }
         var force = !!opts.force || reason === "manual" || reason === "load";
         if (!playerSaveEnabled && !force) {
-            setPlayerSaveStatus("Auto-save désactivé.");
+            setPlayerSaveStatus("Sauvegarde rapide auto OFF.");
             return { skipped: true, reason: "disabled" };
         }
         if (typeof viewer === "undefined" || !viewer) {
@@ -959,7 +965,7 @@ function buildPlayerHtmlTemplate() {
         tx.objectStore(PLAYER_SAVE_STORE).put(rec);
         await idbTxDone(tx);
         pendingLocalSaveEnvelope = envelope;
-        setPlayerSaveStatus("Sauvegardé localement à " + envelope.meta.savedAt + ".");
+        setPlayerSaveStatus("Sauvegarde rapide enregistrée à " + envelope.meta.savedAt + ".");
         updateContinueButtonState();
         return { ok: true, envelope: envelope };
     }
@@ -978,16 +984,16 @@ function buildPlayerHtmlTemplate() {
         tx.objectStore(PLAYER_SAVE_STORE).delete(PLAYER_SAVE_SLOT_ID);
         await idbTxDone(tx);
         pendingLocalSaveEnvelope = null;
-        setPlayerSaveStatus("Sauvegarde locale effacée.");
+        setPlayerSaveStatus("Sauvegarde rapide effacée.");
         updateContinueButtonState();
     }
     async function clearPlayerProgressWithConfirm() {
-        if (!confirm("Effacer la sauvegarde locale de progression ?")) return;
+        if (!confirm("Effacer la sauvegarde rapide de progression ?")) return;
         try {
             await clearPlayerProgressNow();
         } catch (eClear) {
             console.error("player.save.error", eClear);
-            setPlayerSaveStatus("Impossible d'effacer la sauvegarde locale.");
+            setPlayerSaveStatus("Impossible d'effacer la sauvegarde rapide.");
         }
     }
     function applyRestoredMapsFromEnvelope(env) {
@@ -1040,7 +1046,7 @@ function buildPlayerHtmlTemplate() {
             if (!check.ok) {
                 pendingLocalSaveEnvelope = null;
                 updateContinueButtonState();
-                alert("Aucune sauvegarde locale compatible pour ce jeu.");
+                alert("Aucune sauvegarde rapide compatible pour ce jeu.");
                 return;
             }
             pendingLocalSaveEnvelope = env;
@@ -1048,8 +1054,34 @@ function buildPlayerHtmlTemplate() {
             startGame(true);
         } catch (eLoad) {
             console.error("player.save.error", eLoad);
-            alert("Impossible de charger la sauvegarde locale.");
+            alert("Impossible de charger la sauvegarde rapide.");
         }
+    }
+    async function startNewGameFromTitle() {
+        var hasLocal = false;
+        try {
+            var env = await readLatestPlayerSaveEnvelope();
+            hasLocal = !!(env && validatePlayerSaveEnvelope(env).ok);
+        } catch (eRead) {}
+
+        var purge = false;
+        if (hasLocal) {
+            purge = confirm(
+                "Une reprise de sauvegarde rapide existe.\\n\\nOK = effacer cette sauvegarde rapide avant de démarrer une nouvelle partie.\\nAnnuler = conserver la sauvegarde rapide."
+            );
+        }
+        if (!confirm("Démarrer une nouvelle partie ?")) return;
+
+        if (purge) {
+            try {
+                await clearPlayerProgressNow();
+            } catch (eClear) {
+                console.error("player.save.error", eClear);
+                alert("Impossible d'effacer la sauvegarde rapide avant démarrage.");
+            }
+        }
+        pendingRestoreEnvelope = null;
+        startGame(false);
     }
     async function loadPlayerProgressFromSettings() {
         if (String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase() === "none") {
@@ -1064,7 +1096,7 @@ function buildPlayerHtmlTemplate() {
             var env = await readLatestPlayerSaveEnvelope();
             var check = validatePlayerSaveEnvelope(env);
             if (!check.ok) {
-                alert("Aucune sauvegarde locale compatible.");
+                alert("Aucune sauvegarde rapide compatible.");
                 return;
             }
             pendingLocalSaveEnvelope = env;
@@ -1078,10 +1110,10 @@ function buildPlayerHtmlTemplate() {
             }
             applyRestoredTimerFromEnvelope(env);
             closePlayerSettings();
-            setPlayerSaveStatus("Progression rechargée.");
+            setPlayerSaveStatus("Progression sauvegarde rapide rechargée.");
         } catch (eLoad2) {
             console.error("player.save.error", eLoad2);
-            alert("Chargement local impossible.");
+            alert("Chargement impossible.");
         }
     }
     async function exportPlayerSaveFile() {
@@ -2227,7 +2259,7 @@ function buildPlayerHtmlTemplate() {
     applyPlayerSaveModeUi();
     updateContinueButtonState();
     if (String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase() === "none") {
-        setPlayerSaveStatus("Sauvegarde progression désactivée par l'éditeur.");
+        setPlayerSaveStatus("Sauvegarde rapide désactivée par l'éditeur.");
     } else {
         refreshLatestPlayerSaveMeta().catch(function () {});
     }

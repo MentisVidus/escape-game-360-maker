@@ -79,7 +79,7 @@ Plan détaillé (nouveau) : **`docs/plan_sauvegarde_locale_joueur.md`**.
 - ~~Slot local : **1 seul slot** (écrasement volontaire du précédent pour éviter l’accumulation en phase de test).~~ — **Fait (Phase B)** : clé `latest` unique.
 - ~~Écran titre joueur : **Continuer** + activation explicite via case à cocher sur l’écran de démarrage.~~ — **Fait (Phase B)**.
 - ~~Sauvegarde manuelle joueur en `.escapegame` + import fichier~~ — **Fait (Phase C)** : export/import manuel `.escapegame` (FR/EN), validation `kind/saveSchemaVersion/gameFingerprint`, import possible depuis l’écran titre et depuis les réglages en cours de partie.
-- En cours : compléter l’écran titre avec un parcours **Nouvelle partie** explicite (bouton dédié + reset guidé).
+- ~~Compléter l’écran titre avec un parcours **Nouvelle partie** explicite~~ — **Fait** : bouton dédié FR/EN, confirmation guidée et purge locale optionnelle du quicksave avant démarrage.
 - ~~Option éditeur complète **none/manual/auto** (par défaut `manual`) et propagation stricte dans l’export joueur~~ — **Fait (Phase D)** : nouveau réglage global `playerSaveMode` (FR/EN), sérialisation + chargement projet, normalisation `EditorCore`, payload export joueur, et comportement runtime aligné (`none` désactive l’UI/les actions de sauvegarde ; `manual` = reprise/import/export manuels ; `auto` = auto-save + manuel).
 
 ---

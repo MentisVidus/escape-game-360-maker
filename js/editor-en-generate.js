@@ -504,10 +504,10 @@ function buildPlayerHtmlTemplate() {
         <h1 style="font-size: 3em; margin-bottom: 20px;">${title}</h1>
         <label style="display:flex;align-items:center;gap:8px;margin:0 0 16px 0;font-size:0.95em;opacity:0.95;">
             <input type="checkbox" id="player-save-enable-start" onchange="onPlayerSaveToggleChanged(this.checked)">
-            Enable local save (1 slot)
+            Enable auto quicksave (1 slot)
         </label>
         <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-            <button onclick="startGame(false)" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Start adventure</button>
+            <button onclick="startNewGameFromTitle()" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">New game</button>
             <button id="player-continue-btn" onclick="continueSavedGame()" disabled style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #334155; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); opacity: .7;">Continue</button>
             <button id="player-import-start-btn" onclick="promptImportPlayerSaveFile()" style="padding: 15px 30px; font-size: 1.1em; cursor: pointer; background: #0f766e; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Load .escapegame file</button>
         </div>
@@ -554,10 +554,10 @@ function buildPlayerHtmlTemplate() {
             <div class="settings-row">
                 <label style="display:flex;align-items:center;gap:8px;">
                     <input type="checkbox" id="player-save-enable-settings" onchange="onPlayerSaveToggleChanged(this.checked)">
-                    Local progression save (1 slot)
+                    Auto quicksave (1 slot)
                 </label>
                 <div class="settings-close-row" style="margin-top:8px;justify-content:flex-start;">
-                    <button type="button" class="settings-close-btn" onclick="savePlayerProgressNow('manual',{force:true})">Save local</button>
+                    <button type="button" class="settings-close-btn" onclick="savePlayerProgressNow('manual',{force:true})">Quicksave</button>
                     <button type="button" class="settings-close-btn" onclick="loadPlayerProgressFromSettings()">Load</button>
                     <button type="button" class="settings-close-btn" onclick="exportPlayerSaveFile()">Export .escapegame</button>
                     <button type="button" class="settings-close-btn" onclick="promptImportPlayerSaveFile()">Import .escapegame</button>
@@ -744,18 +744,16 @@ function buildPlayerHtmlTemplate() {
         syncPlayerSaveCheckboxes();
         updateContinueButtonState();
         if (mode === "none") {
-            setPlayerSaveStatus("Player save is disabled by editor.");
+            setPlayerSaveStatus("Player quicksave is disabled by editor.");
             return;
         }
         if (!playerSaveEnabled) {
             setPlayerSaveStatus(
-                pendingLocalSaveEnvelope
-                    ? "Auto-save disabled. Local continue still available."
-                    : "Auto-save disabled."
+                pendingLocalSaveEnvelope ? "Auto quicksave OFF. Continue still available." : "Auto quicksave OFF."
             );
             return;
         }
-        setPlayerSaveStatus("Auto-save enabled (1 slot).");
+        setPlayerSaveStatus("Auto quicksave ON (1 slot).");
         refreshLatestPlayerSaveMeta().catch(function () {});
     }
     function applyPlayerSaveModeUi() {
@@ -914,18 +912,18 @@ function buildPlayerHtmlTemplate() {
             if (env && validatePlayerSaveEnvelope(env).ok) {
                 pendingLocalSaveEnvelope = env;
                 setPlayerSaveStatus(
-                    (playerSaveEnabled ? "Local save ready" : "Local continue ready (auto-save OFF)") +
+                    (playerSaveEnabled ? "Quicksave ready" : "Quicksave ready (auto OFF)") +
                         " (" +
                         String(env.meta.savedAt || "") +
                         ")."
                 );
             } else {
                 pendingLocalSaveEnvelope = null;
-                setPlayerSaveStatus(playerSaveEnabled ? "No compatible local save." : "Auto-save disabled.");
+                setPlayerSaveStatus(playerSaveEnabled ? "No compatible quicksave." : "Auto quicksave OFF.");
             }
         } catch (eRead) {
             pendingLocalSaveEnvelope = null;
-            setPlayerSaveStatus("Local save unavailable.");
+            setPlayerSaveStatus("Quicksave unavailable.");
         }
         updateContinueButtonState();
     }
@@ -937,7 +935,7 @@ function buildPlayerHtmlTemplate() {
         }
         var force = !!opts.force || reason === "manual" || reason === "load";
         if (!playerSaveEnabled && !force) {
-            setPlayerSaveStatus("Auto-save disabled.");
+            setPlayerSaveStatus("Auto quicksave OFF.");
             return { skipped: true, reason: "disabled" };
         }
         if (typeof viewer === "undefined" || !viewer) {
@@ -955,7 +953,7 @@ function buildPlayerHtmlTemplate() {
         tx.objectStore(PLAYER_SAVE_STORE).put(rec);
         await idbTxDone(tx);
         pendingLocalSaveEnvelope = envelope;
-        setPlayerSaveStatus("Saved locally at " + envelope.meta.savedAt + ".");
+        setPlayerSaveStatus("Quicksaved at " + envelope.meta.savedAt + ".");
         updateContinueButtonState();
         return { ok: true, envelope: envelope };
     }
@@ -974,16 +972,16 @@ function buildPlayerHtmlTemplate() {
         tx.objectStore(PLAYER_SAVE_STORE).delete(PLAYER_SAVE_SLOT_ID);
         await idbTxDone(tx);
         pendingLocalSaveEnvelope = null;
-        setPlayerSaveStatus("Local save cleared.");
+        setPlayerSaveStatus("Quicksave cleared.");
         updateContinueButtonState();
     }
     async function clearPlayerProgressWithConfirm() {
-        if (!confirm("Clear local progression save?")) return;
+        if (!confirm("Clear progression quicksave?")) return;
         try {
             await clearPlayerProgressNow();
         } catch (eClear) {
             console.error("player.save.error", eClear);
-            setPlayerSaveStatus("Unable to clear local save.");
+            setPlayerSaveStatus("Unable to clear quicksave.");
         }
     }
     function applyRestoredMapsFromEnvelope(env) {
@@ -1036,7 +1034,7 @@ function buildPlayerHtmlTemplate() {
             if (!check.ok) {
                 pendingLocalSaveEnvelope = null;
                 updateContinueButtonState();
-                alert("No compatible local save for this game.");
+                alert("No compatible quicksave for this game.");
                 return;
             }
             pendingLocalSaveEnvelope = env;
@@ -1044,8 +1042,34 @@ function buildPlayerHtmlTemplate() {
             startGame(true);
         } catch (eLoad) {
             console.error("player.save.error", eLoad);
-            alert("Unable to load local save.");
+            alert("Unable to load quicksave.");
         }
+    }
+    async function startNewGameFromTitle() {
+        var hasLocal = false;
+        try {
+            var env = await readLatestPlayerSaveEnvelope();
+            hasLocal = !!(env && validatePlayerSaveEnvelope(env).ok);
+        } catch (eRead) {}
+
+        var purge = false;
+        if (hasLocal) {
+            purge = confirm(
+                "A local quicksave exists.\\n\\nOK = delete this quicksave before starting a new game.\\nCancel = keep the quicksave."
+            );
+        }
+        if (!confirm("Start a new game now?")) return;
+
+        if (purge) {
+            try {
+                await clearPlayerProgressNow();
+            } catch (eClear) {
+                console.error("player.save.error", eClear);
+                alert("Unable to clear quicksave before starting.");
+            }
+        }
+        pendingRestoreEnvelope = null;
+        startGame(false);
     }
     async function loadPlayerProgressFromSettings() {
         if (String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase() === "none") {
@@ -1060,7 +1084,7 @@ function buildPlayerHtmlTemplate() {
             var env = await readLatestPlayerSaveEnvelope();
             var check = validatePlayerSaveEnvelope(env);
             if (!check.ok) {
-                alert("No compatible local save.");
+                alert("No compatible quicksave.");
                 return;
             }
             pendingLocalSaveEnvelope = env;
@@ -1074,7 +1098,7 @@ function buildPlayerHtmlTemplate() {
             }
             applyRestoredTimerFromEnvelope(env);
             closePlayerSettings();
-            setPlayerSaveStatus("Progress restored.");
+            setPlayerSaveStatus("Quicksave progress restored.");
         } catch (eLoad2) {
             console.error("player.save.error", eLoad2);
             alert("Local load failed.");
@@ -2222,7 +2246,7 @@ function buildPlayerHtmlTemplate() {
     applyPlayerSaveModeUi();
     updateContinueButtonState();
     if (String((PLAYER_SAVE_CONFIG && PLAYER_SAVE_CONFIG.mode) || "manual").toLowerCase() === "none") {
-        setPlayerSaveStatus("Player save is disabled by editor.");
+        setPlayerSaveStatus("Player quicksave is disabled by editor.");
     } else {
         refreshLatestPlayerSaveMeta().catch(function () {});
     }
