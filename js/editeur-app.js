@@ -191,25 +191,120 @@ function localDraftSourceLabel(src) {
     return "session";
 }
 
+function ensureLocalDraftDockStyles() {
+    if (document.getElementById("local-draft-dock-style")) return;
+    var st = document.createElement("style");
+    st.id = "local-draft-dock-style";
+    st.textContent =
+        "#local-draft-dock{position:fixed;left:10px;top:22vh;z-index:12050;display:flex;align-items:flex-start;gap:8px}" +
+        "#local-draft-dock .dock-rail{display:flex;flex-direction:column;gap:8px}" +
+        "#local-draft-dock .dock-icon{width:46px;height:46px;border-radius:999px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.25);transition:transform .15s ease,filter .15s ease}" +
+        "#local-draft-dock .dock-icon:hover{transform:translateY(-1px);filter:brightness(1.08)}" +
+        "#local-draft-dock .dock-icon svg{width:24px;height:24px;display:block}" +
+        "#local-draft-dock .dock-panel{min-width:290px;max-width:min(32vw,380px);background:#1f2937;color:#f9fafb;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px;box-shadow:0 10px 24px rgba(0,0,0,.25);transform:translateX(-14px);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}" +
+        "#local-draft-dock .dock-panel.is-open{transform:translateX(0);opacity:1;pointer-events:auto}" +
+        "#local-draft-dock .dock-section{display:none}" +
+        "#local-draft-dock .dock-section.is-open{display:block}";
+    document.head.appendChild(st);
+}
+
 function ensureLocalDraftStatusBar() {
-    var existing = document.getElementById("local-draft-statusbar");
+    var existing = document.getElementById("local-draft-dock");
     if (existing) return existing;
+    ensureLocalDraftDockStyles();
     var bar = document.createElement("div");
-    bar.id = "local-draft-statusbar";
-    bar.style.cssText =
-        "position:fixed;left:0;right:0;bottom:0;z-index:12000;background:#1f2937;color:#f9fafb;" +
-        "border-top:1px solid rgba(255,255,255,0.15);padding:8px 12px;font-size:12px;" +
-        "display:flex;align-items:center;gap:12px;flex-wrap:wrap;";
+    bar.id = "local-draft-dock";
+    var saveSvg =
+        "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M5 3h11l3 3v15H5z' fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round'/><path d='M8 3v6h8V3M8 21v-7h8v7' fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round'/></svg>";
+    var loadSvg =
+        "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M4 5h16v12H4z' fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round'/><path d='M12 8v8M9 13l3 3 3-3' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>";
+    var mapSvg =
+        "<svg viewBox='0 0 24 24' aria-hidden='true'><path d='M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z' fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round'/><path d='M9 4v14M15 6v14' fill='none' stroke='currentColor' stroke-width='2'/></svg>";
     bar.innerHTML =
-        "<strong style='font-size:12px;'>Brouillon local</strong>" +
-        "<span id='local-draft-status-text' style='opacity:.95;'>Initialisation...</span>" +
-        "<label style='display:inline-flex;align-items:center;gap:6px;'><input type='checkbox' id='local-draft-enable' checked> Activer</label>" +
-        "<label style='display:inline-flex;align-items:center;gap:6px;'><input type='checkbox' id='local-draft-light'> Mode léger (sans médias)</label>" +
-        "<button type='button' id='local-draft-save-now' style='background:#2563eb;color:#fff;border:none;border-radius:4px;padding:5px 8px;cursor:pointer;'>Snapshot maintenant</button>" +
-        "<button type='button' id='local-draft-clear' style='background:#dc2626;color:#fff;border:none;border-radius:4px;padding:5px 8px;cursor:pointer;'>Effacer brouillon</button>";
+        "<div class='dock-rail'>" +
+        "<button type='button' id='local-draft-icon-save' title='Sauvegarde' class='dock-icon' style='background:#2563eb;'>" +
+        saveSvg +
+        "</button>" +
+        "<button type='button' id='local-draft-icon-load' title='Chargement' class='dock-icon' style='background:#7c3aed;'>" +
+        loadSvg +
+        "</button>" +
+        "<button type='button' id='local-draft-icon-map' title='Carte' class='dock-icon' style='background:#0f766e;'>" +
+        mapSvg +
+        "</button>" +
+        "</div>" +
+        "<div id='local-draft-panel' class='dock-panel'>" +
+        "<div id='local-draft-panel-title' style='font-weight:700;margin-bottom:8px;'>Sauvegarde locale</div>" +
+        "<div id='local-draft-panel-save' class='dock-section'>" +
+        "<span id='local-draft-status-text' style='display:block;opacity:.95;margin-bottom:8px;'>Initialisation...</span>" +
+        "<label style='display:flex;align-items:center;gap:6px;margin-bottom:6px;'><input type='checkbox' id='local-draft-enable' checked> Activer</label>" +
+        "<label style='display:flex;align-items:center;gap:6px;margin-bottom:8px;'><input type='checkbox' id='local-draft-light'> Mode léger (sans médias)</label>" +
+        "<div style='display:flex;flex-wrap:wrap;gap:6px;'>" +
+        "<button type='button' id='local-draft-save-now' style='background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>Snapshot</button>" +
+        "<button type='button' id='local-draft-clear' style='background:#dc2626;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>Effacer</button>" +
+        "<button type='button' id='local-draft-export-json' style='background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>Sauver .json</button>" +
+        "<button type='button' id='local-draft-export-bundle' style='background:#0369a1;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>Sauver .escapegame</button>" +
+        "</div>" +
+        "</div>" +
+        "<div id='local-draft-panel-load' class='dock-section'>" +
+        "<p style='margin:0 0 8px 0;opacity:.95;'>Charger un projet depuis un fichier local.</p>" +
+        "<button type='button' id='local-draft-load-file' style='background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>Ouvrir .json / .escapegame</button>" +
+        "</div>" +
+        "<div id='local-draft-panel-map' class='dock-section'>" +
+        "<p style='margin:0 0 8px 0;opacity:.95;'>Accès rapide à la carte.</p>" +
+        "<div style='display:flex;gap:6px;flex-wrap:wrap;'>" +
+        "<button type='button' id='local-draft-open-map' style='background:#0f766e;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>Ouvrir la carte</button>" +
+        "<button type='button' id='local-draft-close-map' style='background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>Fermer la carte</button>" +
+        "</div>" +
+        "<div style='display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;'>" +
+        "<button type='button' id='local-draft-map-view-focus' style='background:#2563eb;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>Vue focus</button>" +
+        "<button type='button' id='local-draft-map-view-full' style='background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>Vue complète</button>" +
+        "<button type='button' id='local-draft-map-view-tree' style='background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer;'>Vue acyclique</button>" +
+        "</div>" +
+        "<label style='display:flex;align-items:center;gap:6px;margin-top:8px;'><input type='checkbox' id='local-draft-map-narration-only'> Mode narration</label>" +
+        "</div>" +
+        "</div>";
     document.body.appendChild(bar);
-    var curPad = parseInt(String(globalThis.getComputedStyle(document.body).paddingBottom || "0"), 10);
-    if (!isFinite(curPad) || curPad < 78) document.body.style.paddingBottom = "78px";
+
+    function showPanel(kind, anchorEl) {
+        var panel = document.getElementById("local-draft-panel");
+        var title = document.getElementById("local-draft-panel-title");
+        var secSave = document.getElementById("local-draft-panel-save");
+        var secLoad = document.getElementById("local-draft-panel-load");
+        var secMap = document.getElementById("local-draft-panel-map");
+        if (!panel || !title || !secSave || !secLoad || !secMap) return;
+        var isOpen = panel.classList.contains("is-open");
+        var currentKind = panel.getAttribute("data-kind") || "";
+        if (isOpen && currentKind === kind) {
+            panel.classList.remove("is-open");
+            panel.setAttribute("data-kind", "");
+            secSave.classList.remove("is-open");
+            secLoad.classList.remove("is-open");
+            secMap.classList.remove("is-open");
+            return;
+        }
+        panel.classList.add("is-open");
+        panel.setAttribute("data-kind", kind);
+        secSave.classList.toggle("is-open", kind === "save");
+        secLoad.classList.toggle("is-open", kind === "load");
+        secMap.classList.toggle("is-open", kind === "map");
+        if (anchorEl && typeof anchorEl.offsetTop === "number") {
+            panel.style.marginTop = String(anchorEl.offsetTop) + "px";
+        } else {
+            panel.style.marginTop = "0px";
+        }
+        title.textContent = kind === "save" ? "Sauvegarde locale" : kind === "load" ? "Chargement" : "Carte";
+    }
+
+    document.getElementById("local-draft-icon-save").addEventListener("click", function () {
+        showPanel("save", this);
+    });
+    document.getElementById("local-draft-icon-load").addEventListener("click", function () {
+        showPanel("load", this);
+    });
+    document.getElementById("local-draft-icon-map").addEventListener("click", function () {
+        showPanel("map", this);
+    });
+
     document.getElementById("local-draft-enable").addEventListener("change", async function (e) {
         localDraftManager.setEnabled(!!e.target.checked);
         await refreshLocalDraftStatusUi();
@@ -236,7 +331,66 @@ function ensureLocalDraftStatusBar() {
         }
         await refreshLocalDraftStatusUi();
     });
+    document.getElementById("local-draft-export-json").addEventListener("click", function () {
+        saveProject();
+    });
+    document.getElementById("local-draft-export-bundle").addEventListener("click", function () {
+        void saveProjectBundle();
+    });
+    document.getElementById("local-draft-load-file").addEventListener("click", function () {
+        var inp = document.getElementById("file-import");
+        if (inp) inp.click();
+    });
+    document.getElementById("local-draft-open-map").addEventListener("click", function () {
+        if (typeof openProjectMap === "function") openProjectMap();
+    });
+    document.getElementById("local-draft-close-map").addEventListener("click", function () {
+        if (typeof closeProjectMap === "function") closeProjectMap();
+    });
+    document.getElementById("local-draft-map-view-focus").addEventListener("click", function () {
+        if (typeof setProjectMapView === "function") setProjectMapView("focus");
+    });
+    document.getElementById("local-draft-map-view-full").addEventListener("click", function () {
+        if (typeof setProjectMapView === "function") setProjectMapView("full");
+    });
+    document.getElementById("local-draft-map-view-tree").addEventListener("click", function () {
+        if (typeof setProjectMapView === "function") setProjectMapView("tree");
+    });
+    document.getElementById("local-draft-map-narration-only").addEventListener("change", function (e) {
+        var ch = document.getElementById("project-map-narration-only");
+        if (ch) {
+            ch.checked = !!e.target.checked;
+            ch.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+    });
     return bar;
+}
+
+function setMapHeaderCompactMode(enabled) {
+    var hdr = document.querySelector("#project-map-modal > .modal-header");
+    if (!hdr) return;
+    hdr.style.display = enabled ? "none" : "";
+}
+
+function installMapHeaderHook() {
+    if (window.__localDraftMapHookInstalled) return;
+    if (typeof openProjectMap !== "function" || typeof closeProjectMap !== "function") return;
+    var _open = openProjectMap;
+    var _close = closeProjectMap;
+    window.openProjectMap = function () {
+        _open.apply(this, arguments);
+        setMapHeaderCompactMode(true);
+        var src = document.getElementById("project-map-narration-only");
+        var dst = document.getElementById("local-draft-map-narration-only");
+        if (src && dst) dst.checked = !!src.checked;
+    };
+    window.closeProjectMap = function () {
+        setMapHeaderCompactMode(false);
+        _close.apply(this, arguments);
+    };
+    openProjectMap = window.openProjectMap;
+    closeProjectMap = window.closeProjectMap;
+    window.__localDraftMapHookInstalled = true;
 }
 
 async function refreshLocalDraftStatusUi() {
@@ -256,8 +410,11 @@ async function refreshLocalDraftStatusUi() {
     var textEl = document.getElementById("local-draft-status-text");
     var enEl = document.getElementById("local-draft-enable");
     var lmEl = document.getElementById("local-draft-light");
+    var srcNarr = document.getElementById("project-map-narration-only");
+    var dstNarr = document.getElementById("local-draft-map-narration-only");
     if (enEl) enEl.checked = !!info.enabled;
     if (lmEl) lmEl.checked = !!info.lightMode;
+    if (srcNarr && dstNarr) dstNarr.checked = !!srcNarr.checked;
     if (!textEl) return;
     if (!info.estimate.supported) {
         textEl.textContent = "IndexedDB sans estimation de quota (navigateur).";
@@ -354,6 +511,7 @@ async function initLocalDraftFeature() {
     if (localDraftInitDone) return;
     localDraftInitDone = true;
     ensureLocalDraftStatusBar();
+    installMapHeaderHook();
     document.addEventListener("input", noteLocalDraftDirty, true);
     document.addEventListener("change", noteLocalDraftDirty, true);
     try {
