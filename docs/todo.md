@@ -67,14 +67,20 @@ Synthèse des pistes à traiter **plus tard** (pas tout en parallèle). Détail 
 
 Plan détaillé (risques, options, phases) : **`docs/PLAN_SAUVEGARDE_LOCALE_EDITEUR.md`**.
 
-- **Sauvegarde locale** (ex. `localStorage` ou **IndexedDB** pour gros projets) du brouillon éditeur pour limiter la perte sur actualisation ou crash.
-- **Contraintes** : éviter une écriture à **chaque frappe** ; privilégier **snapshot périodique** (ex. toutes les *n* minutes) + éventuellement à la fermeture d’onglet (`beforeunload` léger) ; **quota / rotation** (une ou quelques versions, purge explicite dans l’UI « Effacer le brouillon » / paramètres).
-- UX : ne **pas** écraser silencieusement un fichier projet chargé sans demande — distinguer « brouillon navigateur » vs « dernier fichier ouvert ».
+- ~~**Sauvegarde locale** (ex. `localStorage` ou **IndexedDB** pour gros projets) du brouillon éditeur pour limiter la perte sur actualisation ou crash.~~ — **Fait** : implémentation IndexedDB + snapshots + restauration explicite + purge/gestion via dock latéral.
+- ~~**Contraintes** : éviter une écriture à **chaque frappe** ; privilégier **snapshot périodique** (ex. toutes les *n* minutes) + éventuellement à la fermeture d’onglet (`beforeunload` léger) ; **quota / rotation** (une ou quelques versions, purge explicite dans l’UI « Effacer le brouillon » / paramètres).~~ — **Fait** : autosave debounced, stockage/quota affichés, rétention/purge opérationnelles.
+- ~~UX : ne **pas** écraser silencieusement un fichier projet chargé sans demande — distinguer « brouillon navigateur » vs « dernier fichier ouvert ».~~ — **Fait** : restauration avec confirmation et métadonnées (source/date/titre), sans overwrite silencieux.
 
 ### Joueur — sauvegarde de progression (option éditeur)
 
-- Option à activer dans l’éditeur : **aucune** / **manuelle** (ex. bouton dans le HUD) / **auto** (ex. à chaque changement de scène).
-- Stockage côté client (`localStorage` ou similaire), clé par jeu ou par export ; réflexion **vie privée** + **reset** (nouvelle partie) + taille des données (inventaire, flags).
+Plan détaillé (nouveau) : **`docs/plan_sauvegarde_locale_joueur.md`**.
+
+- ~~Sauvegarde locale joueur : privilégier **IndexedDB** (réutilisation du socle technique partagé avec l’éditeur).~~ — **Fait (Phase B)** : slot local unique branché dans le runtime joueur (FR/EN), avec reprise d’état (scène, inventaire, unlocks, timer).
+- ~~Slot local : **1 seul slot** (écrasement volontaire du précédent pour éviter l’accumulation en phase de test).~~ — **Fait (Phase B)** : clé `latest` unique.
+- ~~Écran titre joueur : **Continuer** + activation explicite via case à cocher sur l’écran de démarrage.~~ — **Fait (Phase B)**.
+- ~~Sauvegarde manuelle joueur en `.escapegame` + import fichier~~ — **Fait (Phase C)** : export/import manuel `.escapegame` (FR/EN), validation `kind/saveSchemaVersion/gameFingerprint`, import possible depuis l’écran titre et depuis les réglages en cours de partie.
+- ~~Compléter l’écran titre avec un parcours **Nouvelle partie** explicite~~ — **Fait** : bouton dédié FR/EN, confirmation guidée et purge locale optionnelle du quicksave avant démarrage.
+- ~~Option éditeur complète **none/manual/auto** (par défaut `manual`) et propagation stricte dans l’export joueur~~ — **Fait (Phase D)** : nouveau réglage global `playerSaveMode` (FR/EN), sérialisation + chargement projet, normalisation `EditorCore`, payload export joueur, et comportement runtime aligné (`none` désactive l’UI/les actions de sauvegarde ; `manual` = reprise/import/export manuels ; `auto` = auto-save + manuel).
 
 ---
 

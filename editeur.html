@@ -300,6 +300,21 @@
                 </div>
             </div> <!-- /timer-settings-container (timer seul) -->
 
+            <h4 class="scene-block-heading" style="margin:18px 0 10px 0;">Sauvegarde progression joueur</h4>
+            <p style="margin:0 0 10px 0;font-size:14px;color:#555;max-width:720px;">
+                Contrôle le mode dans le joueur exporté : désactivé, manuel (par défaut), ou auto.
+            </p>
+            <div class="row" style="margin-bottom: 20px;">
+                <div class="col col-wide" style="max-width:480px;">
+                    <label for="playerSaveMode">Mode :</label>
+                    <select id="playerSaveMode" title="Mode de sauvegarde progression joueur">
+                        <option value="none">Aucune sauvegarde</option>
+                        <option value="manual" selected>Manuelle (.escapegame + reprise locale)</option>
+                        <option value="auto">Auto + manuel</option>
+                    </select>
+                </div>
+            </div>
+
             <h4 class="scene-block-heading" style="margin:24px 0 10px 0;">Scène de victoire (optionnel)</h4>
             <p style="margin:0 0 10px 0;font-size:14px;color:#555;max-width:720px;">Lorsque le joueur <strong>entre dans cette scène</strong>, l’écran de victoire s’affiche. Réglage indépendant du timer.</p>
             <div class="row" style="margin-bottom: 20px;">
@@ -477,6 +492,8 @@
     <script src="js/editor-shared-local-draft-ui.js" defer></script>
     <script src="js/editor-shared-preview-picker.js" defer></script>
     <script src="js/editor-shared-duplication.js" defer></script>
+    <script src="js/editor-shared-storage-core.js" defer></script>
+    <script src="js/player-shared-save.js" defer></script>
     <script src="js/editeur-app.js" defer></script>
     <script src="js/editeur-generate.js" defer></script>
     <script src="xflow/project-graph.js" defer></script>
