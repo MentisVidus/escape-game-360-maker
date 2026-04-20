@@ -306,8 +306,9 @@ function addSceneFromMap() {
 }
 window.addSceneFromMap = addSceneFromMap;
 
-/** Path B (React map): add an empty hotspot to the scene (index 0 = first in #scenes-container). */
-function addHotspotSkeletonFromMapSceneIndex(sceneIndex) {
+/** Path B (React map): add a hotspot of the given kind; side panel only for msg / pick unless opts.openPanel. */
+function addHotspotFromMapWithKind(sceneIndex, kind, opts) {
+    opts = opts || {};
     if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
     var blocks = document.querySelectorAll("#scenes-container > .scene-block");
     var el = blocks[sceneIndex];
@@ -317,18 +318,88 @@ function addHotspotSkeletonFromMapSceneIndex(sceneIndex) {
     var sid = parseInt(m[1], 10);
     if (typeof addHotspot !== "function") return;
     addHotspot(sid, null);
+    var wrap = el.querySelector('[id^="hs-container-"]');
+    var hss = wrap ? wrap.querySelectorAll(":scope > .hotspot-block") : null;
+    var lastHs = hss && hss.length ? hss[hss.length - 1] : null;
+    if (lastHs) {
+        var hm = /^hs_(\d+)$/.exec(lastHs.id);
+        var typeSel = lastHs.querySelector(".hs-type");
+        var hid = hm ? parseInt(hm[1], 10) : 0;
+        var kindOk = false;
+        if (typeSel && kind) {
+            for (var oi = 0; oi < typeSel.options.length; oi++) {
+                if (typeSel.options[oi].value === kind) {
+                    kindOk = true;
+                    break;
+                }
+            }
+        }
+        if (typeSel && kind && kindOk) {
+            typeSel.value = kind;
+            if (typeof updateHsFields === "function" && hid) {
+                updateHsFields(hid);
+            }
+        }
+    }
     if (typeof refreshAllSceneTargetSelects === "function") {
         refreshAllSceneTargetSelects();
     }
     if (typeof refreshProjectMapGraphInPlace === "function") {
         refreshProjectMapGraphInPlace();
     }
-    var wrap = el.querySelector('[id^="hs-container-"]');
-    var hss = wrap ? wrap.querySelectorAll(":scope > .hotspot-block") : null;
-    var lastHs = hss && hss.length ? hss[hss.length - 1] : null;
-    if (lastHs && typeof window.mountProjectMapSidePanelElement === "function") {
+    var openPanel =
+        opts.openPanel !== undefined ? !!opts.openPanel : kind === "msg" || kind === "pick";
+    if (openPanel && lastHs && typeof window.mountProjectMapSidePanelElement === "function") {
         window.mountProjectMapSidePanelElement(lastHs);
     }
+}
+window.addHotspotFromMapWithKind = addHotspotFromMapWithKind;
+
+/** Path B: set « Go to scene » hotspot target from map drag (DOM scene index, .sc-id value). */
+function applyMapHotspotSceneConnection(sceneIndex, hotspotIndex, targetSceneIndex) {
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    if (typeof hotspotIndex !== "number" || hotspotIndex < 0) return;
+    if (typeof targetSceneIndex !== "number" || targetSceneIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var sceneEl = blocks[sceneIndex];
+    var tgtBlock = blocks[targetSceneIndex];
+    if (!sceneEl || !tgtBlock) return;
+    var wrap = sceneEl.querySelector('[id^="hs-container-"]');
+    if (!wrap) return;
+    var hss = wrap.querySelectorAll(":scope > .hotspot-block");
+    var hb = hss[hotspotIndex];
+    if (!hb) return;
+    var typeSel = hb.querySelector(".hs-type");
+    if (!typeSel || typeSel.value !== "scene") return;
+    var scIdInp = tgtBlock.querySelector(".sc-id");
+    var domTarget = scIdInp ? String(scIdInp.value || "").trim() : "";
+    if (!domTarget) return;
+    var ft = hb.querySelector(".f-target");
+    if (!ft) return;
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    ft = hb.querySelector(".f-target");
+    if (!ft) return;
+    if (ft.tagName === "SELECT" || ft.tagName === "select") {
+        ft.value = domTarget;
+    } else {
+        ft.value = domTarget;
+    }
+    ft.dispatchEvent(new Event("input", { bubbles: true }));
+    ft.dispatchEvent(new Event("change", { bubbles: true }));
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.applyMapHotspotSceneConnection = applyMapHotspotSceneConnection;
+
+/** Path B (React map): add a message hotspot (legacy + panel). */
+function addHotspotSkeletonFromMapSceneIndex(sceneIndex) {
+    addHotspotFromMapWithKind(sceneIndex, "msg", { openPanel: true });
 }
 window.addHotspotSkeletonFromMapSceneIndex = addHotspotSkeletonFromMapSceneIndex;
 

@@ -14,6 +14,65 @@
   position: relative;
 }
 
+.rf-map-scene-add-wrap {
+  position: relative;
+}
+
+.rf-map-add-hotspot-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  min-width: 220px;
+  max-width: min(320px, 70vw);
+  padding: 8px 0;
+  border-radius: 8px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  text-align: left;
+}
+
+.rf-map-add-hotspot-group {
+  padding: 0 8px 6px;
+}
+
+.rf-map-add-hotspot-group-title {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+  padding: 4px 6px 6px;
+  font-weight: 700;
+}
+
+.rf-map-add-hotspot-item {
+  display: block;
+  width: 100%;
+  margin: 0 0 3px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rf-map-add-hotspot-item:hover {
+  background: rgba(52, 152, 219, 0.35);
+}
+
+.rf-map-add-hotspot-hint {
+  margin: 4px 10px 0;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.65rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .rf-map-node-btn {
   width: 22px;
   height: 22px;

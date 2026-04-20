@@ -7,6 +7,7 @@ import {
   ReactFlowProvider,
   useEdgesState,
   useNodesState,
+  type Connection,
   type Edge,
   type Node,
   type NodeTypes,
@@ -16,6 +17,8 @@ import "@xyflow/react/dist/style.css";
 import {
   type EditorLang,
   type EditorProject,
+  type MapHotspotNodeData,
+  type MapSceneNodeData,
   buildProjectMapGraph,
 } from "./mapGraphBuild";
 import { MapHotspotNode, MapRedirectNode, MapSceneNode } from "./mapNodes";
@@ -25,6 +28,11 @@ declare global {
     getCurrentProjectData?: () => EditorProject;
     _projectMapViewMode?: string;
     _projectMapActiveSceneKey?: string | null;
+    applyMapHotspotSceneConnection?: (
+      sceneIndex: number,
+      hotspotIndex: number,
+      targetSceneIndex: number
+    ) => void;
     _projectMapReactBridge?: {
       mountFromNodeData: (d: Record<string, unknown> | null | undefined) => void;
       clearSelectionAndRefresh: () => void;
@@ -133,6 +141,32 @@ function InnerMap() {
     );
   }, []);
 
+  const isValidConnection = useCallback(
+    (c: Connection) => {
+      const sNode = nodes.find((n) => n.id === c.source);
+      const tNode = nodes.find((n) => n.id === c.target);
+      if (!sNode || !tNode) return false;
+      if (sNode.type !== "mapHotspot" || tNode.type !== "mapScene") return false;
+      if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+      const sd = sNode.data as MapHotspotNodeData;
+      return !!sd.mapDragSceneOut;
+    },
+    [nodes]
+  );
+
+  const onConnect = useCallback(
+    (c: Connection) => {
+      const sNode = nodes.find((n) => n.id === c.source);
+      const tNode = nodes.find((n) => n.id === c.target);
+      if (!sNode || !tNode || sNode.type !== "mapHotspot" || tNode.type !== "mapScene") return;
+      const sd = sNode.data as MapHotspotNodeData;
+      const td = tNode.data as MapSceneNodeData;
+      if (!sd.mapDragSceneOut) return;
+      window.applyMapHotspotSceneConnection?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+    },
+    [nodes]
+  );
+
   return (
     <div style={{ width: "100%", height: "100%", minHeight: 200 }}>
       <ReactFlow
@@ -146,7 +180,9 @@ function InnerMap() {
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
         nodesDraggable={false}
-        nodesConnectable={false}
+        nodesConnectable
+        onConnect={onConnect}
+        isValidConnection={isValidConnection}
         elementsSelectable={selectable}
         panOnDrag
         zoomOnScroll

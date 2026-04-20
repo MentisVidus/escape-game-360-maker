@@ -1,11 +1,12 @@
-import type { MouseEvent as ReactMouseEvent } from "react";
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { Handle, Position, type Node as FlowNode, type NodeProps } from "@xyflow/react";
 import type {
   EditorLang,
   MapHotspotNodeData,
   MapRedirectNodeData,
   MapSceneNodeData,
 } from "./mapGraphBuild";
+import { hotspotAddMenuCopy, type HotspotKindId } from "./hotspotAddKinds";
 
 import "./mapNodeChrome.css";
 
@@ -17,10 +18,15 @@ type SceneNodeDataExt = MapSceneNodeData & {
   orphanIsland?: boolean;
 };
 
-type SceneNodeProps = NodeProps<Node<SceneNodeDataExt>>;
+type SceneNodeProps = NodeProps<FlowNode<SceneNodeDataExt>>;
 
 declare global {
   interface Window {
+    addHotspotFromMapWithKind?: (
+      sceneIndex: number,
+      kind: string,
+      opts?: { openPanel?: boolean }
+    ) => void;
     addHotspotSkeletonFromMapSceneIndex?: (sceneIndex: number) => void;
     deleteSceneFromMapByIndex?: (sceneIndex: number) => void;
     deleteHotspotFromMapIndices?: (sceneIndex: number, hotspotIndex: number) => void;
@@ -32,6 +38,10 @@ export function MapSceneNode({ data }: SceneNodeProps) {
   const labScene = en ? "Scene" : "Scène";
   const labId = en ? "ID:" : "ID :";
   const collapsed = data.chrome === "collapsed";
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuWrapRef = useRef<HTMLDivElement>(null);
+  const copy = hotspotAddMenuCopy(data.lang);
+
   const wrapClass = [
     "rf-map-scene-root",
     data.chrome === "active" ? "rf-map-scene-active-wrap" : "",
@@ -42,10 +52,30 @@ export function MapSceneNode({ data }: SceneNodeProps) {
     .filter(Boolean)
     .join(" ");
 
-  const onAddHs = (e: ReactMouseEvent<HTMLButtonElement>) => {
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDocDown(e: globalThis.MouseEvent) {
+      const el = menuWrapRef.current;
+      const t = e.target;
+      if (el && t instanceof Element && !el.contains(t)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [menuOpen]);
+
+  const onToggleAddMenu = (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    window.addHotspotSkeletonFromMapSceneIndex?.(data.sceneIndex);
+    setMenuOpen((v) => !v);
   };
+
+  const onPickKind = (e: ReactMouseEvent, kind: HotspotKindId) => {
+    e.stopPropagation();
+    setMenuOpen(false);
+    window.addHotspotFromMapWithKind?.(data.sceneIndex, kind);
+  };
+
   const onDelScene = (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     window.deleteSceneFromMapByIndex?.(data.sceneIndex);
@@ -56,14 +86,41 @@ export function MapSceneNode({ data }: SceneNodeProps) {
       <Handle type="target" position={Position.Left} id="in" />
       <Handle type="source" position={Position.Right} id="out" />
       <div className="rf-map-node-actions">
-        <button
-          type="button"
-          className="rf-map-node-btn rf-map-node-btn-add"
-          title={en ? "Add hotspot (skeleton)" : "Ajouter un hotspot (squelette)"}
-          onClick={onAddHs}
-        >
-          +
-        </button>
+        <div className="rf-map-scene-add-wrap" ref={menuWrapRef}>
+          <button
+            type="button"
+            className="rf-map-node-btn rf-map-node-btn-add"
+            title={en ? "Add hotspot…" : "Ajouter un hotspot…"}
+            onClick={onToggleAddMenu}
+          >
+            +
+          </button>
+          {menuOpen ? (
+            <div
+              className="rf-map-add-hotspot-menu"
+              role="menu"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {copy.groups.map((g) => (
+                <div key={g.id} className="rf-map-add-hotspot-group">
+                  <div className="rf-map-add-hotspot-group-title">{g.title}</div>
+                  {g.kinds.map((row) => (
+                    <button
+                      key={row.kind}
+                      type="button"
+                      className="rf-map-add-hotspot-item"
+                      role="menuitem"
+                      onClick={(ev) => onPickKind(ev, row.kind)}
+                    >
+                      {row.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+              <div className="rf-map-add-hotspot-hint">{copy.hintBranch}</div>
+            </div>
+          ) : null}
+        </div>
         <button
           type="button"
           className="rf-map-node-btn rf-map-node-btn-del"
@@ -97,7 +154,7 @@ export function MapSceneNode({ data }: SceneNodeProps) {
   );
 }
 
-type HotspotNodeProps = NodeProps<Node<MapHotspotNodeData & { lang: EditorLang }>>;
+type HotspotNodeProps = NodeProps<FlowNode<MapHotspotNodeData & { lang: EditorLang }>>;
 
 export function MapHotspotNode({ data }: HotspotNodeProps) {
   const en = data.lang === "en";
@@ -109,7 +166,12 @@ export function MapHotspotNode({ data }: HotspotNodeProps) {
   return (
     <div className="rf-map-hotspot-root">
       <Handle type="target" position={Position.Left} id="in" />
-      <Handle type="source" position={Position.Right} id="out" />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="out"
+        isConnectable={!!data.mapDragSceneOut}
+      />
       <div className="rf-map-node-actions">
         <button
           type="button"
@@ -138,7 +200,7 @@ export function MapHotspotNode({ data }: HotspotNodeProps) {
   );
 }
 
-type RedirectNodeProps = NodeProps<Node<MapRedirectNodeData & { lang: EditorLang }>>;
+type RedirectNodeProps = NodeProps<FlowNode<MapRedirectNodeData & { lang: EditorLang }>>;
 
 export function MapRedirectNode({ data }: RedirectNodeProps) {
   const en = data.lang === "en";

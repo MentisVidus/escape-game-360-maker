@@ -40,6 +40,8 @@ export type MapHotspotNodeData = {
   sceneIndex: number;
   hotspotIndex: number;
   parentSceneKey: string;
+  /** Reliure sur la carte : uniquement action `scene` (champ f-target). */
+  mapDragSceneOut?: boolean;
   /** Présent si action `selector` : nombre de choix (amorce B3 / lisibilité graphe). */
   selectorChoiceCount?: number;
 };
@@ -383,6 +385,7 @@ function buildGraphFull(
       const label = hotspotLabel(hs as EditorHotspot, hi);
       const at = hotspotActionType(hs as EditorHotspot);
       const selN = selectorChoiceCount(hs as EditorHotspot);
+      const mapDragSceneOut = at === "scene";
       const hsId = `hs:${sk}:${hi}`;
       const hx = sx + HS_OFFSET_X;
       const hy = sy + HS_OFFSET_Y + hi * HS_STEP_Y;
@@ -398,6 +401,7 @@ function buildGraphFull(
           hotspotIndex: hi,
           parentSceneKey: sk,
           lang,
+          mapDragSceneOut,
           ...(selN !== undefined ? { selectorChoiceCount: selN } : {}),
         } satisfies MapHotspotNodeData & { lang: EditorLang },
       });
@@ -499,6 +503,7 @@ function buildGraphFocus(
     const label = hotspotLabel(hs as EditorHotspot, hi);
     const at = hotspotActionType(hs as EditorHotspot);
     const selN = selectorChoiceCount(hs as EditorHotspot);
+    const mapDragSceneOut = at === "scene";
     const hsId = `hs:${activeKey}:${hi}`;
     nodes.push({
       id: hsId,
@@ -512,6 +517,7 @@ function buildGraphFocus(
         hotspotIndex: hi,
         parentSceneKey: activeKey,
         lang,
+        mapDragSceneOut,
         ...(selN !== undefined ? { selectorChoiceCount: selN } : {}),
       } satisfies MapHotspotNodeData & { lang: EditorLang },
     });
@@ -601,6 +607,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
       const label = hotspotLabel(hs as EditorHotspot, i);
       const at = hotspotActionType(hs as EditorHotspot);
       const selN = selectorChoiceCount(hs as EditorHotspot);
+      const mapDragSceneOut = at === "scene";
       const hsRfId = `hs:${sk}:${i}`;
       nodes.push({
         id: hsRfId,
@@ -614,6 +621,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
           hotspotIndex: i,
           parentSceneKey: sk,
           lang,
+          mapDragSceneOut,
           ...(selN !== undefined ? { selectorChoiceCount: selN } : {}),
         } satisfies MapHotspotNodeData & { lang: EditorLang },
       });
