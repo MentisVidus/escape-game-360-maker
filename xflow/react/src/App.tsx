@@ -13,6 +13,7 @@ import {
   type Edge,
   type Node,
   type NodeChange,
+  type NodePositionChange,
   type NodeTypes,
   type OnConnectEnd,
   type OnConnectStart,
@@ -148,6 +149,88 @@ function mergeSavedNodePositions(nodes: Node[], saved: Record<string, { x: numbe
     if (!p || typeof p.x !== "number" || typeof p.y !== "number") return node;
     return { ...node, position: { x: p.x, y: p.y } };
   });
+}
+
+/** Déplace en bloc hotspots / choix / médias / cadre `sg:` quand on traîne le nœud scène (`sc:`). */
+function expandMapSceneDragWithGroup(nodes: Node[], changes: NodeChange[]): NodeChange[] {
+  const movedByPointer = new Set<string>();
+  for (const c of changes) {
+    if (c.type !== "position") continue;
+    const pc = c as NodePositionChange;
+    if (
+      pc.position == null ||
+      typeof pc.position.x !== "number" ||
+      typeof pc.position.y !== "number"
+    ) {
+      continue;
+    }
+    movedByPointer.add(pc.id);
+  }
+
+  const extras: NodeChange[] = [];
+
+  for (const change of changes) {
+    if (change.type !== "position") continue;
+    const pc = change as NodePositionChange;
+    if (
+      pc.position == null ||
+      typeof pc.position.x !== "number" ||
+      typeof pc.position.y !== "number"
+    ) {
+      continue;
+    }
+
+    const id = pc.id;
+    if (!id.startsWith("sc:")) continue;
+
+    const n = nodes.find((x) => x.id === id);
+    if (n?.type !== "mapScene") continue;
+
+    const sk = (n.data as MapSceneNodeData).sceneKey;
+    if (!sk || typeof sk !== "string") continue;
+
+    const dx = pc.position.x - n.position.x;
+    const dy = pc.position.y - n.position.y;
+    if (Math.abs(dx) < 1e-4 && Math.abs(dy) < 1e-4) continue;
+
+    const hsP = `hs:${sk}:`;
+    const selP = `sel:${sk}:`;
+    const resP = `res:${sk}:`;
+
+    for (const child of nodes) {
+      if (child.id === id) continue;
+      if (
+        !child.id.startsWith(hsP) &&
+        !child.id.startsWith(selP) &&
+        !child.id.startsWith(resP)
+      ) {
+        continue;
+      }
+      if (movedByPointer.has(child.id)) continue;
+      const follow: NodePositionChange = {
+        type: "position",
+        id: child.id,
+        position: { x: child.position.x + dx, y: child.position.y + dy },
+      };
+      if ("dragging" in pc && typeof pc.dragging === "boolean") follow.dragging = pc.dragging;
+      extras.push(follow);
+    }
+
+    const sgId = `sg:${sk}`;
+    const sg = nodes.find((x) => x.id === sgId);
+    if (sg && !movedByPointer.has(sgId)) {
+      const g: NodePositionChange = {
+        type: "position",
+        id: sgId,
+        position: { x: sg.position.x + dx, y: sg.position.y + dy },
+      };
+      if ("dragging" in pc && typeof pc.dragging === "boolean") g.dragging = pc.dragging;
+      extras.push(g);
+    }
+  }
+
+  if (extras.length === 0) return changes;
+  return changes.concat(extras);
 }
 
 function InnerMap() {
@@ -364,8 +447,9 @@ function InnerMap() {
 
   const onNodesChangePersistLayout = useCallback(
     (changes: NodeChange[]) => {
-      onNodesChange(changes);
-      const endedDrag = changes.some(
+      const expanded = expandMapSceneDragWithGroup(store.getState().nodes, changes);
+      onNodesChange(expanded);
+      const endedDrag = expanded.some(
         (c) =>
           c.type === "position" &&
           "dragging" in c &&
