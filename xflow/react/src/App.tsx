@@ -346,6 +346,20 @@ function InnerMap() {
       const sNode = nodes.find((n) => n.id === c.source);
       const tNode = nodes.find((n) => n.id === c.target);
       if (!sNode || !tNode) return false;
+      /** Scène (sortie droite) → hotspot (entrée gauche) : même effet qu’orphelin → scène dans l’autre sens. */
+      if (sNode.type === "mapScene" && tNode.type === "mapHotspot") {
+        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+        const sd = sNode.data as MapSceneNodeData;
+        const hd = tNode.data as MapHotspotNodeData;
+        if (sd.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return false;
+        if (
+          hd.parentSceneKey === sd.sceneKey &&
+          hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
+        ) {
+          return false;
+        }
+        return true;
+      }
       if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
         if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
         const sd = sNode.data as MapHotspotNodeData;
@@ -378,6 +392,20 @@ function InnerMap() {
       const sNode = nodes.find((n) => n.id === c.source);
       const tNode = nodes.find((n) => n.id === c.target);
       if (!sNode || !tNode) return;
+      if (sNode.type === "mapScene" && tNode.type === "mapHotspot") {
+        const sd = sNode.data as MapSceneNodeData;
+        const hd = tNode.data as MapHotspotNodeData;
+        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return;
+        if (sd.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return;
+        if (
+          hd.parentSceneKey === sd.sceneKey &&
+          hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
+        ) {
+          return;
+        }
+        window.attachHotspotToMapScene?.(hd.sceneIndex, hd.hotspotIndex, sd.sceneIndex);
+        return;
+      }
       if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
         const sd = sNode.data as MapHotspotNodeData;
         const td = tNode.data as MapSceneNodeData;
@@ -503,10 +531,13 @@ function InnerMap() {
         zoomOnScroll
         zoomOnDoubleClick={false}
         fitView
+        deleteKeyCode={["Backspace", "Delete"]}
         defaultEdgeOptions={{
           type: "smoothstep",
           style: { stroke: "#9eb0c8", strokeWidth: 2 },
           deletable: true,
+          selectable: true,
+          interactionWidth: 28,
         }}
         onEdgesDelete={onEdgesDelete}
         onInit={({ fitView }) => fitView({ padding: 0.15 })}
@@ -515,6 +546,35 @@ function InnerMap() {
         <Background />
         <Controls showInteractive={false} />
         <MiniMap pannable zoomable />
+        <Panel position="top-right">
+          <div
+            className="rf-map-edge-hint"
+            style={{
+              fontSize: 11,
+              lineHeight: 1.35,
+              maxWidth: 260,
+              padding: "6px 10px",
+              borderRadius: 6,
+              background: "rgba(15, 23, 42, 0.88)",
+              color: "#e2e8f0",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+            }}
+          >
+            {enUi ? (
+              <>
+                <strong>Links:</strong> drag from a handle to another (orphan ↔ scene: either way for
+                parent link). <strong>Remove</strong> structural scene→hotspot link: click the edge,
+                then <kbd>Delete</kbd> or <kbd>Backspace</kbd>.
+              </>
+            ) : (
+              <>
+                <strong>Liaisons :</strong> glisser d’une poignée à l’autre (orphelin ↔ scène : dans
+                les deux sens pour le rattachement). <strong>Couper</strong> le lien scène→hotspot :
+                cliquer l’arête puis <kbd>Suppr</kbd> ou <kbd>Retour arrière</kbd>.
+              </>
+            )}
+          </div>
+        </Panel>
         <Panel position="top-left">
           <div className="rf-map-floating-palette">
             <button
