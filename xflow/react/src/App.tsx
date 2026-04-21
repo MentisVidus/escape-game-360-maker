@@ -35,7 +35,15 @@ import {
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
 import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT } from "./mapFlowHandles";
 import {
+  clearMapFlowDebugRing,
+  getMapFlowDebugRing,
+  getMapFlowStaticHelp,
+  setMapFlowDebugStorage,
+  setMapFlowManualEdgesStorage,
+} from "./mapFlowDebug";
+import {
   appendFlowExtraConnection,
+  clearAllFlowExtraEdges,
   loadFlowExtraEdges,
   mergePackEdgesWithExtras,
   removeFlowExtraEdgesByIds,
@@ -286,6 +294,68 @@ function InnerMap() {
   useEffect(() => {
     const modal = document.getElementById("project-map-modal");
     if (modal && modal.style.display === "flex") bump();
+  }, [bump]);
+
+  useEffect(() => {
+    const w = window as Window & {
+      escape360MapFlow?: {
+        help: () => void;
+        log: () => ReturnType<typeof getMapFlowDebugRing>;
+        clearLog: () => void;
+        debugOn: () => void;
+        debugOff: () => void;
+        clearManualEdges: () => number;
+        manualEdgesOff: () => void;
+        manualEdgesOn: () => void;
+      };
+    };
+    w.escape360MapFlow = {
+      help() {
+        console.info(getMapFlowStaticHelp());
+        console.info("[escape360-map-flow] layoutKey courant :", layoutKeyRef.current);
+      },
+      log() {
+        const r = getMapFlowDebugRing();
+        console.table(
+          r.map((x) => ({
+            iso: new Date(x.ts).toISOString(),
+            kind: x.kind,
+            payload: x.payload != null ? JSON.stringify(x.payload) : "",
+          }))
+        );
+        return r;
+      },
+      clearLog: clearMapFlowDebugRing,
+      debugOn() {
+        setMapFlowDebugStorage(true);
+        (window as Window & { __ESCAPE360_MAP_FLOW_DEBUG?: boolean }).__ESCAPE360_MAP_FLOW_DEBUG = true;
+        console.info("[escape360-map-flow] debug console ON");
+      },
+      debugOff() {
+        setMapFlowDebugStorage(false);
+        (window as Window & { __ESCAPE360_MAP_FLOW_DEBUG?: boolean }).__ESCAPE360_MAP_FLOW_DEBUG = false;
+        console.info("[escape360-map-flow] debug console OFF");
+      },
+      clearManualEdges() {
+        const n = clearAllFlowExtraEdges(layoutKeyRef.current);
+        bump();
+        console.info(`[escape360-map-flow] ${n} arête(s) manuelle(s) supprimée(s) (session).`);
+        return n;
+      },
+      manualEdgesOff() {
+        setMapFlowManualEdgesStorage(false);
+        bump();
+        console.info("[escape360-map-flow] Arêtes manuelles désactivées (plus de pointillés).");
+      },
+      manualEdgesOn() {
+        setMapFlowManualEdgesStorage(true);
+        bump();
+        console.info("[escape360-map-flow] Arêtes manuelles réactivées.");
+      },
+    };
+    return () => {
+      delete w.escape360MapFlow;
+    };
   }, [bump]);
 
   const pack = useMemo(() => {
@@ -560,7 +630,7 @@ function InnerMap() {
           if (cd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
             window.attachHotspotToMapScene?.(cd.sceneIndex, cd.hotspotIndex, hd.sceneIndex);
           }
-          appendFlowExtraConnection(layoutKeyRef.current, c);
+          appendFlowExtraConnection(layoutKeyRef.current, c, "choiceToHotspotExtra");
           bump();
           return;
         }
@@ -579,7 +649,7 @@ function InnerMap() {
           }
           if (td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
             if (td.actionType === "selector") {
-              appendFlowExtraConnection(layoutKeyRef.current, c);
+              appendFlowExtraConnection(layoutKeyRef.current, c, "selectorToStagingSelectorExtra");
               bump();
               return;
             }
@@ -591,7 +661,7 @@ function InnerMap() {
             );
             return;
           }
-          appendFlowExtraConnection(layoutKeyRef.current, c);
+          appendFlowExtraConnection(layoutKeyRef.current, c, "selectorToHotspotExtra");
           bump();
           return;
         }
@@ -776,8 +846,9 @@ function InnerMap() {
               <>
                 <strong>Links:</strong> blue flow: scene or choice <strong>right</strong> → pool
                 hotspot <strong>left</strong> (attach); selector hotspot <strong>right</strong> →
-                pool hotspot <strong>left</strong> (attach). Same-scene choice or selector → another
-                hotspot: <strong>dashed</strong> link (saved in this session only). Orphan ↔ scene.{" "}
+                pool hotspot <strong>left</strong> (attach). Choice or selector menu → another
+                hotspot: <strong>dashed</strong> = manual map link (this browser session only, not in
+                project file). Console: <code>escape360MapFlow.help()</code>. Orphan ↔ scene.{" "}
                 <strong>Delete</strong> edge: <kbd>Delete</kbd>. <strong>Copy</strong> hotspot:{" "}
                 <kbd>Alt</kbd>. <strong>Orphan → menu:</strong> pool out → choice in (promotion).
               </>
@@ -785,12 +856,12 @@ function InnerMap() {
               <>
                 <strong>Liaisons (rond bleu) :</strong> scène ou <strong>choix</strong> (sortie
                 droite) → hotspot <strong>file d’attente</strong> (entrée gauche) : rattachement DOM ;
-                idem <strong>menu selector</strong> → orphelin. Sur <strong>même scène</strong>, choix
-                ou menu → autre hotspot : arête <strong>pointillée</strong> (session navigateur
-                seulement, hors export tant non tranché). Orphelin ↔ scène. <strong>Suppr</strong>{" "}
-                arête : <kbd>Suppr</kbd>. <strong>Copier</strong> hotspot : <kbd>Alt</kbd>.{" "}
-                <strong>Orphelin → menu :</strong> sortie orphelin → entrée <strong>choix</strong>{" "}
-                (<code>choices[]</code>).
+                idem <strong>menu selector</strong> → orphelin. Choix ou menu → autre hotspot : arête{" "}
+                <strong>pointillée</strong> = lien manuel carte (session navigateur, pas dans le
+                fichier projet). Console : <code>escape360MapFlow.help()</code>. Orphelin ↔ scène.{" "}
+                <strong>Suppr</strong> arête : <kbd>Suppr</kbd>. <strong>Copier</strong> hotspot :{" "}
+                <kbd>Alt</kbd>. <strong>Orphelin → menu :</strong> sortie orphelin → entrée{" "}
+                <strong>choix</strong> (<code>choices[]</code>).
               </>
             )}
           </div>
