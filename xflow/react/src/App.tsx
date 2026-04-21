@@ -33,6 +33,7 @@ import {
   sceneKey,
 } from "./mapGraphBuild";
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
+import { isValidMapFlowConnection } from "./mapConnectionPolicy";
 import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT } from "./mapFlowHandles";
 import {
   MapHotspotNode,
@@ -369,108 +370,12 @@ function InnerMap() {
   }, []);
 
   const isValidConnection = useCallback(
-    (c: Connection) => {
-      const sNode = nodes.find((n) => n.id === c.source);
-      const tNode = nodes.find((n) => n.id === c.target);
-      if (!sNode || !tNode) return false;
-      /** Scène (Est / flow out) → hotspot (Ouest / flow in) : rattachement (orphelin ou autre scène). */
-      if (sNode.type === "mapScene" && tNode.type === "mapHotspot") {
-        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
-        const sd = sNode.data as MapSceneNodeData;
-        const hd = tNode.data as MapHotspotNodeData;
-        if (sd.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return false;
-        if (
-          hd.parentSceneKey === sd.sceneKey &&
-          hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
-        ) {
-          return false;
-        }
-        return true;
-      }
-      if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
-        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
-        const sd = sNode.data as MapHotspotNodeData;
-        const td = tNode.data as MapSceneNodeData;
-        if (sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY && td.sceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) {
-          return true;
-        }
-        if (sd.mapDragSceneOut) return true;
-        if (altConnectRef.current) {
-          return sd.sceneIndex !== td.sceneIndex;
-        }
-        return false;
-      }
-      if (sNode.type === "mapHotspot" && tNode.type === "mapSelectorChoice") {
-        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
-        const sd = sNode.data as MapHotspotNodeData;
-        const cd = tNode.data as MapSelectorChoiceNodeData;
-        if (sd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return false;
-        if (!cd.parentSceneKey) return false;
-        return true;
-      }
-      /** Choix menu (Est) → hotspot (Ouest) : promotion orphelin ou rattachement menu (file) → scène. */
-      if (sNode.type === "mapSelectorChoice" && tNode.type === "mapHotspot") {
-        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
-        const cd = sNode.data as MapSelectorChoiceNodeData;
-        const hd = tNode.data as MapHotspotNodeData;
-        if (!cd.parentSceneKey) return false;
-        if (hd.hotspotIndex === cd.hotspotIndex && hd.sceneIndex === cd.sceneIndex) return false;
-        /** Pas de lien « carte seule » vers un autre menu (selector) : pas de sémantique jeu / DOM. */
-        if (hd.actionType === "selector") return false;
-        if (cd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
-          if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return true;
-          return hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY;
-        }
-        if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return true;
-        return false;
-      }
-      /**
-       * Hotspot menu selector (Est) → hotspot (Ouest) : orphelin (DOM) ou rattachement menu file → scène.
-       */
-      if (sNode.type === "mapHotspot" && tNode.type === "mapHotspot") {
-        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
-        const sd = sNode.data as MapHotspotNodeData;
-        const td = tNode.data as MapHotspotNodeData;
-        if (sd.actionType !== "selector") return false;
-        if (sd.sceneIndex === td.sceneIndex && sd.hotspotIndex === td.hotspotIndex) return false;
-        /** Orphelin sur la file : promotion seulement si la cible n’est pas déjà un menu selector. */
-        if (td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
-          return td.actionType !== "selector";
-        }
-        /** Menu selector encore sur la file → hotspot sur scène jouable : rattacher le menu à cette scène. */
-        if (
-          sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY &&
-          td.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
-        ) {
-          return true;
-        }
-        return false;
-      }
-      if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
-        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
-        const td = tNode.data as MapSceneNodeData;
-        if (td.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return false;
-        return true;
-      }
-      if (sNode.type === "mapSelectorChoice" && tNode.type === "mapRedirect") {
-        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
-        const rd = tNode.data as MapRedirectNodeData;
-        return Boolean(String(rd.targetSceneKey || "").trim());
-      }
-      if (tNode.type === "mapResource" && c.targetHandle === RF_META_IN) {
-        const rd = tNode.data as MapResourceNodeData;
-        if (sNode.type === "mapScene" && c.sourceHandle === RF_META_OUT) {
-          return rd.resourceType === "sceneAmbiance" || rd.resourceType === "sceneImage";
-        }
-        if (sNode.type === "mapHotspot" && c.sourceHandle === RF_META_OUT) {
-          return rd.resourceType === "hotspotSfx";
-        }
-        if (sNode.type === "mapSelectorChoice" && c.sourceHandle === RF_META_OUT) {
-          return rd.resourceType === "choiceSfx";
-        }
-      }
-      return false;
-    },
+    (c: Connection) =>
+      isValidMapFlowConnection({
+        nodes,
+        connection: c,
+        altConnect: altConnectRef.current,
+      }),
     [nodes]
   );
 
