@@ -100,7 +100,7 @@ export function MapSceneNode({ data }: SceneNodeProps) {
           >
             ★
           </span>
-        ) : data.chrome !== "collapsed" && !data.orphanIsland ? (
+        ) : !data.orphanIsland ? (
           <button
             type="button"
             className="rf-map-node-btn rf-map-node-btn-entry"
