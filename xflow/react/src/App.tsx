@@ -35,20 +35,6 @@ import {
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
 import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT } from "./mapFlowHandles";
 import {
-  clearMapFlowDebugRing,
-  getMapFlowDebugRing,
-  getMapFlowStaticHelp,
-  setMapFlowDebugStorage,
-  setMapFlowManualEdgesStorage,
-} from "./mapFlowDebug";
-import {
-  appendFlowExtraConnection,
-  clearAllFlowExtraEdges,
-  loadFlowExtraEdges,
-  mergePackEdgesWithExtras,
-  removeFlowExtraEdgesByIds,
-} from "./mapFlowExtraEdges";
-import {
   MapHotspotNode,
   MapRedirectNode,
   MapResourceNode,
@@ -278,7 +264,6 @@ function InnerMap() {
   const store = useStoreApi();
   const layoutSaveTimer = useRef<number | null>(null);
   const altConnectRef = useRef(false);
-  const layoutKeyRef = useRef("");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteSceneIndex, setPaletteSceneIndex] = useState(0);
 
@@ -294,68 +279,6 @@ function InnerMap() {
   useEffect(() => {
     const modal = document.getElementById("project-map-modal");
     if (modal && modal.style.display === "flex") bump();
-  }, [bump]);
-
-  useEffect(() => {
-    const w = window as Window & {
-      escape360MapFlow?: {
-        help: () => void;
-        log: () => ReturnType<typeof getMapFlowDebugRing>;
-        clearLog: () => void;
-        debugOn: () => void;
-        debugOff: () => void;
-        clearManualEdges: () => number;
-        manualEdgesOff: () => void;
-        manualEdgesOn: () => void;
-      };
-    };
-    w.escape360MapFlow = {
-      help() {
-        console.info(getMapFlowStaticHelp());
-        console.info("[escape360-map-flow] layoutKey courant :", layoutKeyRef.current);
-      },
-      log() {
-        const r = getMapFlowDebugRing();
-        console.table(
-          r.map((x) => ({
-            iso: new Date(x.ts).toISOString(),
-            kind: x.kind,
-            payload: x.payload != null ? JSON.stringify(x.payload) : "",
-          }))
-        );
-        return r;
-      },
-      clearLog: clearMapFlowDebugRing,
-      debugOn() {
-        setMapFlowDebugStorage(true);
-        (window as Window & { __ESCAPE360_MAP_FLOW_DEBUG?: boolean }).__ESCAPE360_MAP_FLOW_DEBUG = true;
-        console.info("[escape360-map-flow] debug console ON");
-      },
-      debugOff() {
-        setMapFlowDebugStorage(false);
-        (window as Window & { __ESCAPE360_MAP_FLOW_DEBUG?: boolean }).__ESCAPE360_MAP_FLOW_DEBUG = false;
-        console.info("[escape360-map-flow] debug console OFF");
-      },
-      clearManualEdges() {
-        const n = clearAllFlowExtraEdges(layoutKeyRef.current);
-        bump();
-        console.info(`[escape360-map-flow] ${n} arête(s) manuelle(s) supprimée(s) (session).`);
-        return n;
-      },
-      manualEdgesOff() {
-        setMapFlowManualEdgesStorage(false);
-        bump();
-        console.info("[escape360-map-flow] Arêtes manuelles désactivées (plus de pointillés).");
-      },
-      manualEdgesOn() {
-        setMapFlowManualEdgesStorage(true);
-        bump();
-        console.info("[escape360-map-flow] Arêtes manuelles réactivées.");
-      },
-    };
-    return () => {
-      delete w.escape360MapFlow;
-    };
   }, [bump]);
 
   const pack = useMemo(() => {
@@ -395,10 +318,8 @@ function InnerMap() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(pack.edges);
 
   useEffect(() => {
-    layoutKeyRef.current = pack.layoutKey;
-    const extras = loadFlowExtraEdges(pack.layoutKey);
     setNodes(pack.nodes);
-    setEdges(mergePackEdgesWithExtras(pack.edges, extras, pack.nodes));
+    setEdges(pack.edges);
   }, [pack, setNodes, setEdges]);
 
   const mode = window._projectMapViewMode || "full";
@@ -487,10 +408,7 @@ function InnerMap() {
         if (!cd.parentSceneKey) return false;
         return true;
       }
-      /**
-       * Choix menu (Est) → hotspot (Ouest) : file d’attente (DOM) **ou** même scène que le menu
-       * (arête « extra » sessionStorage, pas encore V2).
-       */
+      /** Choix menu (Est) → hotspot (Ouest) : promotion orphelin ou rattachement menu (file) → scène. */
       if (sNode.type === "mapSelectorChoice" && tNode.type === "mapHotspot") {
         if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
         const cd = sNode.data as MapSelectorChoiceNodeData;
@@ -504,15 +422,10 @@ function InnerMap() {
           return hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY;
         }
         if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return true;
-        /** Choix → hotspot sur autre scène : arête « extra » uniquement (pédagogie). */
-        if (hd.sceneIndex !== cd.sceneIndex || hd.parentSceneKey !== cd.parentSceneKey) {
-          return hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY;
-        }
-        return hd.hotspotIndex !== cd.hotspotIndex;
+        return false;
       }
       /**
-       * Hotspot menu selector (Est) → hotspot (Ouest) : orphelin (DOM) ou autre hotspot **sur la
-       * même scène** (arête extra).
+       * Hotspot menu selector (Est) → hotspot (Ouest) : orphelin (DOM) ou rattachement menu file → scène.
        */
       if (sNode.type === "mapHotspot" && tNode.type === "mapHotspot") {
         if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
@@ -531,13 +444,7 @@ function InnerMap() {
         ) {
           return true;
         }
-        /** Pas d’arête « extra » vers un autre hotspot selector (aucune action projet / DOM). */
-        if (td.actionType === "selector") return false;
-        /**
-         * Arête « extra » (pointillés) : menu → hotspot feuille sur scène jouable (hors selector),
-         * y compris autre scène — pas de rattachement DOM.
-         */
-        return td.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY;
+        return false;
       }
       if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
         if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
@@ -637,9 +544,8 @@ function InnerMap() {
           }
           if (cd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
             window.attachHotspotToMapScene?.(cd.sceneIndex, cd.hotspotIndex, hd.sceneIndex);
+            bump();
           }
-          appendFlowExtraConnection(layoutKeyRef.current, c, "choiceToHotspotExtra");
-          bump();
           return;
         }
         if (sNode.type === "mapHotspot" && tNode.type === "mapHotspot") {
@@ -665,8 +571,6 @@ function InnerMap() {
             );
             return;
           }
-          appendFlowExtraConnection(layoutKeyRef.current, c, "selectorToHotspotExtra");
-          bump();
           return;
         }
         if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
@@ -732,11 +636,6 @@ function InnerMap() {
 
   const onEdgesDelete = useCallback(
     (removed: Edge[]) => {
-      const extraIds = removed.map((e) => e.id).filter((id) => id.startsWith("xflow-extra:"));
-      if (extraIds.length > 0) {
-        removeFlowExtraEdgesByIds(layoutKeyRef.current, extraIds);
-        bump();
-      }
       for (const edge of removed) {
         if (edge.sourceHandle !== RF_FLOW_OUT || edge.targetHandle !== RF_FLOW_IN) continue;
         const src = nodes.find((n) => n.id === edge.source);
@@ -752,7 +651,7 @@ function InnerMap() {
         }
       }
     },
-    [nodes, bump]
+    [nodes]
   );
 
   const onNodesChangePersistLayout = useCallback(
@@ -850,24 +749,20 @@ function InnerMap() {
               <>
                 <strong>Links:</strong> blue flow: scene or choice <strong>right</strong> → pool
                 hotspot <strong>left</strong> (attach); selector hotspot <strong>right</strong> →
-                pool hotspot <strong>left</strong> (attach). <strong>Dashed</strong> only: menu{" "}
-                <strong>choice</strong> → non-selector hotspot (session only, not in project file).
-                Selector → selector: not supported on map. Console: <code>escape360MapFlow.help()</code>
-                . Orphan ↔ scene.{" "}
-                <strong>Delete</strong> edge: <kbd>Delete</kbd>. <strong>Copy</strong> hotspot:{" "}
-                <kbd>Alt</kbd>. <strong>Orphan → menu:</strong> pool out → choice in (promotion).
+                pool hotspot <strong>left</strong> (attach). Menu on queue → scene hotspot: attach
+                whole selector. Orphan ↔ scene. <strong>Delete</strong> edge: <kbd>Delete</kbd>.{" "}
+                <strong>Copy</strong> hotspot: <kbd>Alt</kbd>. <strong>Orphan → menu:</strong> pool
+                out → choice in (promotion).
               </>
             ) : (
               <>
                 <strong>Liaisons (rond bleu) :</strong> scène ou <strong>choix</strong> (sortie
                 droite) → hotspot <strong>file d’attente</strong> (entrée gauche) : rattachement DOM ;
-                idem <strong>menu selector</strong> → orphelin. <strong>Pointillés</strong> uniquement
-                : <strong>choix</strong> de menu → hotspot <strong>non</strong> selector (session,
-                pas dans le projet). Menu → menu : non géré sur la carte. Console :{" "}
-                <code>escape360MapFlow.help()</code>. Orphelin ↔ scène.{" "}
-                <strong>Suppr</strong> arête : <kbd>Suppr</kbd>. <strong>Copier</strong> hotspot :{" "}
-                <kbd>Alt</kbd>. <strong>Orphelin → menu :</strong> sortie orphelin → entrée{" "}
-                <strong>choix</strong> (<code>choices[]</code>).
+                idem <strong>menu selector</strong> → orphelin. Menu sur la file → hotspot sur scène
+                : déplacement du bloc menu. Orphelin ↔ scène. <strong>Suppr</strong> arête :{" "}
+                <kbd>Suppr</kbd>. <strong>Copier</strong> hotspot : <kbd>Alt</kbd>.{" "}
+                <strong>Orphelin → menu :</strong> sortie orphelin → entrée <strong>choix</strong>{" "}
+                (<code>choices[]</code>).
               </>
             )}
           </div>

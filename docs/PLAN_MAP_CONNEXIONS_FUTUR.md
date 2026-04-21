@@ -6,7 +6,7 @@ Ce document pose les **questions ouvertes** pour trancher la sémantique produit
 
 - **Flow bleu** (`in` / `out`, voir `xflow/react/src/mapFlowHandles.ts`) : règles dans `App.tsx` (`isValidConnection` / `onConnect`).
 - **Rattachement DOM** (déplacement réel de hotspots) : `attachHotspotToMapScene`, `detachHotspotToStaging`, `promoteMapOrphanHotspotIntoSelectorRoot`, etc. (`js/editeur-app.js` / `editor-en-app.js`).
-- **Liens hors modèle V2 immédiat** (ex. choix menu → hotspot **sur la même scène** que le menu, ou hotspot selector → autre hotspot sur la même scène) : arêtes **en pointillés** persistées en **sessionStorage** (`xflow/react/src/mapFlowExtraEdges.ts`, clé dérivée du `layoutKey` de la carte). Elles **ne sont pas** dans `project.json` tant qu’on n’a pas défini la compilation vers le schéma joueur.
+- ~~Arêtes « extras » session (pointillés)~~ : **retirées** du code carte — uniquement des arêtes issues du graphe projet + positions session (`layoutKey` positions nœuds), pas de liens carte hors `project.json`.
 
 ## Questions à trancher (réponses souhaitées)
 
@@ -53,5 +53,5 @@ Tu as décrit Image / Audio avec sorties **Nord** vers scène / hotspots / globa
 ## Prochaine étape technique (après tes réponses)
 
 1. Traduire les réponses en **règles** dans `mapConnectionPolicy` (ou équivalent) + matrice source/target/handle.
-2. Décider du **sort** des arêtes `xflow-extra:*` : rester session-only, migrer vers `project.mapLayout.edges`, ou compiler vers V2.
+2. ~~Arêtes carte hors modèle (`xflow-extra`)~~ : retirées ; toute nouvelle sémantique de liens carte passera par le JSON projet ou une politique explicite dans `App.tsx`.
 3. Ajuster **export joueur** / **EditorCore** si le schéma V2 évolue.
