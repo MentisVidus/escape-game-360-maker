@@ -357,7 +357,7 @@
 
 .rf-map-floating-palette {
   position: relative;
-  z-index: 100;
+  z-index: 1;
   margin-bottom: 8px;
 }
 
@@ -378,6 +378,8 @@
 }
 
 .rf-map-palette-dropdown {
+  position: relative;
+  z-index: 2;
   margin-top: 6px;
   min-width: 240px;
   max-width: min(360px, 85vw);

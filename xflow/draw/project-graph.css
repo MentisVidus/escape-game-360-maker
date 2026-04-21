@@ -137,9 +137,9 @@
     pointer-events: none !important;
 }
 
-/* Panneaux React Flow (palette +) au-dessus du canvas */
+/* Panneaux React Flow (palette + aide) au-dessus du canvas et des contrôles RF */
 #project-map-canvas-wrap.project-map-react-primary .react-flow__panel {
-  z-index: 80 !important;
+  z-index: 220 !important;
 }
 
 /* Poignées au-dessus de la zone « interaction » des arêtes (petits nœuds choix). */
