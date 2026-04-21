@@ -355,14 +355,23 @@ window.addSceneFromMap = addSceneFromMap;
 /** Chemin B (carte React) : ajoute un hotspot du type voulu ; panneau latéral seulement pour msg / pick (sauf opts.openPanel). */
 function addHotspotFromMapWithKind(sceneIndex, kind, opts) {
     opts = opts || {};
-    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
-    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
-    var el = blocks[sceneIndex];
-    if (!el || !el.id) return;
-    var m = /^scene_(\d+)$/.exec(el.id);
-    if (!m) return;
-    var sid = parseInt(m[1], 10);
-    if (typeof addHotspot !== "function") return;
+    var el;
+    var sid;
+    if (opts.addToMapStaging) {
+        if (typeof ensureEditorMapStagingScene !== "function") return;
+        sid = ensureEditorMapStagingScene();
+        if (sid == null) return;
+        el = document.getElementById("scene_" + sid);
+    } else {
+        if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+        var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+        el = blocks[sceneIndex];
+        if (!el || !el.id) return;
+        var m = /^scene_(\d+)$/.exec(el.id);
+        if (!m) return;
+        sid = parseInt(m[1], 10);
+    }
+    if (!el || typeof addHotspot !== "function") return;
     addHotspot(sid, null);
     var wrap = el.querySelector('[id^="hs-container-"]');
     var hss = wrap ? wrap.querySelectorAll(":scope > .hotspot-block") : null;
@@ -807,6 +816,12 @@ function deleteSceneFromMapByIndex(sceneIndex) {
     }
     var el = blocks[sceneIndex];
     if (!el) return;
+    if (el.getAttribute("data-editor-map-staging") === "1") {
+        alert(
+            "Impossible de supprimer la file d'attente carte (zone technique). Videz ses hotspots ou laissez-la telle quelle."
+        );
+        return;
+    }
     if (
         !confirm(
             "Supprimer cette scène et tous ses points d'interaction ? Cette action est irréversible."

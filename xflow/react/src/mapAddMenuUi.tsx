@@ -5,7 +5,11 @@ import { mapGraphAddMenuCopy, type MapAddMenuEntry } from "./hotspotAddKinds";
 declare global {
   interface Window {
     addSceneFromMap?: () => void;
-    addHotspotFromMapWithKind?: (sceneIndex: number, kind: string, opts?: { openPanel?: boolean }) => void;
+    addHotspotFromMapWithKind?: (
+      sceneIndex: number,
+      kind: string,
+      opts?: { openPanel?: boolean; addToMapStaging?: boolean }
+    ) => void;
     focusSceneMediaFromMap?: (sceneIndex: number, field: string) => void;
     mountProjectMapGlobalSettings?: () => void;
   }
@@ -17,7 +21,7 @@ export function dispatchMapAddMenuEntry(entry: MapAddMenuEntry, sceneIndex: numb
     return;
   }
   if (entry.type === "hotspot") {
-    window.addHotspotFromMapWithKind?.(sceneIndex, entry.kind);
+    window.addHotspotFromMapWithKind?.(sceneIndex, entry.kind, { addToMapStaging: true });
   } else if (entry.type === "media") {
     window.focusSceneMediaFromMap?.(sceneIndex, entry.field);
   } else if (entry.type === "globalSettings") {

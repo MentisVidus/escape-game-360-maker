@@ -423,7 +423,9 @@ function InnerMap() {
             {paletteOpen ? (
               <div className="rf-map-palette-dropdown">
                 <div className="rf-map-palette-scene-hint">
-                  {enUi ? "Target scene:" : "Scène cible :"} {paletteSceneIndex + 1}
+                  {enUi
+                    ? `Hotspots / selectors → unassigned pool · Media → scene ${paletteSceneIndex + 1}`
+                    : `Hotspots / sélecteurs → file d'attente · Média → scène ${paletteSceneIndex + 1}`}
                 </div>
                 <MapAddMenuPanelContent
                   lang={hostLang()}

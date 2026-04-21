@@ -28,7 +28,7 @@ declare global {
     addHotspotFromMapWithKind?: (
       sceneIndex: number,
       kind: string,
-      opts?: { openPanel?: boolean }
+      opts?: { openPanel?: boolean; addToMapStaging?: boolean }
     ) => void;
     addHotspotSkeletonFromMapSceneIndex?: (sceneIndex: number) => void;
     deleteSceneFromMapByIndex?: (sceneIndex: number) => void;
