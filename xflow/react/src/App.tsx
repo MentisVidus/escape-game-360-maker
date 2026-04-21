@@ -414,8 +414,7 @@ function InnerMap() {
         const sd = sNode.data as MapHotspotNodeData;
         const cd = tNode.data as MapSelectorChoiceNodeData;
         if (sd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return false;
-        const pk = cd.parentSceneKey;
-        if (!pk || pk === EDITOR_MAP_STAGING_SCENE_KEY) return false;
+        if (!cd.parentSceneKey) return false;
         return true;
       }
       /**
@@ -426,14 +425,18 @@ function InnerMap() {
         if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
         const cd = sNode.data as MapSelectorChoiceNodeData;
         const hd = tNode.data as MapHotspotNodeData;
-        if (!cd.parentSceneKey || cd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return false;
+        if (!cd.parentSceneKey) return false;
         if (hd.hotspotIndex === cd.hotspotIndex && hd.sceneIndex === cd.sceneIndex) return false;
+        if (cd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
+          if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return true;
+          return hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY;
+        }
         if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return true;
-        return (
-          hd.sceneIndex === cd.sceneIndex &&
-          hd.parentSceneKey === cd.parentSceneKey &&
-          hd.hotspotIndex !== cd.hotspotIndex
-        );
+        /** Choix → hotspot sur autre scène : arête « extra » uniquement (pédagogie). */
+        if (hd.sceneIndex !== cd.sceneIndex || hd.parentSceneKey !== cd.parentSceneKey) {
+          return hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY;
+        }
+        return hd.hotspotIndex !== cd.hotspotIndex;
       }
       /**
        * Hotspot menu selector (Est) → hotspot (Ouest) : orphelin (DOM) ou autre hotspot **sur la
@@ -446,11 +449,18 @@ function InnerMap() {
         if (sd.actionType !== "selector") return false;
         if (sd.sceneIndex === td.sceneIndex && sd.hotspotIndex === td.hotspotIndex) return false;
         if (td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return true;
-        return (
-          td.sceneIndex === sd.sceneIndex &&
-          td.parentSceneKey === sd.parentSceneKey &&
-          td.hotspotIndex !== sd.hotspotIndex
-        );
+        /** Menu selector encore sur la file → hotspot sur scène jouable : rattacher le menu à cette scène. */
+        if (
+          sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY &&
+          td.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
+        ) {
+          return true;
+        }
+        /**
+         * Arête « extra » (pointillés) : menu → hotspot sur scène jouable (y compris autre menu,
+         * y compris autre scène) — pas de rattachement DOM.
+         */
+        return td.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY;
       }
       if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
         if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
@@ -539,8 +549,16 @@ function InnerMap() {
           const hd = tNode.data as MapHotspotNodeData;
           if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
           if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
-            window.attachHotspotToMapScene?.(hd.sceneIndex, hd.hotspotIndex, cd.sceneIndex);
+            window.promoteMapOrphanHotspotIntoSelectorRoot?.(
+              hd.sceneIndex,
+              hd.hotspotIndex,
+              cd.sceneIndex,
+              cd.hotspotIndex
+            );
             return;
+          }
+          if (cd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
+            window.attachHotspotToMapScene?.(cd.sceneIndex, cd.hotspotIndex, hd.sceneIndex);
           }
           appendFlowExtraConnection(layoutKeyRef.current, c);
           bump();
@@ -551,8 +569,26 @@ function InnerMap() {
           const td = tNode.data as MapHotspotNodeData;
           if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
           if (sd.actionType !== "selector") return;
+          /** Selector sur la file → hotspot déjà sur une scène : déplacer le menu vers cette scène. */
+          if (
+            sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY &&
+            td.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
+          ) {
+            window.attachHotspotToMapScene?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+            return;
+          }
           if (td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
-            window.attachHotspotToMapScene?.(td.sceneIndex, td.hotspotIndex, sd.sceneIndex);
+            if (td.actionType === "selector") {
+              appendFlowExtraConnection(layoutKeyRef.current, c);
+              bump();
+              return;
+            }
+            window.promoteMapOrphanHotspotIntoSelectorRoot?.(
+              td.sceneIndex,
+              td.hotspotIndex,
+              sd.sceneIndex,
+              sd.hotspotIndex
+            );
             return;
           }
           appendFlowExtraConnection(layoutKeyRef.current, c);

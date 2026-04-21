@@ -626,7 +626,9 @@ function promoteMapOrphanHotspotIntoSelectorRoot(fromSceneIndex, fromHotspotInde
     var srcEl = blocks[fromSceneIndex];
     var dstEl = blocks[toSceneIndex];
     if (!srcEl || !dstEl) return;
-    if (dstEl.getAttribute("data-editor-map-staging") === "1") return;
+    var dstStaging = dstEl.getAttribute("data-editor-map-staging") === "1";
+    var srcStaging = srcEl.getAttribute("data-editor-map-staging") === "1";
+    if (dstStaging && !srcStaging) return;
     var sw = srcEl.querySelector('[id^="hs-container-"]');
     var dw = dstEl.querySelector('[id^="hs-container-"]');
     if (!sw || !dw) return;

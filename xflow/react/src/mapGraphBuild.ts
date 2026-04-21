@@ -141,18 +141,52 @@ function collectTargetSceneIdsFromAction(
   }
   if (t === "req") {
     const rr = p.rewardAction as LooseAction;
-    if (!rr || typeof rr !== "object" || rr.type !== "scene") return;
-    const rp = (rr.payload || {}) as Record<string, unknown>;
-    const r = String(rp.target ?? "").trim();
-    if (r) out[r] = true;
+    if (!rr || typeof rr !== "object") return;
+    if (rr.type === "scene") {
+      const rp = (rr.payload || {}) as Record<string, unknown>;
+      const r = String(rp.target ?? "").trim();
+      if (r) out[r] = true;
+      return;
+    }
+    if (rr.type === "selector") {
+      const rpp = (rr.payload || {}) as Record<string, unknown>;
+      const nested = (rpp.nested || {}) as Record<string, unknown>;
+      const choices = Array.isArray(nested.choices) ? nested.choices : [];
+      for (const ch of choices) {
+        if (ch && typeof ch === "object" && "action" in ch) {
+          collectTargetSceneIdsFromAction(
+            (ch as { action?: LooseAction }).action,
+            out,
+            depthLeft - 1
+          );
+        }
+      }
+    }
     return;
   }
   if (t === "pwd") {
     const rp = p.rewardAction as LooseAction;
-    if (!rp || typeof rp !== "object" || rp.type !== "scene") return;
-    const rpp = (rp.payload || {}) as Record<string, unknown>;
-    const pt = String(rpp.target ?? "").trim();
-    if (pt) out[pt] = true;
+    if (!rp || typeof rp !== "object") return;
+    if (rp.type === "scene") {
+      const rpp = (rp.payload || {}) as Record<string, unknown>;
+      const pt = String(rpp.target ?? "").trim();
+      if (pt) out[pt] = true;
+      return;
+    }
+    if (rp.type === "selector") {
+      const rpp = (rp.payload || {}) as Record<string, unknown>;
+      const nested = (rpp.nested || {}) as Record<string, unknown>;
+      const choices = Array.isArray(nested.choices) ? nested.choices : [];
+      for (const ch of choices) {
+        if (ch && typeof ch === "object" && "action" in ch) {
+          collectTargetSceneIdsFromAction(
+            (ch as { action?: LooseAction }).action,
+            out,
+            depthLeft - 1
+          );
+        }
+      }
+    }
     return;
   }
   if (t === "selector") {
@@ -294,10 +328,50 @@ export function hotspotActionType(hs: EditorHotspot | undefined): string {
   return "?";
 }
 
+/** Choix racine d’un sous-menu « récompense » req/pwd (V2 + legacy formulaire). */
+function rewardSelectorRootsFromHotspot(hs: EditorHotspot | undefined): unknown[] {
+  if (!hs) return [];
+  const a = hs.action as LooseAction | undefined;
+  if (a && typeof a === "object") {
+    const t = a.type;
+    if (t === "req" || t === "pwd") {
+      const p = (a.payload || {}) as Record<string, unknown>;
+      const ra = p.rewardAction as LooseAction | undefined;
+      if (ra && typeof ra === "object" && ra.type === "selector") {
+        const rp = (ra.payload || {}) as Record<string, unknown>;
+        const nested = (rp.nested || {}) as Record<string, unknown>;
+        if (Array.isArray(nested.choices)) return nested.choices;
+      }
+    }
+  }
+  const leg = hs as Record<string, unknown>;
+  const lt = String(leg.type != null ? leg.type : "").trim();
+  if (lt !== "req" && lt !== "pwd") return [];
+  const rk =
+    lt === "req"
+      ? String(leg.f_req_action != null ? leg.f_req_action : "").trim()
+      : String(leg.f_pwd_action != null ? leg.f_pwd_action : "").trim();
+  if (rk !== "selector") return [];
+  const rn = leg.rewardNested as Record<string, unknown> | undefined;
+  if (rn && Array.isArray(rn.choices)) return rn.choices as unknown[];
+  const rawCh = leg.f_reward_sel_choices ?? leg.f_reward_sel_choices_json;
+  if (typeof rawCh === "string" && rawCh.trim()) {
+    try {
+      const parsed = JSON.parse(rawCh);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 /** Nombre de choix pour une action selector V2 (sinon `undefined`). */
 export function selectorChoiceCount(hs: EditorHotspot | undefined): number | undefined {
   const choices = selectorChoicesRaw(hs);
-  return choices.length > 0 ? choices.length : undefined;
+  if (choices.length > 0) return choices.length;
+  const rw = rewardSelectorRootsFromHotspot(hs);
+  return rw.length > 0 ? rw.length : undefined;
 }
 
 function targetSceneIdsFromAction(action: LooseAction): string[] {
@@ -479,7 +553,10 @@ function flattenSelectorChoicesForGraph(
   hs: EditorHotspot | undefined,
   lang: EditorLang
 ): Array<SelectorChoiceGraphInfo & { path: number[] }> {
-  const roots = selectorChoicesRaw(hs);
+  let roots = selectorChoicesRaw(hs);
+  if (roots.length === 0) {
+    roots = rewardSelectorRootsFromHotspot(hs);
+  }
   const out: Array<SelectorChoiceGraphInfo & { path: number[] }> = [];
   function walk(choices: unknown[], prefix: number[], depth: number) {
     if (depth > SELECTOR_GRAPH_MAX_DEPTH) return;
@@ -1194,7 +1271,8 @@ function buildGraphFull(
       if (sceneNodeId) {
         pushMapEdge(edges, sceneNodeId, hsId);
       }
-      if (at === "selector") {
+      const flatMenu = flattenSelectorChoicesForGraph(hs as EditorHotspot, lang);
+      if (flatMenu.length > 0) {
         pushSelectorChoiceSubgraph({
           nodes,
           edges,
@@ -1427,7 +1505,8 @@ function buildGraphFocus(
     if (!isStagingFocus) {
       pushMapEdge(edges, activeId, hsId);
     }
-    if (at === "selector") {
+    const flatMenuFocus = flattenSelectorChoicesForGraph(hs as EditorHotspot, lang);
+    if (flatMenuFocus.length > 0) {
       pushSelectorChoiceSubgraph({
         nodes,
         edges,
@@ -1654,7 +1733,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
         pushMapEdge(edges, sceneRfId, hsRfId);
       }
 
-      const flatSel = at === "selector" ? flattenSelectorChoicesForGraph(hs as EditorHotspot, lang) : [];
+      const flatSel = flattenSelectorChoicesForGraph(hs as EditorHotspot, lang);
       if (flatSel.length > 0) {
         const baseCy = hy - ((flatSel.length - 1) * CHOICE_STEP_Y) / 2;
         pushSelectorSubgroupNode(
