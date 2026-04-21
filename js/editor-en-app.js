@@ -339,6 +339,15 @@ function addHotspotFromMapWithKind(sceneIndex, kind, opts) {
             if (typeof updateHsFields === "function" && hid) {
                 updateHsFields(hid);
             }
+            if (kind === "scene") {
+                var trg = lastHs.querySelector(".f-target");
+                if (trg) {
+                    trg.value = "";
+                    if (trg.dataset) trg.dataset.prevValue = "";
+                    trg.dispatchEvent(new Event("input", { bubbles: true }));
+                    trg.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+            }
         }
     }
     if (typeof refreshAllSceneTargetSelects === "function") {
@@ -346,6 +355,15 @@ function addHotspotFromMapWithKind(sceneIndex, kind, opts) {
     }
     if (typeof refreshProjectMapGraphInPlace === "function") {
         refreshProjectMapGraphInPlace();
+    }
+    if (kind === "scene" && lastHs) {
+        var trg2 = lastHs.querySelector(".f-target");
+        if (trg2) {
+            trg2.value = "";
+            if (trg2.dataset) trg2.dataset.prevValue = "";
+            trg2.dispatchEvent(new Event("input", { bubbles: true }));
+            trg2.dispatchEvent(new Event("change", { bubbles: true }));
+        }
     }
     var openPanel =
         opts.openPanel !== undefined ? !!opts.openPanel : kind === "msg" || kind === "pick";
@@ -396,6 +414,81 @@ function applyMapHotspotSceneConnection(sceneIndex, hotspotIndex, targetSceneInd
     }
 }
 window.applyMapHotspotSceneConnection = applyMapHotspotSceneConnection;
+
+/** Path B: connect a scene to a media resource (ambiance audio / panorama image). */
+function applyMapSceneMediaConnection(sceneIndex, resourceType, mediaUrl, mediaVolume) {
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var sceneEl = blocks[sceneIndex];
+    if (!sceneEl) return;
+    var url = mediaUrl != null ? String(mediaUrl).trim() : "";
+    if (!url) return;
+    if (resourceType === "sceneAmbiance") {
+        var aud = sceneEl.querySelector(".sc-audio");
+        if (aud) {
+            aud.value = url;
+            aud.dispatchEvent(new Event("input", { bubbles: true }));
+            aud.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        var vol = sceneEl.querySelector(".sc-audio-vol");
+        if (vol && mediaVolume !== undefined && mediaVolume !== null && mediaVolume !== "") {
+            var n = Number(mediaVolume);
+            if (!isNaN(n)) {
+                vol.value = String(Math.max(0, Math.min(1, n)));
+                vol.dispatchEvent(new Event("input", { bubbles: true }));
+                vol.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+        }
+    } else if (resourceType === "sceneImage") {
+        var img = sceneEl.querySelector(".sc-img");
+        if (img) {
+            img.value = url;
+            img.dispatchEvent(new Event("input", { bubbles: true }));
+            img.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+    } else {
+        return;
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.applyMapSceneMediaConnection = applyMapSceneMediaConnection;
+
+/** Path B: connect a hotspot to an SFX resource (url + volume). */
+function applyMapHotspotSfxConnection(sceneIndex, hotspotIndex, mediaUrl, mediaVolume) {
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    if (typeof hotspotIndex !== "number" || hotspotIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var sceneEl = blocks[sceneIndex];
+    if (!sceneEl) return;
+    var wrap = sceneEl.querySelector('[id^="hs-container-"]');
+    if (!wrap) return;
+    var hss = wrap.querySelectorAll(":scope > .hotspot-block");
+    var hb = hss[hotspotIndex];
+    if (!hb) return;
+    var url = mediaUrl != null ? String(mediaUrl).trim() : "";
+    if (!url) return;
+    var sfxUrl = hb.querySelector(".f-sfx-url");
+    if (sfxUrl) {
+        sfxUrl.value = url;
+        sfxUrl.dispatchEvent(new Event("input", { bubbles: true }));
+        sfxUrl.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    var sfxVol = hb.querySelector(".f-sfx-vol");
+    if (sfxVol && mediaVolume !== undefined && mediaVolume !== null && mediaVolume !== "") {
+        var n = Number(mediaVolume);
+        if (!isNaN(n)) {
+            sfxVol.value = String(Math.max(0, Math.min(1, n)));
+            sfxVol.dispatchEvent(new Event("input", { bubbles: true }));
+            sfxVol.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.applyMapHotspotSfxConnection = applyMapHotspotSfxConnection;
 
 /** Path B (React map): add a message hotspot (legacy + panel). */
 function addHotspotSkeletonFromMapSceneIndex(sceneIndex) {

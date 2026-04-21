@@ -18,6 +18,7 @@ import {
   type EditorLang,
   type EditorProject,
   type MapHotspotNodeData,
+  type MapResourceNodeData,
   type MapSceneNodeData,
   buildProjectMapGraph,
 } from "./mapGraphBuild";
@@ -39,6 +40,18 @@ declare global {
       sceneIndex: number,
       hotspotIndex: number,
       targetSceneIndex: number
+    ) => void;
+    applyMapSceneMediaConnection?: (
+      sceneIndex: number,
+      resourceType: string,
+      mediaUrl: string,
+      mediaVolume?: number
+    ) => void;
+    applyMapHotspotSfxConnection?: (
+      sceneIndex: number,
+      hotspotIndex: number,
+      mediaUrl: string,
+      mediaVolume?: number
     ) => void;
     _projectMapReactBridge?: {
       mountFromNodeData: (d: Record<string, unknown> | null | undefined) => void;
@@ -156,10 +169,21 @@ function InnerMap() {
       const sNode = nodes.find((n) => n.id === c.source);
       const tNode = nodes.find((n) => n.id === c.target);
       if (!sNode || !tNode) return false;
-      if (sNode.type !== "mapHotspot" || tNode.type !== "mapScene") return false;
-      if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
-      const sd = sNode.data as MapHotspotNodeData;
-      return !!sd.mapDragSceneOut;
+      if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
+        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+        const sd = sNode.data as MapHotspotNodeData;
+        return !!sd.mapDragSceneOut;
+      }
+      if (tNode.type === "mapResource" && c.targetHandle === "metaIn") {
+        const rd = tNode.data as MapResourceNodeData;
+        if (sNode.type === "mapScene" && c.sourceHandle === "metaOut") {
+          return rd.resourceType === "sceneAmbiance" || rd.resourceType === "sceneImage";
+        }
+        if (sNode.type === "mapHotspot" && c.sourceHandle === "metaOut") {
+          return rd.resourceType === "hotspotSfx";
+        }
+      }
+      return false;
     },
     [nodes]
   );
@@ -168,11 +192,25 @@ function InnerMap() {
     (c: Connection) => {
       const sNode = nodes.find((n) => n.id === c.source);
       const tNode = nodes.find((n) => n.id === c.target);
-      if (!sNode || !tNode || sNode.type !== "mapHotspot" || tNode.type !== "mapScene") return;
-      const sd = sNode.data as MapHotspotNodeData;
-      const td = tNode.data as MapSceneNodeData;
-      if (!sd.mapDragSceneOut) return;
-      window.applyMapHotspotSceneConnection?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+      if (!sNode || !tNode) return;
+      if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
+        const sd = sNode.data as MapHotspotNodeData;
+        const td = tNode.data as MapSceneNodeData;
+        if (!sd.mapDragSceneOut) return;
+        window.applyMapHotspotSceneConnection?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+        return;
+      }
+      if (tNode.type !== "mapResource") return;
+      const rd = tNode.data as MapResourceNodeData;
+      if (sNode.type === "mapScene") {
+        const sd = sNode.data as MapSceneNodeData;
+        window.applyMapSceneMediaConnection?.(sd.sceneIndex, rd.resourceType, rd.url, rd.volume);
+        return;
+      }
+      if (sNode.type === "mapHotspot") {
+        const hd = sNode.data as MapHotspotNodeData;
+        window.applyMapHotspotSfxConnection?.(hd.sceneIndex, hd.hotspotIndex, rd.url, rd.volume);
+      }
     },
     [nodes]
   );

@@ -190,6 +190,23 @@
   color: rgba(233, 213, 255, 0.92);
 }
 
+.rf-map-handle-flow-in,
+.rf-map-handle-flow-out {
+  width: 9px;
+  height: 9px;
+  border: 2px solid #dbeafe;
+  background: #2563eb;
+}
+
+.rf-map-handle-meta-in,
+.rf-map-handle-meta-out {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #f3e8ff;
+  background: #a855f7;
+  border-radius: 2px;
+}
+
 /* Nœuds carte — React Flow (sans wrapper .drawflow-node) */
 .rf-map-scene-root.rf-map-scene-active-wrap .xflow-node-scene {
   box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.5), 0 4px 14px rgba(0, 0, 0, 0.35);

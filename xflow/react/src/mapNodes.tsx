@@ -86,8 +86,9 @@ export function MapSceneNode({ data }: SceneNodeProps) {
 
   return (
     <div className={wrapClass}>
-      <Handle type="target" position={Position.Left} id="in" />
-      <Handle type="source" position={Position.Right} id="out" />
+      <Handle type="target" position={Position.Left} id="in" className="rf-map-handle-flow-in" />
+      <Handle type="source" position={Position.Right} id="out" className="rf-map-handle-flow-out" />
+      <Handle type="source" position={Position.Bottom} id="metaOut" className="rf-map-handle-meta-out" />
       <div className="rf-map-node-actions">
         <div className="rf-map-scene-add-wrap" ref={menuWrapRef}>
           <button
@@ -168,13 +169,15 @@ export function MapHotspotNode({ data }: HotspotNodeProps) {
   };
   return (
     <div className="rf-map-hotspot-root">
-      <Handle type="target" position={Position.Left} id="in" />
+      <Handle type="target" position={Position.Left} id="in" className="rf-map-handle-flow-in" />
       <Handle
         type="source"
         position={Position.Right}
         id="out"
+        className="rf-map-handle-flow-out"
         isConnectable={!!data.mapDragSceneOut}
       />
+      <Handle type="source" position={Position.Bottom} id="metaOut" className="rf-map-handle-meta-out" />
       <div className="rf-map-node-actions">
         <button
           type="button"
@@ -226,8 +229,8 @@ export function MapSelectorChoiceNode({ data }: SelectorChoiceNodeProps) {
   const tgt = en ? "target" : "cible";
   return (
     <div className="rf-map-choice-root">
-      <Handle type="target" position={Position.Left} id="in" />
-      <Handle type="source" position={Position.Right} id="out" />
+      <Handle type="target" position={Position.Left} id="in" className="rf-map-handle-flow-in" />
+      <Handle type="source" position={Position.Right} id="out" className="rf-map-handle-flow-out" />
       <div className="rf-map-choice-title">{en ? "Choice" : "Choix"}</div>
       <div className="rf-map-choice-body">{data.label}</div>
       {data.targetCount > 0 ? (
@@ -247,13 +250,21 @@ export function MapResourceNode({ data }: ResourceNodeProps) {
       ? en
         ? "Global audio"
         : "Audio global"
+      : data.resourceType === "sceneImage"
+        ? en
+          ? "Scene image"
+          : "Image scène"
+        : data.resourceType === "hotspotSfx"
+          ? en
+            ? "Hotspot SFX"
+            : "SFX hotspot"
       : en
         ? "Scene audio"
         : "Audio scène";
   const shortUrl = data.url.length > 34 ? `${data.url.slice(0, 34)}…` : data.url;
   return (
     <div className="rf-map-resource-root">
-      <Handle type="target" position={Position.Left} id="in" />
+      <Handle type="target" position={Position.Top} id="metaIn" className="rf-map-handle-meta-in" />
       <div className="rf-map-resource-title">{title}</div>
       <div className="rf-map-resource-body">{shortUrl || "—"}</div>
       <div className="rf-map-resource-sub">
@@ -269,7 +280,7 @@ export function MapRedirectNode({ data }: RedirectNodeProps) {
   const body = en ? `Back: ${data.targetTitle}` : `Renvoi : ${data.targetTitle}`;
   return (
     <div className="rf-map-redirect-root">
-      <Handle type="target" position={Position.Left} id="in" />
+      <Handle type="target" position={Position.Left} id="in" className="rf-map-handle-flow-in" />
       <div className="xflow-node-redirect-inner">
         <div className="xflow-node-title">{head}</div>
         <div className="xflow-node-body">{body}</div>

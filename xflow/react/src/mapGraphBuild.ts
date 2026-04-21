@@ -22,6 +22,7 @@ export type EditorScene = {
   title?: string;
   scTitle?: string;
   media?: {
+    panoramaUrl?: string;
     ambiance?: {
       url?: string;
       volume?: number;
@@ -80,9 +81,10 @@ export type MapSceneGroupNodeData = {
 export type MapResourceNodeData = {
   kind: "resource";
   label: string;
-  resourceType: "sceneAmbiance" | "globalMusic";
+  resourceType: "sceneAmbiance" | "sceneImage" | "hotspotSfx" | "globalMusic";
   sceneKey?: string;
   sceneIndex?: number;
+  hotspotIndex?: number;
   url: string;
   volume: number;
 };
@@ -488,8 +490,8 @@ function pushMapMetaEdge(edges: Edge[], source: string, target: string): void {
     id: nextEdgeId(),
     source,
     target,
-    sourceHandle: "out",
-    targetHandle: "in",
+    sourceHandle: "metaOut",
+    targetHandle: "metaIn",
     type: "smoothstep",
     style: { stroke: "#c084fc", strokeDasharray: "4 4", strokeWidth: 1.8 },
   });
@@ -513,6 +515,44 @@ function readSceneAmbiance(scene: EditorScene | undefined): { url: string; volum
         : 1;
   const volume = Math.max(0, Math.min(1, rawVol));
   return { url, volume };
+}
+
+function readScenePanorama(scene: EditorScene | undefined): { url: string } | null {
+  if (!scene) return null;
+  const viaMedia = scene.media?.panoramaUrl;
+  const url =
+    viaMedia != null && String(viaMedia).trim()
+      ? String(viaMedia).trim()
+      : scene && (scene as Record<string, unknown>).scImg != null && String((scene as Record<string, unknown>).scImg).trim()
+        ? String((scene as Record<string, unknown>).scImg).trim()
+        : "";
+  if (!url) return null;
+  return { url };
+}
+
+function readHotspotSfx(hs: EditorHotspot | undefined): { url: string; volume: number } | null {
+  if (!hs || typeof hs !== "object") return null;
+  const a = hs.action as Record<string, unknown> | undefined;
+  const sfx = a && typeof a.sfx === "object" ? (a.sfx as Record<string, unknown>) : null;
+  const rawUrl =
+    (sfx && sfx.url != null ? String(sfx.url).trim() : "") ||
+    ((hs as Record<string, unknown>).sfxUrl != null
+      ? String((hs as Record<string, unknown>).sfxUrl).trim()
+      : "") ||
+    ((hs as Record<string, unknown>).f_sfx_url != null
+      ? String((hs as Record<string, unknown>).f_sfx_url).trim()
+      : "");
+  if (!rawUrl) return null;
+  const rawVol =
+    sfx && sfx.volume != null
+      ? Number(sfx.volume)
+      : (hs as Record<string, unknown>).sfxVolume != null
+        ? Number((hs as Record<string, unknown>).sfxVolume)
+        : (hs as Record<string, unknown>).f_sfx_vol != null
+          ? Number((hs as Record<string, unknown>).f_sfx_vol)
+          : 1;
+  const volume = Number.isNaN(rawVol) ? 1 : Math.max(0, Math.min(1, rawVol));
+  return { url: rawUrl, volume };
 }
 
 function pushSceneGroupNode(
@@ -544,7 +584,7 @@ function nodeSizeForLayout(n: Node): LayoutSize {
   if (n.type === "mapScene") return { width: 240, height: 120 };
   if (n.type === "mapHotspot") return { width: 220, height: 100 };
   if (n.type === "mapSelectorChoice") return { width: 180, height: 74 };
-  if (n.type === "mapResource") return { width: 200, height: 78 };
+  if (n.type === "mapResource") return { width: 210, height: 86 };
   if (n.type === "mapRedirect") return { width: 190, height: 82 };
   if (n.style && typeof n.style.width === "number" && typeof n.style.height === "number") {
     return { width: n.style.width, height: n.style.height };
@@ -693,6 +733,26 @@ function buildGraphFull(
       });
       pushMapMetaEdge(edges, id, rid);
     }
+    const pano = readScenePanorama(scene);
+    if (pano) {
+      const rid = `res:${sk}:img`;
+      nodes.push({
+        id: rid,
+        type: "mapResource",
+        position: { x: p.sx + 248, y: p.sy + 156 },
+        data: {
+          kind: "resource",
+          label: lang === "en" ? "Scene image" : "Image scène",
+          resourceType: "sceneImage",
+          sceneKey: sk,
+          sceneIndex: si,
+          url: pano.url,
+          volume: 1,
+          lang,
+        } satisfies MapResourceNodeData & { lang: EditorLang },
+      });
+      pushMapMetaEdge(edges, id, rid);
+    }
   });
 
   if (project.useGlobalAudio && project.globalMusic && String(project.globalMusic.url || "").trim()) {
@@ -746,6 +806,27 @@ function buildGraphFull(
           ...(selN !== undefined ? { selectorChoiceCount: selN } : {}),
         } satisfies MapHotspotNodeData & { lang: EditorLang },
       });
+      const hsSfx = readHotspotSfx(hs as EditorHotspot);
+      if (hsSfx) {
+        const rsId = `res:${sk}:hs:${hi}:sfx`;
+        nodes.push({
+          id: rsId,
+          type: "mapResource",
+          position: { x: hx + 240, y: hy + 10 },
+          data: {
+            kind: "resource",
+            label: lang === "en" ? "Hotspot SFX" : "SFX hotspot",
+            resourceType: "hotspotSfx",
+            sceneKey: sk,
+            sceneIndex: si,
+            hotspotIndex: hi,
+            url: hsSfx.url,
+            volume: hsSfx.volume,
+            lang,
+          } satisfies MapResourceNodeData & { lang: EditorLang },
+        });
+        pushMapMetaEdge(edges, hsId, rsId);
+      }
       pushMapEdge(edges, sceneNodeId, hsId);
       const selectorChoices = at === "selector" ? selectorChoicesForGraph(hs as EditorHotspot, lang) : [];
       if (selectorChoices.length > 0) {
@@ -883,6 +964,26 @@ function buildGraphFocus(
     });
     pushMapMetaEdge(edges, activeId, rid);
   }
+  const activePano = readScenePanorama(activeScene);
+  if (activePano) {
+    const rid = `res:${activeKey}:img`;
+    nodes.push({
+      id: rid,
+      type: "mapResource",
+      position: { x: ACTIVE_X + 252, y: ACTIVE_Y + 160 },
+      data: {
+        kind: "resource",
+        label: lang === "en" ? "Scene image" : "Image scène",
+        resourceType: "sceneImage",
+        sceneKey: activeKey,
+        sceneIndex: resolved.index,
+        url: activePano.url,
+        volume: 1,
+        lang,
+      } satisfies MapResourceNodeData & { lang: EditorLang },
+    });
+    pushMapMetaEdge(edges, activeId, rid);
+  }
   if (project.useGlobalAudio && project.globalMusic && String(project.globalMusic.url || "").trim()) {
     const gurl = String(project.globalMusic.url || "").trim();
     const gvolRaw = Number(project.globalMusic.volume ?? 0.5);
@@ -961,6 +1062,27 @@ function buildGraphFocus(
         ...(selN !== undefined ? { selectorChoiceCount: selN } : {}),
       } satisfies MapHotspotNodeData & { lang: EditorLang },
     });
+    const hsSfx = readHotspotSfx(hs as EditorHotspot);
+    if (hsSfx) {
+      const rsId = `res:${activeKey}:hs:${hi}:sfx`;
+      nodes.push({
+        id: rsId,
+        type: "mapResource",
+        position: { x: HS_X + 242, y: HS_START_Y + hi * HS_STEP + 10 },
+        data: {
+          kind: "resource",
+          label: lang === "en" ? "Hotspot SFX" : "SFX hotspot",
+          resourceType: "hotspotSfx",
+          sceneKey: activeKey,
+          sceneIndex: resolved.index,
+          hotspotIndex: hi,
+          url: hsSfx.url,
+          volume: hsSfx.volume,
+          lang,
+        } satisfies MapResourceNodeData & { lang: EditorLang },
+      });
+      pushMapMetaEdge(edges, hsId, rsId);
+    }
     pushMapEdge(edges, activeId, hsId);
     const selectorChoices = at === "selector" ? selectorChoicesForGraph(hs as EditorHotspot, lang) : [];
     if (selectorChoices.length > 0) {
@@ -1098,6 +1220,26 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
       });
       pushMapMetaEdge(edges, sceneRfId, rid);
     }
+    const pano = readScenePanorama(meta.scene);
+    if (pano) {
+      const rid = `res:${sk}:img`;
+      nodes.push({
+        id: rid,
+        type: "mapResource",
+        position: { x: x + 246, y: yCenter + 140 },
+        data: {
+          kind: "resource",
+          label: lang === "en" ? "Scene image" : "Image scène",
+          resourceType: "sceneImage",
+          sceneKey: sk,
+          sceneIndex: meta.index,
+          url: pano.url,
+          volume: 1,
+          lang,
+        } satisfies MapResourceNodeData & { lang: EditorLang },
+      });
+      pushMapMetaEdge(edges, sceneRfId, rid);
+    }
 
     const baseHy = yCenter - ((Math.max(hsList.length, 1) - 1) * HS_STEP) / 2;
     let subtreeRight = x + 200;
@@ -1128,6 +1270,27 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
           ...(selN !== undefined ? { selectorChoiceCount: selN } : {}),
         } satisfies MapHotspotNodeData & { lang: EditorLang },
       });
+      const hsSfx = readHotspotSfx(hs as EditorHotspot);
+      if (hsSfx) {
+        const rsId = `res:${sk}:hs:${i}:sfx`;
+        nodes.push({
+          id: rsId,
+          type: "mapResource",
+          position: { x: x + HOTSPOT_DX + 240, y: hy + 10 },
+          data: {
+            kind: "resource",
+            label: lang === "en" ? "Hotspot SFX" : "SFX hotspot",
+            resourceType: "hotspotSfx",
+            sceneKey: sk,
+            sceneIndex: meta.index,
+            hotspotIndex: i,
+            url: hsSfx.url,
+            volume: hsSfx.volume,
+            lang,
+          } satisfies MapResourceNodeData & { lang: EditorLang },
+        });
+        pushMapMetaEdge(edges, hsRfId, rsId);
+      }
       pushMapEdge(edges, sceneRfId, hsRfId);
 
       const selectorChoices = at === "selector" ? selectorChoicesForGraph(hs as EditorHotspot, lang) : [];

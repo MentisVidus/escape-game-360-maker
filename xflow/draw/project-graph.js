@@ -422,6 +422,14 @@
         ) {
             el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex);
             title = d.label || (en ? "Choice" : "Choix");
+        } else if (d.kind === "resource") {
+            if (typeof d.sceneIndex === "number" && typeof d.hotspotIndex === "number") {
+                el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex);
+                title = d.label || (en ? "Resource" : "Ressource");
+            } else if (typeof d.sceneIndex === "number") {
+                el = findSceneBlockByIndex(d.sceneIndex);
+                title = d.label || (en ? "Resource" : "Ressource");
+            }
         }
         if (!el) return;
         mountBlockInSidePanel(el, title);
