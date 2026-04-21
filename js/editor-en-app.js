@@ -501,6 +501,68 @@ function applyMapHotspotSceneConnection(sceneIndex, hotspotIndex, targetSceneInd
 }
 window.applyMapHotspotSceneConnection = applyMapHotspotSceneConnection;
 
+/** Path B: move a hotspot DOM node from one scene to another (e.g. unassigned → playable scene). */
+function attachHotspotToMapScene(fromSceneIndex, hotspotIndex, targetSceneIndex) {
+    if (typeof window.restoreProjectMapSidePanelDomOnly === "function") {
+        window.restoreProjectMapSidePanelDomOnly();
+    }
+    if (typeof fromSceneIndex !== "number" || fromSceneIndex < 0) return;
+    if (typeof hotspotIndex !== "number" || hotspotIndex < 0) return;
+    if (typeof targetSceneIndex !== "number" || targetSceneIndex < 0) return;
+    if (fromSceneIndex === targetSceneIndex) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var src = blocks[fromSceneIndex];
+    var dst = blocks[targetSceneIndex];
+    if (!src || !dst) return;
+    if (dst.getAttribute("data-editor-map-staging") === "1") return;
+    var wrap = src.querySelector('[id^="hs-container-"]');
+    var dstWrap = dst.querySelector('[id^="hs-container-"]');
+    if (!wrap || !dstWrap) return;
+    var hss = wrap.querySelectorAll(":scope > .hotspot-block");
+    var hb = hss[hotspotIndex];
+    if (!hb) return;
+    dstWrap.appendChild(hb);
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.attachHotspotToMapScene = attachHotspotToMapScene;
+
+/** Path B: move hotspot into map staging scene (editor-only), without deleting it. */
+function detachHotspotToStaging(sceneIndex, hotspotIndex) {
+    if (typeof window.restoreProjectMapSidePanelDomOnly === "function") {
+        window.restoreProjectMapSidePanelDomOnly();
+    }
+    if (typeof ensureEditorMapStagingScene !== "function") return;
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    if (typeof hotspotIndex !== "number" || hotspotIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var sceneEl = blocks[sceneIndex];
+    if (!sceneEl || sceneEl.getAttribute("data-editor-map-staging") === "1") return;
+    var wrap = sceneEl.querySelector('[id^="hs-container-"]');
+    if (!wrap) return;
+    var hss = wrap.querySelectorAll(":scope > .hotspot-block");
+    var hb = hss[hotspotIndex];
+    if (!hb) return;
+    var stSid = ensureEditorMapStagingScene();
+    if (stSid == null) return;
+    var stBlock = document.getElementById("scene_" + stSid);
+    if (!stBlock) return;
+    var stWrap = stBlock.querySelector('[id^="hs-container-"]');
+    if (!stWrap) return;
+    stWrap.appendChild(hb);
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.detachHotspotToStaging = detachHotspotToStaging;
+
 function copyHotspotToMapScene(fromSceneIndex, hotspotIndex, toSceneIndex) {
     if (typeof window.restoreProjectMapSidePanelDomOnly === "function") {
         window.restoreProjectMapSidePanelDomOnly();

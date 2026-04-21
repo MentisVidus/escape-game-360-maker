@@ -73,6 +73,12 @@ declare global {
       hotspotIndex: number,
       toSceneIndex: number
     ) => void;
+    attachHotspotToMapScene?: (
+      fromSceneIndex: number,
+      hotspotIndex: number,
+      targetSceneIndex: number
+    ) => void;
+    detachHotspotToStaging?: (sceneIndex: number, hotspotIndex: number) => void;
     projectMapSidePanelHasStash?: () => boolean;
     restoreProjectMapSidePanelDomOnly?: () => void;
     _projectMapReactBridge?: {
@@ -91,6 +97,9 @@ const nodeTypes: NodeTypes = {
   mapResource: MapResourceNode,
   mapRedirect: MapRedirectNode,
 };
+
+/** Aligné sur `addScene("__editorMapStaging", …)` — scène file d’attente carte (editorOnly). */
+const EDITOR_MAP_STAGING_SCENE_KEY = "__editorMapStaging";
 
 function hostLang(): EditorLang {
   return document.documentElement.lang.toLowerCase().startsWith("en") ? "en" : "fr";
@@ -257,6 +266,10 @@ function InnerMap() {
       if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
         if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
         const sd = sNode.data as MapHotspotNodeData;
+        const td = tNode.data as MapSceneNodeData;
+        if (sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY && td.sceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) {
+          return true;
+        }
         if (sd.mapDragSceneOut) return true;
         return altConnectRef.current;
       }
@@ -285,6 +298,13 @@ function InnerMap() {
       if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
         const sd = sNode.data as MapHotspotNodeData;
         const td = tNode.data as MapSceneNodeData;
+        if (
+          sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY &&
+          td.sceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
+        ) {
+          window.attachHotspotToMapScene?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+          return;
+        }
         if (sd.mapDragSceneOut) {
           window.applyMapHotspotSceneConnection?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
           return;
@@ -317,6 +337,26 @@ function InnerMap() {
           rd.url,
           rd.volume
         );
+      }
+    },
+    [nodes]
+  );
+
+  const onEdgesDelete = useCallback(
+    (removed: Edge[]) => {
+      for (const edge of removed) {
+        if (edge.sourceHandle !== "out" || edge.targetHandle !== "in") continue;
+        const src = nodes.find((n) => n.id === edge.source);
+        const tgt = nodes.find((n) => n.id === edge.target);
+        if (src?.type !== "mapScene" || tgt?.type !== "mapHotspot") continue;
+        const scd = src.data as MapSceneNodeData;
+        const hd = tgt.data as MapHotspotNodeData;
+        if (
+          scd.sceneKey === hd.parentSceneKey &&
+          hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
+        ) {
+          window.detachHotspotToStaging?.(hd.sceneIndex, hd.hotspotIndex);
+        }
       }
     },
     [nodes]
@@ -382,7 +422,9 @@ function InnerMap() {
         defaultEdgeOptions={{
           type: "smoothstep",
           style: { stroke: "#9eb0c8", strokeWidth: 2 },
+          deletable: true,
         }}
+        onEdgesDelete={onEdgesDelete}
         onInit={({ fitView }) => fitView({ padding: 0.15 })}
         proOptions={{ hideAttribution: true }}
       >
