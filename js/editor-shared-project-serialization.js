@@ -94,6 +94,7 @@
                     typeof global.EditorSharedExportText.readExportAwareFieldValue === "function"
                         ? global.EditorSharedExportText.readExportAwareFieldValue(titleEl)
                         : (sceneDiv.querySelector(".sc-title") || { value: "" }).value;
+                var editorOnly = sceneDiv.getAttribute("data-editor-map-staging") === "1";
                 var scene = {
                     id: (sceneDiv.querySelector(".sc-id") || { value: "" }).value.trim(),
                     title: titleVal,
@@ -112,6 +113,7 @@
                     hotspots: [],
                     timerOverride: readSceneTimerOverrideFromDiv(sceneDiv)
                 };
+                if (editorOnly) scene.editorOnly = true;
                 sceneDiv.querySelectorAll(".hotspot-block").forEach(function (hsDiv) {
                     scene.hotspots.push(hotspotDomToV2(hsDiv));
                 });

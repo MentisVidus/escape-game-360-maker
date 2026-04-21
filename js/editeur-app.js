@@ -293,6 +293,48 @@ var DuplicationHelpers = EditorSharedDuplicationApi.createDuplicationHelpers({
 var duplicateHotspot = DuplicationHelpers.duplicateHotspot;
 var duplicateScene = DuplicationHelpers.duplicateScene;
 
+/**
+ * Scène technique cachée : hotspots « orphelins » (carte React) avant rattachement à une vraie scène.
+ * DOM dans #scenes-container, marquée data-editor-map-staging ; JSON avec editorOnly + id __editorMapStaging.
+ * @returns {number|null} identifiant numérique de scène (addHotspot) ou null
+ */
+function ensureEditorMapStagingScene() {
+    var root = document.getElementById("scenes-container");
+    if (!root || typeof addScene !== "function" || typeof EditorCore === "undefined") return null;
+    var existing = root.querySelector(".scene-block[data-editor-map-staging=\"1\"]");
+    if (existing) {
+        var m = /^scene_(\d+)$/.exec(existing.id || "");
+        return m ? parseInt(m[1], 10) : null;
+    }
+    var sid = addScene(
+        "__editorMapStaging",
+        EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL,
+        "File d'attente (carte)"
+    );
+    var block = document.getElementById("scene_" + sid);
+    if (block) {
+        block.setAttribute("data-editor-map-staging", "1");
+        block.style.display = "none";
+        block.style.maxHeight = "0";
+        block.style.overflow = "hidden";
+        block.style.margin = "0";
+        block.style.padding = "0";
+        try {
+            var hdr = block.querySelector(".scene-header");
+            if (hdr) hdr.style.display = "none";
+            var bd = block.querySelector("[id^=\"scene_body_\"]");
+            if (bd) bd.style.display = "none";
+        } catch (e) {
+            /* ignore */
+        }
+    }
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    return sid;
+}
+window.ensureEditorMapStagingScene = ensureEditorMapStagingScene;
+
 /** Depuis la carte : nouvelle scène puis rafraîchissement du graphe si la modale est ouverte. */
 function addSceneFromMap() {
     addScene();
@@ -2121,7 +2163,21 @@ function applyLoadedProject(project) {
     }
     applyTimerSettingsToDom(document, project);
 
-    project.scenes.forEach(function (scene) {
+    var rawScenes = project.scenes || [];
+    var gameScenes = [];
+    var stagingHotspots = [];
+    for (var sxi = 0; sxi < rawScenes.length; sxi++) {
+        var rs = rawScenes[sxi];
+        if (rs && rs.editorOnly) {
+            (rs.hotspots || []).forEach(function (h) {
+                stagingHotspots.push(h);
+            });
+        } else {
+            gameScenes.push(rs);
+        }
+    }
+
+    gameScenes.forEach(function (scene) {
         var scMedia = scene.media || {};
         const sId = addScene(scene.id || "", scMedia.panoramaUrl || EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL, scene.title || "");
 
@@ -2178,6 +2234,14 @@ function applyLoadedProject(project) {
             addHotspot(sId, actionV2ToLegacyHotspotData(hs));
         });
     });
+    if (stagingHotspots.length > 0) {
+        var stSid = ensureEditorMapStagingScene();
+        if (stSid != null) {
+            stagingHotspots.forEach(function (hs) {
+                addHotspot(stSid, actionV2ToLegacyHotspotData(hs));
+            });
+        }
+    }
     if (typeof refreshAllSceneTargetSelects === "function") {
         refreshAllSceneTargetSelects();
     }

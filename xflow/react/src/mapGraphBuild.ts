@@ -21,6 +21,8 @@ export type EditorScene = {
   scId?: string;
   title?: string;
   scTitle?: string;
+  /** Scène réservée éditeur (file d’attente carte / orphelins) — filtrée à l’export joueur. */
+  editorOnly?: boolean;
   media?: {
     panoramaUrl?: string;
     ambiance?: {
@@ -169,6 +171,21 @@ export function sceneKey(scene: EditorScene | undefined, index: number): string 
   return `__idx_${index}`;
 }
 
+export function sceneIsEditorOnly(scene: EditorScene | undefined): boolean {
+  if (!scene || typeof scene !== "object") return false;
+  const eo = (scene as { editorOnly?: unknown }).editorOnly;
+  return eo === true || eo === 1 || String(eo).toLowerCase() === "true";
+}
+
+/** Index de la première scène « jouable » (hors file d’attente carte). */
+export function firstPlayableSceneIndex(project: EditorProject | null): number {
+  const scenes = project?.scenes || [];
+  for (let i = 0; i < scenes.length; i++) {
+    if (scenes[i] && !sceneIsEditorOnly(scenes[i])) return i;
+  }
+  return 0;
+}
+
 export function sceneIdLabel(scene: EditorScene | undefined): string {
   if (!scene) return "—";
   const id = scene.id != null ? String(scene.id).trim() : "";
@@ -183,6 +200,9 @@ export function sceneTitleForGraph(
   lang: EditorLang
 ): string {
   if (!scene) return lang === "en" ? `Scene ${index + 1}` : `Scène ${index + 1}`;
+  if (sceneIsEditorOnly(scene)) {
+    return lang === "en" ? "Unassigned (map)" : "Orphelins (carte)";
+  }
   const title = scene.title != null ? String(scene.title).trim() : "";
   if (title) return title;
   const st = scene.scTitle != null ? String(scene.scTitle).trim() : "";
@@ -567,7 +587,8 @@ export function filterProjectForNarrationSkeleton(
   const validIds: Record<string, boolean> = {};
   for (let si = 0; si < scenes.length; si++) {
     const s = scenes[si];
-    const id = s && s.id != null ? String(s.id).trim() : "";
+    if (!s || sceneIsEditorOnly(s)) continue;
+    const id = s.id != null ? String(s.id).trim() : "";
     if (id) validIds[id] = true;
   }
   for (let si = 0; si < scenes.length; si++) {
@@ -587,7 +608,8 @@ function computeFullViewPositionsByDepth(project: EditorProject): Record<string,
   const posByKey: Record<string, Pos> = {};
   if (scenes.length === 0) return posByKey;
 
-  const entryKey = sceneKey(scenes[0], 0);
+  const entryIdx = firstPlayableSceneIndex(project);
+  const entryKey = sceneKey(scenes[entryIdx], entryIdx);
   const queue: { key: string; level: number }[] = [{ key: entryKey, level: 0 }];
   const visited = new Set<string>();
   const levelByKey: Record<string, number> = {};
@@ -879,6 +901,7 @@ function buildGraphFull(
   scenes.forEach((scene, si) => {
     const sk = sceneKey(scene, si);
     const title = sceneTitleForGraph(scene, si, lang);
+    const isStaging = sceneIsEditorOnly(scene);
     const hotspots = Array.isArray(scene.hotspots) ? scene.hotspots : [];
     const data: MapSceneNodeData = {
       kind: "scene",
@@ -905,45 +928,47 @@ function buildGraphFull(
       position: { x: p.sx, y: p.sy },
       data: { ...data, lang, chrome: "full" as const },
     });
-    const amb = readSceneAmbiance(scene);
-    if (amb) {
-      const rid = `res:${sk}:amb`;
-      nodes.push({
-        id: rid,
-        type: "mapResource",
-        position: { x: p.sx + 18, y: p.sy + 156 },
-        data: {
-          kind: "resource",
-          label: lang === "en" ? "Scene ambiance" : "Ambiance scène",
-          resourceType: "sceneAmbiance",
-          sceneKey: sk,
-          sceneIndex: si,
-          url: amb.url,
-          volume: amb.volume,
-          lang,
-        } satisfies MapResourceNodeData & { lang: EditorLang },
-      });
-      pushMapMetaEdge(edges, id, rid);
-    }
-    const pano = readScenePanorama(scene);
-    if (pano) {
-      const rid = `res:${sk}:img`;
-      nodes.push({
-        id: rid,
-        type: "mapResource",
-        position: { x: p.sx + 248, y: p.sy + 156 },
-        data: {
-          kind: "resource",
-          label: lang === "en" ? "Scene image" : "Image scène",
-          resourceType: "sceneImage",
-          sceneKey: sk,
-          sceneIndex: si,
-          url: pano.url,
-          volume: 1,
-          lang,
-        } satisfies MapResourceNodeData & { lang: EditorLang },
-      });
-      pushMapMetaEdge(edges, id, rid);
+    if (!isStaging) {
+      const amb = readSceneAmbiance(scene);
+      if (amb) {
+        const rid = `res:${sk}:amb`;
+        nodes.push({
+          id: rid,
+          type: "mapResource",
+          position: { x: p.sx + 18, y: p.sy + 156 },
+          data: {
+            kind: "resource",
+            label: lang === "en" ? "Scene ambiance" : "Ambiance scène",
+            resourceType: "sceneAmbiance",
+            sceneKey: sk,
+            sceneIndex: si,
+            url: amb.url,
+            volume: amb.volume,
+            lang,
+          } satisfies MapResourceNodeData & { lang: EditorLang },
+        });
+        pushMapMetaEdge(edges, id, rid);
+      }
+      const pano = readScenePanorama(scene);
+      if (pano) {
+        const rid = `res:${sk}:img`;
+        nodes.push({
+          id: rid,
+          type: "mapResource",
+          position: { x: p.sx + 248, y: p.sy + 156 },
+          data: {
+            kind: "resource",
+            label: lang === "en" ? "Scene image" : "Image scène",
+            resourceType: "sceneImage",
+            sceneKey: sk,
+            sceneIndex: si,
+            url: pano.url,
+            volume: 1,
+            lang,
+          } satisfies MapResourceNodeData & { lang: EditorLang },
+        });
+        pushMapMetaEdge(edges, id, rid);
+      }
     }
   });
 
@@ -1062,7 +1087,8 @@ function buildGraphFocus(
 
   let resolved = findSceneByKey(project, activeSceneKey);
   if (!resolved) {
-    resolved = { scene: scenes[0], index: 0, key: sceneKey(scenes[0], 0) };
+    const fi = firstPlayableSceneIndex(project);
+    resolved = { scene: scenes[fi], index: fi, key: sceneKey(scenes[fi], fi) };
   }
   const activeKey = resolved.key;
   const activeScene = resolved.scene;
@@ -1121,45 +1147,47 @@ function buildGraphFocus(
       chrome: "active" as const,
     },
   });
-  const activeAmb = readSceneAmbiance(activeScene);
-  if (activeAmb) {
-    const rid = `res:${activeKey}:amb`;
-    nodes.push({
-      id: rid,
-      type: "mapResource",
-      position: { x: ACTIVE_X + 20, y: ACTIVE_Y + 160 },
-      data: {
-        kind: "resource",
-        label: lang === "en" ? "Scene ambiance" : "Ambiance scène",
-        resourceType: "sceneAmbiance",
-        sceneKey: activeKey,
-        sceneIndex: resolved.index,
-        url: activeAmb.url,
-        volume: activeAmb.volume,
-        lang,
-      } satisfies MapResourceNodeData & { lang: EditorLang },
-    });
-    pushMapMetaEdge(edges, activeId, rid);
-  }
-  const activePano = readScenePanorama(activeScene);
-  if (activePano) {
-    const rid = `res:${activeKey}:img`;
-    nodes.push({
-      id: rid,
-      type: "mapResource",
-      position: { x: ACTIVE_X + 252, y: ACTIVE_Y + 160 },
-      data: {
-        kind: "resource",
-        label: lang === "en" ? "Scene image" : "Image scène",
-        resourceType: "sceneImage",
-        sceneKey: activeKey,
-        sceneIndex: resolved.index,
-        url: activePano.url,
-        volume: 1,
-        lang,
-      } satisfies MapResourceNodeData & { lang: EditorLang },
-    });
-    pushMapMetaEdge(edges, activeId, rid);
+  if (!sceneIsEditorOnly(activeScene)) {
+    const activeAmb = readSceneAmbiance(activeScene);
+    if (activeAmb) {
+      const rid = `res:${activeKey}:amb`;
+      nodes.push({
+        id: rid,
+        type: "mapResource",
+        position: { x: ACTIVE_X + 20, y: ACTIVE_Y + 160 },
+        data: {
+          kind: "resource",
+          label: lang === "en" ? "Scene ambiance" : "Ambiance scène",
+          resourceType: "sceneAmbiance",
+          sceneKey: activeKey,
+          sceneIndex: resolved.index,
+          url: activeAmb.url,
+          volume: activeAmb.volume,
+          lang,
+        } satisfies MapResourceNodeData & { lang: EditorLang },
+      });
+      pushMapMetaEdge(edges, activeId, rid);
+    }
+    const activePano = readScenePanorama(activeScene);
+    if (activePano) {
+      const rid = `res:${activeKey}:img`;
+      nodes.push({
+        id: rid,
+        type: "mapResource",
+        position: { x: ACTIVE_X + 252, y: ACTIVE_Y + 160 },
+        data: {
+          kind: "resource",
+          label: lang === "en" ? "Scene image" : "Image scène",
+          resourceType: "sceneImage",
+          sceneKey: activeKey,
+          sceneIndex: resolved.index,
+          url: activePano.url,
+          volume: 1,
+          lang,
+        } satisfies MapResourceNodeData & { lang: EditorLang },
+      });
+      pushMapMetaEdge(edges, activeId, rid);
+    }
   }
   if (project.useGlobalAudio && project.globalMusic && String(project.globalMusic.url || "").trim()) {
     const gurl = String(project.globalMusic.url || "").trim();
@@ -1574,7 +1602,8 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
     return { right: subtreeRight, rootSceneRfId: sceneRfId };
   }
 
-  const entryKey = sceneKey(scenes[0], 0);
+  const entryIdx = firstPlayableSceneIndex(project);
+  const entryKey = sceneKey(scenes[entryIdx], entryIdx);
   const entryPlaced = placeScene(entryKey, 60, 320);
   if (
     entryPlaced.rootSceneRfId &&
@@ -1694,7 +1723,8 @@ export function buildProjectMapGraph(
 
   let k = activeKey;
   if (k == null || k === "") {
-    k = sceneKey(scenesList[0], 0);
+    const fi = firstPlayableSceneIndex(workProject);
+    k = sceneKey(scenesList[fi], fi);
   }
   const newActive = buildGraphFocus(workProject, k, options.lang, nodes, edges);
   return { nodes, edges, activeSceneKey: newActive };

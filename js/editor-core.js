@@ -272,6 +272,9 @@
             for (var s = 0; s < scenes.length; s++) {
                 var scene = scenes[s];
                 if (!scene || typeof scene !== "object") continue;
+                var eo = scene.editorOnly;
+                scene.editorOnly =
+                    eo === true || eo === 1 || String(eo).toLowerCase() === "true" || eo === "1";
                 scene.media = normalizeSceneMedia(scene.media);
                 scene.timerOverride = normalizeSceneTimerOverride(scene.timerOverride);
                 var hss = scene.hotspots;
@@ -284,6 +287,26 @@
                 }
             }
         }
+    }
+
+    /**
+     * Clone projet pour export joueur : retire les scènes `editorOnly` (file d’attente carte / orphelins).
+     * @param {Object} project
+     * @returns {Object}
+     */
+    function cloneProjectForPlayerExport(project) {
+        var o;
+        try {
+            o = project && typeof project === "object" ? JSON.parse(JSON.stringify(project)) : {};
+        } catch (e) {
+            o = {};
+        }
+        if (!Array.isArray(o.scenes)) o.scenes = [];
+        o.scenes = o.scenes.filter(function (sc) {
+            return sc && !sc.editorOnly;
+        });
+        normalizeProjectV2(o);
+        return o;
     }
 
     /**
@@ -427,6 +450,7 @@
         createDefaultAudioClip: createDefaultAudioClip,
         normalizeProjectV2: normalizeProjectV2,
         normalizeSceneTimerOverride: normalizeSceneTimerOverride,
+        cloneProjectForPlayerExport: cloneProjectForPlayerExport,
         serializeProject: serializeProject,
         parseProjectJSON: parseProjectJSON,
         isSchemaV2: isSchemaV2

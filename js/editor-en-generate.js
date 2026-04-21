@@ -89,8 +89,11 @@ var WEB_ZIP_README_EN =
 
 /** @returns {string} Full player HTML (Pannellum via CDN links). */
 function buildPlayerHtmlTemplate() {
-    // 1. Globals from project v2
-    const project = getCurrentProjectData();
+    // 1. Globals from project v2 (exclude editor-only map staging scenes)
+    const project =
+        typeof EditorCore !== "undefined" && EditorCore.cloneProjectForPlayerExport
+            ? EditorCore.cloneProjectForPlayerExport(getCurrentProjectData())
+            : getCurrentProjectData();
     const playerGameFingerprint = computePlayerGameFingerprint(project);
     const title = project.title || "My awesome game";
     const hasInv = project.useInv !== false;

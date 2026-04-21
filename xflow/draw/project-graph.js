@@ -86,8 +86,25 @@
         return "__idx_" + index;
     }
 
+    function sceneIsEditorOnly(s) {
+        if (!s || typeof s !== "object") return false;
+        var eo = s.editorOnly;
+        return eo === true || eo === 1 || String(eo).toLowerCase() === "true";
+    }
+
+    function firstPlayableSceneIndex(scenes) {
+        if (!Array.isArray(scenes)) return 0;
+        for (var i = 0; i < scenes.length; i++) {
+            if (scenes[i] && !sceneIsEditorOnly(scenes[i])) return i;
+        }
+        return 0;
+    }
+
     function sceneTitleForGraph(scene, index) {
         if (!scene) return "Scène " + (index + 1);
+        if (sceneIsEditorOnly(scene)) {
+            return document.documentElement.lang === "en" ? "Unassigned (map)" : "Orphelins (carte)";
+        }
         var title = scene.title != null ? String(scene.title).trim() : "";
         if (title) return title;
         if (scene.scTitle != null && String(scene.scTitle).trim()) {
@@ -253,7 +270,8 @@
         if (mode === "focus") {
             var k = window._projectMapActiveSceneKey;
             if ((k == null || k === "") && project.scenes && project.scenes.length > 0) {
-                k = sceneKey(project.scenes[0], 0);
+                var fi0 = firstPlayableSceneIndex(project.scenes);
+                k = sceneKey(project.scenes[fi0], fi0);
             }
             opts.activeSceneKey = k;
         }
@@ -596,7 +614,8 @@
         var posByKey = {};
         if (scenes.length === 0) return posByKey;
 
-        var entryKey = sceneKey(scenes[0], 0);
+        var entryIdx0 = firstPlayableSceneIndex(scenes);
+        var entryKey = sceneKey(scenes[entryIdx0], entryIdx0);
         var queue = [{ key: entryKey, level: 0 }];
         var visited = new Set();
         var levelByKey = {};
@@ -762,7 +781,8 @@
 
         var resolved = findSceneByKey(project, activeSceneKey);
         if (!resolved) {
-            resolved = { scene: scenes[0], index: 0, key: sceneKey(scenes[0], 0) };
+            var fi1 = firstPlayableSceneIndex(scenes);
+            resolved = { scene: scenes[fi1], index: fi1, key: sceneKey(scenes[fi1], fi1) };
         }
 
         var activeKey = resolved.key;
@@ -1042,7 +1062,8 @@
             return { right: subtreeRight, rootSceneNid: sceneNid };
         }
 
-        var entryKey = sceneKey(scenes[0], 0);
+        var entryIdx2 = firstPlayableSceneIndex(scenes);
+        var entryKey = sceneKey(scenes[entryIdx2], entryIdx2);
         placeScene(entryKey, 60, 320);
     }
 

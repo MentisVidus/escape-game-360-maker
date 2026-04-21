@@ -92,8 +92,11 @@ var WEB_ZIP_README_FR =
 
 /** @returns {string} HTML complet du joueur (liens Pannellum CDN). */
 function buildPlayerHtmlTemplate() {
-    // 1. Paramètres globaux depuis le projet v2
-    const project = getCurrentProjectData();
+    // 1. Paramètres globaux depuis le projet v2 (sans scènes editorOnly / file d’attente carte)
+    const project =
+        typeof EditorCore !== "undefined" && EditorCore.cloneProjectForPlayerExport
+            ? EditorCore.cloneProjectForPlayerExport(getCurrentProjectData())
+            : getCurrentProjectData();
     const playerGameFingerprint = computePlayerGameFingerprint(project);
     const title = project.title || "Mon Super Jeu";
     const hasInv = project.useInv !== false;
