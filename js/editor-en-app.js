@@ -598,6 +598,134 @@ function copyHotspotToMapScene(fromSceneIndex, hotspotIndex, toSceneIndex) {
 }
 window.copyHotspotToMapScene = copyHotspotToMapScene;
 
+/** Path B (React map): map `extractHotspotData` output to legacy selector `choices[]` row. */
+function mapExtractedHotspotToSelectorChoiceLegacy(hs) {
+    if (!hs || !hs.type) return null;
+    var t = String(hs.type).trim();
+    if (t === "selector") return null;
+    var id = "choice_map_" + Date.now().toString(36) + "_" + String(Math.floor(Math.random() * 1e6));
+    var label = (hs.hsTitle && String(hs.hsTitle).trim()) || "Choice";
+    if (t === "msg") {
+        return { id: id, label: label, actionType: "msg", txt: hs.f_txt != null ? String(hs.f_txt) : "" };
+    }
+    if (t === "scene") {
+        return {
+            id: id,
+            label: label,
+            actionType: "scene",
+            target: hs.f_target != null ? String(hs.f_target) : "",
+            transTxt: hs.f_trans_txt != null ? String(hs.f_trans_txt) : "",
+            transBtn: hs.f_trans_btn != null ? String(hs.f_trans_btn) : ""
+        };
+    }
+    if (t === "pick") {
+        return {
+            id: id,
+            label: label,
+            actionType: "pick",
+            itemId: hs.f_pick_id != null ? String(hs.f_pick_id) : "",
+            itemName: hs.f_pick_name != null ? String(hs.f_pick_name) : "",
+            txt: hs.f_txt != null ? String(hs.f_txt) : ""
+        };
+    }
+    if (t === "req") {
+        return {
+            id: id,
+            label: label,
+            actionType: "req",
+            itemId: hs.f_item_id != null ? String(hs.f_item_id) : "",
+            itemName: hs.f_item_name != null ? String(hs.f_item_name) : "",
+            ko: hs.f_ko != null ? String(hs.f_ko) : "",
+            f_req_action: hs.f_req_action != null ? String(hs.f_req_action) : "scene",
+            target: hs.f_ok != null ? String(hs.f_ok) : "",
+            f_ok_msg: hs.f_ok_msg != null ? String(hs.f_ok_msg) : ""
+        };
+    }
+    if (t === "pwd") {
+        return {
+            id: id,
+            label: label,
+            actionType: "pwd",
+            enigmeTxt: hs.f_enigme_txt != null ? String(hs.f_enigme_txt) : "",
+            pwd: hs.f_pwd != null ? String(hs.f_pwd) : "",
+            f_pwd_action: hs.f_pwd_action != null ? String(hs.f_pwd_action) : "scene",
+            target: hs.f_ok != null ? String(hs.f_ok) : "",
+            f_ok_msg: hs.f_ok_msg != null ? String(hs.f_ok_msg) : ""
+        };
+    }
+    return { id: id, label: label, actionType: "msg", txt: "" };
+}
+
+/** Path B: map-queue orphan → selector hotspot: append root `choices[]`, remove orphan DOM. */
+function promoteMapOrphanHotspotIntoSelectorRoot(fromSceneIndex, fromHotspotIndex, toSceneIndex, toHotspotIndex) {
+    if (typeof window.restoreProjectMapSidePanelDomOnly === "function") {
+        window.restoreProjectMapSidePanelDomOnly();
+    }
+    if (
+        typeof fromSceneIndex !== "number" ||
+        fromSceneIndex < 0 ||
+        typeof fromHotspotIndex !== "number" ||
+        fromHotspotIndex < 0 ||
+        typeof toSceneIndex !== "number" ||
+        toSceneIndex < 0 ||
+        typeof toHotspotIndex !== "number" ||
+        toHotspotIndex < 0
+    ) {
+        return;
+    }
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var srcEl = blocks[fromSceneIndex];
+    var dstEl = blocks[toSceneIndex];
+    if (!srcEl || !dstEl) return;
+    if (dstEl.getAttribute("data-editor-map-staging") === "1") return;
+    var sw = srcEl.querySelector('[id^="hs-container-"]');
+    var dw = dstEl.querySelector('[id^="hs-container-"]');
+    if (!sw || !dw) return;
+    var sb = sw.querySelectorAll(":scope > .hotspot-block")[fromHotspotIndex];
+    var tb = dw.querySelectorAll(":scope > .hotspot-block")[toHotspotIndex];
+    if (!sb || !tb) return;
+    var typeSrc = sb.querySelector(".hs-type");
+    var typeDst = tb.querySelector(".hs-type");
+    if (!typeSrc || !typeDst) return;
+    if (typeDst.value !== "selector") return;
+    if (typeSrc.value === "selector") return;
+    var hm = /^hs_(\d+)$/.exec(sb.id);
+    if (!hm) return;
+    var hIdSrc = parseInt(hm[1], 10);
+    if (typeof extractHotspotData !== "function") return;
+    var hs = extractHotspotData(hIdSrc);
+    if (!hs) return;
+    var ch = mapExtractedHotspotToSelectorChoiceLegacy(hs);
+    if (!ch) return;
+    var hmT = /^hs_(\d+)$/.exec(tb.id);
+    if (!hmT) return;
+    var hIdDst = parseInt(hmT[1], 10);
+    var ta = tb.querySelector(".f-sel-choices");
+    if (!ta) return;
+    var arr = [];
+    try {
+        arr = JSON.parse(ta.value || "[]");
+    } catch (e) {
+        arr = [];
+    }
+    if (!Array.isArray(arr)) arr = [];
+    arr.push(ch);
+    ta.value = JSON.stringify(arr, null, 2);
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+    ta.dispatchEvent(new Event("change", { bubbles: true }));
+    if (typeof initSelectorChoicesForm === "function") {
+        initSelectorChoicesForm(hIdDst);
+    }
+    sb.remove();
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.promoteMapOrphanHotspotIntoSelectorRoot = promoteMapOrphanHotspotIntoSelectorRoot;
+
 function focusSceneMediaFromMap(sceneIndex, field) {
     if (typeof window.restoreProjectMapSidePanelDomOnly === "function") {
         window.restoreProjectMapSidePanelDomOnly();

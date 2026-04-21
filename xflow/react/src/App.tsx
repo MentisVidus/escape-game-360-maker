@@ -81,6 +81,12 @@ declare global {
       targetSceneIndex: number
     ) => void;
     detachHotspotToStaging?: (sceneIndex: number, hotspotIndex: number) => void;
+    promoteMapOrphanHotspotIntoSelectorRoot?: (
+      fromSceneIndex: number,
+      fromHotspotIndex: number,
+      toSceneIndex: number,
+      toHotspotIndex: number
+    ) => void;
     projectMapSidePanelHasStash?: () => boolean;
     restoreProjectMapSidePanelDomOnly?: () => void;
     _projectMapReactBridge?: {
@@ -382,6 +388,15 @@ function InnerMap() {
         }
         return false;
       }
+      if (sNode.type === "mapHotspot" && tNode.type === "mapSelectorChoice") {
+        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+        const sd = sNode.data as MapHotspotNodeData;
+        const cd = tNode.data as MapSelectorChoiceNodeData;
+        if (sd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return false;
+        const pk = cd.parentSceneKey;
+        if (!pk || pk === EDITOR_MAP_STAGING_SCENE_KEY) return false;
+        return true;
+      }
       if (tNode.type === "mapResource" && c.targetHandle === "metaIn") {
         const rd = tNode.data as MapResourceNodeData;
         if (sNode.type === "mapScene" && c.sourceHandle === "metaOut") {
@@ -437,6 +452,19 @@ function InnerMap() {
             window.copyHotspotToMapScene?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
             return;
           }
+          return;
+        }
+        if (sNode.type === "mapHotspot" && tNode.type === "mapSelectorChoice") {
+          const sd = sNode.data as MapHotspotNodeData;
+          const cd = tNode.data as MapSelectorChoiceNodeData;
+          if (c.sourceHandle !== "out" || c.targetHandle !== "in") return;
+          if (sd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return;
+          window.promoteMapOrphanHotspotIntoSelectorRoot?.(
+            sd.sceneIndex,
+            sd.hotspotIndex,
+            cd.sceneIndex,
+            cd.hotspotIndex
+          );
           return;
         }
         if (tNode.type !== "mapResource") return;
@@ -572,7 +600,7 @@ function InnerMap() {
             style={{
               fontSize: 11,
               lineHeight: 1.35,
-              maxWidth: 288,
+              maxWidth: 300,
               padding: "6px 10px",
               borderRadius: 6,
               background: "rgba(15, 23, 42, 0.88)",
@@ -585,16 +613,21 @@ function InnerMap() {
                 <strong>Links:</strong> drag between handles (orphan ↔ scene: both ways for parent
                 link). <strong>Remove</strong> scene→hotspot link: click edge, then{" "}
                 <kbd>Delete</kbd>/<kbd>Backspace</kbd>.                 <strong>Copy</strong> hotspot to another scene: hold <kbd>Alt</kbd> (⌥), then
-                hotspot right handle → target scene left handle (otherwise use « scene » action
-                wire; target cannot be the unassigned pool).
+                hotspot right handle → target scene left handle (otherwise use the scene-action
+                wire; target cannot be the unassigned pool). <strong>Orphan → menu:</strong> from the
+                pool, connect hotspot <strong>out</strong> to a <strong>choice</strong> node{" "}
+                <strong>in</strong> (selector hotspot on a scene): appends a root menu row and
+                removes the orphan.
               </>
             ) : (
               <>
                 <strong>Liaisons :</strong> glisser entre poignées (orphelin ↔ scène : les deux sens).
                 <strong> Couper</strong> scène→hotspot : clic sur l’arête puis <kbd>Suppr</kbd> /{" "}
-                <kbd>Retour arrière</kbd>. <strong>Copier</strong> un hotspot vers une autre scène :
-                maintenir <kbd>Alt</kbd> et relier la sortie du hotspot vers l’entrée de la scène cible
-                (sinon transition « scène » si l’action le permet ; pas vers la file d’attente).
+                <kbd>Retour arrière</kbd>. <strong>Copier</strong> un hotspot : <kbd>Alt</kbd> + sortie
+                hotspot → entrée scène (sinon fil « scène » ; pas vers la file).{" "}
+                <strong>Orphelin → menu :</strong> sortie orphelin → entrée d’un <strong>choix</strong>{" "}
+                du graphe menu (hotspot selector sur une scène) : ajoute une ligne à la racine de{" "}
+                <code>choices[]</code> et retire l’orphelin.
               </>
             )}
           </div>
