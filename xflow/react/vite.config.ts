@@ -8,6 +8,7 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    chunkSizeWarningLimit: 700,
     cssCodeSplit: false,
     rollupOptions: {
       input: "index.html",

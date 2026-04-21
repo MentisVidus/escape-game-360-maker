@@ -278,8 +278,21 @@
         return blocks[sceneIndex] || null;
     }
 
-    function findHotspotBlockByIndices(sceneIndex, hotspotIndex) {
+    /** Scène hors conteneur (ex. panneau latéral carte) ou dans le conteneur, par id logique. */
+    function findSceneBlockBySceneKey(sceneKey) {
+        if (sceneKey == null || String(sceneKey).trim() === "") return null;
+        var want = String(sceneKey).trim();
+        var all = document.querySelectorAll(".scene-block");
+        for (var i = 0; i < all.length; i++) {
+            var sid = all[i].querySelector(".sc-id");
+            if (sid && String(sid.value || "").trim() === want) return all[i];
+        }
+        return null;
+    }
+
+    function findHotspotBlockByIndices(sceneIndex, hotspotIndex, sceneKey) {
         var sceneEl = findSceneBlockByIndex(sceneIndex);
+        if (!sceneEl && sceneKey) sceneEl = findSceneBlockBySceneKey(sceneKey);
         if (!sceneEl || typeof hotspotIndex !== "number" || hotspotIndex < 0) return null;
         var wrap = sceneEl.querySelector('[id^="hs-container-"]');
         if (!wrap) return null;
@@ -287,8 +300,14 @@
         return hss[hotspotIndex] || null;
     }
 
-    function focusSelectorChoiceCardInHotspot(hotspotEl, choiceIndex) {
-        if (!hotspotEl || typeof choiceIndex !== "number" || choiceIndex < 0) return;
+    function focusSelectorChoiceCardInHotspot(hotspotEl, choicePath) {
+        if (!hotspotEl) return;
+        var path = Array.isArray(choicePath)
+            ? choicePath
+            : typeof choicePath === "number" && !isNaN(choicePath)
+              ? [choicePath]
+              : [];
+        if (path.length === 0 || path.some(function (x) { return typeof x !== "number" || x < 0; })) return;
         var idMatch = /^hs_(\d+)$/.exec(hotspotEl.id || "");
         if (!idMatch) return;
         var hId = parseInt(idMatch[1], 10);
@@ -303,8 +322,20 @@
 
         var root = hotspotEl.querySelector("#sel_choices_root_" + hId);
         if (!root) return;
-        var cards = root.querySelectorAll(":scope > .sel-choice-card");
-        var card = cards[choiceIndex];
+        var container = root;
+        var card = null;
+        for (var pi = 0; pi < path.length; pi++) {
+            var cards = container.querySelectorAll(":scope > .sel-choice-card");
+            card = cards[path[pi]];
+            if (!card) return;
+            if (pi < path.length - 1) {
+                var nestedList =
+                    card.querySelector(".sel-nested-list") ||
+                    card.querySelector(".sel-reward-nested-list");
+                if (!nestedList) return;
+                container = nestedList;
+            }
+        }
         if (!card) return;
         try {
             card.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -376,6 +407,17 @@
     function mountBlockInSidePanel(el, titleText) {
         restoreProjectMapSidePanelDomOnly();
         if (!el) return;
+        var rfWrap = document.getElementById("react-map-root");
+        if (rfWrap) {
+            var ae = document.activeElement;
+            if (ae && rfWrap.contains(ae) && typeof ae.blur === "function") {
+                try {
+                    ae.blur();
+                } catch (e) {
+                    /* ignore */
+                }
+            }
+        }
         var parent = el.parentNode;
         var nextSibling = el.nextSibling;
         _projectMapPanelStash = { parent: parent, nextSibling: nextSibling, el: el };
@@ -405,36 +447,66 @@
         var title = "";
         var en = document.documentElement.lang === "en";
         if (d.kind === "scene" && typeof d.sceneIndex === "number") {
-            el = findSceneBlockByIndex(d.sceneIndex);
+            el =
+                findSceneBlockByIndex(d.sceneIndex) ||
+                (d.sceneKey ? findSceneBlockBySceneKey(d.sceneKey) : null);
             title = d.label || (en ? "Scene" : "Scène");
         } else if (
             d.kind === "hotspot" &&
             typeof d.sceneIndex === "number" &&
             typeof d.hotspotIndex === "number"
         ) {
-            el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex);
+            el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex, d.parentSceneKey);
             title = d.label || "Hotspot";
         } else if (
             d.kind === "selectorChoice" &&
             typeof d.sceneIndex === "number" &&
             typeof d.hotspotIndex === "number" &&
-            typeof d.choiceIndex === "number"
+            (Array.isArray(d.choicePath) ||
+                (typeof d.choiceIndex === "number" && !isNaN(d.choiceIndex)))
         ) {
-            el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex);
+            el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex, d.parentSceneKey);
             title = d.label || (en ? "Choice" : "Choix");
         } else if (d.kind === "resource") {
             if (typeof d.sceneIndex === "number" && typeof d.hotspotIndex === "number") {
-                el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex);
+                el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex, d.parentSceneKey);
                 title = d.label || (en ? "Resource" : "Ressource");
             } else if (typeof d.sceneIndex === "number") {
-                el = findSceneBlockByIndex(d.sceneIndex);
+                el =
+                    findSceneBlockByIndex(d.sceneIndex) ||
+                    (d.sceneKey ? findSceneBlockBySceneKey(d.sceneKey) : null);
                 title = d.label || (en ? "Resource" : "Ressource");
             }
         }
         if (!el) return;
+        if (
+            _projectMapPanelStash &&
+            _projectMapPanelStash.el &&
+            _projectMapPanelStash.el === el &&
+            document.getElementById("project-map-side-content") &&
+            document.getElementById("project-map-side-content").contains(el)
+        ) {
+            var titleKeep = document.getElementById("project-map-side-title");
+            if (titleKeep) titleKeep.textContent = title || "";
+            return;
+        }
         mountBlockInSidePanel(el, title);
+        var choicePathForFocus = null;
         if (d.kind === "selectorChoice") {
-            focusSelectorChoiceCardInHotspot(el, d.choiceIndex);
+            choicePathForFocus = Array.isArray(d.choicePath)
+                ? d.choicePath
+                : typeof d.choiceIndex === "number"
+                  ? [d.choiceIndex]
+                  : null;
+        } else if (d.kind === "resource" && d.resourceType === "choiceSfx") {
+            choicePathForFocus = Array.isArray(d.choicePath)
+                ? d.choicePath
+                : typeof d.choiceIndex === "number"
+                  ? [d.choiceIndex]
+                  : null;
+        }
+        if (choicePathForFocus && choicePathForFocus.length > 0) {
+            focusSelectorChoiceCardInHotspot(el, choicePathForFocus);
         }
     }
 
@@ -1171,4 +1243,9 @@
         },
         setToolbar: updateProjectMapToolbar
     };
+    window.restoreProjectMapSidePanelDomOnly = restoreProjectMapSidePanelDomOnly;
+    window.projectMapSidePanelHasStash = function () {
+        return !!(_projectMapPanelStash && _projectMapPanelStash.el);
+    };
+    window.mountProjectMapGlobalSettings = mountEditorGlobalSettingsInSidePanel;
 })();

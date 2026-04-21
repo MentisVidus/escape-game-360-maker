@@ -9,7 +9,7 @@ import type {
   MapSceneNodeData,
   MapSelectorChoiceNodeData,
 } from "./mapGraphBuild";
-import { hotspotAddMenuCopy, type HotspotKindId } from "./hotspotAddKinds";
+import { MapAddMenuPanelContent } from "./mapAddMenuUi";
 
 import "./mapNodeChrome.css";
 
@@ -33,6 +33,13 @@ declare global {
     addHotspotSkeletonFromMapSceneIndex?: (sceneIndex: number) => void;
     deleteSceneFromMapByIndex?: (sceneIndex: number) => void;
     deleteHotspotFromMapIndices?: (sceneIndex: number, hotspotIndex: number) => void;
+    applyMapResourceVolumeFromReactNode?: (opts: {
+      resourceType: string;
+      volume: number;
+      sceneIndex?: number;
+      hotspotIndex?: number;
+      choicePath?: number[];
+    }) => void;
   }
 }
 
@@ -43,8 +50,6 @@ export function MapSceneNode({ data }: SceneNodeProps) {
   const collapsed = data.chrome === "collapsed";
   const [menuOpen, setMenuOpen] = useState(false);
   const menuWrapRef = useRef<HTMLDivElement>(null);
-  const copy = hotspotAddMenuCopy(data.lang);
-
   const wrapClass = [
     "rf-map-scene-root",
     data.chrome === "active" ? "rf-map-scene-active-wrap" : "",
@@ -73,12 +78,6 @@ export function MapSceneNode({ data }: SceneNodeProps) {
     setMenuOpen((v) => !v);
   };
 
-  const onPickKind = (e: ReactMouseEvent, kind: HotspotKindId) => {
-    e.stopPropagation();
-    setMenuOpen(false);
-    window.addHotspotFromMapWithKind?.(data.sceneIndex, kind);
-  };
-
   const onDelScene = (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     window.deleteSceneFromMapByIndex?.(data.sceneIndex);
@@ -105,23 +104,11 @@ export function MapSceneNode({ data }: SceneNodeProps) {
               role="menu"
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {copy.groups.map((g) => (
-                <div key={g.id} className="rf-map-add-hotspot-group">
-                  <div className="rf-map-add-hotspot-group-title">{g.title}</div>
-                  {g.kinds.map((row) => (
-                    <button
-                      key={row.kind}
-                      type="button"
-                      className="rf-map-add-hotspot-item"
-                      role="menuitem"
-                      onClick={(ev) => onPickKind(ev, row.kind)}
-                    >
-                      {row.label}
-                    </button>
-                  ))}
-                </div>
-              ))}
-              <div className="rf-map-add-hotspot-hint">{copy.hintBranch}</div>
+              <MapAddMenuPanelContent
+                lang={data.lang}
+                sceneIndex={data.sceneIndex}
+                onPick={() => setMenuOpen(false)}
+              />
             </div>
           ) : null}
         </div>
@@ -227,12 +214,20 @@ type SelectorChoiceNodeProps = NodeProps<FlowNode<MapSelectorChoiceNodeData & { 
 export function MapSelectorChoiceNode({ data }: SelectorChoiceNodeProps) {
   const en = data.lang === "en";
   const tgt = en ? "target" : "cible";
+  const depth =
+    Array.isArray(data.choicePath) && data.choicePath.length > 1 ? data.choicePath.length - 1 : 0;
   return (
     <div className="rf-map-choice-root">
       <Handle type="target" position={Position.Left} id="in" className="rf-map-handle-flow-in" />
       <Handle type="source" position={Position.Right} id="out" className="rf-map-handle-flow-out" />
+      <Handle type="source" position={Position.Bottom} id="metaOut" className="rf-map-handle-meta-out" />
       <div className="rf-map-choice-title">{en ? "Choice" : "Choix"}</div>
       <div className="rf-map-choice-body">{data.label}</div>
+      {depth > 0 ? (
+        <div className="rf-map-choice-sub">
+          {en ? `Nested · depth ${depth}` : `Imbriqué · prof. ${depth}`}
+        </div>
+      ) : null}
       {data.targetCount > 0 ? (
         <div className="rf-map-choice-sub">
           {data.targetCount} {tgt}
@@ -258,18 +253,54 @@ export function MapResourceNode({ data }: ResourceNodeProps) {
           ? en
             ? "Hotspot SFX"
             : "SFX hotspot"
+          : data.resourceType === "choiceSfx"
+            ? en
+              ? "Choice SFX"
+              : "SFX choix"
       : en
         ? "Scene audio"
         : "Audio scène";
   const shortUrl = data.url.length > 34 ? `${data.url.slice(0, 34)}…` : data.url;
+  const showVolSlider =
+    data.resourceType === "sceneAmbiance" ||
+    data.resourceType === "hotspotSfx" ||
+    data.resourceType === "choiceSfx" ||
+    data.resourceType === "globalMusic";
+  const volPct = Math.round(Math.max(0, Math.min(1, data.volume)) * 100);
   return (
     <div className="rf-map-resource-root">
       <Handle type="target" position={Position.Top} id="metaIn" className="rf-map-handle-meta-in" />
       <div className="rf-map-resource-title">{title}</div>
       <div className="rf-map-resource-body">{shortUrl || "—"}</div>
-      <div className="rf-map-resource-sub">
-        vol {Math.round(Math.max(0, Math.min(1, data.volume)) * 100)}%
-      </div>
+      {showVolSlider ? (
+        <div className="rf-map-resource-vol" onMouseDown={(e) => e.stopPropagation()}>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={Math.max(0, Math.min(1, data.volume))}
+            aria-label={en ? "Volume" : "Volume"}
+            onChange={(e) => {
+              e.stopPropagation();
+              const v = parseFloat(e.target.value);
+              if (Number.isNaN(v)) return;
+              window.applyMapResourceVolumeFromReactNode?.({
+                resourceType: data.resourceType,
+                volume: v,
+                sceneIndex: data.sceneIndex,
+                hotspotIndex: data.hotspotIndex,
+                choicePath: data.choicePath,
+              });
+            }}
+          />
+          <span className="rf-map-resource-vol-pct">{volPct}%</span>
+        </div>
+      ) : (
+        <div className="rf-map-resource-sub">
+          {en ? "vol" : "vol"} {volPct}%
+        </div>
+      )}
     </div>
   );
 }

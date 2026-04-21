@@ -131,6 +131,17 @@
     min-height: 0;
 }
 
+/* Vue React : masquer les FAB carte (réglages + nouvelle scène), déjà couverts par la palette. */
+#project-map-canvas-wrap.project-map-react-primary .project-map-fab {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+/* Panneaux React Flow (palette +) au-dessus du canvas */
+#project-map-canvas-wrap.project-map-react-primary .react-flow__panel {
+    z-index: 80 !important;
+}
+
 /* Arêtes React Flow lisibles sur fond sombre */
 #project-map-canvas-wrap.project-map-react-primary .react-flow__edge-path {
     stroke: #9eb0c8;

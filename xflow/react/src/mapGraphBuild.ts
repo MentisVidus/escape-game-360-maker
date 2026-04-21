@@ -66,7 +66,10 @@ export type MapSelectorChoiceNodeData = {
   label: string;
   sceneIndex: number;
   hotspotIndex: number;
-  choiceIndex: number;
+  /** Clé scène (retrouver le bloc DOM si la scène est dans le panneau latéral). */
+  parentSceneKey?: string;
+  /** Indices depuis la racine du menu (ex. [0, 2] = 3ᵉ sous-choix du 1ᵉʳ choix). */
+  choicePath: number[];
   targetCount: number;
 };
 
@@ -81,10 +84,12 @@ export type MapSceneGroupNodeData = {
 export type MapResourceNodeData = {
   kind: "resource";
   label: string;
-  resourceType: "sceneAmbiance" | "sceneImage" | "hotspotSfx" | "globalMusic";
+  resourceType: "sceneAmbiance" | "sceneImage" | "hotspotSfx" | "globalMusic" | "choiceSfx";
   sceneKey?: string;
   sceneIndex?: number;
   hotspotIndex?: number;
+  /** Chemin du choix (ressource `choiceSfx` uniquement). */
+  choicePath?: number[];
   url: string;
   volume: number;
 };
@@ -220,6 +225,10 @@ export function hotspotActionType(hs: EditorHotspot | undefined): string {
   if (hs && hs.action && typeof hs.action === "object" && "type" in hs.action) {
     return String((hs.action as { type?: string }).type);
   }
+  const leg = hs as Record<string, unknown> | undefined;
+  if (leg && leg.type != null && String(leg.type).trim()) {
+    return String(leg.type).trim();
+  }
   if (hs && typeof (hs as { type?: string }).type === "string") {
     return String((hs as { type: string }).type);
   }
@@ -242,7 +251,35 @@ function targetSceneIdsFromAction(action: LooseAction): string[] {
 type SelectorChoiceGraphInfo = {
   label: string;
   targetSceneIds: string[];
+  sfx: { url: string; volume: number } | null;
 };
+
+function readChoiceSfxFromRaw(raw: unknown): { url: string; volume: number } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const ro = raw as Record<string, unknown>;
+  const act = ro.action as Record<string, unknown> | undefined;
+  if (act && typeof act.sfx === "object" && act.sfx !== null) {
+    const sfx = act.sfx as Record<string, unknown>;
+    const u = sfx.url != null ? String(sfx.url).trim() : "";
+    if (u) {
+      const rawVol = sfx.volume != null ? Number(sfx.volume) : 1;
+      const volume = Number.isNaN(rawVol) ? 1 : Math.max(0, Math.min(1, rawVol));
+      return { url: u, volume };
+    }
+  }
+  const url =
+    (ro.sfxUrl != null ? String(ro.sfxUrl).trim() : "") ||
+    (ro.f_sfx_url != null ? String(ro.f_sfx_url).trim() : "");
+  if (!url) return null;
+  const rawVol =
+    ro.sfxVolume != null
+      ? Number(ro.sfxVolume)
+      : ro.f_sfx_vol != null
+        ? Number(ro.f_sfx_vol)
+        : 1;
+  const volume = Number.isNaN(rawVol) ? 1 : Math.max(0, Math.min(1, rawVol));
+  return { url, volume };
+}
 
 function selectorChoicesRaw(hs: EditorHotspot | undefined): unknown[] {
   const a = hs?.action as LooseAction;
@@ -309,35 +346,190 @@ function targetSceneIdsFromLegacyChoice(choice: Record<string, unknown>): string
   return Object.keys(out);
 }
 
-function selectorChoicesForGraph(
+/** Sous-menus d’un enregistrement de choix (V2 + legacy + reward selector). */
+function choiceNestedChoicesRaw(raw: unknown): unknown[] {
+  if (!raw || typeof raw !== "object") return [];
+  const ro = raw as Record<string, unknown>;
+  const chAction = ro.action as LooseAction;
+  if (chAction && typeof chAction === "object" && chAction.type === "selector") {
+    const p = (chAction.payload || {}) as Record<string, unknown>;
+    const nested = (p.nested || {}) as Record<string, unknown>;
+    if (Array.isArray(nested.choices)) return nested.choices;
+  }
+  const at = ro.actionType != null ? String(ro.actionType).trim() : "";
+  if (at === "selector") {
+    const nested = ro.nested as Record<string, unknown> | undefined;
+    if (nested && Array.isArray(nested.choices)) return nested.choices as unknown[];
+  }
+  if (at === "req" || at === "pwd") {
+    const reward = at === "req" ? ro.f_req_action : ro.f_pwd_action;
+    const rk = reward != null ? String(reward).trim() : "";
+    if (rk === "selector") {
+      const rn = ro.rewardNested as Record<string, unknown> | undefined;
+      if (rn && Array.isArray(rn.choices)) return rn.choices as unknown[];
+    }
+  }
+  return [];
+}
+
+/** Cibles scène reliées directement à ce choix (sans descendre dans un sous-selector). */
+function targetSceneIdsFromChoiceRawDirect(raw: unknown): string[] {
+  if (!raw || typeof raw !== "object") return [];
+  const ro = raw as Record<string, unknown>;
+  const chAction = ro.action as LooseAction;
+  if (chAction && typeof chAction === "object") {
+    if (chAction.type === "selector") return [];
+    return targetSceneIdsFromAction(chAction);
+  }
+  const at = ro.actionType != null ? String(ro.actionType).trim() : "";
+  if (at === "selector") return [];
+  if (at === "req" || at === "pwd") {
+    const reward = at === "req" ? ro.f_req_action : ro.f_pwd_action;
+    const rk = reward != null ? String(reward).trim() : "";
+    if (rk === "selector") return [];
+  }
+  return targetSceneIdsFromLegacyChoice(ro);
+}
+
+function mapOneSelectorChoiceRaw(
+  raw: unknown,
+  lang: EditorLang,
+  path: number[]
+): SelectorChoiceGraphInfo {
+  const defaultPrefix = lang === "en" ? "Choice" : "Choix";
+  const pathLabel = path.map((n) => n + 1).join(".");
+  let label = `${defaultPrefix} ${pathLabel}`;
+  let targetSceneIds: string[] = [];
+  if (raw && typeof raw === "object") {
+    const ro = raw as Record<string, unknown>;
+    const direct = ro.label != null ? String(ro.label).trim() : "";
+    if (direct) {
+      label = direct;
+    } else {
+      const cp = ro.copy as Record<string, unknown> | undefined;
+      const viaCopy = cp?.buttonLabel != null ? String(cp.buttonLabel).trim() : "";
+      if (viaCopy) label = viaCopy;
+    }
+    targetSceneIds = targetSceneIdsFromChoiceRawDirect(raw);
+  }
+  const sfx = raw && typeof raw === "object" ? readChoiceSfxFromRaw(raw) : null;
+  return { label, targetSceneIds, sfx };
+}
+
+function flattenSelectorChoicesForGraph(
   hs: EditorHotspot | undefined,
   lang: EditorLang
-): SelectorChoiceGraphInfo[] {
-  const choices = selectorChoicesRaw(hs);
-  if (choices.length === 0) return [];
-  const defaultPrefix = lang === "en" ? "Choice" : "Choix";
-  return choices.map((raw, idx) => {
-    let label = `${defaultPrefix} ${idx + 1}`;
-    let targetSceneIds: string[] = [];
-    if (raw && typeof raw === "object") {
-      const ro = raw as Record<string, unknown>;
-      const direct = ro.label != null ? String(ro.label).trim() : "";
-      if (direct) {
-        label = direct;
-      } else {
-        const cp = ro.copy as Record<string, unknown> | undefined;
-        const viaCopy = cp?.buttonLabel != null ? String(cp.buttonLabel).trim() : "";
-        if (viaCopy) label = viaCopy;
-      }
-      const chAction = ro.action as LooseAction;
-      if (chAction && typeof chAction === "object") {
-        targetSceneIds = targetSceneIdsFromAction(chAction);
-      } else {
-        targetSceneIds = targetSceneIdsFromLegacyChoice(ro);
+): Array<SelectorChoiceGraphInfo & { path: number[] }> {
+  const roots = selectorChoicesRaw(hs);
+  const out: Array<SelectorChoiceGraphInfo & { path: number[] }> = [];
+  function walk(choices: unknown[], prefix: number[], depth: number) {
+    if (depth > SELECTOR_GRAPH_MAX_DEPTH) return;
+    for (let i = 0; i < choices.length; i++) {
+      const raw = choices[i];
+      const path = [...prefix, i];
+      out.push({ ...mapOneSelectorChoiceRaw(raw, lang, path), path });
+      const nested = choiceNestedChoicesRaw(raw);
+      if (nested.length > 0) walk(nested, path, depth + 1);
+    }
+  }
+  walk(roots, [], 0);
+  return out;
+}
+
+function encodeSelectorPath(path: number[]): string {
+  return path.join("-");
+}
+
+function pushSelectorChoiceSubgraph(params: {
+  nodes: Node[];
+  edges: Edge[];
+  hs: EditorHotspot;
+  lang: EditorLang;
+  sceneKey: string;
+  sceneIndex: number;
+  hotspotIndex: number;
+  hsId: string;
+  anchorX: number;
+  anchorYCenter: number;
+  choiceOffsetX: number;
+  choiceStepY: number;
+  sceneKeyToRfId: Record<string, string>;
+}): void {
+  const {
+    nodes,
+    edges,
+    hs,
+    lang,
+    sceneKey: sk,
+    sceneIndex: si,
+    hotspotIndex: hi,
+    hsId,
+    anchorX,
+    anchorYCenter,
+    choiceOffsetX,
+    choiceStepY,
+    sceneKeyToRfId,
+  } = params;
+  const flat = flattenSelectorChoicesForGraph(hs, lang);
+  if (flat.length === 0) return;
+  const baseCy = anchorYCenter - ((flat.length - 1) * choiceStepY) / 2;
+  for (let ri = 0; ri < flat.length; ri++) {
+    const row = flat[ri];
+    const pathStr = encodeSelectorPath(row.path);
+    const cid = `sel:${sk}:${hi}:${pathStr}`;
+    const cy = baseCy + ri * choiceStepY;
+    nodes.push({
+      id: cid,
+      type: "mapSelectorChoice",
+      position: { x: anchorX + choiceOffsetX, y: cy },
+      draggable: true,
+      selectable: true,
+      data: {
+        kind: "selectorChoice",
+        label: row.label,
+        sceneIndex: si,
+        hotspotIndex: hi,
+        parentSceneKey: sk,
+        choicePath: row.path,
+        targetCount: row.targetSceneIds.length,
+        lang,
+      } satisfies MapSelectorChoiceNodeData & { lang: EditorLang },
+    });
+    if (row.path.length === 1) {
+      pushMapEdge(edges, hsId, cid);
+    } else {
+      const parentId = `sel:${sk}:${hi}:${encodeSelectorPath(row.path.slice(0, -1))}`;
+      pushMapEdge(edges, parentId, cid);
+    }
+    if (row.sfx) {
+      const sfxId = `res:${sk}:hs:${hi}:sel:${pathStr}:sfx`;
+      nodes.push({
+        id: sfxId,
+        type: "mapResource",
+        position: { x: anchorX + choiceOffsetX + 200, y: cy + 6 },
+        data: {
+          kind: "resource",
+          label: lang === "en" ? "Choice SFX" : "SFX choix",
+          resourceType: "choiceSfx",
+          sceneKey: sk,
+          sceneIndex: si,
+          hotspotIndex: hi,
+          choicePath: row.path,
+          url: row.sfx.url,
+          volume: row.sfx.volume,
+          lang,
+        } satisfies MapResourceNodeData & { lang: EditorLang },
+      });
+      pushMapMetaEdge(edges, cid, sfxId);
+    }
+    for (let tj = 0; tj < row.targetSceneIds.length; tj++) {
+      const targetId = row.targetSceneIds[tj];
+      const targetNid = sceneKeyToRfId[targetId];
+      if (targetNid) {
+        pushMapEdge(edges, cid, targetNid);
       }
     }
-    return { label, targetSceneIds };
-  });
+  }
 }
 
 export function findSceneByKey(
@@ -584,7 +776,7 @@ function nodeSizeForLayout(n: Node): LayoutSize {
   if (n.type === "mapScene") return { width: 240, height: 120 };
   if (n.type === "mapHotspot") return { width: 220, height: 100 };
   if (n.type === "mapSelectorChoice") return { width: 180, height: 74 };
-  if (n.type === "mapResource") return { width: 210, height: 86 };
+  if (n.type === "mapResource") return { width: 210, height: 108 };
   if (n.type === "mapRedirect") return { width: 190, height: 82 };
   if (n.style && typeof n.style.width === "number" && typeof n.style.height === "number") {
     return { width: n.style.width, height: n.style.height };
@@ -828,37 +1020,22 @@ function buildGraphFull(
         pushMapMetaEdge(edges, hsId, rsId);
       }
       pushMapEdge(edges, sceneNodeId, hsId);
-      const selectorChoices = at === "selector" ? selectorChoicesForGraph(hs as EditorHotspot, lang) : [];
-      if (selectorChoices.length > 0) {
-        const baseCy = hy - ((selectorChoices.length - 1) * CHOICE_STEP_Y) / 2;
-        for (let ci = 0; ci < selectorChoices.length; ci++) {
-          const ch = selectorChoices[ci];
-          const cid = `sel:${sk}:${hi}:${ci}`;
-          nodes.push({
-            id: cid,
-            type: "mapSelectorChoice",
-            position: { x: hx + CHOICE_OFFSET_X, y: baseCy + ci * CHOICE_STEP_Y },
-            draggable: false,
-            selectable: true,
-            data: {
-              kind: "selectorChoice",
-              label: ch.label,
-              sceneIndex: si,
-              hotspotIndex: hi,
-              choiceIndex: ci,
-              targetCount: ch.targetSceneIds.length,
-              lang,
-            } satisfies MapSelectorChoiceNodeData & { lang: EditorLang },
-          });
-          pushMapEdge(edges, hsId, cid);
-          for (let tj = 0; tj < ch.targetSceneIds.length; tj++) {
-            const targetId = ch.targetSceneIds[tj];
-            const targetNid = sceneKeyToRfId[targetId];
-            if (targetNid) {
-              pushMapEdge(edges, cid, targetNid);
-            }
-          }
-        }
+      if (at === "selector") {
+        pushSelectorChoiceSubgraph({
+          nodes,
+          edges,
+          hs: hs as EditorHotspot,
+          lang,
+          sceneKey: sk,
+          sceneIndex: si,
+          hotspotIndex: hi,
+          hsId,
+          anchorX: hx,
+          anchorYCenter: hy,
+          choiceOffsetX: CHOICE_OFFSET_X,
+          choiceStepY: CHOICE_STEP_Y,
+          sceneKeyToRfId,
+        });
       } else {
         const targetIds = getTargetSceneIdsFromHotspot(hs as EditorHotspot);
         for (let tj = 0; tj < targetIds.length; tj++) {
@@ -1084,37 +1261,22 @@ function buildGraphFocus(
       pushMapMetaEdge(edges, hsId, rsId);
     }
     pushMapEdge(edges, activeId, hsId);
-    const selectorChoices = at === "selector" ? selectorChoicesForGraph(hs as EditorHotspot, lang) : [];
-    if (selectorChoices.length > 0) {
-      const baseCy = HS_START_Y + hi * HS_STEP - ((selectorChoices.length - 1) * CHOICE_STEP_Y) / 2;
-      for (let ci = 0; ci < selectorChoices.length; ci++) {
-        const ch = selectorChoices[ci];
-        const cid = `sel:${activeKey}:${hi}:${ci}`;
-        nodes.push({
-          id: cid,
-          type: "mapSelectorChoice",
-          position: { x: HS_X + CHOICE_OFFSET_X, y: baseCy + ci * CHOICE_STEP_Y },
-          draggable: false,
-          selectable: true,
-          data: {
-            kind: "selectorChoice",
-            label: ch.label,
-            sceneIndex: resolved.index,
-            hotspotIndex: hi,
-            choiceIndex: ci,
-            targetCount: ch.targetSceneIds.length,
-            lang,
-          } satisfies MapSelectorChoiceNodeData & { lang: EditorLang },
-        });
-        pushMapEdge(edges, hsId, cid);
-        for (let tk = 0; tk < ch.targetSceneIds.length; tk++) {
-          const targetId = ch.targetSceneIds[tk];
-          const targetNid = sceneKeyToRfId[targetId];
-          if (targetNid) {
-            pushMapEdge(edges, cid, targetNid);
-          }
-        }
-      }
+    if (at === "selector") {
+      pushSelectorChoiceSubgraph({
+        nodes,
+        edges,
+        hs: hs as EditorHotspot,
+        lang,
+        sceneKey: activeKey,
+        sceneIndex: resolved.index,
+        hotspotIndex: hi,
+        hsId,
+        anchorX: HS_X,
+        anchorYCenter: HS_START_Y + hi * HS_STEP,
+        choiceOffsetX: CHOICE_OFFSET_X,
+        choiceStepY: CHOICE_STEP_Y,
+        sceneKeyToRfId,
+      });
     } else {
       const targetIds = getTargetSceneIdsFromHotspot(hs as EditorHotspot);
       for (let tk = 0; tk < targetIds.length; tk++) {
@@ -1293,34 +1455,65 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
       }
       pushMapEdge(edges, sceneRfId, hsRfId);
 
-      const selectorChoices = at === "selector" ? selectorChoicesForGraph(hs as EditorHotspot, lang) : [];
-      if (selectorChoices.length > 0) {
-        const baseCy = hy - ((selectorChoices.length - 1) * CHOICE_STEP_Y) / 2;
+      const flatSel = at === "selector" ? flattenSelectorChoicesForGraph(hs as EditorHotspot, lang) : [];
+      if (flatSel.length > 0) {
+        const baseCy = hy - ((flatSel.length - 1) * CHOICE_STEP_Y) / 2;
         let branchX = nextChildX;
-        for (let ci = 0; ci < selectorChoices.length; ci++) {
-          const ch = selectorChoices[ci];
-          const choiceId = `sel:${sk}:${i}:${ci}`;
-          const cy = baseCy + ci * CHOICE_STEP_Y;
+        for (let ri = 0; ri < flatSel.length; ri++) {
+          const row = flatSel[ri];
+          const pathStr = encodeSelectorPath(row.path);
+          const choiceId = `sel:${sk}:${i}:${pathStr}`;
+          const cy = baseCy + ri * CHOICE_STEP_Y;
           nodes.push({
             id: choiceId,
             type: "mapSelectorChoice",
             position: { x: x + HOTSPOT_DX + CHOICE_OFFSET_X, y: cy },
-            draggable: false,
+            draggable: true,
             selectable: true,
             data: {
               kind: "selectorChoice",
-              label: ch.label,
+              label: row.label,
               sceneIndex: meta.index,
               hotspotIndex: i,
-              choiceIndex: ci,
-              targetCount: ch.targetSceneIds.length,
+              parentSceneKey: sk,
+              choicePath: row.path,
+              targetCount: row.targetSceneIds.length,
               lang,
             } satisfies MapSelectorChoiceNodeData & { lang: EditorLang },
           });
-          pushMapEdge(edges, hsRfId, choiceId);
+          if (row.path.length === 1) {
+            pushMapEdge(edges, hsRfId, choiceId);
+          } else {
+            pushMapEdge(
+              edges,
+              `sel:${sk}:${i}:${encodeSelectorPath(row.path.slice(0, -1))}`,
+              choiceId
+            );
+          }
+          if (row.sfx) {
+            const sfxId = `res:${sk}:hs:${i}:sel:${pathStr}:sfx`;
+            nodes.push({
+              id: sfxId,
+              type: "mapResource",
+              position: { x: x + HOTSPOT_DX + CHOICE_OFFSET_X + 200, y: cy + 6 },
+              data: {
+                kind: "resource",
+                label: lang === "en" ? "Choice SFX" : "SFX choix",
+                resourceType: "choiceSfx",
+                sceneKey: sk,
+                sceneIndex: meta.index,
+                hotspotIndex: i,
+                choicePath: row.path,
+                url: row.sfx.url,
+                volume: row.sfx.volume,
+                lang,
+              } satisfies MapResourceNodeData & { lang: EditorLang },
+            });
+            pushMapMetaEdge(edges, choiceId, sfxId);
+          }
           subtreeRight = Math.max(subtreeRight, x + HOTSPOT_DX + CHOICE_OFFSET_X + 170);
-          for (let tg = 0; tg < ch.targetSceneIds.length; tg++) {
-            const target = ch.targetSceneIds[tg];
+          for (let tg = 0; tg < row.targetSceneIds.length; tg++) {
+            const target = row.targetSceneIds[tg];
             const yBranch = cy + tg * TARGET_STAGGER_Y;
             if (!visitedFull.has(target)) {
               const sub = placeScene(target, branchX, yBranch);

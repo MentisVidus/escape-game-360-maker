@@ -1,16 +1,21 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   Background,
   Controls,
   MiniMap,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
   useNodesState,
+  useStoreApi,
   type Connection,
   type Edge,
   type Node,
+  type NodeChange,
   type NodeTypes,
+  type OnConnectEnd,
+  type OnConnectStart,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -20,8 +25,11 @@ import {
   type MapHotspotNodeData,
   type MapResourceNodeData,
   type MapSceneNodeData,
+  type MapSelectorChoiceNodeData,
   buildProjectMapGraph,
+  sceneKey,
 } from "./mapGraphBuild";
+import { MapAddMenuPanelContent } from "./mapAddMenuUi";
 import {
   MapHotspotNode,
   MapRedirectNode,
@@ -53,6 +61,20 @@ declare global {
       mediaUrl: string,
       mediaVolume?: number
     ) => void;
+    applyMapSelectorChoiceSfxConnection?: (
+      sceneIndex: number,
+      hotspotIndex: number,
+      choicePath: number[],
+      mediaUrl: string,
+      mediaVolume?: number
+    ) => void;
+    copyHotspotToMapScene?: (
+      fromSceneIndex: number,
+      hotspotIndex: number,
+      toSceneIndex: number
+    ) => void;
+    projectMapSidePanelHasStash?: () => boolean;
+    restoreProjectMapSidePanelDomOnly?: () => void;
     _projectMapReactBridge?: {
       mountFromNodeData: (d: Record<string, unknown> | null | undefined) => void;
       clearSelectionAndRefresh: () => void;
@@ -79,8 +101,28 @@ function readNarrationOnly(): boolean {
   return el instanceof HTMLInputElement && el.checked;
 }
 
+function resolveSceneIndexFromActiveKey(project: EditorProject | null): number {
+  const k = window._projectMapActiveSceneKey;
+  if (!project?.scenes?.length || k == null || String(k).trim() === "") return 0;
+  const scenes = project.scenes;
+  for (let i = 0; i < scenes.length; i++) {
+    if (sceneKey(scenes[i], i) === String(k).trim()) return i;
+  }
+  return 0;
+}
+
 function readProject(): EditorProject | null {
   try {
+    const modal = document.getElementById("project-map-modal");
+    if (
+      modal &&
+      (modal as HTMLElement).style.display === "flex" &&
+      typeof window.projectMapSidePanelHasStash === "function" &&
+      window.projectMapSidePanelHasStash() &&
+      typeof window.restoreProjectMapSidePanelDomOnly === "function"
+    ) {
+      window.restoreProjectMapSidePanelDomOnly();
+    }
     const fn = window.getCurrentProjectData;
     if (typeof fn !== "function") return null;
     const p = fn();
@@ -90,9 +132,23 @@ function readProject(): EditorProject | null {
   }
 }
 
+function mergeSavedNodePositions(nodes: Node[], saved: Record<string, { x: number; y: number }>): Node[] {
+  if (!saved || Object.keys(saved).length === 0) return nodes;
+  return nodes.map((node) => {
+    const p = saved[node.id];
+    if (!p || typeof p.x !== "number" || typeof p.y !== "number") return node;
+    return { ...node, position: { x: p.x, y: p.y } };
+  });
+}
+
 function InnerMap() {
   const [graphRev, setGraphRev] = useState(0);
   const bump = useCallback(() => setGraphRev((n) => n + 1), []);
+  const store = useStoreApi();
+  const layoutSaveTimer = useRef<number | null>(null);
+  const altConnectRef = useRef(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteSceneIndex, setPaletteSceneIndex] = useState(0);
 
   useEffect(() => {
     const onBus = (ev: Event) => {
@@ -112,16 +168,32 @@ function InnerMap() {
     const project = readProject();
     const viewMode = (window._projectMapViewMode || "full") as "focus" | "full" | "tree";
     const activeSceneKey = window._projectMapActiveSceneKey ?? null;
+    const narr = readNarrationOnly();
     const { nodes, edges, activeSceneKey: nextActive } = buildProjectMapGraph(project, {
       viewMode,
       activeSceneKey,
-      narrationOnly: readNarrationOnly(),
+      narrationOnly: narr,
       lang: hostLang(),
     });
     if (viewMode === "focus" && nextActive) {
       window._projectMapActiveSceneKey = nextActive;
     }
-    return { nodes, edges };
+    const title = String(project?.title ?? "").slice(0, 120);
+    const nScenes = project?.scenes?.length ?? 0;
+    const layoutKey = `escape360-reactMap-pos:v1:${viewMode}:${narr ? "1" : "0"}:${nScenes}:${title}`;
+    let mergedNodes = nodes;
+    try {
+      const raw = sessionStorage.getItem(layoutKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as unknown;
+        if (parsed && typeof parsed === "object") {
+          mergedNodes = mergeSavedNodePositions(nodes, parsed as Record<string, { x: number; y: number }>);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    return { nodes: mergedNodes, edges, layoutKey };
   }, [graphRev]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(pack.nodes);
@@ -134,18 +206,31 @@ function InnerMap() {
 
   const mode = window._projectMapViewMode || "full";
   const selectable = mode === "focus" || mode === "tree" || mode === "full";
+  const enUi = hostLang() === "en";
 
-  const onNodeClick = useCallback(
-    (_: MouseEvent, node: Node) => {
-      window._projectMapReactBridge?.mountFromNodeData(
-        node.data as Record<string, unknown>
-      );
-    },
-    []
-  );
+  const onNodeClick = useCallback((_: MouseEvent, node: Node) => {
+    if (node.type === "mapScene") {
+      const d = node.data as MapSceneNodeData;
+      if (typeof d.sceneIndex === "number") setPaletteSceneIndex(d.sceneIndex);
+    }
+    window._projectMapReactBridge?.mountFromNodeData(node.data as Record<string, unknown>);
+  }, []);
 
   const onPaneClick = useCallback(() => {
     window._projectMapReactBridge?.clearSelectionAndRefresh();
+  }, []);
+
+  const onConnectStart = useCallback<OnConnectStart>((event) => {
+    const ev = event as unknown as MouseEvent | TouchEvent;
+    if ("altKey" in ev) {
+      altConnectRef.current = !!(ev as MouseEvent).altKey;
+    } else {
+      altConnectRef.current = false;
+    }
+  }, []);
+
+  const onConnectEnd = useCallback<OnConnectEnd>(() => {
+    altConnectRef.current = false;
   }, []);
 
   const onNodeDoubleClick = useCallback((evt: MouseEvent, node: Node) => {
@@ -172,7 +257,8 @@ function InnerMap() {
       if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
         if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
         const sd = sNode.data as MapHotspotNodeData;
-        return !!sd.mapDragSceneOut;
+        if (sd.mapDragSceneOut) return true;
+        return altConnectRef.current;
       }
       if (tNode.type === "mapResource" && c.targetHandle === "metaIn") {
         const rd = tNode.data as MapResourceNodeData;
@@ -181,6 +267,9 @@ function InnerMap() {
         }
         if (sNode.type === "mapHotspot" && c.sourceHandle === "metaOut") {
           return rd.resourceType === "hotspotSfx";
+        }
+        if (sNode.type === "mapSelectorChoice" && c.sourceHandle === "metaOut") {
+          return rd.resourceType === "choiceSfx";
         }
       }
       return false;
@@ -196,8 +285,14 @@ function InnerMap() {
       if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
         const sd = sNode.data as MapHotspotNodeData;
         const td = tNode.data as MapSceneNodeData;
-        if (!sd.mapDragSceneOut) return;
-        window.applyMapHotspotSceneConnection?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+        if (sd.mapDragSceneOut) {
+          window.applyMapHotspotSceneConnection?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+          return;
+        }
+        if (altConnectRef.current) {
+          window.copyHotspotToMapScene?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+          return;
+        }
         return;
       }
       if (tNode.type !== "mapResource") return;
@@ -208,21 +303,67 @@ function InnerMap() {
         return;
       }
       if (sNode.type === "mapHotspot") {
+        if (rd.resourceType !== "hotspotSfx") return;
         const hd = sNode.data as MapHotspotNodeData;
         window.applyMapHotspotSfxConnection?.(hd.sceneIndex, hd.hotspotIndex, rd.url, rd.volume);
+        return;
+      }
+      if (sNode.type === "mapSelectorChoice" && rd.resourceType === "choiceSfx") {
+        const cd = sNode.data as MapSelectorChoiceNodeData;
+        window.applyMapSelectorChoiceSfxConnection?.(
+          cd.sceneIndex,
+          cd.hotspotIndex,
+          cd.choicePath,
+          rd.url,
+          rd.volume
+        );
       }
     },
     [nodes]
   );
 
+  const onNodesChangePersistLayout = useCallback(
+    (changes: NodeChange[]) => {
+      onNodesChange(changes);
+      const endedDrag = changes.some(
+        (c) =>
+          c.type === "position" &&
+          "dragging" in c &&
+          (c as { dragging?: boolean }).dragging === false
+      );
+      if (!endedDrag) return;
+      if (layoutSaveTimer.current != null) window.clearTimeout(layoutSaveTimer.current);
+      layoutSaveTimer.current = window.setTimeout(() => {
+        layoutSaveTimer.current = null;
+        try {
+          const all = store.getState().nodes;
+          const pos: Record<string, { x: number; y: number }> = {};
+          for (const n of all) {
+            pos[n.id] = { x: n.position.x, y: n.position.y };
+          }
+          sessionStorage.setItem(pack.layoutKey, JSON.stringify(pos));
+        } catch {
+          /* ignore */
+        }
+      }, 400);
+    },
+    [onNodesChange, store, pack.layoutKey]
+  );
+
+  useEffect(
+    () => () => {
+      if (layoutSaveTimer.current != null) window.clearTimeout(layoutSaveTimer.current);
+    },
+    []
+  );
+
   return (
     <div style={{ width: "100%", height: "100%", minHeight: 200 }}>
       <ReactFlow
-        key={String(graphRev)}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
+        onNodesChange={onNodesChangePersistLayout}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
@@ -230,6 +371,8 @@ function InnerMap() {
         nodesDraggable
         nodesConnectable
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
         elementsSelectable={selectable}
         panOnDrag
@@ -246,6 +389,51 @@ function InnerMap() {
         <Background />
         <Controls showInteractive={false} />
         <MiniMap pannable zoomable />
+        <Panel position="top-left">
+          <div className="rf-map-floating-palette">
+            <button
+              type="button"
+              className="rf-map-palette-toggle"
+              title={enUi ? "Add nodes (hotspots, media…)" : "Ajouter des nœuds (hotspots, média…)"}
+              onClick={(e) => {
+                e.stopPropagation();
+                setPaletteOpen((v) => {
+                  const next = !v;
+                  if (next) {
+                    try {
+                      const fn = window.getCurrentProjectData;
+                      if (typeof fn === "function") {
+                        const p = fn();
+                        setPaletteSceneIndex(
+                          resolveSceneIndexFromActiveKey(
+                            p && typeof p === "object" ? p : null
+                          )
+                        );
+                      }
+                    } catch {
+                      /* ignore */
+                    }
+                  }
+                  return next;
+                });
+              }}
+            >
+              + {enUi ? "Add" : "Ajouter"}
+            </button>
+            {paletteOpen ? (
+              <div className="rf-map-palette-dropdown">
+                <div className="rf-map-palette-scene-hint">
+                  {enUi ? "Target scene:" : "Scène cible :"} {paletteSceneIndex + 1}
+                </div>
+                <MapAddMenuPanelContent
+                  lang={hostLang()}
+                  sceneIndex={paletteSceneIndex}
+                  onPick={() => setPaletteOpen(false)}
+                />
+              </div>
+            ) : null}
+          </div>
+        </Panel>
       </ReactFlow>
     </div>
   );

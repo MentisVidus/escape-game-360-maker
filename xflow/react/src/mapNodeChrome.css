@@ -271,3 +271,107 @@
   padding: 1px 5px;
   border-radius: 4px;
 }
+
+.rf-map-add-menu-nested {
+  padding: 4px 0 0;
+}
+
+.rf-map-add-section {
+  padding: 0 8px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rf-map-add-section:last-of-type {
+  border-bottom: none;
+}
+
+.rf-map-add-section-title {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(147, 197, 253, 0.95);
+  padding: 6px 6px 4px;
+  font-weight: 800;
+}
+
+.rf-map-add-subgroup {
+  padding: 0 0 6px 4px;
+}
+
+.rf-map-add-subgroup-title {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 4px 6px 2px;
+  font-weight: 700;
+}
+
+.rf-map-add-hint-alt {
+  border-top: none;
+  margin-top: 2px;
+  padding-top: 4px;
+  font-size: 0.62rem;
+  color: rgba(251, 191, 36, 0.85);
+}
+
+.rf-map-floating-palette {
+  position: relative;
+  z-index: 90;
+}
+
+.rf-map-palette-toggle {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(39, 174, 96, 0.9);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.rf-map-palette-toggle:hover {
+  filter: brightness(1.06);
+}
+
+.rf-map-palette-dropdown {
+  margin-top: 6px;
+  min-width: 240px;
+  max-width: min(360px, 85vw);
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  border-radius: 8px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+.rf-map-palette-scene-hint {
+  padding: 8px 10px 4px;
+  font-size: 0.72rem;
+  color: rgba(226, 232, 240, 0.88);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rf-map-resource-vol {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 4px;
+}
+
+.rf-map-resource-vol input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: #60a5fa;
+}
+
+.rf-map-resource-vol-pct {
+  font-size: 0.68rem;
+  color: rgba(226, 232, 240, 0.85);
+  min-width: 2.2rem;
+  text-align: right;
+}
