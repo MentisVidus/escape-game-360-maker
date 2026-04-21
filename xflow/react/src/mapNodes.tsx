@@ -11,6 +11,7 @@ import type {
   MapSelectorChoiceNodeData,
 } from "./mapGraphBuild";
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
+import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT } from "./mapFlowHandles";
 
 import "./mapNodeChrome.css";
 
@@ -87,9 +88,9 @@ export function MapSceneNode({ data }: SceneNodeProps) {
 
   return (
     <div className={wrapClass}>
-      <Handle type="target" position={Position.Left} id="in" className="rf-map-handle-flow-in" />
-      <Handle type="source" position={Position.Right} id="out" className="rf-map-handle-flow-out" />
-      <Handle type="source" position={Position.Bottom} id="metaOut" className="rf-map-handle-meta-out" />
+      <Handle type="target" position={Position.Left} id={RF_FLOW_IN} className="rf-map-handle-flow-in" />
+      <Handle type="source" position={Position.Right} id={RF_FLOW_OUT} className="rf-map-handle-flow-out" />
+      <Handle type="source" position={Position.Bottom} id={RF_META_OUT} className="rf-map-handle-meta-out" />
       <div className="rf-map-node-actions">
         {data.isEntryScene ? (
           <span
@@ -179,9 +180,9 @@ export function MapHotspotNode({ data }: HotspotNodeProps) {
   };
   return (
     <div className="rf-map-hotspot-root">
-      <Handle type="target" position={Position.Left} id="in" className="rf-map-handle-flow-in" />
-      <Handle type="source" position={Position.Right} id="out" className="rf-map-handle-flow-out" />
-      <Handle type="source" position={Position.Bottom} id="metaOut" className="rf-map-handle-meta-out" />
+      <Handle type="target" position={Position.Left} id={RF_FLOW_IN} className="rf-map-handle-flow-in" />
+      <Handle type="source" position={Position.Right} id={RF_FLOW_OUT} className="rf-map-handle-flow-out" />
+      <Handle type="source" position={Position.Bottom} id={RF_META_OUT} className="rf-map-handle-meta-out" />
       <div className="rf-map-node-actions">
         <button
           type="button"
@@ -248,9 +249,9 @@ export function MapSelectorChoiceNode({ data }: SelectorChoiceNodeProps) {
     Array.isArray(data.choicePath) && data.choicePath.length > 1 ? data.choicePath.length - 1 : 0;
   return (
     <div className="rf-map-choice-root">
-      <Handle type="target" position={Position.Left} id="in" className="rf-map-handle-flow-in" />
-      <Handle type="source" position={Position.Right} id="out" className="rf-map-handle-flow-out" />
-      <Handle type="source" position={Position.Bottom} id="metaOut" className="rf-map-handle-meta-out" />
+      <Handle type="target" position={Position.Left} id={RF_FLOW_IN} className="rf-map-handle-flow-in" />
+      <Handle type="source" position={Position.Right} id={RF_FLOW_OUT} className="rf-map-handle-flow-out" />
+      <Handle type="source" position={Position.Bottom} id={RF_META_OUT} className="rf-map-handle-meta-out" />
       <div className="rf-map-choice-title">{en ? "Choice" : "Choix"}</div>
       <div className="rf-map-choice-body">{data.label}</div>
       {depth > 0 ? (
@@ -299,7 +300,7 @@ export function MapResourceNode({ data }: ResourceNodeProps) {
   const volPct = Math.round(Math.max(0, Math.min(1, data.volume)) * 100);
   return (
     <div className="rf-map-resource-root">
-      <Handle type="target" position={Position.Top} id="metaIn" className="rf-map-handle-meta-in" />
+      <Handle type="target" position={Position.Top} id={RF_META_IN} className="rf-map-handle-meta-in" />
       <div className="rf-map-resource-title">{title}</div>
       <div className="rf-map-resource-body">{shortUrl || "—"}</div>
       {showVolSlider ? (
@@ -341,7 +342,7 @@ export function MapRedirectNode({ data }: RedirectNodeProps) {
   const body = en ? `Back: ${data.targetTitle}` : `Renvoi : ${data.targetTitle}`;
   return (
     <div className="rf-map-redirect-root">
-      <Handle type="target" position={Position.Left} id="in" className="rf-map-handle-flow-in" />
+      <Handle type="target" position={Position.Left} id={RF_FLOW_IN} className="rf-map-handle-flow-in" />
       <div className="xflow-node-redirect-inner">
         <div className="xflow-node-title">{head}</div>
         <div className="xflow-node-body">{body}</div>

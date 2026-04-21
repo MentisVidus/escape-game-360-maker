@@ -33,6 +33,7 @@ import {
   sceneKey,
 } from "./mapGraphBuild";
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
+import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT } from "./mapFlowHandles";
 import {
   MapHotspotNode,
   MapRedirectNode,
@@ -372,9 +373,9 @@ function InnerMap() {
       const sNode = nodes.find((n) => n.id === c.source);
       const tNode = nodes.find((n) => n.id === c.target);
       if (!sNode || !tNode) return false;
-      /** Scène (sortie droite) → hotspot (entrée gauche) : même effet qu’orphelin → scène dans l’autre sens. */
+      /** Scène (Est / flow out) → hotspot (Ouest / flow in) : rattachement (orphelin ou autre scène). */
       if (sNode.type === "mapScene" && tNode.type === "mapHotspot") {
-        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
         const sd = sNode.data as MapSceneNodeData;
         const hd = tNode.data as MapHotspotNodeData;
         if (sd.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return false;
@@ -387,7 +388,7 @@ function InnerMap() {
         return true;
       }
       if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
-        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
         const sd = sNode.data as MapHotspotNodeData;
         const td = tNode.data as MapSceneNodeData;
         if (sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY && td.sceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) {
@@ -400,7 +401,7 @@ function InnerMap() {
         return false;
       }
       if (sNode.type === "mapHotspot" && tNode.type === "mapSelectorChoice") {
-        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
         const sd = sNode.data as MapHotspotNodeData;
         const cd = tNode.data as MapSelectorChoiceNodeData;
         if (sd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return false;
@@ -408,26 +409,50 @@ function InnerMap() {
         if (!pk || pk === EDITOR_MAP_STAGING_SCENE_KEY) return false;
         return true;
       }
+      /**
+       * Choix menu (Est) → hotspot (Ouest) : pour l’instant uniquement **orphelin** (file carte) →
+       * rattache à la scène du menu (`attachHotspotToMapScene`). Même connecteur flow que la scène.
+       */
+      if (sNode.type === "mapSelectorChoice" && tNode.type === "mapHotspot") {
+        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
+        const cd = sNode.data as MapSelectorChoiceNodeData;
+        const hd = tNode.data as MapHotspotNodeData;
+        if (!cd.parentSceneKey || cd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return false;
+        if (hd.hotspotIndex === cd.hotspotIndex && hd.sceneIndex === cd.sceneIndex) return false;
+        return hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY;
+      }
+      /**
+       * Hotspot menu selector (Est) → hotspot (Ouest) : uniquement vers **orphelin** (même sémantique
+       * que scène Est → hotspot : ramener l’orphelin sur la scène du menu).
+       */
+      if (sNode.type === "mapHotspot" && tNode.type === "mapHotspot") {
+        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
+        const sd = sNode.data as MapHotspotNodeData;
+        const td = tNode.data as MapHotspotNodeData;
+        if (sd.actionType !== "selector") return false;
+        if (sd.sceneIndex === td.sceneIndex && sd.hotspotIndex === td.hotspotIndex) return false;
+        return td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY;
+      }
       if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
-        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
         const td = tNode.data as MapSceneNodeData;
         if (td.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return false;
         return true;
       }
       if (sNode.type === "mapSelectorChoice" && tNode.type === "mapRedirect") {
-        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+        if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
         const rd = tNode.data as MapRedirectNodeData;
         return Boolean(String(rd.targetSceneKey || "").trim());
       }
-      if (tNode.type === "mapResource" && c.targetHandle === "metaIn") {
+      if (tNode.type === "mapResource" && c.targetHandle === RF_META_IN) {
         const rd = tNode.data as MapResourceNodeData;
-        if (sNode.type === "mapScene" && c.sourceHandle === "metaOut") {
+        if (sNode.type === "mapScene" && c.sourceHandle === RF_META_OUT) {
           return rd.resourceType === "sceneAmbiance" || rd.resourceType === "sceneImage";
         }
-        if (sNode.type === "mapHotspot" && c.sourceHandle === "metaOut") {
+        if (sNode.type === "mapHotspot" && c.sourceHandle === RF_META_OUT) {
           return rd.resourceType === "hotspotSfx";
         }
-        if (sNode.type === "mapSelectorChoice" && c.sourceHandle === "metaOut") {
+        if (sNode.type === "mapSelectorChoice" && c.sourceHandle === RF_META_OUT) {
           return rd.resourceType === "choiceSfx";
         }
       }
@@ -445,7 +470,7 @@ function InnerMap() {
         if (sNode.type === "mapScene" && tNode.type === "mapHotspot") {
           const sd = sNode.data as MapSceneNodeData;
           const hd = tNode.data as MapHotspotNodeData;
-          if (c.sourceHandle !== "out" || c.targetHandle !== "in") return;
+          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
           if (sd.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return;
           if (
             hd.parentSceneKey === sd.sceneKey &&
@@ -459,6 +484,7 @@ function InnerMap() {
         if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
           const sd = sNode.data as MapHotspotNodeData;
           const td = tNode.data as MapSceneNodeData;
+          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
           if (
             sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY &&
             td.sceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
@@ -479,7 +505,7 @@ function InnerMap() {
         if (sNode.type === "mapHotspot" && tNode.type === "mapSelectorChoice") {
           const sd = sNode.data as MapHotspotNodeData;
           const cd = tNode.data as MapSelectorChoiceNodeData;
-          if (c.sourceHandle !== "out" || c.targetHandle !== "in") return;
+          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
           if (sd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return;
           window.promoteMapOrphanHotspotIntoSelectorRoot?.(
             sd.sceneIndex,
@@ -489,10 +515,27 @@ function InnerMap() {
           );
           return;
         }
+        if (sNode.type === "mapSelectorChoice" && tNode.type === "mapHotspot") {
+          const cd = sNode.data as MapSelectorChoiceNodeData;
+          const hd = tNode.data as MapHotspotNodeData;
+          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
+          if (hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return;
+          window.attachHotspotToMapScene?.(hd.sceneIndex, hd.hotspotIndex, cd.sceneIndex);
+          return;
+        }
+        if (sNode.type === "mapHotspot" && tNode.type === "mapHotspot") {
+          const sd = sNode.data as MapHotspotNodeData;
+          const td = tNode.data as MapHotspotNodeData;
+          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
+          if (sd.actionType !== "selector") return;
+          if (td.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return;
+          window.attachHotspotToMapScene?.(td.sceneIndex, td.hotspotIndex, sd.sceneIndex);
+          return;
+        }
         if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
           const cd = sNode.data as MapSelectorChoiceNodeData;
           const td = tNode.data as MapSceneNodeData;
-          if (c.sourceHandle !== "out" || c.targetHandle !== "in") return;
+          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
           if (td.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return;
           window.applyMapSelectorChoiceSceneConnection?.(
             cd.sceneIndex,
@@ -505,7 +548,7 @@ function InnerMap() {
         if (sNode.type === "mapSelectorChoice" && tNode.type === "mapRedirect") {
           const cd = sNode.data as MapSelectorChoiceNodeData;
           const red = tNode.data as MapRedirectNodeData;
-          if (c.sourceHandle !== "out" || c.targetHandle !== "in") return;
+          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
           const key = String(red.targetSceneKey || "").trim();
           if (!key) return;
           window.applyMapSelectorChoiceSceneTarget?.(
@@ -518,18 +561,22 @@ function InnerMap() {
         }
         if (tNode.type !== "mapResource") return;
         const rd = tNode.data as MapResourceNodeData;
+        if (c.targetHandle !== RF_META_IN) return;
         if (sNode.type === "mapScene") {
+          if (c.sourceHandle !== RF_META_OUT) return;
           const sd = sNode.data as MapSceneNodeData;
           window.applyMapSceneMediaConnection?.(sd.sceneIndex, rd.resourceType, rd.url, rd.volume);
           return;
         }
         if (sNode.type === "mapHotspot") {
+          if (c.sourceHandle !== RF_META_OUT) return;
           if (rd.resourceType !== "hotspotSfx") return;
           const hd = sNode.data as MapHotspotNodeData;
           window.applyMapHotspotSfxConnection?.(hd.sceneIndex, hd.hotspotIndex, rd.url, rd.volume);
           return;
         }
         if (sNode.type === "mapSelectorChoice" && rd.resourceType === "choiceSfx") {
+          if (c.sourceHandle !== RF_META_OUT) return;
           const cd = sNode.data as MapSelectorChoiceNodeData;
           window.applyMapSelectorChoiceSfxConnection?.(
             cd.sceneIndex,
@@ -549,7 +596,7 @@ function InnerMap() {
   const onEdgesDelete = useCallback(
     (removed: Edge[]) => {
       for (const edge of removed) {
-        if (edge.sourceHandle !== "out" || edge.targetHandle !== "in") continue;
+        if (edge.sourceHandle !== RF_FLOW_OUT || edge.targetHandle !== RF_FLOW_IN) continue;
         const src = nodes.find((n) => n.id === edge.source);
         const tgt = nodes.find((n) => n.id === edge.target);
         if (src?.type !== "mapScene" || tgt?.type !== "mapHotspot") continue;
@@ -659,24 +706,24 @@ function InnerMap() {
           >
             {enUi ? (
               <>
-                <strong>Links:</strong> drag between handles (orphan ↔ scene: both ways for parent
-                link). <strong>Remove</strong> scene→hotspot link: click edge, then{" "}
-                <kbd>Delete</kbd>/<kbd>Backspace</kbd>.                 <strong>Copy</strong> hotspot to another scene: hold <kbd>Alt</kbd> (⌥), then
-                hotspot right handle → target scene left handle (otherwise use the scene-action
-                wire; target cannot be the unassigned pool). <strong>Orphan → menu:</strong> from the
-                pool, connect hotspot <strong>out</strong> to a <strong>choice</strong> node{" "}
-                <strong>in</strong> (selector hotspot on a scene): appends a root menu row and
-                removes the orphan.
+                <strong>Links:</strong> flow handles (blue): scene <strong>right</strong> or menu
+                choice <strong>right</strong> → unassigned hotspot <strong>left</strong> (attach to
+                that scene); selector hotspot <strong>right</strong> → unassigned hotspot{" "}
+                <strong>left</strong> (same). Orphan ↔ scene both ways for parent link.{" "}
+                <strong>Remove</strong> scene→hotspot: select edge, <kbd>Delete</kbd>.{" "}
+                <strong>Copy</strong> hotspot: <kbd>Alt</kbd> + hotspot out → scene in.{" "}
+                <strong>Orphan → menu:</strong> pool hotspot out → choice in (promotion).
               </>
             ) : (
               <>
-                <strong>Liaisons :</strong> glisser entre poignées (orphelin ↔ scène : les deux sens).
-                <strong> Couper</strong> scène→hotspot : clic sur l’arête puis <kbd>Suppr</kbd> /{" "}
-                <kbd>Retour arrière</kbd>. <strong>Copier</strong> un hotspot : <kbd>Alt</kbd> + sortie
-                hotspot → entrée scène (sinon fil « scène » ; pas vers la file).{" "}
-                <strong>Orphelin → menu :</strong> sortie orphelin → entrée d’un <strong>choix</strong>{" "}
-                du graphe menu (hotspot selector sur une scène) : ajoute une ligne à la racine de{" "}
-                <code>choices[]</code> et retire l’orphelin.
+                <strong>Liaisons (rond bleu) :</strong> sortie <strong>droite</strong> d’une scène ou
+                d’un <strong>choix</strong> de menu → entrée <strong>gauche</strong> d’un hotspot de la
+                file d’attente : rattache à la scène du nœud source ; idem depuis le hotspot{" "}
+                <strong>menu</strong> (selector) vers un orphelin. Orphelin ↔ scène dans les deux
+                sens. <strong>Couper</strong> scène→hotspot : arête puis <kbd>Suppr</kbd>.{" "}
+                <strong>Copier</strong> : <kbd>Alt</kbd> + sortie hotspot → entrée scène.{" "}
+                <strong>Orphelin → menu :</strong> sortie orphelin → entrée <strong>choix</strong>{" "}
+                (promotion <code>choices[]</code>).
               </>
             )}
           </div>
