@@ -28,6 +28,7 @@ import {
   type MapSceneNodeData,
   type MapSelectorChoiceNodeData,
   buildProjectMapGraph,
+  recomputeMapLayoutGroups,
   sceneKey,
 } from "./mapGraphBuild";
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
@@ -38,6 +39,7 @@ import {
   MapSceneGroupNode,
   MapSceneNode,
   MapSelectorChoiceNode,
+  MapSelectorGroupNode,
 } from "./mapNodes";
 
 declare global {
@@ -92,6 +94,7 @@ declare global {
 
 const nodeTypes: NodeTypes = {
   mapSceneGroup: MapSceneGroupNode,
+  mapSelectorGroup: MapSelectorGroupNode,
   mapScene: MapSceneNode,
   mapHotspot: MapHotspotNode,
   mapSelectorChoice: MapSelectorChoiceNode,
@@ -145,6 +148,9 @@ function readProject(): EditorProject | null {
 function mergeSavedNodePositions(nodes: Node[], saved: Record<string, { x: number; y: number }>): Node[] {
   if (!saved || Object.keys(saved).length === 0) return nodes;
   return nodes.map((node) => {
+    if (node.type === "mapSceneGroup" || node.type === "mapSelectorGroup") {
+      return { ...node };
+    }
     const p = saved[node.id];
     if (!p || typeof p.x !== "number" || typeof p.y !== "number") return node;
     return { ...node, position: { x: p.x, y: p.y } };
@@ -196,13 +202,15 @@ function expandMapSceneDragWithGroup(nodes: Node[], changes: NodeChange[]): Node
     const hsP = `hs:${sk}:`;
     const selP = `sel:${sk}:`;
     const resP = `res:${sk}:`;
+    const ssgP = `ssg:${sk}:`;
 
     for (const child of nodes) {
       if (child.id === id) continue;
       if (
         !child.id.startsWith(hsP) &&
         !child.id.startsWith(selP) &&
-        !child.id.startsWith(resP)
+        !child.id.startsWith(resP) &&
+        !child.id.startsWith(ssgP)
       ) {
         continue;
       }
@@ -285,6 +293,7 @@ function InnerMap() {
     } catch {
       /* ignore */
     }
+    mergedNodes = recomputeMapLayoutGroups(mergedNodes);
     return { nodes: mergedNodes, edges, layoutKey };
   }, [graphRev]);
 
@@ -484,6 +493,9 @@ function InnerMap() {
           (c as { dragging?: boolean }).dragging === false
       );
       if (!endedDrag) return;
+      queueMicrotask(() => {
+        setNodes((nds) => recomputeMapLayoutGroups(nds));
+      });
       if (layoutSaveTimer.current != null) window.clearTimeout(layoutSaveTimer.current);
       layoutSaveTimer.current = window.setTimeout(() => {
         layoutSaveTimer.current = null;
@@ -491,6 +503,8 @@ function InnerMap() {
           const all = store.getState().nodes;
           const pos: Record<string, { x: number; y: number }> = {};
           for (const n of all) {
+            if (n.type === "mapSceneGroup" || n.type === "mapSelectorGroup") continue;
+            if (n.id.startsWith("sg:") || n.id.startsWith("ssg:")) continue;
             pos[n.id] = { x: n.position.x, y: n.position.y };
           }
           sessionStorage.setItem(pack.layoutKey, JSON.stringify(pos));
@@ -499,7 +513,7 @@ function InnerMap() {
         }
       }, 400);
     },
-    [onNodesChange, store, pack.layoutKey]
+    [onNodesChange, setNodes, store, pack.layoutKey]
   );
 
   useEffect(

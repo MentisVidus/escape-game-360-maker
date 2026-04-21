@@ -6,6 +6,7 @@ import type {
   MapRedirectNodeData,
   MapResourceNodeData,
   MapSceneGroupNodeData,
+  MapSelectorGroupNodeData,
   MapSceneNodeData,
   MapSelectorChoiceNodeData,
 } from "./mapGraphBuild";
@@ -204,6 +205,19 @@ export function MapSceneGroupNode({ data }: SceneGroupNodeProps) {
     <div className="rf-map-scene-group-root">
       <div className="rf-map-scene-group-title">
         {en ? "Scene group" : "Groupe scène"} · {data.label}
+      </div>
+    </div>
+  );
+}
+
+type SelectorGroupNodeProps = NodeProps<FlowNode<MapSelectorGroupNodeData & { lang: EditorLang }>>;
+
+export function MapSelectorGroupNode({ data }: SelectorGroupNodeProps) {
+  const en = data.lang === "en";
+  return (
+    <div className="rf-map-selector-group-root">
+      <div className="rf-map-selector-group-title">
+        {en ? "Selector branch" : "Branche menu"} · {data.label}
       </div>
     </div>
   );

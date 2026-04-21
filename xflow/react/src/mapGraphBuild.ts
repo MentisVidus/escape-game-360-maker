@@ -83,6 +83,15 @@ export type MapSceneGroupNodeData = {
   viewMode: "focus" | "full" | "tree";
 };
 
+/** Cadre décoratif autour des nœuds choix + SFX d’un hotspot `selector`. */
+export type MapSelectorGroupNodeData = {
+  kind: "selectorGroup";
+  label: string;
+  sceneKey: string;
+  sceneIndex: number;
+  hotspotIndex: number;
+};
+
 export type MapResourceNodeData = {
   kind: "resource";
   label: string;
@@ -493,6 +502,23 @@ function pushSelectorChoiceSubgraph(params: {
   const flat = flattenSelectorChoicesForGraph(hs, lang);
   if (flat.length === 0) return;
   const baseCy = anchorYCenter - ((flat.length - 1) * choiceStepY) / 2;
+  const ssgId = `ssg:${sk}:${hi}`;
+  pushSelectorSubgroupNode(
+    nodes,
+    ssgId,
+    anchorX + choiceOffsetX - 16,
+    baseCy - 16,
+    420,
+    (flat.length - 1) * choiceStepY + 90,
+    {
+      kind: "selectorGroup",
+      label: lang === "en" ? "Selector" : "Menu",
+      sceneKey: sk,
+      sceneIndex: si,
+      hotspotIndex: hi,
+      lang,
+    } satisfies MapSelectorGroupNodeData & { lang: EditorLang }
+  );
   for (let ri = 0; ri < flat.length; ri++) {
     const row = flat[ri];
     const pathStr = encodeSelectorPath(row.path);
@@ -782,6 +808,7 @@ function pushSceneGroupNode(
     id,
     type: "mapSceneGroup",
     position: { x, y },
+    zIndex: -20,
     draggable: false,
     selectable: false,
     data,
@@ -792,12 +819,42 @@ function pushSceneGroupNode(
   });
 }
 
+function pushSelectorSubgroupNode(
+  nodes: Node[],
+  id: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  data: MapSelectorGroupNodeData & { lang: EditorLang }
+): void {
+  nodes.push({
+    id,
+    type: "mapSelectorGroup",
+    position: { x, y },
+    zIndex: -12,
+    draggable: false,
+    selectable: false,
+    data,
+    style: {
+      width: Math.max(160, w),
+      height: Math.max(64, h),
+    },
+  });
+}
+
 type LayoutSize = { width: number; height: number };
 
 function nodeSizeForLayout(n: Node): LayoutSize {
   if (n.type === "mapScene") return { width: 240, height: 120 };
   if (n.type === "mapHotspot") return { width: 220, height: 100 };
   if (n.type === "mapSelectorChoice") return { width: 180, height: 74 };
+  if (n.type === "mapSelectorGroup") {
+    if (n.style && typeof n.style.width === "number" && typeof n.style.height === "number") {
+      return { width: n.style.width, height: n.style.height };
+    }
+    return { width: 200, height: 100 };
+  }
   if (n.type === "mapResource") return { width: 210, height: 108 };
   if (n.type === "mapRedirect") return { width: 190, height: 82 };
   if (n.style && typeof n.style.width === "number" && typeof n.style.height === "number") {
@@ -847,6 +904,61 @@ function refreshSceneGroupBoundsFromChildren(nodes: Node[]): void {
   });
 }
 
+/** Cadre `ssg:` autour des `sel:…` et `res:…:sel:` d’un même hotspot menu. */
+function refreshSelectorSubgroupBoundsFromChildren(nodes: Node[]): void {
+  const groups = nodes.filter((n) => n.type === "mapSelectorGroup");
+  if (groups.length === 0) return;
+  const PAD_X = 14;
+  const PAD_Y = 14;
+  groups.forEach((g) => {
+    const d = (g.data || {}) as Partial<MapSelectorGroupNodeData>;
+    const sk = d.sceneKey != null ? String(d.sceneKey) : "";
+    const hi = d.hotspotIndex;
+    if (!sk || typeof hi !== "number") return;
+    const selP = `sel:${sk}:${hi}:`;
+    const resP = `res:${sk}:hs:${hi}:sel:`;
+    const kids = nodes.filter(
+      (n) => n.id.startsWith(selP) || n.id.startsWith(resP)
+    );
+    if (kids.length === 0) return;
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    kids.forEach((k) => {
+      const sz = nodeSizeForLayout(k);
+      minX = Math.min(minX, k.position.x);
+      minY = Math.min(minY, k.position.y);
+      maxX = Math.max(maxX, k.position.x + sz.width);
+      maxY = Math.max(maxY, k.position.y + sz.height);
+    });
+    g.position = { x: minX - PAD_X, y: minY - PAD_Y };
+    g.style = {
+      ...(g.style || {}),
+      width: Math.max(160, maxX - minX + PAD_X * 2),
+      height: Math.max(64, maxY - minY + PAD_Y * 2),
+    };
+  });
+}
+
+/**
+ * Recalcule les cadres `mapSceneGroup` et `mapSelectorGroup` à partir des positions
+ * des nœuds « contenu » (à appeler après merge sessionStorage, fin de drag, etc.).
+ */
+export function recomputeMapLayoutGroups(nodes: Node[]): Node[] {
+  const copy = nodes.map((n) => ({
+    ...n,
+    position: { ...n.position },
+    style:
+      n.style && typeof n.style === "object" && !Array.isArray(n.style)
+        ? { ...(n.style as Record<string, unknown>) }
+        : n.style,
+  }));
+  refreshSceneGroupBoundsFromChildren(copy);
+  refreshSelectorSubgroupBoundsFromChildren(copy);
+  return copy as Node[];
+}
+
 function applyDagreLayout(nodes: Node[], edges: Edge[]): void {
   const g = new dagre.graphlib.Graph();
   g.setGraph({
@@ -861,7 +973,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): void {
 
   const layoutNodeIds = new Set<string>();
   nodes.forEach((n) => {
-    if (n.type === "mapSceneGroup") return;
+    if (n.type === "mapSceneGroup" || n.type === "mapSelectorGroup") return;
     const sz = nodeSizeForLayout(n);
     g.setNode(n.id, { width: sz.width, height: sz.height });
     layoutNodeIds.add(n.id);
@@ -881,6 +993,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): void {
     n.position = { x: p.x - sz.width / 2, y: p.y - sz.height / 2 };
   });
   refreshSceneGroupBoundsFromChildren(nodes);
+  refreshSelectorSubgroupBoundsFromChildren(nodes);
 }
 
 function buildGraphFull(
@@ -1507,6 +1620,22 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
       const flatSel = at === "selector" ? flattenSelectorChoicesForGraph(hs as EditorHotspot, lang) : [];
       if (flatSel.length > 0) {
         const baseCy = hy - ((flatSel.length - 1) * CHOICE_STEP_Y) / 2;
+        pushSelectorSubgroupNode(
+          nodes,
+          `ssg:${sk}:${i}`,
+          x + hsColX + CHOICE_OFFSET_X - 14,
+          baseCy - 14,
+          380,
+          (flatSel.length - 1) * CHOICE_STEP_Y + 88,
+          {
+            kind: "selectorGroup",
+            label: lang === "en" ? "Selector" : "Menu",
+            sceneKey: sk,
+            sceneIndex: meta.index,
+            hotspotIndex: i,
+            lang,
+          } satisfies MapSelectorGroupNodeData & { lang: EditorLang }
+        );
         let branchX = nextChildX;
         for (let ri = 0; ri < flatSel.length; ri++) {
           const row = flatSel[ri];
