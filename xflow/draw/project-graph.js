@@ -287,6 +287,37 @@
         return hss[hotspotIndex] || null;
     }
 
+    function focusSelectorChoiceCardInHotspot(hotspotEl, choiceIndex) {
+        if (!hotspotEl || typeof choiceIndex !== "number" || choiceIndex < 0) return;
+        var idMatch = /^hs_(\d+)$/.exec(hotspotEl.id || "");
+        if (!idMatch) return;
+        var hId = parseInt(idMatch[1], 10);
+        if (isNaN(hId)) return;
+
+        var typeSel = hotspotEl.querySelector(".hs-type");
+        if (typeSel && typeSel.value !== "selector") {
+            typeSel.value = "selector";
+            if (typeof updateHsFields === "function") updateHsFields(hId);
+        }
+        if (typeof initSelectorChoicesForm === "function") initSelectorChoicesForm(hId);
+
+        var root = hotspotEl.querySelector("#sel_choices_root_" + hId);
+        if (!root) return;
+        var cards = root.querySelectorAll(":scope > .sel-choice-card");
+        var card = cards[choiceIndex];
+        if (!card) return;
+        try {
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch (e) {
+            card.scrollIntoView();
+        }
+        var prev = card.style.outline;
+        card.style.outline = "2px solid #f39c12";
+        setTimeout(function () {
+            card.style.outline = prev || "";
+        }, 1300);
+    }
+
     function mountEditorGlobalSettingsInSidePanel() {
         var root = document.getElementById("editor-global-root");
         if (!root) return;
@@ -383,9 +414,20 @@
         ) {
             el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex);
             title = d.label || "Hotspot";
+        } else if (
+            d.kind === "selectorChoice" &&
+            typeof d.sceneIndex === "number" &&
+            typeof d.hotspotIndex === "number" &&
+            typeof d.choiceIndex === "number"
+        ) {
+            el = findHotspotBlockByIndices(d.sceneIndex, d.hotspotIndex);
+            title = d.label || (en ? "Choice" : "Choix");
         }
         if (!el) return;
         mountBlockInSidePanel(el, title);
+        if (d.kind === "selectorChoice") {
+            focusSelectorChoiceCardInHotspot(el, d.choiceIndex);
+        }
     }
 
     function onProjectMapNodeSelected(nodeId) {
@@ -1049,10 +1091,10 @@
             ensureProjectMapSideCloseButton();
             ensureProjectMapFabButtons();
             ensureProjectMapNarrationCheckbox();
-            window._projectMapViewMode = "focus";
+            window._projectMapViewMode = "full";
             window._projectMapActiveSceneKey =
                 project.scenes && project.scenes.length > 0 ? sceneKey(project.scenes[0], 0) : null;
-            updateProjectMapToolbar("focus");
+            updateProjectMapToolbar("full");
             document.dispatchEvent(new CustomEvent("react-project-map", { detail: { type: "open" } }));
             return;
         }

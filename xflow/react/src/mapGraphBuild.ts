@@ -1,4 +1,5 @@
 import type { Edge, Node } from "@xyflow/react";
+import dagre from "dagre";
 
 const SELECTOR_GRAPH_MAX_DEPTH = 48;
 
@@ -202,12 +203,8 @@ export function hotspotActionType(hs: EditorHotspot | undefined): string {
 
 /** Nombre de choix pour une action selector V2 (sinon `undefined`). */
 export function selectorChoiceCount(hs: EditorHotspot | undefined): number | undefined {
-  const a = hs?.action as LooseAction;
-  if (!a || a.type !== "selector") return undefined;
-  const nested = (a.payload || {}) as Record<string, unknown>;
-  const nest = nested.nested as Record<string, unknown> | undefined;
-  const choices = nest && Array.isArray(nest.choices) ? nest.choices : [];
-  return choices.length;
+  const choices = selectorChoicesRaw(hs);
+  return choices.length > 0 ? choices.length : undefined;
 }
 
 function targetSceneIdsFromAction(action: LooseAction): string[] {
@@ -222,15 +219,77 @@ type SelectorChoiceGraphInfo = {
   targetSceneIds: string[];
 };
 
+function selectorChoicesRaw(hs: EditorHotspot | undefined): unknown[] {
+  const a = hs?.action as LooseAction;
+  if (a && a.type === "selector") {
+    const p = (a.payload || {}) as Record<string, unknown>;
+    const nested = (p.nested || {}) as Record<string, unknown>;
+    if (Array.isArray(nested.choices)) return nested.choices;
+  }
+  const legacyNested = hs && typeof hs === "object" ? (hs as Record<string, unknown>).nested : undefined;
+  if (legacyNested && typeof legacyNested === "object") {
+    const c = (legacyNested as Record<string, unknown>).choices;
+    if (Array.isArray(c)) return c;
+  }
+  const legacyRaw = hs && typeof hs === "object" ? (hs as Record<string, unknown>).f_sel_choices : undefined;
+  if (typeof legacyRaw === "string" && legacyRaw.trim()) {
+    try {
+      const parsed = JSON.parse(legacyRaw);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function targetSceneIdsFromLegacyChoice(choice: Record<string, unknown>): string[] {
+  const out: Record<string, boolean> = {};
+  const at = choice.actionType != null ? String(choice.actionType).trim() : "";
+  if (at === "scene") {
+    const t = choice.target != null ? String(choice.target).trim() : "";
+    if (t) out[t] = true;
+  } else if (at === "req" || at === "pwd") {
+    const reward = at === "req" ? choice.f_req_action : choice.f_pwd_action;
+    const rk = reward != null ? String(reward).trim() : "";
+    if (rk === "scene") {
+      const t = choice.f_target != null ? String(choice.f_target).trim() : "";
+      if (t) out[t] = true;
+    } else if (rk === "selector") {
+      const rn = choice.rewardNested;
+      const rChoices =
+        rn && typeof rn === "object" && Array.isArray((rn as Record<string, unknown>).choices)
+          ? ((rn as Record<string, unknown>).choices as unknown[])
+          : [];
+      for (let i = 0; i < rChoices.length; i++) {
+        const ch = rChoices[i];
+        if (!ch || typeof ch !== "object") continue;
+        const nestedTargets = targetSceneIdsFromLegacyChoice(ch as Record<string, unknown>);
+        for (let j = 0; j < nestedTargets.length; j++) out[nestedTargets[j]] = true;
+      }
+    }
+  } else if (at === "selector") {
+    const nested = choice.nested;
+    const nChoices =
+      nested && typeof nested === "object" && Array.isArray((nested as Record<string, unknown>).choices)
+        ? ((nested as Record<string, unknown>).choices as unknown[])
+        : [];
+    for (let i = 0; i < nChoices.length; i++) {
+      const ch = nChoices[i];
+      if (!ch || typeof ch !== "object") continue;
+      const nestedTargets = targetSceneIdsFromLegacyChoice(ch as Record<string, unknown>);
+      for (let j = 0; j < nestedTargets.length; j++) out[nestedTargets[j]] = true;
+    }
+  }
+  return Object.keys(out);
+}
+
 function selectorChoicesForGraph(
   hs: EditorHotspot | undefined,
   lang: EditorLang
 ): SelectorChoiceGraphInfo[] {
-  const a = hs?.action as LooseAction;
-  if (!a || a.type !== "selector") return [];
-  const p = (a.payload || {}) as Record<string, unknown>;
-  const nested = (p.nested || {}) as Record<string, unknown>;
-  const choices = Array.isArray(nested.choices) ? nested.choices : [];
+  const choices = selectorChoicesRaw(hs);
+  if (choices.length === 0) return [];
   const defaultPrefix = lang === "en" ? "Choice" : "Choix";
   return choices.map((raw, idx) => {
     let label = `${defaultPrefix} ${idx + 1}`;
@@ -246,9 +305,11 @@ function selectorChoicesForGraph(
         if (viaCopy) label = viaCopy;
       }
       const chAction = ro.action as LooseAction;
-      targetSceneIds = targetSceneIdsFromAction(
-        chAction && typeof chAction === "object" ? chAction : (ro as unknown as LooseAction)
-      );
+      if (chAction && typeof chAction === "object") {
+        targetSceneIds = targetSceneIdsFromAction(chAction);
+      } else {
+        targetSceneIds = targetSceneIdsFromLegacyChoice(ro);
+      }
     }
     return { label, targetSceneIds };
   });
@@ -422,6 +483,91 @@ function pushSceneGroupNode(
   });
 }
 
+type LayoutSize = { width: number; height: number };
+
+function nodeSizeForLayout(n: Node): LayoutSize {
+  if (n.type === "mapScene") return { width: 240, height: 120 };
+  if (n.type === "mapHotspot") return { width: 220, height: 100 };
+  if (n.type === "mapSelectorChoice") return { width: 180, height: 74 };
+  if (n.type === "mapRedirect") return { width: 190, height: 82 };
+  if (n.style && typeof n.style.width === "number" && typeof n.style.height === "number") {
+    return { width: n.style.width, height: n.style.height };
+  }
+  return { width: 180, height: 80 };
+}
+
+function refreshSceneGroupBoundsFromChildren(nodes: Node[]): void {
+  const groups = nodes.filter((n) => n.type === "mapSceneGroup");
+  if (groups.length === 0) return;
+  const PAD_X = 24;
+  const PAD_Y = 24;
+  groups.forEach((g) => {
+    const d = (g.data || {}) as Partial<MapSceneGroupNodeData>;
+    const sk = d.sceneKey != null ? String(d.sceneKey) : "";
+    if (!sk) return;
+    const sceneId = `sc:${sk}`;
+    const hsPrefix = `hs:${sk}:`;
+    const selPrefix = `sel:${sk}:`;
+    const kids = nodes.filter(
+      (n) => n.id === sceneId || n.id.startsWith(hsPrefix) || n.id.startsWith(selPrefix)
+    );
+    if (kids.length === 0) return;
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    kids.forEach((k) => {
+      const sz = nodeSizeForLayout(k);
+      minX = Math.min(minX, k.position.x);
+      minY = Math.min(minY, k.position.y);
+      maxX = Math.max(maxX, k.position.x + sz.width);
+      maxY = Math.max(maxY, k.position.y + sz.height);
+    });
+    g.position = { x: minX - PAD_X, y: minY - PAD_Y };
+    g.style = {
+      ...(g.style || {}),
+      width: Math.max(220, maxX - minX + PAD_X * 2),
+      height: Math.max(180, maxY - minY + PAD_Y * 2),
+    };
+  });
+}
+
+function applyDagreLayout(nodes: Node[], edges: Edge[]): void {
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({
+    rankdir: "LR",
+    ranksep: 120,
+    nodesep: 80,
+    edgesep: 30,
+    marginx: 30,
+    marginy: 30,
+  });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  const layoutNodeIds = new Set<string>();
+  nodes.forEach((n) => {
+    if (n.type === "mapSceneGroup") return;
+    const sz = nodeSizeForLayout(n);
+    g.setNode(n.id, { width: sz.width, height: sz.height });
+    layoutNodeIds.add(n.id);
+  });
+  edges.forEach((e) => {
+    if (!layoutNodeIds.has(e.source) || !layoutNodeIds.has(e.target)) return;
+    g.setEdge(e.source, e.target);
+  });
+
+  dagre.layout(g);
+
+  nodes.forEach((n) => {
+    if (!layoutNodeIds.has(n.id)) return;
+    const p = g.node(n.id) as { x: number; y: number } | undefined;
+    if (!p) return;
+    const sz = nodeSizeForLayout(n);
+    n.position = { x: p.x - sz.width / 2, y: p.y - sz.height / 2 };
+  });
+  refreshSceneGroupBoundsFromChildren(nodes);
+}
+
 function buildGraphFull(
   project: EditorProject,
   lang: EditorLang,
@@ -512,7 +658,7 @@ function buildGraphFull(
             type: "mapSelectorChoice",
             position: { x: hx + CHOICE_OFFSET_X, y: baseCy + ci * CHOICE_STEP_Y },
             draggable: false,
-            selectable: false,
+            selectable: true,
             data: {
               kind: "selectorChoice",
               label: ch.label,
@@ -577,13 +723,20 @@ function buildGraphFocus(
 
   const activeTitle = sceneTitleForGraph(activeScene, resolved.index, lang);
   const activeHotspots = Array.isArray(activeScene.hotspots) ? activeScene.hotspots : [];
+  const sceneTop = ACTIVE_Y;
+  const sceneBottom = ACTIVE_Y + 120;
+  const hasHotspots = activeHotspots.length > 0;
+  const hsTop = hasHotspots ? HS_START_Y : sceneTop;
+  const hsBottom = hasHotspots ? HS_START_Y + (activeHotspots.length - 1) * HS_STEP + 92 : sceneBottom;
+  const groupTop = Math.min(sceneTop, hsTop) - 30;
+  const groupBottom = Math.max(sceneBottom, hsBottom) + 30;
   pushSceneGroupNode(
     nodes,
     `sg:${activeKey}`,
     ACTIVE_X - 30,
-    ACTIVE_Y - 30,
+    groupTop,
     680,
-    activeHotspots.length * 108 + 180,
+    groupBottom - groupTop,
     {
       kind: "sceneGroup",
       label: activeTitle,
@@ -680,7 +833,7 @@ function buildGraphFocus(
           type: "mapSelectorChoice",
           position: { x: HS_X + CHOICE_OFFSET_X, y: baseCy + ci * CHOICE_STEP_Y },
           draggable: false,
-          selectable: false,
+          selectable: true,
           data: {
             kind: "selectorChoice",
             label: ch.label,
@@ -830,7 +983,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
             type: "mapSelectorChoice",
             position: { x: x + HOTSPOT_DX + CHOICE_OFFSET_X, y: cy },
             draggable: false,
-            selectable: false,
+            selectable: true,
             data: {
               kind: "selectorChoice",
               label: ch.label,
@@ -988,11 +1141,13 @@ export function buildProjectMapGraph(
 
   if (vm === "full") {
     buildGraphFull(workProject, options.lang, nodes, edges);
+    applyDagreLayout(nodes, edges);
     return { nodes, edges, activeSceneKey: null };
   }
 
   if (vm === "tree") {
     buildGraphTree(workProject, options.lang, nodes, edges);
+    applyDagreLayout(nodes, edges);
     return { nodes, edges, activeSceneKey: null };
   }
 

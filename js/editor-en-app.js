@@ -1465,6 +1465,12 @@ function initSelectorChoicesForm(hId) {
     var ta = hsDiv.querySelector(".f-sel-choices");
     var root = document.getElementById("sel_choices_root_" + hId);
     if(!ta || !root) return;
+    // Safety net: in form mode (readonly textarea), selector choice controls must stay clickable.
+    var formUi = document.getElementById("selector_form_ui_" + hId);
+    if (formUi && ta.hasAttribute("readonly")) {
+        formUi.style.pointerEvents = "auto";
+        if (formUi.style.opacity === "0.35") formUi.style.opacity = "1";
+    }
     if (typeof destroyRichEditorsIn === "function") destroyRichEditorsIn(root);
     var arr;
     try { arr = JSON.parse(ta.value.trim()); } catch(e) {

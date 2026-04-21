@@ -95,7 +95,7 @@ function InnerMap() {
 
   const pack = useMemo(() => {
     const project = readProject();
-    const viewMode = (window._projectMapViewMode || "focus") as "focus" | "full" | "tree";
+    const viewMode = (window._projectMapViewMode || "full") as "focus" | "full" | "tree";
     const activeSceneKey = window._projectMapActiveSceneKey ?? null;
     const { nodes, edges, activeSceneKey: nextActive } = buildProjectMapGraph(project, {
       viewMode,
@@ -117,7 +117,7 @@ function InnerMap() {
     setEdges(pack.edges);
   }, [pack, setNodes, setEdges]);
 
-  const mode = window._projectMapViewMode || "focus";
+  const mode = window._projectMapViewMode || "full";
   const selectable = mode === "focus" || mode === "tree" || mode === "full";
 
   const onNodeClick = useCallback(
@@ -187,7 +187,7 @@ function InnerMap() {
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
-        nodesDraggable={false}
+        nodesDraggable
         nodesConnectable
         onConnect={onConnect}
         isValidConnection={isValidConnection}

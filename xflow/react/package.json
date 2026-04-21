@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.8.2",
+    "dagre": "^0.8.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@types/dagre": "^0.7.54",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
