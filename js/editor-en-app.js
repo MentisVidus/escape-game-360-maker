@@ -980,6 +980,105 @@ function applyMapSelectorChoiceSfxConnection(
 }
 window.applyMapSelectorChoiceSfxConnection = applyMapSelectorChoiceSfxConnection;
 
+function mapSelectorChoiceNavigateCard(hb, choicePath) {
+    var path = Array.isArray(choicePath)
+        ? choicePath
+        : typeof choicePath === "number" && !isNaN(choicePath)
+          ? [choicePath]
+          : [];
+    if (path.length === 0 || path.some(function (x) { return typeof x !== "number" || x < 0; })) {
+        return null;
+    }
+    var idMatch = /^hs_(\d+)$/.exec(hb.id);
+    var hId = idMatch ? parseInt(idMatch[1], 10) : NaN;
+    if (isNaN(hId)) return null;
+    var root = hb.querySelector("#sel_choices_root_" + hId);
+    if (!root) return null;
+    var container = root;
+    var card = null;
+    for (var pi = 0; pi < path.length; pi++) {
+        var cards = container.querySelectorAll(":scope > .sel-choice-card");
+        card = cards[path[pi]];
+        if (!card) return null;
+        if (pi < path.length - 1) {
+            var nestedList =
+                card.querySelector(".sel-nested-list") ||
+                card.querySelector(".sel-reward-nested-list");
+            if (!nestedList) return null;
+            container = nestedList;
+        }
+    }
+    return { card: card, hId: hId };
+}
+
+/** Path B (React map): set selector choice action to « go to scene » (scene id = .sc-id value). */
+function applyMapSelectorChoiceSceneTarget(sceneIndex, hotspotIndex, choicePath, targetDomSceneId) {
+    if (typeof window.restoreProjectMapSidePanelDomOnly === "function") {
+        window.restoreProjectMapSidePanelDomOnly();
+    }
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    if (typeof hotspotIndex !== "number" || hotspotIndex < 0) return;
+    var domTarget = targetDomSceneId != null ? String(targetDomSceneId).trim() : "";
+    if (!domTarget) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var sceneEl = blocks[sceneIndex];
+    if (!sceneEl) return;
+    var wrap = sceneEl.querySelector('[id^="hs-container-"]');
+    if (!wrap) return;
+    var hss = wrap.querySelectorAll(":scope > .hotspot-block");
+    var hb = hss[hotspotIndex];
+    if (!hb) return;
+    var typeSel = hb.querySelector(".hs-type");
+    if (!typeSel || typeSel.value !== "selector") return;
+    var nav = mapSelectorChoiceNavigateCard(hb, choicePath);
+    if (!nav) return;
+    var card = nav.card;
+    var hId = nav.hId;
+    var selAct = card.querySelector(".sel-action-type");
+    if (!selAct) return;
+    if (selAct.value !== "scene") {
+        selAct.value = "scene";
+        selectorRebuildActionFields(card, { target: "", transTxt: "", transBtn: "" }, hId);
+    }
+    var tgt = card.querySelector(".sel-scene-target");
+    if (!tgt) return;
+    if (tgt.tagName === "SELECT" || tgt.tagName === "select") {
+        tgt.value = domTarget;
+    } else {
+        tgt.value = domTarget;
+    }
+    tgt.dispatchEvent(new Event("input", { bubbles: true }));
+    tgt.dispatchEvent(new Event("change", { bubbles: true }));
+    if (typeof refreshAllSceneTargetSelects === "function") {
+        refreshAllSceneTargetSelects();
+    }
+    if (typeof syncSelectorChoicesToTextarea === "function") {
+        syncSelectorChoicesToTextarea(hId);
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+
+function applyMapSelectorChoiceSceneConnection(
+    sceneIndex,
+    hotspotIndex,
+    choicePath,
+    targetSceneIndex
+) {
+    if (typeof targetSceneIndex !== "number" || targetSceneIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var tgtBlock = blocks[targetSceneIndex];
+    if (!tgtBlock) return;
+    if (tgtBlock.getAttribute("data-editor-map-staging") === "1") return;
+    var scIdInp = tgtBlock.querySelector(".sc-id");
+    var domTarget = scIdInp ? String(scIdInp.value || "").trim() : "";
+    if (!domTarget) return;
+    applyMapSelectorChoiceSceneTarget(sceneIndex, hotspotIndex, choicePath, domTarget);
+}
+window.applyMapSelectorChoiceSceneTarget = applyMapSelectorChoiceSceneTarget;
+window.applyMapSelectorChoiceSceneConnection = applyMapSelectorChoiceSceneConnection;
+
 /** Path B (React map): add a message hotspot (legacy + panel). */
 function addHotspotSkeletonFromMapSceneIndex(sceneIndex) {
     addHotspotFromMapWithKind(sceneIndex, "msg", { openPanel: true });

@@ -23,6 +23,7 @@ import {
   type EditorLang,
   type EditorProject,
   type MapHotspotNodeData,
+  type MapRedirectNodeData,
   type MapResourceNodeData,
   type MapSceneNodeData,
   type MapSelectorChoiceNodeData,
@@ -69,6 +70,18 @@ declare global {
       choicePath: number[],
       mediaUrl: string,
       mediaVolume?: number
+    ) => void;
+    applyMapSelectorChoiceSceneConnection?: (
+      sceneIndex: number,
+      hotspotIndex: number,
+      choicePath: number[],
+      targetSceneIndex: number
+    ) => void;
+    applyMapSelectorChoiceSceneTarget?: (
+      sceneIndex: number,
+      hotspotIndex: number,
+      choicePath: number[],
+      targetDomSceneId: string
     ) => void;
     copyHotspotToMapScene?: (
       fromSceneIndex: number,
@@ -397,6 +410,17 @@ function InnerMap() {
         if (!pk || pk === EDITOR_MAP_STAGING_SCENE_KEY) return false;
         return true;
       }
+      if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
+        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+        const td = tNode.data as MapSceneNodeData;
+        if (td.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return false;
+        return true;
+      }
+      if (sNode.type === "mapSelectorChoice" && tNode.type === "mapRedirect") {
+        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return false;
+        const rd = tNode.data as MapRedirectNodeData;
+        return Boolean(String(rd.targetSceneKey || "").trim());
+      }
       if (tNode.type === "mapResource" && c.targetHandle === "metaIn") {
         const rd = tNode.data as MapResourceNodeData;
         if (sNode.type === "mapScene" && c.sourceHandle === "metaOut") {
@@ -464,6 +488,33 @@ function InnerMap() {
             sd.hotspotIndex,
             cd.sceneIndex,
             cd.hotspotIndex
+          );
+          return;
+        }
+        if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
+          const cd = sNode.data as MapSelectorChoiceNodeData;
+          const td = tNode.data as MapSceneNodeData;
+          if (c.sourceHandle !== "out" || c.targetHandle !== "in") return;
+          if (td.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return;
+          window.applyMapSelectorChoiceSceneConnection?.(
+            cd.sceneIndex,
+            cd.hotspotIndex,
+            cd.choicePath,
+            td.sceneIndex
+          );
+          return;
+        }
+        if (sNode.type === "mapSelectorChoice" && tNode.type === "mapRedirect") {
+          const cd = sNode.data as MapSelectorChoiceNodeData;
+          const red = tNode.data as MapRedirectNodeData;
+          if (c.sourceHandle !== "out" || c.targetHandle !== "in") return;
+          const key = String(red.targetSceneKey || "").trim();
+          if (!key) return;
+          window.applyMapSelectorChoiceSceneTarget?.(
+            cd.sceneIndex,
+            cd.hotspotIndex,
+            cd.choicePath,
+            key
           );
           return;
         }
