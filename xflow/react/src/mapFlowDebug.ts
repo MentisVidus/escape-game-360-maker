@@ -70,7 +70,8 @@ export function setMapFlowManualEdgesStorage(on: boolean): void {
 export function getMapFlowStaticHelp(): string {
   return `
 [escape360-map-flow] Arêtes en pointillés = liens manuels « extras », session navigateur uniquement
-(pas dans project.json). Créées quand tu relies menu/choix → hotspot sans action DOM dédiée.
+(pas dans project.json). Uniquement : « choix de menu » → hotspot autre que selector, sans autre
+action DOM ; pas pour relier deux menus entre eux.
 
   escape360MapFlow.help()            — ce message + clé de layout
   escape360MapFlow.log()             — derniers événements (mémoire page)

@@ -497,6 +497,8 @@ function InnerMap() {
         const hd = tNode.data as MapHotspotNodeData;
         if (!cd.parentSceneKey) return false;
         if (hd.hotspotIndex === cd.hotspotIndex && hd.sceneIndex === cd.sceneIndex) return false;
+        /** Pas de lien « carte seule » vers un autre menu (selector) : pas de sémantique jeu / DOM. */
+        if (hd.actionType === "selector") return false;
         if (cd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
           if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return true;
           return hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY;
@@ -518,7 +520,10 @@ function InnerMap() {
         const td = tNode.data as MapHotspotNodeData;
         if (sd.actionType !== "selector") return false;
         if (sd.sceneIndex === td.sceneIndex && sd.hotspotIndex === td.hotspotIndex) return false;
-        if (td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return true;
+        /** Orphelin sur la file : promotion seulement si la cible n’est pas déjà un menu selector. */
+        if (td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
+          return td.actionType !== "selector";
+        }
         /** Menu selector encore sur la file → hotspot sur scène jouable : rattacher le menu à cette scène. */
         if (
           sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY &&
@@ -526,9 +531,11 @@ function InnerMap() {
         ) {
           return true;
         }
+        /** Pas d’arête « extra » vers un autre hotspot selector (aucune action projet / DOM). */
+        if (td.actionType === "selector") return false;
         /**
-         * Arête « extra » (pointillés) : menu → hotspot sur scène jouable (y compris autre menu,
-         * y compris autre scène) — pas de rattachement DOM.
+         * Arête « extra » (pointillés) : menu → hotspot feuille sur scène jouable (hors selector),
+         * y compris autre scène — pas de rattachement DOM.
          */
         return td.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY;
       }
@@ -619,6 +626,7 @@ function InnerMap() {
           const hd = tNode.data as MapHotspotNodeData;
           if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
           if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
+            if (hd.actionType === "selector") return;
             window.promoteMapOrphanHotspotIntoSelectorRoot?.(
               hd.sceneIndex,
               hd.hotspotIndex,
@@ -648,11 +656,7 @@ function InnerMap() {
             return;
           }
           if (td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
-            if (td.actionType === "selector") {
-              appendFlowExtraConnection(layoutKeyRef.current, c, "selectorToStagingSelectorExtra");
-              bump();
-              return;
-            }
+            if (td.actionType === "selector") return;
             window.promoteMapOrphanHotspotIntoSelectorRoot?.(
               td.sceneIndex,
               td.hotspotIndex,
@@ -846,9 +850,10 @@ function InnerMap() {
               <>
                 <strong>Links:</strong> blue flow: scene or choice <strong>right</strong> → pool
                 hotspot <strong>left</strong> (attach); selector hotspot <strong>right</strong> →
-                pool hotspot <strong>left</strong> (attach). Choice or selector menu → another
-                hotspot: <strong>dashed</strong> = manual map link (this browser session only, not in
-                project file). Console: <code>escape360MapFlow.help()</code>. Orphan ↔ scene.{" "}
+                pool hotspot <strong>left</strong> (attach). <strong>Dashed</strong> only: menu{" "}
+                <strong>choice</strong> → non-selector hotspot (session only, not in project file).
+                Selector → selector: not supported on map. Console: <code>escape360MapFlow.help()</code>
+                . Orphan ↔ scene.{" "}
                 <strong>Delete</strong> edge: <kbd>Delete</kbd>. <strong>Copy</strong> hotspot:{" "}
                 <kbd>Alt</kbd>. <strong>Orphan → menu:</strong> pool out → choice in (promotion).
               </>
@@ -856,9 +861,10 @@ function InnerMap() {
               <>
                 <strong>Liaisons (rond bleu) :</strong> scène ou <strong>choix</strong> (sortie
                 droite) → hotspot <strong>file d’attente</strong> (entrée gauche) : rattachement DOM ;
-                idem <strong>menu selector</strong> → orphelin. Choix ou menu → autre hotspot : arête{" "}
-                <strong>pointillée</strong> = lien manuel carte (session navigateur, pas dans le
-                fichier projet). Console : <code>escape360MapFlow.help()</code>. Orphelin ↔ scène.{" "}
+                idem <strong>menu selector</strong> → orphelin. <strong>Pointillés</strong> uniquement
+                : <strong>choix</strong> de menu → hotspot <strong>non</strong> selector (session,
+                pas dans le projet). Menu → menu : non géré sur la carte. Console :{" "}
+                <code>escape360MapFlow.help()</code>. Orphelin ↔ scène.{" "}
                 <strong>Suppr</strong> arête : <kbd>Suppr</kbd>. <strong>Copier</strong> hotspot :{" "}
                 <kbd>Alt</kbd>. <strong>Orphelin → menu :</strong> sortie orphelin → entrée{" "}
                 <strong>choix</strong> (<code>choices[]</code>).
