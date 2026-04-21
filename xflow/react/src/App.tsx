@@ -15,7 +15,6 @@ import {
   type NodeChange,
   type NodePositionChange,
   type NodeTypes,
-  type OnConnectEnd,
   type OnConnectStart,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -321,18 +320,19 @@ function InnerMap() {
     window._projectMapReactBridge?.clearSelectionAndRefresh();
   }, []);
 
-  const onConnectStart = useCallback<OnConnectStart>((event) => {
-    const ev = event as unknown as MouseEvent | TouchEvent;
-    if ("altKey" in ev) {
-      altConnectRef.current = !!(ev as MouseEvent).altKey;
-    } else {
-      altConnectRef.current = false;
-    }
+  const readAltForConnect = useCallback((event: MouseEvent | TouchEvent): boolean => {
+    const me = event as MouseEvent;
+    if (typeof me.altKey === "boolean" && me.altKey) return true;
+    if (typeof me.getModifierState === "function" && me.getModifierState("Alt")) return true;
+    return false;
   }, []);
 
-  const onConnectEnd = useCallback<OnConnectEnd>(() => {
-    altConnectRef.current = false;
-  }, []);
+  const onConnectStart = useCallback<OnConnectStart>(
+    (event) => {
+      altConnectRef.current = readAltForConnect(event as unknown as MouseEvent | TouchEvent);
+    },
+    [readAltForConnect]
+  );
 
   const onNodeDoubleClick = useCallback((evt: MouseEvent, node: Node) => {
     evt.stopPropagation();
@@ -377,7 +377,10 @@ function InnerMap() {
           return true;
         }
         if (sd.mapDragSceneOut) return true;
-        return altConnectRef.current;
+        if (altConnectRef.current) {
+          return sd.sceneIndex !== td.sceneIndex;
+        }
+        return false;
       }
       if (tNode.type === "mapResource" && c.targetHandle === "metaIn") {
         const rd = tNode.data as MapResourceNodeData;
@@ -398,65 +401,69 @@ function InnerMap() {
 
   const onConnect = useCallback(
     (c: Connection) => {
-      const sNode = nodes.find((n) => n.id === c.source);
-      const tNode = nodes.find((n) => n.id === c.target);
-      if (!sNode || !tNode) return;
-      if (sNode.type === "mapScene" && tNode.type === "mapHotspot") {
-        const sd = sNode.data as MapSceneNodeData;
-        const hd = tNode.data as MapHotspotNodeData;
-        if (c.sourceHandle !== "out" || c.targetHandle !== "in") return;
-        if (sd.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return;
-        if (
-          hd.parentSceneKey === sd.sceneKey &&
-          hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
-        ) {
+      try {
+        const sNode = nodes.find((n) => n.id === c.source);
+        const tNode = nodes.find((n) => n.id === c.target);
+        if (!sNode || !tNode) return;
+        if (sNode.type === "mapScene" && tNode.type === "mapHotspot") {
+          const sd = sNode.data as MapSceneNodeData;
+          const hd = tNode.data as MapHotspotNodeData;
+          if (c.sourceHandle !== "out" || c.targetHandle !== "in") return;
+          if (sd.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return;
+          if (
+            hd.parentSceneKey === sd.sceneKey &&
+            hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
+          ) {
+            return;
+          }
+          window.attachHotspotToMapScene?.(hd.sceneIndex, hd.hotspotIndex, sd.sceneIndex);
           return;
         }
-        window.attachHotspotToMapScene?.(hd.sceneIndex, hd.hotspotIndex, sd.sceneIndex);
-        return;
-      }
-      if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
-        const sd = sNode.data as MapHotspotNodeData;
-        const td = tNode.data as MapSceneNodeData;
-        if (
-          sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY &&
-          td.sceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
-        ) {
-          window.attachHotspotToMapScene?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+        if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
+          const sd = sNode.data as MapHotspotNodeData;
+          const td = tNode.data as MapSceneNodeData;
+          if (
+            sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY &&
+            td.sceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
+          ) {
+            window.attachHotspotToMapScene?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+            return;
+          }
+          if (sd.mapDragSceneOut) {
+            window.applyMapHotspotSceneConnection?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+            return;
+          }
+          if (altConnectRef.current) {
+            window.copyHotspotToMapScene?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+            return;
+          }
           return;
         }
-        if (sd.mapDragSceneOut) {
-          window.applyMapHotspotSceneConnection?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+        if (tNode.type !== "mapResource") return;
+        const rd = tNode.data as MapResourceNodeData;
+        if (sNode.type === "mapScene") {
+          const sd = sNode.data as MapSceneNodeData;
+          window.applyMapSceneMediaConnection?.(sd.sceneIndex, rd.resourceType, rd.url, rd.volume);
           return;
         }
-        if (altConnectRef.current) {
-          window.copyHotspotToMapScene?.(sd.sceneIndex, sd.hotspotIndex, td.sceneIndex);
+        if (sNode.type === "mapHotspot") {
+          if (rd.resourceType !== "hotspotSfx") return;
+          const hd = sNode.data as MapHotspotNodeData;
+          window.applyMapHotspotSfxConnection?.(hd.sceneIndex, hd.hotspotIndex, rd.url, rd.volume);
           return;
         }
-        return;
-      }
-      if (tNode.type !== "mapResource") return;
-      const rd = tNode.data as MapResourceNodeData;
-      if (sNode.type === "mapScene") {
-        const sd = sNode.data as MapSceneNodeData;
-        window.applyMapSceneMediaConnection?.(sd.sceneIndex, rd.resourceType, rd.url, rd.volume);
-        return;
-      }
-      if (sNode.type === "mapHotspot") {
-        if (rd.resourceType !== "hotspotSfx") return;
-        const hd = sNode.data as MapHotspotNodeData;
-        window.applyMapHotspotSfxConnection?.(hd.sceneIndex, hd.hotspotIndex, rd.url, rd.volume);
-        return;
-      }
-      if (sNode.type === "mapSelectorChoice" && rd.resourceType === "choiceSfx") {
-        const cd = sNode.data as MapSelectorChoiceNodeData;
-        window.applyMapSelectorChoiceSfxConnection?.(
-          cd.sceneIndex,
-          cd.hotspotIndex,
-          cd.choicePath,
-          rd.url,
-          rd.volume
-        );
+        if (sNode.type === "mapSelectorChoice" && rd.resourceType === "choiceSfx") {
+          const cd = sNode.data as MapSelectorChoiceNodeData;
+          window.applyMapSelectorChoiceSfxConnection?.(
+            cd.sceneIndex,
+            cd.hotspotIndex,
+            cd.choicePath,
+            rd.url,
+            rd.volume
+          );
+        }
+      } finally {
+        altConnectRef.current = false;
       }
     },
     [nodes]
@@ -538,7 +545,6 @@ function InnerMap() {
         nodesConnectable
         onConnect={onConnect}
         onConnectStart={onConnectStart}
-        onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
         elementsSelectable={selectable}
         panOnDrag
@@ -566,7 +572,7 @@ function InnerMap() {
             style={{
               fontSize: 11,
               lineHeight: 1.35,
-              maxWidth: 260,
+              maxWidth: 288,
               padding: "6px 10px",
               borderRadius: 6,
               background: "rgba(15, 23, 42, 0.88)",
@@ -576,15 +582,19 @@ function InnerMap() {
           >
             {enUi ? (
               <>
-                <strong>Links:</strong> drag from a handle to another (orphan ↔ scene: either way for
-                parent link). <strong>Remove</strong> structural scene→hotspot link: click the edge,
-                then <kbd>Delete</kbd> or <kbd>Backspace</kbd>.
+                <strong>Links:</strong> drag between handles (orphan ↔ scene: both ways for parent
+                link). <strong>Remove</strong> scene→hotspot link: click edge, then{" "}
+                <kbd>Delete</kbd>/<kbd>Backspace</kbd>.                 <strong>Copy</strong> hotspot to another scene: hold <kbd>Alt</kbd> (⌥), then
+                hotspot right handle → target scene left handle (otherwise use « scene » action
+                wire; target cannot be the unassigned pool).
               </>
             ) : (
               <>
-                <strong>Liaisons :</strong> glisser d’une poignée à l’autre (orphelin ↔ scène : dans
-                les deux sens pour le rattachement). <strong>Couper</strong> le lien scène→hotspot :
-                cliquer l’arête puis <kbd>Suppr</kbd> ou <kbd>Retour arrière</kbd>.
+                <strong>Liaisons :</strong> glisser entre poignées (orphelin ↔ scène : les deux sens).
+                <strong> Couper</strong> scène→hotspot : clic sur l’arête puis <kbd>Suppr</kbd> /{" "}
+                <kbd>Retour arrière</kbd>. <strong>Copier</strong> un hotspot vers une autre scène :
+                maintenir <kbd>Alt</kbd> et relier la sortie du hotspot vers l’entrée de la scène cible
+                (sinon transition « scène » si l’action le permet ; pas vers la file d’attente).
               </>
             )}
           </div>

@@ -575,6 +575,7 @@ function copyHotspotToMapScene(fromSceneIndex, hotspotIndex, toSceneIndex) {
     var src = blocks[fromSceneIndex];
     var dst = blocks[toSceneIndex];
     if (!src || !dst) return;
+    if (dst.getAttribute("data-editor-map-staging") === "1") return;
     var wrap = src.querySelector('[id^="hs-container-"]');
     if (!wrap) return;
     var hss = wrap.querySelectorAll(":scope > .hotspot-block");
