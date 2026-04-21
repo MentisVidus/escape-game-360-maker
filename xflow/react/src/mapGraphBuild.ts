@@ -3,11 +3,16 @@ import dagre from "dagre";
 
 const SELECTOR_GRAPH_MAX_DEPTH = 48;
 
+/** Aligné sur `addScene("__editorMapStaging", …)` — file d’attente carte (editorOnly). */
+export const EDITOR_MAP_STAGING_SCENE_KEY = "__editorMapStaging";
+
 export type EditorLang = "fr" | "en";
 
 export type EditorProject = {
   schemaVersion?: number;
   title?: string;
+  /** Id Pannellum (champ `scene.id` / `.sc-id`) de la première scène joueur ; optionnel, défaut = 1ʳᵉ scène jouable. */
+  startSceneId?: string;
   useGlobalAudio?: boolean;
   globalMusic?: {
     url?: string;
@@ -48,6 +53,8 @@ export type MapSceneNodeData = {
   viewMode: "active" | "collapsed" | "full" | "tree";
   /** Vue arbre : scène jamais atteinte depuis la scène d’entrée (îlot orphelin). */
   orphanIsland?: boolean;
+  /** Première scène du joueur (`startSceneId` projet ou 1ʳᵉ scène jouable). */
+  isEntryScene?: boolean;
 };
 
 export type MapHotspotNodeData = {
@@ -193,6 +200,29 @@ export function firstPlayableSceneIndex(project: EditorProject | null): number {
     if (scenes[i] && !sceneIsEditorOnly(scenes[i])) return i;
   }
   return 0;
+}
+
+/** Clef graphe `sceneKey(…)` pour la scène de départ joueur (persistée via `startSceneId`). */
+export function resolvedEntrySceneKey(project: EditorProject | null | undefined): string | null {
+  if (!project?.scenes?.length) return null;
+  const scenes = project.scenes;
+  const prefRaw = project.startSceneId != null ? String(project.startSceneId).trim() : "";
+  if (prefRaw) {
+    for (let i = 0; i < scenes.length; i++) {
+      const sc = scenes[i];
+      if (!sc || sceneIsEditorOnly(sc)) continue;
+      const k = sceneKey(sc, i);
+      const idLab = sceneIdLabel(sc);
+      if (prefRaw === k || prefRaw === idLab) return k;
+      const rawId = sc.id != null ? String(sc.id).trim() : "";
+      if (rawId && prefRaw === rawId) return k;
+      const scid = sc.scId != null ? String(sc.scId).trim() : "";
+      if (scid && prefRaw === scid) return k;
+    }
+  }
+  const fi = firstPlayableSceneIndex(project);
+  const sc = scenes[fi];
+  return sc ? sceneKey(sc, fi) : null;
 }
 
 export function sceneIdLabel(scene: EditorScene | undefined): string {
@@ -1010,6 +1040,7 @@ function buildGraphFull(
   const HS_STEP_Y = 108;
   const CHOICE_OFFSET_X = 230;
   const CHOICE_STEP_Y = 72;
+  const entryGraphKey = resolvedEntrySceneKey(project);
 
   scenes.forEach((scene, si) => {
     const sk = sceneKey(scene, si);
@@ -1026,6 +1057,7 @@ function buildGraphFull(
       sceneKey: sk,
       sceneIndex: si,
       viewMode: "full",
+      isEntryScene: entryGraphKey != null && sk === entryGraphKey,
     };
     const p = posByKey[sk] || { sx: 50, sy: 50 + si * 280 };
     const id = `sc:${sk}`;
@@ -1211,6 +1243,7 @@ function buildGraphFocus(
   const activeScene = resolved.scene;
   const isStagingFocus = sceneIsEditorOnly(activeScene);
   const sceneKeyToRfId: Record<string, string> = {};
+  const entryGraphKey = resolvedEntrySceneKey(project);
 
   const ACTIVE_X = 80;
   const ACTIVE_Y = 220;
@@ -1264,6 +1297,7 @@ function buildGraphFocus(
         viewMode: "active",
         lang,
         chrome: "active" as const,
+        isEntryScene: entryGraphKey != null && activeKey === entryGraphKey,
       },
     });
   }
@@ -1342,6 +1376,7 @@ function buildGraphFocus(
         viewMode: "collapsed",
         lang,
         chrome: "collapsed" as const,
+        isEntryScene: entryGraphKey != null && tid === entryGraphKey,
       },
     });
   });
@@ -1462,6 +1497,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
   /** Scènes pour lesquelles un nœud `sc:…` a été créé sur le graphe (y compris îlots orphelins). */
   const placedSceneKeys = new Set<string>();
   let redirectCounter = 0;
+  const entryGraphKey = resolvedEntrySceneKey(project);
 
   function redirectNodeData(targetKey: string): MapRedirectNodeData & { lang: EditorLang } {
     const meta = findSceneByKey(project, targetKey);
@@ -1519,6 +1555,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
           viewMode: "tree",
           lang,
           chrome: "tree" as const,
+          isEntryScene: entryGraphKey != null && sk === entryGraphKey,
         },
       });
       const amb = readSceneAmbiance(meta.scene);
@@ -1837,6 +1874,7 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
         lang,
         chrome: "tree" as const,
         orphanIsland: true,
+        isEntryScene: entryGraphKey != null && sk === entryGraphKey,
       },
     });
     orphanIndex++;

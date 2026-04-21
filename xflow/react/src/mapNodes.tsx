@@ -34,6 +34,7 @@ declare global {
     addHotspotSkeletonFromMapSceneIndex?: (sceneIndex: number) => void;
     deleteSceneFromMapByIndex?: (sceneIndex: number) => void;
     deleteHotspotFromMapIndices?: (sceneIndex: number, hotspotIndex: number) => void;
+    setProjectStartSceneIdFromMap?: (sceneIndex: number) => void;
     applyMapResourceVolumeFromReactNode?: (opts: {
       resourceType: string;
       volume: number;
@@ -90,6 +91,27 @@ export function MapSceneNode({ data }: SceneNodeProps) {
       <Handle type="source" position={Position.Right} id="out" className="rf-map-handle-flow-out" />
       <Handle type="source" position={Position.Bottom} id="metaOut" className="rf-map-handle-meta-out" />
       <div className="rf-map-node-actions">
+        {data.isEntryScene ? (
+          <span
+            className="rf-map-entry-badge"
+            title={en ? "Player start scene" : "Scène de départ (joueur)"}
+            aria-label={en ? "Start scene" : "Début"}
+          >
+            ★
+          </span>
+        ) : data.chrome !== "collapsed" && !data.orphanIsland ? (
+          <button
+            type="button"
+            className="rf-map-node-btn rf-map-node-btn-entry"
+            title={en ? "Set as player start scene" : "Définir comme scène de départ"}
+            onClick={(e) => {
+              e.stopPropagation();
+              window.setProjectStartSceneIdFromMap?.(data.sceneIndex);
+            }}
+          >
+            ☆
+          </button>
+        ) : null}
         <div className="rf-map-scene-add-wrap" ref={menuWrapRef}>
           <button
             type="button"
@@ -158,13 +180,7 @@ export function MapHotspotNode({ data }: HotspotNodeProps) {
   return (
     <div className="rf-map-hotspot-root">
       <Handle type="target" position={Position.Left} id="in" className="rf-map-handle-flow-in" />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="out"
-        className="rf-map-handle-flow-out"
-        isConnectable={!!data.mapDragSceneOut}
-      />
+      <Handle type="source" position={Position.Right} id="out" className="rf-map-handle-flow-out" />
       <Handle type="source" position={Position.Bottom} id="metaOut" className="rf-map-handle-meta-out" />
       <div className="rf-map-node-actions">
         <button

@@ -28,6 +28,7 @@ import {
   type MapSceneNodeData,
   type MapSelectorChoiceNodeData,
   buildProjectMapGraph,
+  EDITOR_MAP_STAGING_SCENE_KEY,
   recomputeMapLayoutGroups,
   sceneKey,
 } from "./mapGraphBuild";
@@ -119,9 +120,6 @@ const nodeTypes: NodeTypes = {
   mapResource: MapResourceNode,
   mapRedirect: MapRedirectNode,
 };
-
-/** Aligné sur `addScene("__editorMapStaging", …)` — scène file d’attente carte (editorOnly). */
-const EDITOR_MAP_STAGING_SCENE_KEY = "__editorMapStaging";
 
 function hostLang(): EditorLang {
   return document.documentElement.lang.toLowerCase().startsWith("en") ? "en" : "fr";
@@ -683,7 +681,7 @@ function InnerMap() {
             )}
           </div>
         </Panel>
-        <Panel position="top-left">
+        <Panel position="bottom-left">
           <div className="rf-map-floating-palette">
             <button
               type="button"

@@ -139,7 +139,12 @@
 
 /* Panneaux React Flow (palette +) au-dessus du canvas */
 #project-map-canvas-wrap.project-map-react-primary .react-flow__panel {
-    z-index: 80 !important;
+  z-index: 80 !important;
+}
+
+/* Poignées au-dessus de la zone « interaction » des arêtes (petits nœuds choix). */
+#project-map-canvas-wrap.project-map-react-primary .react-flow__handle {
+  z-index: 30 !important;
 }
 
 /* Arêtes React Flow lisibles sur fond sombre */

@@ -120,6 +120,14 @@
                 project.scenes.push(scene);
             });
 
+            var startEl = doc.getElementById("project-start-scene-id");
+            var startRaw = startEl && startEl.value != null ? String(startEl.value).trim() : "";
+            if (startRaw) {
+                project.startSceneId = startRaw;
+            } else {
+                delete project.startSceneId;
+            }
+
             return project;
         }
 

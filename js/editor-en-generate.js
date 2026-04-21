@@ -362,12 +362,24 @@ function buildPlayerHtmlTemplate() {
         return args;
     }
 
+    function pickPlayerFirstSceneId(proj, cfg) {
+        var preferred = proj.startSceneId != null ? String(proj.startSceneId).trim() : "";
+        if (preferred && cfg[preferred]) return preferred;
+        for (var i = 0; i < (proj.scenes || []).length; i++) {
+            var sc = proj.scenes[i];
+            if (!sc || sc.editorOnly) continue;
+            var sid = sc.id || ("scene_" + (i + 1));
+            if (cfg[sid]) return sid;
+        }
+        var keys = Object.keys(cfg);
+        return keys.length ? keys[0] : "";
+    }
+
     // 2. Pannellum scenes + per-scene ambient URLs
     (project.scenes || []).forEach((scene, index) => {
         const scId = scene.id || ("scene_" + (index + 1));
         let scImg = (scene.media && scene.media.panoramaUrl) ? scene.media.panoramaUrl : "";
         scImg = playerRelMediaPathIfLocal(scImg);
-        if(index === 0) firstSceneId = scId;
 
         var amb = scene.media && scene.media.ambiance;
         var scAudioRaw =
@@ -414,6 +426,8 @@ function buildPlayerHtmlTemplate() {
         // scenesConfig[scId] for viewer init
         scenesConfig[scId] = { type: "equirectangular", panorama: scImg, hotSpots: hotSpots };
     });
+
+    firstSceneId = pickPlayerFirstSceneId(project, scenesConfig);
 
     // 3. JSON scenes — replace string "hotspotDispatcher" with live function ref
     let jsonScenes = JSON.stringify(scenesConfig, null, 4).replace(/"createTooltipFunc": "hotspotDispatcher"/g, '"createTooltipFunc": hotspotDispatcher');

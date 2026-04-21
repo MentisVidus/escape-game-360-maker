@@ -365,12 +365,24 @@ function buildPlayerHtmlTemplate() {
         return args;
     }
 
+    function pickPlayerFirstSceneId(proj, cfg) {
+        var preferred = proj.startSceneId != null ? String(proj.startSceneId).trim() : "";
+        if (preferred && cfg[preferred]) return preferred;
+        for (var i = 0; i < (proj.scenes || []).length; i++) {
+            var sc = proj.scenes[i];
+            if (!sc || sc.editorOnly) continue;
+            var sid = sc.id || ("scene_" + (i + 1));
+            if (cfg[sid]) return sid;
+        }
+        var keys = Object.keys(cfg);
+        return keys.length ? keys[0] : "";
+    }
+
     // 2. Parcourt des scènes v2 pour construire la config Pannellum
     (project.scenes || []).forEach((scene, index) => {
         const scId = scene.id || ("scene_" + (index + 1));
         let scImg = (scene.media && scene.media.panoramaUrl) ? scene.media.panoramaUrl : "";
         scImg = playerRelMediaPathIfLocal(scImg);
-        if(index === 0) firstSceneId = scId;
 
         var amb = scene.media && scene.media.ambiance;
         var scAudioRaw =
@@ -417,6 +429,8 @@ function buildPlayerHtmlTemplate() {
         // Ajout de la scène à la configuration globale de Pannellum
         scenesConfig[scId] = { type: "equirectangular", panorama: scImg, hotSpots: hotSpots };
     });
+
+    firstSceneId = pickPlayerFirstSceneId(project, scenesConfig);
 
     // 3. Transformation de la configuration en texte JSON (et nettoyage des guillemets pour la fonction JS)
     let jsonScenes = JSON.stringify(scenesConfig, null, 4).replace(/"createTooltipFunc": "hotspotDispatcher"/g, '"createTooltipFunc": hotspotDispatcher');

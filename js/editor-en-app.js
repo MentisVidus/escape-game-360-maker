@@ -1079,6 +1079,26 @@ function applyMapSelectorChoiceSceneConnection(
 window.applyMapSelectorChoiceSceneTarget = applyMapSelectorChoiceSceneTarget;
 window.applyMapSelectorChoiceSceneConnection = applyMapSelectorChoiceSceneConnection;
 
+/** Path B: set player start scene (`startSceneId` = `.sc-id` value). */
+function setProjectStartSceneIdFromMap(sceneIndex) {
+    if (typeof window.restoreProjectMapSidePanelDomOnly === "function") {
+        window.restoreProjectMapSidePanelDomOnly();
+    }
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var el = blocks[sceneIndex];
+    if (!el || el.getAttribute("data-editor-map-staging") === "1") return;
+    var idInp = el.querySelector(".sc-id");
+    var v = idInp ? String(idInp.value || "").trim() : "";
+    if (!v) return;
+    var hid = document.getElementById("project-start-scene-id");
+    if (hid) hid.value = v;
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.setProjectStartSceneIdFromMap = setProjectStartSceneIdFromMap;
+
 /** Path B (React map): add a message hotspot (legacy + panel). */
 function addHotspotSkeletonFromMapSceneIndex(sceneIndex) {
     addHotspotFromMapWithKind(sceneIndex, "msg", { openPanel: true });
@@ -2403,6 +2423,10 @@ function applyLoadedProject(project) {
     hsIdCounter = 0;
 
     document.getElementById("gameTitle").value = project.title || "My awesome game";
+    var pStartEl = document.getElementById("project-start-scene-id");
+    if (pStartEl) {
+        pStartEl.value = project.startSceneId != null ? String(project.startSceneId).trim() : "";
+    }
 
     const useInv = project.useInv !== false;
     document.getElementById("useInventory").checked = useInv;
