@@ -4,7 +4,9 @@ import type {
   EditorLang,
   MapHotspotNodeData,
   MapRedirectNodeData,
+  MapSceneGroupNodeData,
   MapSceneNodeData,
+  MapSelectorChoiceNodeData,
 } from "./mapGraphBuild";
 import { hotspotAddMenuCopy, type HotspotKindId } from "./hotspotAddKinds";
 
@@ -201,6 +203,40 @@ export function MapHotspotNode({ data }: HotspotNodeProps) {
 }
 
 type RedirectNodeProps = NodeProps<FlowNode<MapRedirectNodeData & { lang: EditorLang }>>;
+
+type SceneGroupNodeProps = NodeProps<FlowNode<MapSceneGroupNodeData & { lang: EditorLang }>>;
+
+export function MapSceneGroupNode({ data }: SceneGroupNodeProps) {
+  const en = data.lang === "en";
+  return (
+    <div className="rf-map-scene-group-root">
+      <div className="rf-map-scene-group-title">
+        {en ? "Scene group" : "Groupe scène"} · {data.label}
+      </div>
+    </div>
+  );
+}
+
+type SelectorChoiceNodeProps = NodeProps<FlowNode<MapSelectorChoiceNodeData & { lang: EditorLang }>>;
+
+export function MapSelectorChoiceNode({ data }: SelectorChoiceNodeProps) {
+  const en = data.lang === "en";
+  const tgt = en ? "target" : "cible";
+  return (
+    <div className="rf-map-choice-root">
+      <Handle type="target" position={Position.Left} id="in" />
+      <Handle type="source" position={Position.Right} id="out" />
+      <div className="rf-map-choice-title">{en ? "Choice" : "Choix"}</div>
+      <div className="rf-map-choice-body">{data.label}</div>
+      {data.targetCount > 0 ? (
+        <div className="rf-map-choice-sub">
+          {data.targetCount} {tgt}
+          {data.targetCount === 1 ? "" : "s"}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function MapRedirectNode({ data }: RedirectNodeProps) {
   const en = data.lang === "en";

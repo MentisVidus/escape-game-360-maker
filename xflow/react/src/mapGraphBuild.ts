@@ -46,6 +46,23 @@ export type MapHotspotNodeData = {
   selectorChoiceCount?: number;
 };
 
+export type MapSelectorChoiceNodeData = {
+  kind: "selectorChoice";
+  label: string;
+  sceneIndex: number;
+  hotspotIndex: number;
+  choiceIndex: number;
+  targetCount: number;
+};
+
+export type MapSceneGroupNodeData = {
+  kind: "sceneGroup";
+  label: string;
+  sceneKey: string;
+  sceneIndex: number;
+  viewMode: "focus" | "full" | "tree";
+};
+
 export type MapRedirectNodeData = {
   kind: "redirect";
   label: string;
@@ -193,6 +210,50 @@ export function selectorChoiceCount(hs: EditorHotspot | undefined): number | und
   return choices.length;
 }
 
+function targetSceneIdsFromAction(action: LooseAction): string[] {
+  const out: Record<string, boolean> = {};
+  if (!action || typeof action !== "object") return [];
+  collectTargetSceneIdsFromAction(action, out, SELECTOR_GRAPH_MAX_DEPTH);
+  return Object.keys(out);
+}
+
+type SelectorChoiceGraphInfo = {
+  label: string;
+  targetSceneIds: string[];
+};
+
+function selectorChoicesForGraph(
+  hs: EditorHotspot | undefined,
+  lang: EditorLang
+): SelectorChoiceGraphInfo[] {
+  const a = hs?.action as LooseAction;
+  if (!a || a.type !== "selector") return [];
+  const p = (a.payload || {}) as Record<string, unknown>;
+  const nested = (p.nested || {}) as Record<string, unknown>;
+  const choices = Array.isArray(nested.choices) ? nested.choices : [];
+  const defaultPrefix = lang === "en" ? "Choice" : "Choix";
+  return choices.map((raw, idx) => {
+    let label = `${defaultPrefix} ${idx + 1}`;
+    let targetSceneIds: string[] = [];
+    if (raw && typeof raw === "object") {
+      const ro = raw as Record<string, unknown>;
+      const direct = ro.label != null ? String(ro.label).trim() : "";
+      if (direct) {
+        label = direct;
+      } else {
+        const cp = ro.copy as Record<string, unknown> | undefined;
+        const viaCopy = cp?.buttonLabel != null ? String(cp.buttonLabel).trim() : "";
+        if (viaCopy) label = viaCopy;
+      }
+      const chAction = ro.action as LooseAction;
+      targetSceneIds = targetSceneIdsFromAction(
+        chAction && typeof chAction === "object" ? chAction : (ro as unknown as LooseAction)
+      );
+    }
+    return { label, targetSceneIds };
+  });
+}
+
 export function findSceneByKey(
   project: EditorProject,
   key: string
@@ -338,6 +399,29 @@ function pushMapEdge(edges: Edge[], source: string, target: string): void {
   });
 }
 
+function pushSceneGroupNode(
+  nodes: Node[],
+  id: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  data: MapSceneGroupNodeData & { lang: EditorLang }
+): void {
+  nodes.push({
+    id,
+    type: "mapSceneGroup",
+    position: { x, y },
+    draggable: false,
+    selectable: false,
+    data,
+    style: {
+      width: Math.max(220, w),
+      height: Math.max(180, h),
+    },
+  });
+}
+
 function buildGraphFull(
   project: EditorProject,
   lang: EditorLang,
@@ -350,10 +434,13 @@ function buildGraphFull(
   const HS_OFFSET_X = 240;
   const HS_OFFSET_Y = 30;
   const HS_STEP_Y = 108;
+  const CHOICE_OFFSET_X = 230;
+  const CHOICE_STEP_Y = 72;
 
   scenes.forEach((scene, si) => {
     const sk = sceneKey(scene, si);
     const title = sceneTitleForGraph(scene, si, lang);
+    const hotspots = Array.isArray(scene.hotspots) ? scene.hotspots : [];
     const data: MapSceneNodeData = {
       kind: "scene",
       label: title,
@@ -365,6 +452,14 @@ function buildGraphFull(
     const p = posByKey[sk] || { sx: 50, sy: 50 + si * 280 };
     const id = `sc:${sk}`;
     sceneKeyToRfId[sk] = id;
+    pushSceneGroupNode(nodes, `sg:${sk}`, p.sx - 30, p.sy - 30, 680, hotspots.length * 108 + 180, {
+      kind: "sceneGroup",
+      label: title,
+      sceneKey: sk,
+      sceneIndex: si,
+      viewMode: "full",
+      lang,
+    });
     nodes.push({
       id,
       type: "mapScene",
@@ -406,12 +501,45 @@ function buildGraphFull(
         } satisfies MapHotspotNodeData & { lang: EditorLang },
       });
       pushMapEdge(edges, sceneNodeId, hsId);
-      const targetIds = getTargetSceneIdsFromHotspot(hs as EditorHotspot);
-      for (let tj = 0; tj < targetIds.length; tj++) {
-        const targetId = targetIds[tj];
-        const targetNid = sceneKeyToRfId[targetId];
-        if (targetNid) {
-          pushMapEdge(edges, hsId, targetNid);
+      const selectorChoices = at === "selector" ? selectorChoicesForGraph(hs as EditorHotspot, lang) : [];
+      if (selectorChoices.length > 0) {
+        const baseCy = hy - ((selectorChoices.length - 1) * CHOICE_STEP_Y) / 2;
+        for (let ci = 0; ci < selectorChoices.length; ci++) {
+          const ch = selectorChoices[ci];
+          const cid = `sel:${sk}:${hi}:${ci}`;
+          nodes.push({
+            id: cid,
+            type: "mapSelectorChoice",
+            position: { x: hx + CHOICE_OFFSET_X, y: baseCy + ci * CHOICE_STEP_Y },
+            draggable: false,
+            selectable: false,
+            data: {
+              kind: "selectorChoice",
+              label: ch.label,
+              sceneIndex: si,
+              hotspotIndex: hi,
+              choiceIndex: ci,
+              targetCount: ch.targetSceneIds.length,
+              lang,
+            } satisfies MapSelectorChoiceNodeData & { lang: EditorLang },
+          });
+          pushMapEdge(edges, hsId, cid);
+          for (let tj = 0; tj < ch.targetSceneIds.length; tj++) {
+            const targetId = ch.targetSceneIds[tj];
+            const targetNid = sceneKeyToRfId[targetId];
+            if (targetNid) {
+              pushMapEdge(edges, cid, targetNid);
+            }
+          }
+        }
+      } else {
+        const targetIds = getTargetSceneIdsFromHotspot(hs as EditorHotspot);
+        for (let tj = 0; tj < targetIds.length; tj++) {
+          const targetId = targetIds[tj];
+          const targetNid = sceneKeyToRfId[targetId];
+          if (targetNid) {
+            pushMapEdge(edges, hsId, targetNid);
+          }
         }
       }
     });
@@ -441,11 +569,30 @@ function buildGraphFocus(
   const HS_X = 380;
   const HS_START_Y = 60;
   const HS_STEP = 112;
+  const CHOICE_OFFSET_X = 230;
+  const CHOICE_STEP_Y = 72;
   const STUB_X = 700;
   const STUB_START_Y = 80;
   const STUB_STEP = 100;
 
   const activeTitle = sceneTitleForGraph(activeScene, resolved.index, lang);
+  const activeHotspots = Array.isArray(activeScene.hotspots) ? activeScene.hotspots : [];
+  pushSceneGroupNode(
+    nodes,
+    `sg:${activeKey}`,
+    ACTIVE_X - 30,
+    ACTIVE_Y - 30,
+    680,
+    activeHotspots.length * 108 + 180,
+    {
+      kind: "sceneGroup",
+      label: activeTitle,
+      sceneKey: activeKey,
+      sceneIndex: resolved.index,
+      viewMode: "focus",
+      lang,
+    }
+  );
   const activeId = `sc:${activeKey}`;
   sceneKeyToRfId[activeKey] = activeId;
   nodes.push({
@@ -522,12 +669,45 @@ function buildGraphFocus(
       } satisfies MapHotspotNodeData & { lang: EditorLang },
     });
     pushMapEdge(edges, activeId, hsId);
-    const targetIds = getTargetSceneIdsFromHotspot(hs as EditorHotspot);
-    for (let tk = 0; tk < targetIds.length; tk++) {
-      const targetId = targetIds[tk];
-      const targetNid = sceneKeyToRfId[targetId];
-      if (targetNid) {
-        pushMapEdge(edges, hsId, targetNid);
+    const selectorChoices = at === "selector" ? selectorChoicesForGraph(hs as EditorHotspot, lang) : [];
+    if (selectorChoices.length > 0) {
+      const baseCy = HS_START_Y + hi * HS_STEP - ((selectorChoices.length - 1) * CHOICE_STEP_Y) / 2;
+      for (let ci = 0; ci < selectorChoices.length; ci++) {
+        const ch = selectorChoices[ci];
+        const cid = `sel:${activeKey}:${hi}:${ci}`;
+        nodes.push({
+          id: cid,
+          type: "mapSelectorChoice",
+          position: { x: HS_X + CHOICE_OFFSET_X, y: baseCy + ci * CHOICE_STEP_Y },
+          draggable: false,
+          selectable: false,
+          data: {
+            kind: "selectorChoice",
+            label: ch.label,
+            sceneIndex: resolved.index,
+            hotspotIndex: hi,
+            choiceIndex: ci,
+            targetCount: ch.targetSceneIds.length,
+            lang,
+          } satisfies MapSelectorChoiceNodeData & { lang: EditorLang },
+        });
+        pushMapEdge(edges, hsId, cid);
+        for (let tk = 0; tk < ch.targetSceneIds.length; tk++) {
+          const targetId = ch.targetSceneIds[tk];
+          const targetNid = sceneKeyToRfId[targetId];
+          if (targetNid) {
+            pushMapEdge(edges, cid, targetNid);
+          }
+        }
+      }
+    } else {
+      const targetIds = getTargetSceneIdsFromHotspot(hs as EditorHotspot);
+      for (let tk = 0; tk < targetIds.length; tk++) {
+        const targetId = targetIds[tk];
+        const targetNid = sceneKeyToRfId[targetId];
+        if (targetNid) {
+          pushMapEdge(edges, hsId, targetNid);
+        }
       }
     }
   });
@@ -580,6 +760,15 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
     placedSceneKeys.add(sk);
 
     const title = sceneTitleForGraph(meta.scene, meta.index, lang);
+    const hsList = Array.isArray(meta.scene.hotspots) ? meta.scene.hotspots : [];
+    pushSceneGroupNode(nodes, `sg:${sk}`, x - 30, yCenter - 50, 650, hsList.length * 108 + 200, {
+      kind: "sceneGroup",
+      label: title,
+      sceneKey: sk,
+      sceneIndex: meta.index,
+      viewMode: "tree",
+      lang,
+    });
     const sceneRfId = `sc:${sk}`;
     nodes.push({
       id: sceneRfId,
@@ -597,10 +786,11 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
       },
     });
 
-    const hsList = Array.isArray(meta.scene.hotspots) ? meta.scene.hotspots : [];
     const baseHy = yCenter - ((Math.max(hsList.length, 1) - 1) * HS_STEP) / 2;
     let subtreeRight = x + 200;
     let nextChildX = x + HOTSPOT_DX + 280;
+    const CHOICE_OFFSET_X = 200;
+    const CHOICE_STEP_Y = 70;
 
     hsList.forEach((hs, i) => {
       const hy = baseHy + i * HS_STEP;
@@ -626,6 +816,59 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
         } satisfies MapHotspotNodeData & { lang: EditorLang },
       });
       pushMapEdge(edges, sceneRfId, hsRfId);
+
+      const selectorChoices = at === "selector" ? selectorChoicesForGraph(hs as EditorHotspot, lang) : [];
+      if (selectorChoices.length > 0) {
+        const baseCy = hy - ((selectorChoices.length - 1) * CHOICE_STEP_Y) / 2;
+        let branchX = nextChildX;
+        for (let ci = 0; ci < selectorChoices.length; ci++) {
+          const ch = selectorChoices[ci];
+          const choiceId = `sel:${sk}:${i}:${ci}`;
+          const cy = baseCy + ci * CHOICE_STEP_Y;
+          nodes.push({
+            id: choiceId,
+            type: "mapSelectorChoice",
+            position: { x: x + HOTSPOT_DX + CHOICE_OFFSET_X, y: cy },
+            draggable: false,
+            selectable: false,
+            data: {
+              kind: "selectorChoice",
+              label: ch.label,
+              sceneIndex: meta.index,
+              hotspotIndex: i,
+              choiceIndex: ci,
+              targetCount: ch.targetSceneIds.length,
+              lang,
+            } satisfies MapSelectorChoiceNodeData & { lang: EditorLang },
+          });
+          pushMapEdge(edges, hsRfId, choiceId);
+          subtreeRight = Math.max(subtreeRight, x + HOTSPOT_DX + CHOICE_OFFSET_X + 170);
+          for (let tg = 0; tg < ch.targetSceneIds.length; tg++) {
+            const target = ch.targetSceneIds[tg];
+            const yBranch = cy + tg * TARGET_STAGGER_Y;
+            if (!visitedFull.has(target)) {
+              const sub = placeScene(target, branchX, yBranch);
+              if (sub.rootSceneRfId) {
+                pushMapEdge(edges, choiceId, sub.rootSceneRfId);
+              }
+              branchX = sub.right + SUBTREE_GAP;
+              subtreeRight = Math.max(subtreeRight, sub.right);
+            } else {
+              const redId = `rd:${redirectCounter++}`;
+              nodes.push({
+                id: redId,
+                type: "mapRedirect",
+                position: { x: x + REDIRECT_DX, y: yBranch },
+                data: redirectNodeData(target),
+              });
+              pushMapEdge(edges, choiceId, redId);
+              subtreeRight = Math.max(subtreeRight, x + REDIRECT_DX + 200);
+            }
+          }
+        }
+        nextChildX = branchX;
+        return;
+      }
 
       const targets = getTargetSceneIdsFromHotspot(hs as EditorHotspot);
       if (targets.length === 0) {
@@ -679,6 +922,22 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
     if (placedSceneKeys.has(sk)) return;
     placedSceneKeys.add(sk);
     const title = sceneTitleForGraph(scene, si, lang);
+    pushSceneGroupNode(
+      nodes,
+      `sg:${sk}`,
+      orphanBaseX - 30,
+      orphanY + orphanIndex * ORPHAN_STEP_Y - 40,
+      340,
+      210,
+      {
+        kind: "sceneGroup",
+        label: title,
+        sceneKey: sk,
+        sceneIndex: si,
+        viewMode: "tree",
+        lang,
+      }
+    );
     nodes.push({
       id: `sc:${sk}`,
       type: "mapScene",

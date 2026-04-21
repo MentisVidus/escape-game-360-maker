@@ -21,7 +21,13 @@ import {
   type MapSceneNodeData,
   buildProjectMapGraph,
 } from "./mapGraphBuild";
-import { MapHotspotNode, MapRedirectNode, MapSceneNode } from "./mapNodes";
+import {
+  MapHotspotNode,
+  MapRedirectNode,
+  MapSceneGroupNode,
+  MapSceneNode,
+  MapSelectorChoiceNode,
+} from "./mapNodes";
 
 declare global {
   interface Window {
@@ -42,8 +48,10 @@ declare global {
 }
 
 const nodeTypes: NodeTypes = {
+  mapSceneGroup: MapSceneGroupNode,
   mapScene: MapSceneNode,
   mapHotspot: MapHotspotNode,
+  mapSelectorChoice: MapSelectorChoiceNode,
   mapRedirect: MapRedirectNode,
 };
 
