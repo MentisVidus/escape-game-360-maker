@@ -4,6 +4,7 @@ import type {
   EditorLang,
   MapHotspotNodeData,
   MapRedirectNodeData,
+  MapResourceNodeData,
   MapSceneGroupNodeData,
   MapSceneNodeData,
   MapSelectorChoiceNodeData,
@@ -203,6 +204,7 @@ export function MapHotspotNode({ data }: HotspotNodeProps) {
 }
 
 type RedirectNodeProps = NodeProps<FlowNode<MapRedirectNodeData & { lang: EditorLang }>>;
+type ResourceNodeProps = NodeProps<FlowNode<MapResourceNodeData & { lang: EditorLang }>>;
 
 type SceneGroupNodeProps = NodeProps<FlowNode<MapSceneGroupNodeData & { lang: EditorLang }>>;
 
@@ -234,6 +236,29 @@ export function MapSelectorChoiceNode({ data }: SelectorChoiceNodeProps) {
           {data.targetCount === 1 ? "" : "s"}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+export function MapResourceNode({ data }: ResourceNodeProps) {
+  const en = data.lang === "en";
+  const title =
+    data.resourceType === "globalMusic"
+      ? en
+        ? "Global audio"
+        : "Audio global"
+      : en
+        ? "Scene audio"
+        : "Audio scène";
+  const shortUrl = data.url.length > 34 ? `${data.url.slice(0, 34)}…` : data.url;
+  return (
+    <div className="rf-map-resource-root">
+      <Handle type="target" position={Position.Left} id="in" />
+      <div className="rf-map-resource-title">{title}</div>
+      <div className="rf-map-resource-body">{shortUrl || "—"}</div>
+      <div className="rf-map-resource-sub">
+        vol {Math.round(Math.max(0, Math.min(1, data.volume)) * 100)}%
+      </div>
     </div>
   );
 }

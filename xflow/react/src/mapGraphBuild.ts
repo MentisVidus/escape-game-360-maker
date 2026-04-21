@@ -8,6 +8,11 @@ export type EditorLang = "fr" | "en";
 export type EditorProject = {
   schemaVersion?: number;
   title?: string;
+  useGlobalAudio?: boolean;
+  globalMusic?: {
+    url?: string;
+    volume?: number;
+  };
   scenes?: EditorScene[];
 };
 
@@ -16,6 +21,14 @@ export type EditorScene = {
   scId?: string;
   title?: string;
   scTitle?: string;
+  media?: {
+    ambiance?: {
+      url?: string;
+      volume?: number;
+    };
+  };
+  scAudio?: string;
+  scAudioVol?: number;
   hotspots?: EditorHotspot[];
 };
 
@@ -62,6 +75,16 @@ export type MapSceneGroupNodeData = {
   sceneKey: string;
   sceneIndex: number;
   viewMode: "focus" | "full" | "tree";
+};
+
+export type MapResourceNodeData = {
+  kind: "resource";
+  label: string;
+  resourceType: "sceneAmbiance" | "globalMusic";
+  sceneKey?: string;
+  sceneIndex?: number;
+  url: string;
+  volume: number;
 };
 
 export type MapRedirectNodeData = {
@@ -460,6 +483,38 @@ function pushMapEdge(edges: Edge[], source: string, target: string): void {
   });
 }
 
+function pushMapMetaEdge(edges: Edge[], source: string, target: string): void {
+  edges.push({
+    id: nextEdgeId(),
+    source,
+    target,
+    sourceHandle: "out",
+    targetHandle: "in",
+    type: "smoothstep",
+    style: { stroke: "#c084fc", strokeDasharray: "4 4", strokeWidth: 1.8 },
+  });
+}
+
+function readSceneAmbiance(scene: EditorScene | undefined): { url: string; volume: number } | null {
+  if (!scene) return null;
+  const viaMedia = scene.media?.ambiance;
+  const url =
+    viaMedia?.url != null && String(viaMedia.url).trim()
+      ? String(viaMedia.url).trim()
+      : scene.scAudio != null && String(scene.scAudio).trim()
+        ? String(scene.scAudio).trim()
+        : "";
+  if (!url) return null;
+  const rawVol =
+    viaMedia?.volume != null && !Number.isNaN(Number(viaMedia.volume))
+      ? Number(viaMedia.volume)
+      : scene.scAudioVol != null && !Number.isNaN(Number(scene.scAudioVol))
+        ? Number(scene.scAudioVol)
+        : 1;
+  const volume = Math.max(0, Math.min(1, rawVol));
+  return { url, volume };
+}
+
 function pushSceneGroupNode(
   nodes: Node[],
   id: string,
@@ -489,6 +544,7 @@ function nodeSizeForLayout(n: Node): LayoutSize {
   if (n.type === "mapScene") return { width: 240, height: 120 };
   if (n.type === "mapHotspot") return { width: 220, height: 100 };
   if (n.type === "mapSelectorChoice") return { width: 180, height: 74 };
+  if (n.type === "mapResource") return { width: 200, height: 78 };
   if (n.type === "mapRedirect") return { width: 190, height: 82 };
   if (n.style && typeof n.style.width === "number" && typeof n.style.height === "number") {
     return { width: n.style.width, height: n.style.height };
@@ -508,8 +564,13 @@ function refreshSceneGroupBoundsFromChildren(nodes: Node[]): void {
     const sceneId = `sc:${sk}`;
     const hsPrefix = `hs:${sk}:`;
     const selPrefix = `sel:${sk}:`;
+    const resPrefix = `res:${sk}:`;
     const kids = nodes.filter(
-      (n) => n.id === sceneId || n.id.startsWith(hsPrefix) || n.id.startsWith(selPrefix)
+      (n) =>
+        n.id === sceneId ||
+        n.id.startsWith(hsPrefix) ||
+        n.id.startsWith(selPrefix) ||
+        n.id.startsWith(resPrefix)
     );
     if (kids.length === 0) return;
     let minX = Number.POSITIVE_INFINITY;
@@ -612,7 +673,46 @@ function buildGraphFull(
       position: { x: p.sx, y: p.sy },
       data: { ...data, lang, chrome: "full" as const },
     });
+    const amb = readSceneAmbiance(scene);
+    if (amb) {
+      const rid = `res:${sk}:amb`;
+      nodes.push({
+        id: rid,
+        type: "mapResource",
+        position: { x: p.sx + 18, y: p.sy + 156 },
+        data: {
+          kind: "resource",
+          label: lang === "en" ? "Scene ambiance" : "Ambiance scène",
+          resourceType: "sceneAmbiance",
+          sceneKey: sk,
+          sceneIndex: si,
+          url: amb.url,
+          volume: amb.volume,
+          lang,
+        } satisfies MapResourceNodeData & { lang: EditorLang },
+      });
+      pushMapMetaEdge(edges, id, rid);
+    }
   });
+
+  if (project.useGlobalAudio && project.globalMusic && String(project.globalMusic.url || "").trim()) {
+    const gurl = String(project.globalMusic.url || "").trim();
+    const gvolRaw = Number(project.globalMusic.volume ?? 0.5);
+    const gvol = Number.isNaN(gvolRaw) ? 0.5 : Math.max(0, Math.min(1, gvolRaw));
+    nodes.push({
+      id: "res:global:music",
+      type: "mapResource",
+      position: { x: 30, y: -20 },
+      data: {
+        kind: "resource",
+        label: lang === "en" ? "Global music" : "Musique globale",
+        resourceType: "globalMusic",
+        url: gurl,
+        volume: gvol,
+        lang,
+      } satisfies MapResourceNodeData & { lang: EditorLang },
+    });
+  }
 
   scenes.forEach((scene, si) => {
     const sk = sceneKey(scene, si);
@@ -763,6 +863,46 @@ function buildGraphFocus(
       chrome: "active" as const,
     },
   });
+  const activeAmb = readSceneAmbiance(activeScene);
+  if (activeAmb) {
+    const rid = `res:${activeKey}:amb`;
+    nodes.push({
+      id: rid,
+      type: "mapResource",
+      position: { x: ACTIVE_X + 20, y: ACTIVE_Y + 160 },
+      data: {
+        kind: "resource",
+        label: lang === "en" ? "Scene ambiance" : "Ambiance scène",
+        resourceType: "sceneAmbiance",
+        sceneKey: activeKey,
+        sceneIndex: resolved.index,
+        url: activeAmb.url,
+        volume: activeAmb.volume,
+        lang,
+      } satisfies MapResourceNodeData & { lang: EditorLang },
+    });
+    pushMapMetaEdge(edges, activeId, rid);
+  }
+  if (project.useGlobalAudio && project.globalMusic && String(project.globalMusic.url || "").trim()) {
+    const gurl = String(project.globalMusic.url || "").trim();
+    const gvolRaw = Number(project.globalMusic.volume ?? 0.5);
+    const gvol = Number.isNaN(gvolRaw) ? 0.5 : Math.max(0, Math.min(1, gvolRaw));
+    const gid = "res:global:music";
+    nodes.push({
+      id: gid,
+      type: "mapResource",
+      position: { x: ACTIVE_X + 6, y: ACTIVE_Y - 132 },
+      data: {
+        kind: "resource",
+        label: lang === "en" ? "Global music" : "Musique globale",
+        resourceType: "globalMusic",
+        url: gurl,
+        volume: gvol,
+        lang,
+      } satisfies MapResourceNodeData & { lang: EditorLang },
+    });
+    pushMapMetaEdge(edges, activeId, gid);
+  }
 
   const hotspots = Array.isArray(activeScene.hotspots) ? activeScene.hotspots : [];
   const uniqueTargets: string[] = [];
@@ -938,6 +1078,26 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
         chrome: "tree" as const,
       },
     });
+    const amb = readSceneAmbiance(meta.scene);
+    if (amb) {
+      const rid = `res:${sk}:amb`;
+      nodes.push({
+        id: rid,
+        type: "mapResource",
+        position: { x: x + 18, y: yCenter + 140 },
+        data: {
+          kind: "resource",
+          label: lang === "en" ? "Scene ambiance" : "Ambiance scène",
+          resourceType: "sceneAmbiance",
+          sceneKey: sk,
+          sceneIndex: meta.index,
+          url: amb.url,
+          volume: amb.volume,
+          lang,
+        } satisfies MapResourceNodeData & { lang: EditorLang },
+      });
+      pushMapMetaEdge(edges, sceneRfId, rid);
+    }
 
     const baseHy = yCenter - ((Math.max(hsList.length, 1) - 1) * HS_STEP) / 2;
     let subtreeRight = x + 200;
@@ -1059,7 +1219,32 @@ function buildGraphTree(project: EditorProject, lang: EditorLang, nodes: Node[],
   }
 
   const entryKey = sceneKey(scenes[0], 0);
-  placeScene(entryKey, 60, 320);
+  const entryPlaced = placeScene(entryKey, 60, 320);
+  if (
+    entryPlaced.rootSceneRfId &&
+    project.useGlobalAudio &&
+    project.globalMusic &&
+    String(project.globalMusic.url || "").trim()
+  ) {
+    const gurl = String(project.globalMusic.url || "").trim();
+    const gvolRaw = Number(project.globalMusic.volume ?? 0.5);
+    const gvol = Number.isNaN(gvolRaw) ? 0.5 : Math.max(0, Math.min(1, gvolRaw));
+    const gid = "res:global:music";
+    nodes.push({
+      id: gid,
+      type: "mapResource",
+      position: { x: 20, y: 40 },
+      data: {
+        kind: "resource",
+        label: lang === "en" ? "Global music" : "Musique globale",
+        resourceType: "globalMusic",
+        url: gurl,
+        volume: gvol,
+        lang,
+      } satisfies MapResourceNodeData & { lang: EditorLang },
+    });
+    pushMapMetaEdge(edges, entryPlaced.rootSceneRfId, gid);
+  }
 
   const ORPHAN_GAP_X = 100;
   const ORPHAN_STEP_Y = 140;

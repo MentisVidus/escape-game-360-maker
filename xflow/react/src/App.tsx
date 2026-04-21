@@ -24,6 +24,7 @@ import {
 import {
   MapHotspotNode,
   MapRedirectNode,
+  MapResourceNode,
   MapSceneGroupNode,
   MapSceneNode,
   MapSelectorChoiceNode,
@@ -52,6 +53,7 @@ const nodeTypes: NodeTypes = {
   mapScene: MapSceneNode,
   mapHotspot: MapHotspotNode,
   mapSelectorChoice: MapSelectorChoiceNode,
+  mapResource: MapResourceNode,
   mapRedirect: MapRedirectNode,
 };
 
