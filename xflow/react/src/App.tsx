@@ -35,6 +35,12 @@ import {
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
 import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT } from "./mapFlowHandles";
 import {
+  appendFlowExtraConnection,
+  loadFlowExtraEdges,
+  mergePackEdgesWithExtras,
+  removeFlowExtraEdgesByIds,
+} from "./mapFlowExtraEdges";
+import {
   MapHotspotNode,
   MapRedirectNode,
   MapResourceNode,
@@ -264,6 +270,7 @@ function InnerMap() {
   const store = useStoreApi();
   const layoutSaveTimer = useRef<number | null>(null);
   const altConnectRef = useRef(false);
+  const layoutKeyRef = useRef("");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteSceneIndex, setPaletteSceneIndex] = useState(0);
 
@@ -318,8 +325,10 @@ function InnerMap() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(pack.edges);
 
   useEffect(() => {
+    layoutKeyRef.current = pack.layoutKey;
+    const extras = loadFlowExtraEdges(pack.layoutKey);
     setNodes(pack.nodes);
-    setEdges(pack.edges);
+    setEdges(mergePackEdgesWithExtras(pack.edges, extras, pack.nodes));
   }, [pack, setNodes, setEdges]);
 
   const mode = window._projectMapViewMode || "full";
@@ -410,8 +419,8 @@ function InnerMap() {
         return true;
       }
       /**
-       * Choix menu (Est) → hotspot (Ouest) : pour l’instant uniquement **orphelin** (file carte) →
-       * rattache à la scène du menu (`attachHotspotToMapScene`). Même connecteur flow que la scène.
+       * Choix menu (Est) → hotspot (Ouest) : file d’attente (DOM) **ou** même scène que le menu
+       * (arête « extra » sessionStorage, pas encore V2).
        */
       if (sNode.type === "mapSelectorChoice" && tNode.type === "mapHotspot") {
         if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
@@ -419,11 +428,16 @@ function InnerMap() {
         const hd = tNode.data as MapHotspotNodeData;
         if (!cd.parentSceneKey || cd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return false;
         if (hd.hotspotIndex === cd.hotspotIndex && hd.sceneIndex === cd.sceneIndex) return false;
-        return hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY;
+        if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return true;
+        return (
+          hd.sceneIndex === cd.sceneIndex &&
+          hd.parentSceneKey === cd.parentSceneKey &&
+          hd.hotspotIndex !== cd.hotspotIndex
+        );
       }
       /**
-       * Hotspot menu selector (Est) → hotspot (Ouest) : uniquement vers **orphelin** (même sémantique
-       * que scène Est → hotspot : ramener l’orphelin sur la scène du menu).
+       * Hotspot menu selector (Est) → hotspot (Ouest) : orphelin (DOM) ou autre hotspot **sur la
+       * même scène** (arête extra).
        */
       if (sNode.type === "mapHotspot" && tNode.type === "mapHotspot") {
         if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
@@ -431,7 +445,12 @@ function InnerMap() {
         const td = tNode.data as MapHotspotNodeData;
         if (sd.actionType !== "selector") return false;
         if (sd.sceneIndex === td.sceneIndex && sd.hotspotIndex === td.hotspotIndex) return false;
-        return td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY;
+        if (td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return true;
+        return (
+          td.sceneIndex === sd.sceneIndex &&
+          td.parentSceneKey === sd.parentSceneKey &&
+          td.hotspotIndex !== sd.hotspotIndex
+        );
       }
       if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
         if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return false;
@@ -519,8 +538,12 @@ function InnerMap() {
           const cd = sNode.data as MapSelectorChoiceNodeData;
           const hd = tNode.data as MapHotspotNodeData;
           if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
-          if (hd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return;
-          window.attachHotspotToMapScene?.(hd.sceneIndex, hd.hotspotIndex, cd.sceneIndex);
+          if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
+            window.attachHotspotToMapScene?.(hd.sceneIndex, hd.hotspotIndex, cd.sceneIndex);
+            return;
+          }
+          appendFlowExtraConnection(layoutKeyRef.current, c);
+          bump();
           return;
         }
         if (sNode.type === "mapHotspot" && tNode.type === "mapHotspot") {
@@ -528,8 +551,12 @@ function InnerMap() {
           const td = tNode.data as MapHotspotNodeData;
           if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
           if (sd.actionType !== "selector") return;
-          if (td.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return;
-          window.attachHotspotToMapScene?.(td.sceneIndex, td.hotspotIndex, sd.sceneIndex);
+          if (td.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
+            window.attachHotspotToMapScene?.(td.sceneIndex, td.hotspotIndex, sd.sceneIndex);
+            return;
+          }
+          appendFlowExtraConnection(layoutKeyRef.current, c);
+          bump();
           return;
         }
         if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
@@ -590,11 +617,16 @@ function InnerMap() {
         altConnectRef.current = false;
       }
     },
-    [nodes]
+    [nodes, bump]
   );
 
   const onEdgesDelete = useCallback(
     (removed: Edge[]) => {
+      const extraIds = removed.map((e) => e.id).filter((id) => id.startsWith("xflow-extra:"));
+      if (extraIds.length > 0) {
+        removeFlowExtraEdgesByIds(layoutKeyRef.current, extraIds);
+        bump();
+      }
       for (const edge of removed) {
         if (edge.sourceHandle !== RF_FLOW_OUT || edge.targetHandle !== RF_FLOW_IN) continue;
         const src = nodes.find((n) => n.id === edge.source);
@@ -610,7 +642,7 @@ function InnerMap() {
         }
       }
     },
-    [nodes]
+    [nodes, bump]
   );
 
   const onNodesChangePersistLayout = useCallback(
@@ -706,24 +738,23 @@ function InnerMap() {
           >
             {enUi ? (
               <>
-                <strong>Links:</strong> flow handles (blue): scene <strong>right</strong> or menu
-                choice <strong>right</strong> → unassigned hotspot <strong>left</strong> (attach to
-                that scene); selector hotspot <strong>right</strong> → unassigned hotspot{" "}
-                <strong>left</strong> (same). Orphan ↔ scene both ways for parent link.{" "}
-                <strong>Remove</strong> scene→hotspot: select edge, <kbd>Delete</kbd>.{" "}
-                <strong>Copy</strong> hotspot: <kbd>Alt</kbd> + hotspot out → scene in.{" "}
-                <strong>Orphan → menu:</strong> pool hotspot out → choice in (promotion).
+                <strong>Links:</strong> blue flow: scene or choice <strong>right</strong> → pool
+                hotspot <strong>left</strong> (attach); selector hotspot <strong>right</strong> →
+                pool hotspot <strong>left</strong> (attach). Same-scene choice or selector → another
+                hotspot: <strong>dashed</strong> link (saved in this session only). Orphan ↔ scene.{" "}
+                <strong>Delete</strong> edge: <kbd>Delete</kbd>. <strong>Copy</strong> hotspot:{" "}
+                <kbd>Alt</kbd>. <strong>Orphan → menu:</strong> pool out → choice in (promotion).
               </>
             ) : (
               <>
-                <strong>Liaisons (rond bleu) :</strong> sortie <strong>droite</strong> d’une scène ou
-                d’un <strong>choix</strong> de menu → entrée <strong>gauche</strong> d’un hotspot de la
-                file d’attente : rattache à la scène du nœud source ; idem depuis le hotspot{" "}
-                <strong>menu</strong> (selector) vers un orphelin. Orphelin ↔ scène dans les deux
-                sens. <strong>Couper</strong> scène→hotspot : arête puis <kbd>Suppr</kbd>.{" "}
-                <strong>Copier</strong> : <kbd>Alt</kbd> + sortie hotspot → entrée scène.{" "}
+                <strong>Liaisons (rond bleu) :</strong> scène ou <strong>choix</strong> (sortie
+                droite) → hotspot <strong>file d’attente</strong> (entrée gauche) : rattachement DOM ;
+                idem <strong>menu selector</strong> → orphelin. Sur <strong>même scène</strong>, choix
+                ou menu → autre hotspot : arête <strong>pointillée</strong> (session navigateur
+                seulement, hors export tant non tranché). Orphelin ↔ scène. <strong>Suppr</strong>{" "}
+                arête : <kbd>Suppr</kbd>. <strong>Copier</strong> hotspot : <kbd>Alt</kbd>.{" "}
                 <strong>Orphelin → menu :</strong> sortie orphelin → entrée <strong>choix</strong>{" "}
-                (promotion <code>choices[]</code>).
+                (<code>choices[]</code>).
               </>
             )}
           </div>
