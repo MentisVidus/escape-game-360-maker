@@ -8,7 +8,6 @@ import {
   type MapHotspotNodeData,
   type MapRedirectNodeData,
   type MapResourceNodeData,
-  type MapRewardTargetNodeData,
   type MapSceneNodeData,
   type MapSelectorChoiceNodeData,
 } from "./mapGraphBuild";
@@ -31,19 +30,27 @@ function isReqOrPwdHotspotData(d: MapHotspotNodeData): boolean {
   return t === "req" || t === "pwd";
 }
 
-/** Liaison `reward-out` (req/pwd) → nœud cible récompense (`mapRewardTarget` + `reward-in`). */
+function isRewardTargetHotspotData(d: MapHotspotNodeData): boolean {
+  const t = String(d.actionType || "").trim();
+  return t === "msg" || t === "pick" || t === "selector";
+}
+
+/** Liaison `reward-out` (req/pwd) → scène (transition) ou hotspot msg|pick|selector (`reward-in`). */
 export function isValidMapRewardConnection(ctx: MapFlowConnectionContext): boolean {
   const { nodes, connection: c } = ctx;
   if (!isRewardOutToInConnection(c)) return false;
   const sNode = nodes.find((n) => n.id === c.source);
   const tNode = nodes.find((n) => n.id === c.target);
   if (!sNode || !tNode) return false;
-  if (sNode.type !== "mapHotspot" || tNode.type !== "mapRewardTarget") return false;
+  if (sNode.type !== "mapHotspot") return false;
   const sd = sNode.data as MapHotspotNodeData;
   if (!isReqOrPwdHotspotData(sd)) return false;
-  const td = tNode.data as MapRewardTargetNodeData;
-  if (td.kind !== "rewardTarget") return false;
-  return true;
+  if (tNode.type === "mapScene") return true;
+  if (tNode.type === "mapHotspot") {
+    const td = tNode.data as MapHotspotNodeData;
+    return isRewardTargetHotspotData(td);
+  }
+  return false;
 }
 
 export function isValidMapFlowConnection(ctx: MapFlowConnectionContext): boolean {
@@ -54,10 +61,6 @@ export function isValidMapFlowConnection(ctx: MapFlowConnectionContext): boolean
 
   if (c.sourceHandle === RF_REWARD_OUT || c.targetHandle === RF_REWARD_IN) {
     return isValidMapRewardConnection(ctx);
-  }
-
-  if (sNode.type === "mapRewardTarget" || tNode.type === "mapRewardTarget") {
-    return false;
   }
 
   if (sNode.type === "mapScene" && tNode.type === "mapHotspot") {

@@ -107,35 +107,45 @@
         };
     }
 
-    function stubLabel(kind, en) {
-        if (en) {
-            if (kind === "msg") return "Message";
-            if (kind === "scene") return "Scene transition";
-            if (kind === "pick") return "Pick";
-            return "Selector";
+    function collectGraphLikeNodeIds(project) {
+        var ids = {};
+        var scenes = project && Array.isArray(project.scenes) ? project.scenes : [];
+        for (var si = 0; si < scenes.length; si++) {
+            var sk = sceneKeyFromScene(scenes[si], si);
+            ids["sc:" + sk] = true;
+            var hss = scenes[si].hotspots;
+            if (!Array.isArray(hss)) continue;
+            for (var hi = 0; hi < hss.length; hi++) {
+                ids["hs:" + sk + ":" + hi] = true;
+            }
         }
-        if (kind === "msg") return "Message";
-        if (kind === "scene") return "Transition scène";
-        if (kind === "pick") return "Objet (pick)";
-        return "Menu (selector)";
+        return ids;
     }
 
-    function hostLangEn() {
-        return String(document.documentElement.lang || "")
-            .toLowerCase()
-            .indexOf("en") === 0;
+    function patchFromTargetGraphId(project, targetId) {
+        var tid = String(targetId || "");
+        if (tid.indexOf("sc:") === 0) {
+            return { rewardType: "scene", rewardActionDraft: defaultDraftForKind("scene") };
+        }
+        if (tid.indexOf("hs:") !== 0) return null;
+        var parsed = parseHsNodeId(tid);
+        if (!parsed) return null;
+        var hs = findHotspotAction(project, parsed.sceneKey, parsed.hotspotIndex);
+        if (!hs || !hs.action) return null;
+        var at = String(hs.action.type || "").trim();
+        if (at !== "msg" && at !== "pick" && at !== "selector") return null;
+        return { rewardType: at, rewardActionDraft: defaultDraftForKind(at) };
     }
 
     /**
      * @param {object} project
-     * @returns {{ version: number, nodes: object, rewardTargets: array, rewardEdges: array, backgrounds: array }}
+     * @returns {{ version: number, nodes: object, rewardEdges: array, backgrounds: array }}
      */
     function buildMapLayoutFileV1FromSession(project) {
         var key = computeProjectMapLayoutStorageKey(project);
         var out = {
             version: 1,
             nodes: {},
-            rewardTargets: [],
             rewardEdges: [],
             backgrounds: []
         };
@@ -155,23 +165,6 @@
             if (!rr) return out;
             var ro = JSON.parse(rr);
             if (!ro || ro.v !== 1) return out;
-            if (Array.isArray(ro.stubNodes)) {
-                ro.stubNodes.forEach(function (sn) {
-                    if (!sn || sn.type !== "mapRewardTarget") return;
-                    var d = sn.data || {};
-                    var kind = String(d.rewardKind || "scene");
-                    if (kind !== "msg" && kind !== "scene" && kind !== "pick" && kind !== "selector") {
-                        kind = "scene";
-                    }
-                    var pos = sn.position || {};
-                    out.rewardTargets.push({
-                        id: String(sn.id || ""),
-                        kind: kind,
-                        x: typeof pos.x === "number" ? pos.x : 0,
-                        y: typeof pos.y === "number" ? pos.y : 0
-                    });
-                });
-            }
             if (Array.isArray(ro.edges)) {
                 ro.edges.forEach(function (e) {
                     if (!e) return;
@@ -198,56 +191,19 @@
         var key = computeProjectMapLayoutStorageKey(project);
         var obj = typeof json === "string" ? JSON.parse(json) : json;
         if (!obj || obj.version !== 1) return;
-        var en = hostLangEn();
 
         if (obj.nodes && typeof obj.nodes === "object" && global.sessionStorage) {
             global.sessionStorage.setItem(key, JSON.stringify(obj.nodes));
         }
 
-        var targets = Array.isArray(obj.rewardTargets) ? obj.rewardTargets : [];
-        var targetById = {};
-        targets.forEach(function (t) {
-            if (!t || !t.id) return;
-            var kind = String(t.kind || "scene");
-            if (kind !== "msg" && kind !== "scene" && kind !== "pick" && kind !== "selector") {
-                kind = "scene";
-            }
-            targetById[String(t.id)] = {
-                id: String(t.id),
-                kind: kind,
-                x: typeof t.x === "number" ? t.x : 0,
-                y: typeof t.y === "number" ? t.y : 0
-            };
-        });
-
+        var graphIds = collectGraphLikeNodeIds(project);
         var overlay = { v: 1, patchByHotspotId: {}, stubNodes: [], edges: [] };
-        targets.forEach(function (t) {
-            if (!t || !t.id) return;
-            var kind = String(t.kind || "scene");
-            if (kind !== "msg" && kind !== "scene" && kind !== "pick" && kind !== "selector") {
-                kind = "scene";
-            }
-            overlay.stubNodes.push({
-                id: String(t.id),
-                type: "mapRewardTarget",
-                position: { x: typeof t.x === "number" ? t.x : 0, y: typeof t.y === "number" ? t.y : 0 },
-                draggable: true,
-                selectable: true,
-                data: {
-                    kind: "rewardTarget",
-                    rewardKind: kind,
-                    label: stubLabel(kind, en),
-                    lang: en ? "en" : "fr"
-                }
-            });
-        });
-
         var edges = Array.isArray(obj.rewardEdges) ? obj.rewardEdges : [];
         edges.forEach(function (e, i) {
             if (!e || !e.source || !e.target) return;
             var src = String(e.source);
             var tgt = String(e.target);
-            if (!targetById[tgt]) return;
+            if (!graphIds[src] || !graphIds[tgt]) return;
             overlay.edges.push({
                 id: "e:rw:" + src + ">" + tgt + ":" + i,
                 source: src,
@@ -259,11 +215,11 @@
             });
             var p = patchForHs(project, src);
             if (!p) {
-                var rt = targetById[tgt];
-                var k = rt && rt.kind ? rt.kind : "scene";
-                p = { rewardType: k, rewardActionDraft: defaultDraftForKind(k) };
+                p = patchFromTargetGraphId(project, tgt);
             }
-            overlay.patchByHotspotId[src] = p;
+            if (p) {
+                overlay.patchByHotspotId[src] = p;
+            }
         });
 
         try {

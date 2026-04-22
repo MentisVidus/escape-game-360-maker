@@ -419,7 +419,19 @@
   text-align: right;
 }
 
-/* —— Récompense req/pwd (handle reward-out / cibles mapRewardTarget) —— */
+/* —— Récompense req/pwd (reward-out) → scène / hotspot (reward-in) —— */
+.rf-map-scene-root .rf-map-scene-reward-in.react-flow__handle {
+  top: 62%;
+  left: -7px;
+  transform: translateY(-50%);
+}
+
+.rf-map-hotspot-root .rf-map-hotspot-reward-in.react-flow__handle {
+  top: 68%;
+  left: -7px;
+  transform: translateY(-50%);
+}
+
 .rf-map-handle-reward-out.react-flow__handle {
   width: 12px;
   height: 12px;
@@ -476,42 +488,4 @@
   border-radius: 4px;
   background: rgba(245, 158, 11, 0.2);
   display: inline-block;
-}
-
-.rf-map-reward-target-root {
-  position: relative;
-  min-width: 168px;
-  padding: 8px 10px 10px 14px;
-  border-radius: 8px;
-  background: linear-gradient(165deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
-  border: 1px solid rgba(251, 191, 36, 0.45);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-}
-
-.rf-map-reward-target-title {
-  font-size: 0.58rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(253, 230, 138, 0.85);
-  margin-bottom: 4px;
-}
-
-.rf-map-reward-target-body {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #fef3c7;
-}
-
-.rf-map-reward-stub-btn {
-  padding: 4px 8px;
-  font-size: 0.68rem;
-  border-radius: 5px;
-  border: 1px solid rgba(251, 191, 36, 0.45);
-  background: rgba(30, 41, 59, 0.95);
-  color: #fde68a;
-  cursor: pointer;
-}
-
-.rf-map-reward-stub-btn:hover {
-  background: rgba(245, 158, 11, 0.25);
 }

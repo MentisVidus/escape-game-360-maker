@@ -9,7 +9,6 @@ import type {
   MapSelectorGroupNodeData,
   MapSceneNodeData,
   MapSelectorChoiceNodeData,
-  MapRewardTargetNodeData,
 } from "./mapGraphBuild";
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
 import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT, RF_REWARD_IN, RF_REWARD_OUT } from "./mapFlowHandles";
@@ -91,6 +90,13 @@ export function MapSceneNode({ data }: SceneNodeProps) {
   return (
     <div className={wrapClass}>
       <Handle type="target" position={Position.Left} id={RF_FLOW_IN} className="rf-map-handle-flow-in" />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id={RF_REWARD_IN}
+        className="rf-map-handle-reward-in rf-map-scene-reward-in"
+        isConnectable
+      />
       <Handle type="source" position={Position.Right} id={RF_FLOW_OUT} className="rf-map-handle-flow-out" />
       <Handle type="source" position={Position.Bottom} id={RF_META_OUT} className="rf-map-handle-meta-out" />
       <div className="rf-map-node-actions">
@@ -185,6 +191,7 @@ export function MapHotspotNode({ id, data }: HotspotNodeProps) {
   const labAction = en ? "Action:" : "Action :";
   const at = String(data.actionType || "").trim();
   const showRewardPort = at === "req" || at === "pwd";
+  const showRewardInPort = at === "msg" || at === "pick" || at === "selector";
   const hasRewardEdge = useStore(
     useCallback(
       (s) => s.edges.some((e) => e.source === id && e.sourceHandle === RF_REWARD_OUT),
@@ -206,6 +213,15 @@ export function MapHotspotNode({ id, data }: HotspotNodeProps) {
         .join(" ")}
     >
       <Handle type="target" position={Position.Left} id={RF_FLOW_IN} className="rf-map-handle-flow-in" />
+      {showRewardInPort ? (
+        <Handle
+          type="target"
+          position={Position.Left}
+          id={RF_REWARD_IN}
+          className="rf-map-handle-reward-in rf-map-hotspot-reward-in"
+          isConnectable
+        />
+      ) : null}
       <Handle type="source" position={Position.Right} id={RF_FLOW_OUT} className="rf-map-handle-flow-out" />
       <Handle type="source" position={Position.Bottom} id={RF_META_OUT} className="rf-map-handle-meta-out" />
       {showRewardPort ? (
@@ -256,27 +272,6 @@ export function MapHotspotNode({ id, data }: HotspotNodeProps) {
           </div>
         ) : null}
       </div>
-    </div>
-  );
-}
-
-type RewardTargetNodeProps = NodeProps<FlowNode<MapRewardTargetNodeData & { lang: EditorLang }>>;
-
-export function MapRewardTargetNode({ data }: RewardTargetNodeProps) {
-  const en = data.lang === "en";
-  return (
-    <div className="rf-map-reward-target-root">
-      <Handle
-        type="target"
-        position={Position.Left}
-        id={RF_REWARD_IN}
-        className="rf-map-handle-reward-in"
-        isConnectable
-      />
-      <div className="rf-map-reward-target-title">
-        {en ? "Reward target" : "Cible récompense"}
-      </div>
-      <div className="rf-map-reward-target-body">{data.label}</div>
     </div>
   );
 }

@@ -9,13 +9,11 @@ export type RewardHotspotPatch = {
 };
 
 export type RewardOverlayState = {
-  stubNodes: Node[];
   edges: Edge[];
   patchByHotspotId: Record<string, RewardHotspotPatch>;
 };
 
 export const emptyRewardOverlay = (): RewardOverlayState => ({
-  stubNodes: [],
   edges: [],
   patchByHotspotId: {},
 });
@@ -28,14 +26,8 @@ export function rewardOverlayStorageKey(layoutKey: string): string {
 export type SerializedRewardOverlayV1 = {
   v: 1;
   patchByHotspotId: Record<string, RewardHotspotPatch>;
-  stubNodes: Array<{
-    id: string;
-    type: string;
-    position: { x: number; y: number };
-    data: Record<string, unknown>;
-    draggable?: boolean;
-    selectable?: boolean;
-  }>;
+  /** Obsolète (stubs supprimés) — toujours [] en écriture. */
+  stubNodes?: unknown[];
   edges: Array<{
     id: string;
     source: string;
@@ -50,14 +42,7 @@ export function serializeRewardOverlay(overlay: RewardOverlayState): SerializedR
   return {
     v: 1,
     patchByHotspotId: overlay.patchByHotspotId,
-    stubNodes: overlay.stubNodes.map((n) => ({
-      id: n.id,
-      type: String(n.type || ""),
-      position: { x: n.position.x, y: n.position.y },
-      data: { ...(n.data as Record<string, unknown>) },
-      draggable: n.draggable !== false,
-      selectable: n.selectable !== false,
-    })),
+    stubNodes: [],
     edges: overlay.edges.map((e) => ({
       id: e.id,
       source: e.source,
@@ -79,10 +64,15 @@ function isRewardHotspotPatch(v: unknown): v is RewardHotspotPatch {
   return typeof (ra as Record<string, unknown>).type === "string";
 }
 
-/** Relit le JSON session ; ignore les patches dont le hotspot source n’est plus sur le graphe. */
+/**
+ * Relit le JSON session.
+ * @param validSourceHotspotIds ids `hs:…` présents sur le graphe
+ * @param validTargetNodeIds ids de tout nœud carte (scène, hotspot cible, …)
+ */
 export function deserializeRewardOverlay(
   json: unknown,
-  validHotspotNodeIds: Set<string>
+  validSourceHotspotIds: Set<string>,
+  validTargetNodeIds: Set<string>
 ): RewardOverlayState {
   const empty = emptyRewardOverlay();
   if (!json || typeof json !== "object") return empty;
@@ -93,36 +83,12 @@ export function deserializeRewardOverlay(
   const rawPatch = o.patchByHotspotId;
   if (rawPatch && typeof rawPatch === "object") {
     for (const [k, v] of Object.entries(rawPatch as Record<string, unknown>)) {
-      if (!validHotspotNodeIds.has(k)) continue;
+      if (!validSourceHotspotIds.has(k)) continue;
       if (!isRewardHotspotPatch(v)) continue;
       patchByHotspotId[k] = v;
     }
   }
 
-  const stubNodes: Node[] = [];
-  if (Array.isArray(o.stubNodes)) {
-    for (const sn of o.stubNodes) {
-      if (!sn || typeof sn !== "object") continue;
-      const row = sn as Record<string, unknown>;
-      if (row.type !== "mapRewardTarget") continue;
-      const id = row.id != null ? String(row.id) : "";
-      if (!id) continue;
-      const pos = row.position as Record<string, unknown> | undefined;
-      const x = pos && typeof pos.x === "number" ? pos.x : 0;
-      const y = pos && typeof pos.y === "number" ? pos.y : 0;
-      const data = row.data && typeof row.data === "object" ? (row.data as Record<string, unknown>) : {};
-      stubNodes.push({
-        id,
-        type: "mapRewardTarget",
-        position: { x, y },
-        draggable: row.draggable !== false,
-        selectable: row.selectable !== false,
-        data,
-      } as Node);
-    }
-  }
-
-  const stubIds = new Set(stubNodes.map((s) => s.id));
   const edges: Edge[] = [];
   if (Array.isArray(o.edges)) {
     for (const raw of o.edges) {
@@ -133,8 +99,8 @@ export function deserializeRewardOverlay(
       const target = e.target != null ? String(e.target) : "";
       if (!id || !source || !target) continue;
       if (e.sourceHandle !== RF_REWARD_OUT || e.targetHandle !== RF_REWARD_IN) continue;
-      if (!validHotspotNodeIds.has(source)) continue;
-      if (!stubIds.has(target)) continue;
+      if (!validSourceHotspotIds.has(source)) continue;
+      if (!validTargetNodeIds.has(target)) continue;
       edges.push({
         id,
         source,
@@ -154,56 +120,40 @@ export function deserializeRewardOverlay(
     }
   }
 
-  return { stubNodes, edges, patchByHotspotId };
+  return { edges, patchByHotspotId };
 }
 
 /** Retire patches / arêtes invalides quand le graphe projet change (hotspots supprimés, etc.). */
 export function pruneRewardOverlayToGraph(
-  graphHotspotNodeIds: Set<string>,
+  graphHotspotIds: Set<string>,
+  validTargetNodeIds: Set<string>,
   overlay: RewardOverlayState
 ): RewardOverlayState {
-  const stubNodes = overlay.stubNodes.filter((s) => s.type === "mapRewardTarget");
-  const stubIds = new Set(stubNodes.map((s) => s.id));
   const edges = overlay.edges.filter(
     (e) =>
       e.sourceHandle === RF_REWARD_OUT &&
       e.targetHandle === RF_REWARD_IN &&
-      graphHotspotNodeIds.has(e.source) &&
-      stubIds.has(e.target)
+      graphHotspotIds.has(e.source) &&
+      validTargetNodeIds.has(e.target)
   );
   const sourcesWithEdge = new Set(edges.map((e) => e.source));
   const patchByHotspotId: Record<string, RewardHotspotPatch> = {};
   for (const [k, v] of Object.entries(overlay.patchByHotspotId)) {
-    if (!graphHotspotNodeIds.has(k)) continue;
+    if (!graphHotspotIds.has(k)) continue;
     if (sourcesWithEdge.has(k)) patchByHotspotId[k] = v;
   }
-  return { stubNodes, edges, patchByHotspotId };
+  return { edges, patchByHotspotId };
 }
 
-/** Retire arêtes / patch / stubs orphelins pour un hotspot source `hs:…` (ex. édition legacy invalide data-v2-reward-action). */
+/** Retire l’overlay récompense pour un hotspot source `hs:…`. */
 export function pruneRewardOverlayForHotspotGraphId(
   overlay: RewardOverlayState,
   hsGraphId: string
 ): RewardOverlayState {
-  const removedTargets = overlay.edges
-    .filter(
-      (e) =>
-        e.source === hsGraphId &&
-        e.sourceHandle === RF_REWARD_OUT &&
-        e.targetHandle === RF_REWARD_IN
-    )
-    .map((e) => e.target);
-  const removedSet = new Set(removedTargets);
   const nextEdges = overlay.edges.filter((e) => e.source !== hsGraphId);
   const patchByHotspotId = { ...overlay.patchByHotspotId };
   delete patchByHotspotId[hsGraphId];
-  const nextTargetRef = new Set(nextEdges.map((e) => e.target));
-  const stubNodes = overlay.stubNodes.filter((sn) => {
-    if (sn.type !== "mapRewardTarget") return true;
-    if (!removedSet.has(sn.id)) return true;
-    return nextTargetRef.has(sn.id);
-  });
-  return { stubNodes, edges: nextEdges, patchByHotspotId };
+  return { edges: nextEdges, patchByHotspotId };
 }
 
 function mergeSavedPositions(
@@ -221,7 +171,7 @@ function mergeSavedPositions(
   });
 }
 
-/** Fusionne nœuds / arêtes « récompense carte » + patch V2 sur les hotspots req/pwd. */
+/** Fusionne arêtes récompense + patch V2 sur les hotspots req/pwd (sans nœuds intermédiaires). */
 export function mergeRewardOverlay(
   baseNodes: Node[],
   baseEdges: Edge[],
@@ -231,9 +181,9 @@ export function mergeRewardOverlay(
   const graphHotspotIds = new Set(
     baseNodes.filter((n) => n.type === "mapHotspot").map((n) => n.id)
   );
-  const overlayClean = pruneRewardOverlayToGraph(graphHotspotIds, overlay);
-  const withStubs = [...baseNodes, ...overlayClean.stubNodes];
-  const posMerged = mergeSavedPositions(withStubs, savedPos);
+  const validTargetNodeIds = new Set(baseNodes.map((n) => n.id));
+  const overlayClean = pruneRewardOverlayToGraph(graphHotspotIds, validTargetNodeIds, overlay);
+  const posMerged = mergeSavedPositions(baseNodes, savedPos);
   const patched = posMerged.map((n) => {
     if (n.type !== "mapHotspot") return n;
     const patch = overlayClean.patchByHotspotId[n.id];

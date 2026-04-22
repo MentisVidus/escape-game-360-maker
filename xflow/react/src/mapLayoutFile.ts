@@ -1,24 +1,20 @@
 import type { Node } from "@xyflow/react";
 
-import type { EditorLang, EditorProject } from "./mapGraphBuild";
+import type { EditorProject } from "./mapGraphBuild";
 import { sceneKey } from "./mapGraphBuild";
 import { RF_REWARD_IN, RF_REWARD_OUT } from "./mapFlowHandles";
-import {
-  createMinimalRewardActionV2,
-  type MapRewardActionDraft,
-  type MapRewardTargetKind,
-} from "./mapRewardActionV2";
+import { buildRewardDraftForDirectMapTarget } from "./mapRewardDirectTarget";
+import type { MapRewardActionDraft, MapRewardTargetKind } from "./mapRewardActionV2";
 import {
   emptyRewardOverlay,
   type RewardHotspotPatch,
   type RewardOverlayState,
 } from "./mapRewardOverlayMerge";
 
-/** Schéma minimal `map-layout.json` (ZIP .escapegame). */
+/** Schéma `map-layout.json` v1 (sans `rewardTargets`). */
 export type MapLayoutFileV1 = {
   version: 1;
   nodes: Record<string, { x: number; y: number }>;
-  rewardTargets: Array<{ id: string; kind: MapRewardTargetKind; x: number; y: number }>;
   rewardEdges: Array<{ source: string; target: string }>;
   backgrounds: unknown[];
 };
@@ -27,7 +23,8 @@ type LooseAction = { type?: string; payload?: Record<string, unknown> } | null |
 
 /** Aligné sur `buildProjectMapGraphBase` / `js/editor-shared-map-layout.js`. */
 export function computeReactMapLayoutStorageKey(project: EditorProject | null): string {
-  const viewMode = (typeof window !== "undefined" && (window as { _projectMapViewMode?: string })._projectMapViewMode) || "full";
+  const viewMode =
+    (typeof window !== "undefined" && (window as { _projectMapViewMode?: string })._projectMapViewMode) || "full";
   let narr = "0";
   if (typeof document !== "undefined") {
     const el = document.getElementById("project-map-narration-only");
@@ -36,19 +33,6 @@ export function computeReactMapLayoutStorageKey(project: EditorProject | null): 
   const nScenes = project?.scenes?.length ?? 0;
   const title = String(project?.title ?? "").slice(0, 120);
   return `escape360-reactMap-pos:v1:${viewMode}:${narr}:${nScenes}:${title}`;
-}
-
-function stubLabel(kind: MapRewardTargetKind, lang: EditorLang): string {
-  if (lang === "en") {
-    if (kind === "msg") return "Message";
-    if (kind === "scene") return "Scene transition";
-    if (kind === "pick") return "Pick";
-    return "Selector";
-  }
-  if (kind === "msg") return "Message";
-  if (kind === "scene") return "Transition scène";
-  if (kind === "pick") return "Objet (pick)";
-  return "Menu (selector)";
 }
 
 function parseHsNodeId(hsId: string): { sceneKey: string; hotspotIndex: number } | null {
@@ -105,25 +89,38 @@ function patchFromRewardAction(ra: LooseAction): RewardHotspotPatch | null {
   };
 }
 
-const REWARD_STUB_DX = 230;
+/** Trouve l’id nœud `sc:…` dont la scène correspond à `payload.target` (id / scId). */
+function findSceneGraphNodeIdForRewardTarget(
+  project: EditorProject,
+  targetStr: string,
+  baseNodes: Node[]
+): string | null {
+  const t = String(targetStr || "").trim();
+  if (!t) return null;
+  const scenes = project.scenes ?? [];
+  for (let si = 0; si < scenes.length; si++) {
+    const sc = scenes[si];
+    const sk = sceneKey(sc, si);
+    const idField = String((sc as { id?: unknown }).id ?? "").trim();
+    const scIdField = String((sc as { scId?: unknown }).scId ?? "").trim();
+    if (idField !== t && scIdField !== t && sk !== t) continue;
+    const nid = `sc:${sk}`;
+    if (baseNodes.some((n) => n.id === nid && n.type === "mapScene")) return nid;
+  }
+  return null;
+}
 
 /**
- * Rétrocompat : si `map-layout.json` (et session overlay) absents, reconstruit stubs/arêtes
- * depuis `action.payload.rewardAction` sur les hotspots REQ/PWD du projet.
+ * Rétrocompat : sans edges en session, tente une arête reward-out → `mapScene`
+ * quand `rewardAction.type === "scene"` et `payload.target` résout une scène du graphe.
  */
 export function inferRewardOverlayFromProject(
   project: EditorProject | null,
-  lang: EditorLang,
   validHotspotIds: Set<string>,
-  baseHotspotNodes: Node[]
+  baseNodes: Node[]
 ): RewardOverlayState {
   const out = emptyRewardOverlay();
   if (!project?.scenes?.length) return out;
-
-  const posById = new Map<string, { x: number; y: number }>();
-  for (const n of baseHotspotNodes) {
-    if (n.type === "mapHotspot") posById.set(n.id, { x: n.position.x, y: n.position.y });
-  }
 
   const scenes = project.scenes ?? [];
   scenes.forEach((scene, si) => {
@@ -137,27 +134,15 @@ export function inferRewardOverlayFromProject(
       if (!ra) return;
       const patch = patchFromRewardAction(ra);
       if (!patch) return;
-
-      const rwtId = `rwt:${sk}:${hi}`;
-      const anchor = posById.get(hsId) ?? { x: 120, y: 160 + si * 280 + hi * 24 };
-      const stub: Node = {
-        id: rwtId,
-        type: "mapRewardTarget",
-        position: { x: anchor.x + REWARD_STUB_DX, y: anchor.y },
-        draggable: true,
-        selectable: true,
-        data: {
-          kind: "rewardTarget",
-          rewardKind: patch.rewardType,
-          label: stubLabel(patch.rewardType, lang),
-          lang,
-        },
-      };
-      out.stubNodes.push(stub);
+      if (patch.rewardType !== "scene") return;
+      const p = (ra as { payload?: { target?: unknown } }).payload;
+      const targetStr = p && typeof p.target === "string" ? p.target : "";
+      const sceneNid = findSceneGraphNodeIdForRewardTarget(project, targetStr, baseNodes);
+      if (!sceneNid) return;
       out.edges.push({
-        id: `e:rw:${hsId}>${rwtId}:infer`,
+        id: `e:rw:${hsId}>${sceneNid}:infer`,
         source: hsId,
-        target: rwtId,
+        target: sceneNid,
         sourceHandle: RF_REWARD_OUT,
         targetHandle: RF_REWARD_IN,
         type: "smoothstep",
@@ -170,45 +155,31 @@ export function inferRewardOverlayFromProject(
   return out;
 }
 
-/** Sérialise positions + overlay récompense au format `map-layout.json` v1. */
+/** Sérialise positions + arêtes récompense (sans `rewardTargets`). */
 export function serializeMapLayout(
   nodePositionsById: Record<string, { x: number; y: number }>,
   overlay: RewardOverlayState
 ): MapLayoutFileV1 {
-  const rewardTargets: MapLayoutFileV1["rewardTargets"] = [];
-  for (const sn of overlay.stubNodes) {
-    if (sn.type !== "mapRewardTarget") continue;
-    const d = sn.data as Record<string, unknown>;
-    const kind = String(d.rewardKind || "scene") as MapRewardTargetKind;
-    const safeKind: MapRewardTargetKind =
-      kind === "msg" || kind === "scene" || kind === "pick" || kind === "selector" ? kind : "scene";
-    rewardTargets.push({
-      id: sn.id,
-      kind: safeKind,
-      x: sn.position.x,
-      y: sn.position.y,
-    });
-  }
   const rewardEdges = overlay.edges
     .filter((e) => e.sourceHandle === RF_REWARD_OUT && e.targetHandle === RF_REWARD_IN)
     .map((e) => ({ source: e.source, target: e.target }));
   return {
     version: 1,
     nodes: { ...nodePositionsById },
-    rewardTargets,
     rewardEdges,
     backgrounds: [],
   };
 }
 
 /**
- * Relit `map-layout.json` : positions + overlay (patches complétés depuis le projet si besoin).
+ * Relit `map-layout.json` : positions + overlay (patch depuis nœud cible ou projet).
  */
 export function deserializeMapLayout(
   json: unknown,
   project: EditorProject,
   validHotspotIds: Set<string>,
-  lang: EditorLang
+  validAllGraphNodeIds: Set<string>,
+  baseNodes: Node[]
 ): { nodePositions: Record<string, { x: number; y: number }>; rewardOverlay: RewardOverlayState } {
   const emptyPos: Record<string, { x: number; y: number }> = {};
   const emptyOverlay = emptyRewardOverlay();
@@ -220,51 +191,20 @@ export function deserializeMapLayout(
   const nodePositions: Record<string, { x: number; y: number }> =
     nodesRaw && typeof nodesRaw === "object" ? { ...(nodesRaw as Record<string, { x: number; y: number }>) } : {};
 
-  const targets = Array.isArray(o.rewardTargets) ? o.rewardTargets : [];
-  const targetById: Record<string, { id: string; kind: MapRewardTargetKind; x: number; y: number }> = {};
-  for (const t of targets) {
-    if (!t || typeof t !== "object") continue;
-    const row = t as Record<string, unknown>;
-    const id = row.id != null ? String(row.id) : "";
-    if (!id) continue;
-    let kind = String(row.kind || "scene") as MapRewardTargetKind;
-    if (kind !== "msg" && kind !== "scene" && kind !== "pick" && kind !== "selector") kind = "scene";
-    const x = typeof row.x === "number" ? row.x : 0;
-    const y = typeof row.y === "number" ? row.y : 0;
-    targetById[id] = { id, kind, x, y };
-  }
-
-  const stubNodes: Node[] = [];
-  for (const rt of Object.values(targetById)) {
-    stubNodes.push({
-      id: rt.id,
-      type: "mapRewardTarget",
-      position: { x: rt.x, y: rt.y },
-      draggable: true,
-      selectable: true,
-      data: {
-        kind: "rewardTarget",
-        rewardKind: rt.kind,
-        label: stubLabel(rt.kind, lang),
-        lang,
-      },
-    });
-  }
-
   const rewardOverlay: RewardOverlayState = {
-    stubNodes,
     edges: [],
     patchByHotspotId: {},
   };
 
+  const nodeById = new Map(baseNodes.map((n) => [n.id, n]));
   const edgesRaw = Array.isArray(o.rewardEdges) ? o.rewardEdges : [];
   edgesRaw.forEach((e, i) => {
     if (!e || typeof e !== "object") return;
     const row = e as Record<string, unknown>;
     const source = row.source != null ? String(row.source) : "";
     const target = row.target != null ? String(row.target) : "";
-    if (!source || !target || !targetById[target]) return;
-    if (!validHotspotIds.has(source)) return;
+    if (!source || !target) return;
+    if (!validHotspotIds.has(source) || !validAllGraphNodeIds.has(target)) return;
     rewardOverlay.edges.push({
       id: `e:rw:${source}>${target}:${i}`,
       source,
@@ -274,21 +214,20 @@ export function deserializeMapLayout(
       type: "smoothstep",
       style: { stroke: "#f59e0b", strokeWidth: 2 },
     });
+    const tNode = nodeById.get(target);
     let patch: RewardHotspotPatch | null = null;
-    const parsed = parseHsNodeId(source);
-    if (parsed) {
-      const hs = findHotspot(project, parsed.sceneKey, parsed.hotspotIndex);
-      patch = patchFromRewardAction(readRewardAction(hs));
+    if (tNode) {
+      const built = buildRewardDraftForDirectMapTarget(tNode);
+      if (built) patch = { rewardType: built.kind, rewardActionDraft: built.draft };
     }
     if (!patch) {
-      const rt = targetById[target];
-      const draftKind = rt?.kind ?? "scene";
-      patch = {
-        rewardType: draftKind,
-        rewardActionDraft: createMinimalRewardActionV2(draftKind),
-      };
+      const parsed = parseHsNodeId(source);
+      if (parsed) {
+        const hs = findHotspot(project, parsed.sceneKey, parsed.hotspotIndex);
+        patch = patchFromRewardAction(readRewardAction(hs));
+      }
     }
-    rewardOverlay.patchByHotspotId[source] = patch;
+    if (patch) rewardOverlay.patchByHotspotId[source] = patch;
   });
 
   return { nodePositions, rewardOverlay };

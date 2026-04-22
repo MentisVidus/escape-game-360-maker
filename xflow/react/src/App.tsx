@@ -34,7 +34,6 @@ import {
   type MapHotspotNodeData,
   type MapRedirectNodeData,
   type MapResourceNodeData,
-  type MapRewardTargetNodeData,
   type MapSceneNodeData,
   type MapSelectorChoiceNodeData,
   buildProjectMapGraph,
@@ -47,7 +46,7 @@ import { isValidMapFlowConnection, isValidMapRewardConnection } from "./mapConne
 import { isFlowEastToWestConnection, isMetaSouthToNorthConnection } from "./mapConnectionMatrix";
 import { RF_REWARD_IN, RF_REWARD_OUT } from "./mapFlowHandles";
 import { computeReactMapLayoutStorageKey, inferRewardOverlayFromProject } from "./mapLayoutFile";
-import { createMinimalRewardActionV2 } from "./mapRewardActionV2";
+import { buildRewardDraftForDirectMapTarget } from "./mapRewardDirectTarget";
 import {
   deserializeRewardOverlay,
   emptyRewardOverlay,
@@ -58,12 +57,10 @@ import {
   serializeRewardOverlay,
   type RewardOverlayState,
 } from "./mapRewardOverlayMerge";
-import { MapRewardToolbar } from "./mapRewardToolbar";
 import {
   MapHotspotNode,
   MapRedirectNode,
   MapResourceNode,
-  MapRewardTargetNode,
   MapSceneGroupNode,
   MapSceneNode,
   MapSelectorChoiceNode,
@@ -151,7 +148,6 @@ const nodeTypes: NodeTypes = {
   mapSelectorChoice: MapSelectorChoiceNode,
   mapResource: MapResourceNode,
   mapRedirect: MapRedirectNode,
-  mapRewardTarget: MapRewardTargetNode,
 };
 
 function hostLang(): EditorLang {
@@ -180,6 +176,25 @@ function resolveGraphHotspotIdFromDomId(domId: string): string | null {
       if (!scene) return null;
       return `hs:${sceneKey(scene, si)}:${hi}`;
     }
+  }
+  return null;
+}
+
+/** `hs:<sceneKey>:<index>` → indices DOM pour applyMapHotspotRewardAction */
+function parseHsGraphNodeIdToIndices(
+  graphHsId: string,
+  project: EditorProject | null
+): { sceneIndex: number; hotspotIndex: number } | null {
+  if (!graphHsId.startsWith("hs:") || !project?.scenes?.length) return null;
+  const rest = graphHsId.slice(3);
+  const last = rest.lastIndexOf(":");
+  if (last <= 0) return null;
+  const sk = rest.slice(0, last);
+  const hi = parseInt(rest.slice(last + 1), 10);
+  if (Number.isNaN(hi)) return null;
+  const scenes = project.scenes;
+  for (let si = 0; si < scenes.length; si++) {
+    if (sceneKey(scenes[si], si) === sk) return { sceneIndex: si, hotspotIndex: hi };
   }
   return null;
 }
@@ -420,24 +435,23 @@ function InnerMap() {
   useLayoutEffect(() => {
     rewardOverlayHydratedRef.current = false;
     const project = readProject();
-    const lang = hostLang();
     const { nodes: baseNodes } = buildProjectMapGraphBase(project);
     const ids = new Set(baseNodes.filter((n) => n.type === "mapHotspot").map((n) => n.id));
+    const allGraphIds = new Set(baseNodes.map((n) => n.id));
     let next = emptyRewardOverlay();
     try {
       const raw = sessionStorage.getItem(rewardOverlayStorageKey(pack.layoutKey));
       if (raw) {
-        next = deserializeRewardOverlay(JSON.parse(raw) as unknown, ids);
+        next = deserializeRewardOverlay(JSON.parse(raw) as unknown, ids, allGraphIds);
       }
     } catch {
       /* ignore */
     }
-    const hasReward =
-      next.edges.length > 0 ||
-      next.stubNodes.length > 0 ||
-      Object.keys(next.patchByHotspotId).length > 0;
-    if (!hasReward && project?.scenes?.length) {
-      const inferred = inferRewardOverlayFromProject(project, lang, ids, baseNodes);
+    const hasRewardEdge = next.edges.some(
+      (e) => e.sourceHandle === RF_REWARD_OUT && e.targetHandle === RF_REWARD_IN
+    );
+    if (!hasRewardEdge && project?.scenes?.length) {
+      const inferred = inferRewardOverlayFromProject(project, ids, baseNodes);
       if (inferred.edges.length > 0) next = inferred;
     }
     setRewardOverlay(next);
@@ -447,7 +461,10 @@ function InnerMap() {
   useEffect(() => {
     if (!rewardOverlayHydratedRef.current) return;
     try {
-      const pruned = pruneRewardOverlayToGraph(packHotspotIdsRef.current, rewardOverlay);
+      const project = readProject();
+      const { nodes: baseNodes } = buildProjectMapGraphBase(project);
+      const allIds = new Set(baseNodes.map((n) => n.id));
+      const pruned = pruneRewardOverlayToGraph(packHotspotIdsRef.current, allIds, rewardOverlay);
       sessionStorage.setItem(
         rewardOverlayStorageKey(layoutKeyPersistRef.current),
         JSON.stringify(serializeRewardOverlay(pruned))
@@ -461,7 +478,8 @@ function InnerMap() {
     const project = readProject();
     const { nodes: baseNodes } = buildProjectMapGraphBase(project);
     const ids = new Set(baseNodes.filter((n) => n.type === "mapHotspot").map((n) => n.id));
-    setRewardOverlay((prev) => pruneRewardOverlayToGraph(ids, prev));
+    const allIds = new Set(baseNodes.map((n) => n.id));
+    setRewardOverlay((prev) => pruneRewardOverlayToGraph(ids, allIds, prev));
   }, [graphRev]);
 
   const mode = window._projectMapViewMode || "full";
@@ -533,8 +551,9 @@ function InnerMap() {
             altConnect: altConnectRef.current,
           })
         ) {
-          const rw = tNode.data as MapRewardTargetNodeData;
-          const draft = createMinimalRewardActionV2(rw.rewardKind);
+          const built = buildRewardDraftForDirectMapTarget(tNode);
+          if (!built) return;
+          const { kind, draft } = built;
           setRewardOverlay((prev) => {
             const nextEdges = prev.edges.filter(
               (e) => !(e.source === c.source && e.sourceHandle === RF_REWARD_OUT)
@@ -553,7 +572,7 @@ function InnerMap() {
               edges: nextEdges,
               patchByHotspotId: {
                 ...prev.patchByHotspotId,
-                [c.source]: { rewardType: rw.rewardKind, rewardActionDraft: draft },
+                [c.source]: { rewardType: kind, rewardActionDraft: draft },
               },
             };
           });
@@ -800,17 +819,38 @@ function InnerMap() {
   );
 
   const onNodesDelete = useCallback((removed: Node[]) => {
-    const rwIds = new Set(removed.filter((n) => n.type === "mapRewardTarget").map((n) => n.id));
-    if (rwIds.size === 0) return;
+    if (removed.length === 0) return;
+    const removedIds = new Set(removed.map((n) => n.id));
+    const pendingLost: { ids: string[] } = { ids: [] };
     setRewardOverlay((prev) => {
-      const stubNodes = prev.stubNodes.filter((n) => !rwIds.has(n.id));
-      const lostSources = prev.edges.filter((e) => rwIds.has(e.target)).map((e) => e.source);
-      const nextEdges = prev.edges.filter((e) => !rwIds.has(e.target) && !rwIds.has(e.source));
-      const patch = { ...prev.patchByHotspotId };
-      for (const sid of lostSources) {
-        delete patch[sid];
+      const lost = new Set<string>();
+      for (const e of prev.edges) {
+        if (e.sourceHandle !== RF_REWARD_OUT || e.targetHandle !== RF_REWARD_IN) continue;
+        if (removedIds.has(e.source) || removedIds.has(e.target)) lost.add(e.source);
       }
-      return { ...prev, stubNodes, edges: nextEdges, patchByHotspotId: patch };
+      pendingLost.ids = [...lost];
+      const nextEdges = prev.edges.filter(
+        (e) => !removedIds.has(e.source) && !removedIds.has(e.target)
+      );
+      const sourcesRemaining = new Set(
+        nextEdges
+          .filter((e) => e.sourceHandle === RF_REWARD_OUT && e.targetHandle === RF_REWARD_IN)
+          .map((e) => e.source)
+      );
+      const patch = { ...prev.patchByHotspotId };
+      for (const k of Object.keys(patch)) {
+        if (!sourcesRemaining.has(k)) delete patch[k];
+      }
+      return { edges: nextEdges, patchByHotspotId: patch };
+    });
+    queueMicrotask(() => {
+      const project = readProject();
+      const uniq = [...new Set(pendingLost.ids)];
+      for (const sid of uniq) {
+        const idx = parseHsGraphNodeIdToIndices(sid, project);
+        if (!idx) continue;
+        window.applyMapHotspotRewardAction?.(idx.sceneIndex, idx.hotspotIndex, null);
+      }
     });
   }, []);
 
@@ -827,18 +867,6 @@ function InnerMap() {
       if (!endedDrag) return;
       queueMicrotask(() => {
         setNodes((nds) => recomputeMapLayoutGroups(nds));
-        const live = store.getState().nodes;
-        setRewardOverlay((prev) => {
-          let touched = false;
-          const stubNodes = prev.stubNodes.map((sn) => {
-            const n = live.find((x) => x.id === sn.id);
-            if (!n || n.type !== "mapRewardTarget") return sn;
-            if (n.position.x === sn.position.x && n.position.y === sn.position.y) return sn;
-            touched = true;
-            return { ...sn, position: { ...n.position } };
-          });
-          return touched ? { ...prev, stubNodes } : prev;
-        });
       });
       if (layoutSaveTimer.current != null) window.clearTimeout(layoutSaveTimer.current);
       layoutSaveTimer.current = window.setTimeout(() => {
@@ -941,14 +969,31 @@ function InnerMap() {
           </div>
         </Panel>
         <Panel position="bottom-right">
-          <MapRewardToolbar
-            lang={hostLang()}
-            enUi={enUi}
-            warnings={rewardWarnings}
-            onAddStub={(node) => {
-              setRewardOverlay((prev) => ({ ...prev, stubNodes: [...prev.stubNodes, node] }));
-            }}
-          />
+          {rewardWarnings.length > 0 ? (
+            <div
+              className="rf-map-reward-warnings-panel"
+              style={{
+                fontSize: 11,
+                lineHeight: 1.35,
+                maxWidth: 280,
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: "rgba(15, 23, 42, 0.92)",
+                color: "#fdba74",
+                border: "1px solid rgba(251, 191, 36, 0.25)",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 6, color: "#fde68a" }}>
+                {enUi ? "Reward map" : "Récompense (carte)"}
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                {rewardWarnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </Panel>
         <Panel position="bottom-left">
           <div className="rf-map-floating-palette">
