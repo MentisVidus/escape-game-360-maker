@@ -52,6 +52,7 @@ import {
   deserializeRewardOverlay,
   emptyRewardOverlay,
   mergeRewardOverlay,
+  pruneRewardOverlayForHotspotGraphId,
   pruneRewardOverlayToGraph,
   rewardOverlayStorageKey,
   serializeRewardOverlay,
@@ -160,6 +161,27 @@ function hostLang(): EditorLang {
 function readNarrationOnly(): boolean {
   const el = document.getElementById("project-map-narration-only");
   return el instanceof HTMLInputElement && el.checked;
+}
+
+/** `hs_12` → id nœud graphe `hs:<sceneKey>:<index>` (aligné sur applyMap* côté hôte). */
+function resolveGraphHotspotIdFromDomId(domId: string): string | null {
+  const m = /^hs_(\d+)$/.exec(domId);
+  if (!m) return null;
+  const blocks = document.querySelectorAll("#scenes-container > .scene-block");
+  for (let si = 0; si < blocks.length; si++) {
+    const wrap = blocks[si].querySelector('[id^="hs-container-"]');
+    if (!wrap) continue;
+    const hss = wrap.querySelectorAll(":scope > .hotspot-block");
+    for (let hi = 0; hi < hss.length; hi++) {
+      if (hss[hi].id !== domId) continue;
+      const fn = window.getCurrentProjectData;
+      const project = typeof fn === "function" ? fn() : null;
+      const scene = project?.scenes?.[si];
+      if (!scene) return null;
+      return `hs:${sceneKey(scene, si)}:${hi}`;
+    }
+  }
+  return null;
 }
 
 function resolveSceneIndexFromActiveKey(project: EditorProject | null): number {
@@ -317,8 +339,20 @@ function InnerMap() {
 
   useEffect(() => {
     const onBus = (ev: Event) => {
-      const ce = ev as CustomEvent<{ type?: string }>;
-      if (ce.detail?.type) bump();
+      const ce = ev as CustomEvent<{ type?: string; hotspotDomId?: string }>;
+      const t = ce.detail?.type;
+      if (!t) return;
+      if (t === "rewardOverlayInvalidate") {
+        const domId = ce.detail?.hotspotDomId;
+        if (domId) {
+          const graphHsId = resolveGraphHotspotIdFromDomId(domId);
+          if (graphHsId) {
+            setRewardOverlay((prev) => pruneRewardOverlayForHotspotGraphId(prev, graphHsId));
+          }
+        }
+        return;
+      }
+      bump();
     };
     document.addEventListener("react-project-map", onBus);
     return () => document.removeEventListener("react-project-map", onBus);

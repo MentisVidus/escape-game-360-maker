@@ -180,6 +180,32 @@ export function pruneRewardOverlayToGraph(
   return { stubNodes, edges, patchByHotspotId };
 }
 
+/** Retire arêtes / patch / stubs orphelins pour un hotspot source `hs:…` (ex. édition legacy invalide data-v2-reward-action). */
+export function pruneRewardOverlayForHotspotGraphId(
+  overlay: RewardOverlayState,
+  hsGraphId: string
+): RewardOverlayState {
+  const removedTargets = overlay.edges
+    .filter(
+      (e) =>
+        e.source === hsGraphId &&
+        e.sourceHandle === RF_REWARD_OUT &&
+        e.targetHandle === RF_REWARD_IN
+    )
+    .map((e) => e.target);
+  const removedSet = new Set(removedTargets);
+  const nextEdges = overlay.edges.filter((e) => e.source !== hsGraphId);
+  const patchByHotspotId = { ...overlay.patchByHotspotId };
+  delete patchByHotspotId[hsGraphId];
+  const nextTargetRef = new Set(nextEdges.map((e) => e.target));
+  const stubNodes = overlay.stubNodes.filter((sn) => {
+    if (sn.type !== "mapRewardTarget") return true;
+    if (!removedSet.has(sn.id)) return true;
+    return nextTargetRef.has(sn.id);
+  });
+  return { stubNodes, edges: nextEdges, patchByHotspotId };
+}
+
 function mergeSavedPositions(
   nodes: Node[],
   saved: Record<string, { x: number; y: number }> | null

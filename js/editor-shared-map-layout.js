@@ -275,9 +275,70 @@
         }
     }
 
+    /**
+     * CAS 1 chantier 3 : toute édition legacy des champs de récompense REQ/PWD invalide le marqueur carte.
+     * Listeners : délégation document (pas de hub unique dans editeur-app — champs injectés par updateHsFields + rich editors).
+     */
+    function clearV2RewardDatasetIfPresent(hsDiv) {
+        if (!hsDiv || !hsDiv.dataset) return false;
+        if (hsDiv.dataset.v2RewardAction == null || String(hsDiv.dataset.v2RewardAction) === "") {
+            return false;
+        }
+        hsDiv.removeAttribute("data-v2-reward-action");
+        try {
+            if (global.document && typeof global.CustomEvent === "function") {
+                global.document.dispatchEvent(
+                    new global.CustomEvent("react-project-map", {
+                        detail: { type: "rewardOverlayInvalidate", hotspotDomId: hsDiv.id }
+                    })
+                );
+            }
+        } catch (eInv) {
+            /* ignore */
+        }
+        return true;
+    }
+
+    function onLegacyRewardFieldInteraction(ev) {
+        if (ev.isTrusted !== true) return;
+        var t = ev.target;
+        if (!t || typeof t.closest !== "function") return;
+        var hsDiv = t.closest(".hotspot-block");
+        if (!hsDiv || !/^hs_\d+$/.test(hsDiv.id)) return;
+        var typeEl = hsDiv.querySelector(".hs-type");
+        if (!typeEl || (typeEl.value !== "req" && typeEl.value !== "pwd")) return;
+        var hid = hsDiv.id.replace(/^hs_/, "");
+        var reqWrap = global.document.getElementById("req_res_" + hid);
+        var pwdWrap = global.document.getElementById("pwd_res_" + hid);
+        if (t.classList && t.classList.contains("f-req-action")) {
+            clearV2RewardDatasetIfPresent(hsDiv);
+            return;
+        }
+        if (t.classList && t.classList.contains("f-pwd-action")) {
+            clearV2RewardDatasetIfPresent(hsDiv);
+            return;
+        }
+        if (reqWrap && reqWrap.contains(t)) {
+            clearV2RewardDatasetIfPresent(hsDiv);
+            return;
+        }
+        if (pwdWrap && pwdWrap.contains(t)) {
+            clearV2RewardDatasetIfPresent(hsDiv);
+        }
+    }
+
+    if (!global.__editorLegacyRewardClearsV2Wired) {
+        global.__editorLegacyRewardClearsV2Wired = true;
+        if (global.document) {
+            global.document.addEventListener("change", onLegacyRewardFieldInteraction, false);
+            global.document.addEventListener("input", onLegacyRewardFieldInteraction, false);
+        }
+    }
+
     global.EditorSharedMapLayout = {
         computeProjectMapLayoutStorageKey: computeProjectMapLayoutStorageKey,
         buildMapLayoutFileV1FromSession: buildMapLayoutFileV1FromSession,
-        applyMapLayoutFileV1ToSession: applyMapLayoutFileV1ToSession
+        applyMapLayoutFileV1ToSession: applyMapLayoutFileV1ToSession,
+        clearV2RewardDatasetIfPresent: clearV2RewardDatasetIfPresent
     };
 })(typeof window !== "undefined" ? window : this);
