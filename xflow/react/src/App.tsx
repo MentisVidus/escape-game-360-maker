@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import {
   Background,
   Controls,
@@ -11,6 +19,7 @@ import {
   useStoreApi,
   type Connection,
   type Edge,
+  type EdgeChange,
   type Node,
   type NodeChange,
   type NodePositionChange,
@@ -38,7 +47,15 @@ import { isValidMapFlowConnection, isValidMapRewardConnection } from "./mapConne
 import { isFlowEastToWestConnection, isMetaSouthToNorthConnection } from "./mapConnectionMatrix";
 import { RF_REWARD_IN, RF_REWARD_OUT } from "./mapFlowHandles";
 import { createMinimalRewardActionV2 } from "./mapRewardActionV2";
-import { emptyRewardOverlay, mergeRewardOverlay, type RewardOverlayState } from "./mapRewardOverlayMerge";
+import {
+  deserializeRewardOverlay,
+  emptyRewardOverlay,
+  mergeRewardOverlay,
+  pruneRewardOverlayToGraph,
+  rewardOverlayStorageKey,
+  serializeRewardOverlay,
+  type RewardOverlayState,
+} from "./mapRewardOverlayMerge";
 import { MapRewardToolbar } from "./mapRewardToolbar";
 import {
   MapHotspotNode,
@@ -147,6 +164,35 @@ function resolveSceneIndexFromActiveKey(project: EditorProject | null): number {
     if (sceneKey(scenes[i], i) === String(k).trim()) return i;
   }
   return 0;
+}
+
+/** Graphe projet sans overlay récompense — pour `layoutKey` / IDs hotspots à l’hydratation session. */
+function buildProjectMapGraphBase(project: EditorProject | null): {
+  nodes: Node[];
+  edges: Edge[];
+  layoutKey: string;
+  activeSceneKey: string | null;
+} {
+  const viewMode = (window._projectMapViewMode || "full") as "focus" | "full" | "tree";
+  const activeSceneKey = window._projectMapActiveSceneKey ?? null;
+  const narr = readNarrationOnly();
+  const lang = hostLang();
+  if (!project?.scenes?.length) {
+    const title = String(project?.title ?? "").slice(0, 120);
+    const nScenes = project?.scenes?.length ?? 0;
+    const layoutKey = `escape360-reactMap-pos:v1:${viewMode}:${narr ? "1" : "0"}:${nScenes}:${title}`;
+    return { nodes: [], edges: [], layoutKey, activeSceneKey: null };
+  }
+  const { nodes, edges, activeSceneKey: nextActive } = buildProjectMapGraph(project, {
+    viewMode,
+    activeSceneKey,
+    narrationOnly: narr,
+    lang,
+  });
+  const title = String(project.title ?? "").slice(0, 120);
+  const nScenes = project.scenes.length ?? 0;
+  const layoutKey = `escape360-reactMap-pos:v1:${viewMode}:${narr ? "1" : "0"}:${nScenes}:${title}`;
+  return { nodes, edges, layoutKey, activeSceneKey: nextActive };
 }
 
 function readProject(): EditorProject | null {
@@ -263,6 +309,9 @@ function InnerMap() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteSceneIndex, setPaletteSceneIndex] = useState(0);
   const [rewardOverlay, setRewardOverlay] = useState<RewardOverlayState>(() => emptyRewardOverlay());
+  const rewardOverlayHydratedRef = useRef(false);
+  const layoutKeyPersistRef = useRef("");
+  const packHotspotIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const onBus = (ev: Event) => {
@@ -281,20 +330,10 @@ function InnerMap() {
   const pack = useMemo(() => {
     const project = readProject();
     const viewMode = (window._projectMapViewMode || "full") as "focus" | "full" | "tree";
-    const activeSceneKey = window._projectMapActiveSceneKey ?? null;
-    const narr = readNarrationOnly();
-    const { nodes, edges, activeSceneKey: nextActive } = buildProjectMapGraph(project, {
-      viewMode,
-      activeSceneKey,
-      narrationOnly: narr,
-      lang: hostLang(),
-    });
+    const { nodes, edges, layoutKey, activeSceneKey: nextActive } = buildProjectMapGraphBase(project);
     if (viewMode === "focus" && nextActive) {
       window._projectMapActiveSceneKey = nextActive;
     }
-    const title = String(project?.title ?? "").slice(0, 120);
-    const nScenes = project?.scenes?.length ?? 0;
-    const layoutKey = `escape360-reactMap-pos:v1:${viewMode}:${narr ? "1" : "0"}:${nScenes}:${title}`;
     let savedPos: Record<string, { x: number; y: number }> | null = null;
     try {
       const raw = sessionStorage.getItem(layoutKey);
@@ -336,6 +375,49 @@ function InnerMap() {
     setNodes(pack.nodes);
     setEdges(pack.edges);
   }, [pack, setNodes, setEdges]);
+
+  layoutKeyPersistRef.current = pack.layoutKey;
+  packHotspotIdsRef.current = new Set(
+    pack.nodes.filter((n) => n.type === "mapHotspot").map((n) => n.id)
+  );
+
+  useLayoutEffect(() => {
+    rewardOverlayHydratedRef.current = false;
+    const project = readProject();
+    const { nodes: baseNodes } = buildProjectMapGraphBase(project);
+    const ids = new Set(baseNodes.filter((n) => n.type === "mapHotspot").map((n) => n.id));
+    let next = emptyRewardOverlay();
+    try {
+      const raw = sessionStorage.getItem(rewardOverlayStorageKey(pack.layoutKey));
+      if (raw) {
+        next = deserializeRewardOverlay(JSON.parse(raw) as unknown, ids);
+      }
+    } catch {
+      /* ignore */
+    }
+    setRewardOverlay(next);
+    rewardOverlayHydratedRef.current = true;
+  }, [pack.layoutKey]);
+
+  useEffect(() => {
+    if (!rewardOverlayHydratedRef.current) return;
+    try {
+      const pruned = pruneRewardOverlayToGraph(packHotspotIdsRef.current, rewardOverlay);
+      sessionStorage.setItem(
+        rewardOverlayStorageKey(layoutKeyPersistRef.current),
+        JSON.stringify(serializeRewardOverlay(pruned))
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [rewardOverlay]);
+
+  useEffect(() => {
+    const project = readProject();
+    const { nodes: baseNodes } = buildProjectMapGraphBase(project);
+    const ids = new Set(baseNodes.filter((n) => n.type === "mapHotspot").map((n) => n.id));
+    setRewardOverlay((prev) => pruneRewardOverlayToGraph(ids, prev));
+  }, [graphRev]);
 
   const mode = window._projectMapViewMode || "full";
   const selectable = mode === "focus" || mode === "tree" || mode === "full";
@@ -617,6 +699,33 @@ function InnerMap() {
     [nodes]
   );
 
+  const onEdgesChangeWrapped = useCallback(
+    (changes: EdgeChange[]) => {
+      onEdgesChange(changes);
+      const removeIds = changes
+        .filter((c) => c.type === "remove")
+        .map((c) => (c as { id?: string }).id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0);
+      if (removeIds.length === 0) return;
+      queueMicrotask(() => {
+        setRewardOverlay((prev) => {
+          let nextEdges = [...prev.edges];
+          const patch = { ...prev.patchByHotspotId };
+          let touched = false;
+          for (const rid of removeIds) {
+            const hit = nextEdges.find((e) => e.id === rid);
+            if (!hit || hit.sourceHandle !== RF_REWARD_OUT) continue;
+            nextEdges = nextEdges.filter((e) => e.id !== rid);
+            delete patch[hit.source];
+            touched = true;
+          }
+          return touched ? { ...prev, edges: nextEdges, patchByHotspotId: patch } : prev;
+        });
+      });
+    },
+    [onEdgesChange]
+  );
+
   const onNodesDelete = useCallback((removed: Node[]) => {
     const rwIds = new Set(removed.filter((n) => n.type === "mapRewardTarget").map((n) => n.id));
     if (rwIds.size === 0) return;
@@ -645,6 +754,18 @@ function InnerMap() {
       if (!endedDrag) return;
       queueMicrotask(() => {
         setNodes((nds) => recomputeMapLayoutGroups(nds));
+        const live = store.getState().nodes;
+        setRewardOverlay((prev) => {
+          let touched = false;
+          const stubNodes = prev.stubNodes.map((sn) => {
+            const n = live.find((x) => x.id === sn.id);
+            if (!n || n.type !== "mapRewardTarget") return sn;
+            if (n.position.x === sn.position.x && n.position.y === sn.position.y) return sn;
+            touched = true;
+            return { ...sn, position: { ...n.position } };
+          });
+          return touched ? { ...prev, stubNodes } : prev;
+        });
       });
       if (layoutSaveTimer.current != null) window.clearTimeout(layoutSaveTimer.current);
       layoutSaveTimer.current = window.setTimeout(() => {
@@ -663,7 +784,7 @@ function InnerMap() {
         }
       }, 400);
     },
-    [onNodesChange, setNodes, store, pack.layoutKey]
+    [onNodesChange, setNodes, setRewardOverlay, store, pack.layoutKey]
   );
 
   useEffect(
@@ -680,7 +801,7 @@ function InnerMap() {
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChangePersistLayout}
-        onEdgesChange={onEdgesChange}
+        onEdgesChange={onEdgesChangeWrapped}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
