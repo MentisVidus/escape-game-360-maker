@@ -34,7 +34,7 @@ import {
 } from "./mapGraphBuild";
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
 import { isValidMapFlowConnection } from "./mapConnectionPolicy";
-import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT } from "./mapFlowHandles";
+import { isFlowEastToWestConnection, isMetaSouthToNorthConnection } from "./mapConnectionMatrix";
 import {
   MapHotspotNode,
   MapRedirectNode,
@@ -388,7 +388,7 @@ function InnerMap() {
         if (sNode.type === "mapScene" && tNode.type === "mapHotspot") {
           const sd = sNode.data as MapSceneNodeData;
           const hd = tNode.data as MapHotspotNodeData;
-          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
+          if (!isFlowEastToWestConnection(c)) return;
           if (sd.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return;
           if (
             hd.parentSceneKey === sd.sceneKey &&
@@ -402,7 +402,7 @@ function InnerMap() {
         if (sNode.type === "mapHotspot" && tNode.type === "mapScene") {
           const sd = sNode.data as MapHotspotNodeData;
           const td = tNode.data as MapSceneNodeData;
-          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
+          if (!isFlowEastToWestConnection(c)) return;
           if (
             sd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY &&
             td.sceneKey !== EDITOR_MAP_STAGING_SCENE_KEY
@@ -423,7 +423,7 @@ function InnerMap() {
         if (sNode.type === "mapHotspot" && tNode.type === "mapSelectorChoice") {
           const sd = sNode.data as MapHotspotNodeData;
           const cd = tNode.data as MapSelectorChoiceNodeData;
-          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
+          if (!isFlowEastToWestConnection(c)) return;
           if (sd.parentSceneKey !== EDITOR_MAP_STAGING_SCENE_KEY) return;
           window.promoteMapOrphanHotspotIntoSelectorRoot?.(
             sd.sceneIndex,
@@ -436,7 +436,7 @@ function InnerMap() {
         if (sNode.type === "mapSelectorChoice" && tNode.type === "mapHotspot") {
           const cd = sNode.data as MapSelectorChoiceNodeData;
           const hd = tNode.data as MapHotspotNodeData;
-          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
+          if (!isFlowEastToWestConnection(c)) return;
           if (hd.parentSceneKey === EDITOR_MAP_STAGING_SCENE_KEY) {
             if (hd.actionType === "selector") return;
             window.promoteMapOrphanHotspotIntoSelectorRoot?.(
@@ -456,7 +456,7 @@ function InnerMap() {
         if (sNode.type === "mapHotspot" && tNode.type === "mapHotspot") {
           const sd = sNode.data as MapHotspotNodeData;
           const td = tNode.data as MapHotspotNodeData;
-          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
+          if (!isFlowEastToWestConnection(c)) return;
           if (sd.actionType !== "selector") return;
           /** Selector sur la file → hotspot déjà sur une scène : déplacer le menu vers cette scène. */
           if (
@@ -481,7 +481,7 @@ function InnerMap() {
         if (sNode.type === "mapSelectorChoice" && tNode.type === "mapScene") {
           const cd = sNode.data as MapSelectorChoiceNodeData;
           const td = tNode.data as MapSceneNodeData;
-          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
+          if (!isFlowEastToWestConnection(c)) return;
           if (td.sceneKey === EDITOR_MAP_STAGING_SCENE_KEY) return;
           window.applyMapSelectorChoiceSceneConnection?.(
             cd.sceneIndex,
@@ -494,7 +494,7 @@ function InnerMap() {
         if (sNode.type === "mapSelectorChoice" && tNode.type === "mapRedirect") {
           const cd = sNode.data as MapSelectorChoiceNodeData;
           const red = tNode.data as MapRedirectNodeData;
-          if (c.sourceHandle !== RF_FLOW_OUT || c.targetHandle !== RF_FLOW_IN) return;
+          if (!isFlowEastToWestConnection(c)) return;
           const key = String(red.targetSceneKey || "").trim();
           if (!key) return;
           window.applyMapSelectorChoiceSceneTarget?.(
@@ -506,23 +506,20 @@ function InnerMap() {
           return;
         }
         if (tNode.type !== "mapResource") return;
+        if (!isMetaSouthToNorthConnection(c)) return;
         const rd = tNode.data as MapResourceNodeData;
-        if (c.targetHandle !== RF_META_IN) return;
         if (sNode.type === "mapScene") {
-          if (c.sourceHandle !== RF_META_OUT) return;
           const sd = sNode.data as MapSceneNodeData;
           window.applyMapSceneMediaConnection?.(sd.sceneIndex, rd.resourceType, rd.url, rd.volume);
           return;
         }
         if (sNode.type === "mapHotspot") {
-          if (c.sourceHandle !== RF_META_OUT) return;
           if (rd.resourceType !== "hotspotSfx") return;
           const hd = sNode.data as MapHotspotNodeData;
           window.applyMapHotspotSfxConnection?.(hd.sceneIndex, hd.hotspotIndex, rd.url, rd.volume);
           return;
         }
         if (sNode.type === "mapSelectorChoice" && rd.resourceType === "choiceSfx") {
-          if (c.sourceHandle !== RF_META_OUT) return;
           const cd = sNode.data as MapSelectorChoiceNodeData;
           window.applyMapSelectorChoiceSfxConnection?.(
             cd.sceneIndex,
@@ -542,7 +539,7 @@ function InnerMap() {
   const onEdgesDelete = useCallback(
     (removed: Edge[]) => {
       for (const edge of removed) {
-        if (edge.sourceHandle !== RF_FLOW_OUT || edge.targetHandle !== RF_FLOW_IN) continue;
+        if (!isFlowEastToWestConnection(edge)) continue;
         const src = nodes.find((n) => n.id === edge.source);
         const tgt = nodes.find((n) => n.id === edge.target);
         if (src?.type !== "mapScene" || tgt?.type !== "mapHotspot") continue;

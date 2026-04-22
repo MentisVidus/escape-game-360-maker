@@ -10,6 +10,8 @@
  * Médias (carré violet) : sur la **scène / hotspot / choix**, `metaOut` est en **bas** (Sud) ;
  * sur le **nœud ressource**, `metaIn` est en **haut** (Nord) — arête graphe **source Sud → cible Nord**
  * (ex. image scène : sortie bas de la scène vers entrée haut de la ressource).
+ *
+ * Table N/E/S/O ↔ ids : `mapConnectionMatrix.ts`.
  */
 export const RF_FLOW_IN = "in";
 export const RF_FLOW_OUT = "out";
