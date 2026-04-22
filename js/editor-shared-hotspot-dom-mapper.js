@@ -101,6 +101,30 @@
             legacy.sfxUrl = val(hsDiv, ".f-sfx-url", "");
             legacy.sfxVolume = val(hsDiv, ".f-sfx-vol", "");
 
+            var act = legacyActionToV2(type, legacy);
+            if (
+                (type === "req" || type === "pwd") &&
+                hsDiv.dataset &&
+                hsDiv.dataset.v2RewardAction != null &&
+                String(hsDiv.dataset.v2RewardAction).length > 0
+            ) {
+                var rawRw = String(hsDiv.dataset.v2RewardAction);
+                if (act && act.payload) {
+                    if (rawRw === "__DELETE__") {
+                        delete act.payload.rewardAction;
+                    } else {
+                        try {
+                            var parsedRw = JSON.parse(rawRw);
+                            if (parsedRw && typeof parsedRw === "object") {
+                                act.payload.rewardAction = parsedRw;
+                            }
+                        } catch (eRw) {
+                            /* ignore invalid JSON */
+                        }
+                    }
+                }
+            }
+
             return {
                 id: hsDiv.id,
                 title: val(hsDiv, ".hs-title", ""),
@@ -118,7 +142,7 @@
                     ui_brd_w: val(hsDiv, ".ui-brd-w", ""),
                     ui_brd_c: val(hsDiv, ".ui-brd-c", "")
                 },
-                action: legacyActionToV2(type, legacy)
+                action: act
             };
         }
 

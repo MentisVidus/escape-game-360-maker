@@ -63,6 +63,15 @@ async function saveProjectBundle() {
         });
         var zip = new JSZip();
         zip.file("project.json", JSON.stringify(project, null, 2));
+        try {
+            var MapLayoutApi = window.EditorSharedMapLayout;
+            if (MapLayoutApi && typeof MapLayoutApi.buildMapLayoutFileV1FromSession === "function") {
+                var mapLayoutObj = MapLayoutApi.buildMapLayoutFileV1FromSession(project);
+                zip.file("map-layout.json", JSON.stringify(mapLayoutObj, null, 2));
+            }
+        } catch (eMap) {
+            console.warn("map-layout.zip", eMap);
+        }
         var folder = zip.folder("assets");
         neededUrls.forEach(function (u) {
             var rel = urlToRelPath[u.trim()];
@@ -500,6 +509,39 @@ function applyMapHotspotSceneConnection(sceneIndex, hotspotIndex, targetSceneInd
     }
 }
 window.applyMapHotspotSceneConnection = applyMapHotspotSceneConnection;
+
+/**
+ * Map: writes only `action.payload.rewardAction` (V2) on a REQ/PWD hotspot DOM block.
+ * @param {number} sceneIndex
+ * @param {number} hotspotIndex
+ * @param {object|null} rewardAction — null removes rewardAction from payload
+ */
+function applyMapHotspotRewardAction(sceneIndex, hotspotIndex, rewardAction) {
+    if (typeof window.restoreProjectMapSidePanelDomOnly === "function") {
+        window.restoreProjectMapSidePanelDomOnly();
+    }
+    if (typeof sceneIndex !== "number" || sceneIndex < 0) return;
+    if (typeof hotspotIndex !== "number" || hotspotIndex < 0) return;
+    var blocks = document.querySelectorAll("#scenes-container > .scene-block");
+    var sceneEl = blocks[sceneIndex];
+    if (!sceneEl) return;
+    var wrap = sceneEl.querySelector('[id^="hs-container-"]');
+    if (!wrap) return;
+    var hss = wrap.querySelectorAll(":scope > .hotspot-block");
+    var hb = hss[hotspotIndex];
+    if (!hb) return;
+    var typeSel = hb.querySelector(".hs-type");
+    if (!typeSel || (typeSel.value !== "req" && typeSel.value !== "pwd")) return;
+    if (rewardAction == null) {
+        hb.dataset.v2RewardAction = "__DELETE__";
+    } else {
+        hb.dataset.v2RewardAction = JSON.stringify(rewardAction);
+    }
+    if (typeof refreshProjectMapGraphInPlace === "function") {
+        refreshProjectMapGraphInPlace();
+    }
+}
+window.applyMapHotspotRewardAction = applyMapHotspotRewardAction;
 
 /** Path B: move a hotspot DOM node from one scene to another (e.g. unassigned → playable scene). */
 function attachHotspotToMapScene(fromSceneIndex, hotspotIndex, targetSceneIndex) {
@@ -2592,8 +2634,11 @@ function loadProject(event) {
                     .then(function (zip) {
                         var pj = zip.file("project.json");
                         if (!pj) throw new Error("project.json not found in the .escapegame archive.");
+                        var ml = zip.file("map-layout.json");
                         return pj.async("string").then(function (text) {
-                            return { zip: zip, text: text };
+                            return (ml ? ml.async("string") : Promise.resolve(null)).then(function (mapLayoutText) {
+                                return { zip: zip, text: text, mapLayoutText: mapLayoutText };
+                            });
                         });
                     })
                     .then(function (o) {
@@ -2602,6 +2647,25 @@ function loadProject(event) {
                         return mapZipAssetsToEditorSession(o.zip).then(function (pathMap) {
                             rewriteLoadedProjectPathsToBlobUrls(project, pathMap);
                             applyLoadedProject(project);
+                            try {
+                                var Ml = window.EditorSharedMapLayout;
+                                if (
+                                    o.mapLayoutText &&
+                                    Ml &&
+                                    typeof Ml.applyMapLayoutFileV1ToSession === "function"
+                                ) {
+                                    Ml.applyMapLayoutFileV1ToSession(project, o.mapLayoutText);
+                                }
+                            } catch (eMl) {
+                                console.warn("map-layout.load", eMl);
+                            }
+                            try {
+                                document.dispatchEvent(
+                                    new CustomEvent("react-project-map", { detail: { type: "refresh" } })
+                                );
+                            } catch (eEv) {
+                                /* ignore */
+                            }
                             localDraftManager.setSourceHint("bundle");
                             localDraftManager.captureSnapshot("force").catch(function (eCap) {
                                 console.error("draft.error", eCap);

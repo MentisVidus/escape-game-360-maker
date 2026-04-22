@@ -46,6 +46,7 @@ import { MapAddMenuPanelContent } from "./mapAddMenuUi";
 import { isValidMapFlowConnection, isValidMapRewardConnection } from "./mapConnectionPolicy";
 import { isFlowEastToWestConnection, isMetaSouthToNorthConnection } from "./mapConnectionMatrix";
 import { RF_REWARD_IN, RF_REWARD_OUT } from "./mapFlowHandles";
+import { computeReactMapLayoutStorageKey, inferRewardOverlayFromProject } from "./mapLayoutFile";
 import { createMinimalRewardActionV2 } from "./mapRewardActionV2";
 import {
   deserializeRewardOverlay,
@@ -108,6 +109,11 @@ declare global {
       hotspotIndex: number,
       choicePath: number[],
       targetDomSceneId: string
+    ) => void;
+    applyMapHotspotRewardAction?: (
+      sceneIndex: number,
+      hotspotIndex: number,
+      rewardAction: Record<string, unknown> | null
     ) => void;
     copyHotspotToMapScene?: (
       fromSceneIndex: number,
@@ -178,9 +184,7 @@ function buildProjectMapGraphBase(project: EditorProject | null): {
   const narr = readNarrationOnly();
   const lang = hostLang();
   if (!project?.scenes?.length) {
-    const title = String(project?.title ?? "").slice(0, 120);
-    const nScenes = project?.scenes?.length ?? 0;
-    const layoutKey = `escape360-reactMap-pos:v1:${viewMode}:${narr ? "1" : "0"}:${nScenes}:${title}`;
+    const layoutKey = computeReactMapLayoutStorageKey(project);
     return { nodes: [], edges: [], layoutKey, activeSceneKey: null };
   }
   const { nodes, edges, activeSceneKey: nextActive } = buildProjectMapGraph(project, {
@@ -189,9 +193,7 @@ function buildProjectMapGraphBase(project: EditorProject | null): {
     narrationOnly: narr,
     lang,
   });
-  const title = String(project.title ?? "").slice(0, 120);
-  const nScenes = project.scenes.length ?? 0;
-  const layoutKey = `escape360-reactMap-pos:v1:${viewMode}:${narr ? "1" : "0"}:${nScenes}:${title}`;
+  const layoutKey = computeReactMapLayoutStorageKey(project);
   return { nodes, edges, layoutKey, activeSceneKey: nextActive };
 }
 
@@ -384,6 +386,7 @@ function InnerMap() {
   useLayoutEffect(() => {
     rewardOverlayHydratedRef.current = false;
     const project = readProject();
+    const lang = hostLang();
     const { nodes: baseNodes } = buildProjectMapGraphBase(project);
     const ids = new Set(baseNodes.filter((n) => n.type === "mapHotspot").map((n) => n.id));
     let next = emptyRewardOverlay();
@@ -394,6 +397,14 @@ function InnerMap() {
       }
     } catch {
       /* ignore */
+    }
+    const hasReward =
+      next.edges.length > 0 ||
+      next.stubNodes.length > 0 ||
+      Object.keys(next.patchByHotspotId).length > 0;
+    if (!hasReward && project?.scenes?.length) {
+      const inferred = inferRewardOverlayFromProject(project, lang, ids, baseNodes);
+      if (inferred.edges.length > 0) next = inferred;
     }
     setRewardOverlay(next);
     rewardOverlayHydratedRef.current = true;
@@ -511,6 +522,14 @@ function InnerMap() {
                 [c.source]: { rewardType: rw.rewardKind, rewardActionDraft: draft },
               },
             };
+          });
+          const hd = sNode.data as MapHotspotNodeData;
+          queueMicrotask(() => {
+            window.applyMapHotspotRewardAction?.(
+              hd.sceneIndex,
+              hd.hotspotIndex,
+              draft as unknown as Record<string, unknown>
+            );
           });
           return;
         }
@@ -680,6 +699,14 @@ function InnerMap() {
           }
           return { ...prev, edges: nextEdges, patchByHotspotId: patch };
         });
+        queueMicrotask(() => {
+          for (const e of rewardRemoved) {
+            const srcNode = nodes.find((n) => n.id === e.source);
+            if (srcNode?.type !== "mapHotspot") continue;
+            const hd = srcNode.data as MapHotspotNodeData;
+            window.applyMapHotspotRewardAction?.(hd.sceneIndex, hd.hotspotIndex, null);
+          }
+        });
       }
       for (const edge of removed) {
         if (!isFlowEastToWestConnection(edge)) continue;
@@ -712,18 +739,30 @@ function InnerMap() {
           let nextEdges = [...prev.edges];
           const patch = { ...prev.patchByHotspotId };
           let touched = false;
+          const rewardSources: string[] = [];
           for (const rid of removeIds) {
             const hit = nextEdges.find((e) => e.id === rid);
             if (!hit || hit.sourceHandle !== RF_REWARD_OUT) continue;
             nextEdges = nextEdges.filter((e) => e.id !== rid);
             delete patch[hit.source];
+            rewardSources.push(hit.source);
             touched = true;
+          }
+          if (touched && rewardSources.length) {
+            queueMicrotask(() => {
+              for (const sid of rewardSources) {
+                const srcNode = store.getState().nodes.find((n) => n.id === sid);
+                if (srcNode?.type !== "mapHotspot") continue;
+                const hd = srcNode.data as MapHotspotNodeData;
+                window.applyMapHotspotRewardAction?.(hd.sceneIndex, hd.hotspotIndex, null);
+              }
+            });
           }
           return touched ? { ...prev, edges: nextEdges, patchByHotspotId: patch } : prev;
         });
       });
     },
-    [onEdgesChange]
+    [onEdgesChange, store]
   );
 
   const onNodesDelete = useCallback((removed: Node[]) => {
