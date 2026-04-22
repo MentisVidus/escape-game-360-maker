@@ -25,6 +25,7 @@ import {
   type MapHotspotNodeData,
   type MapRedirectNodeData,
   type MapResourceNodeData,
+  type MapRewardTargetNodeData,
   type MapSceneNodeData,
   type MapSelectorChoiceNodeData,
   buildProjectMapGraph,
@@ -33,12 +34,17 @@ import {
   sceneKey,
 } from "./mapGraphBuild";
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
-import { isValidMapFlowConnection } from "./mapConnectionPolicy";
+import { isValidMapFlowConnection, isValidMapRewardConnection } from "./mapConnectionPolicy";
 import { isFlowEastToWestConnection, isMetaSouthToNorthConnection } from "./mapConnectionMatrix";
+import { RF_REWARD_IN, RF_REWARD_OUT } from "./mapFlowHandles";
+import { createMinimalRewardActionV2 } from "./mapRewardActionV2";
+import { emptyRewardOverlay, mergeRewardOverlay, type RewardOverlayState } from "./mapRewardOverlayMerge";
+import { MapRewardToolbar } from "./mapRewardToolbar";
 import {
   MapHotspotNode,
   MapRedirectNode,
   MapResourceNode,
+  MapRewardTargetNode,
   MapSceneGroupNode,
   MapSceneNode,
   MapSelectorChoiceNode,
@@ -121,6 +127,7 @@ const nodeTypes: NodeTypes = {
   mapSelectorChoice: MapSelectorChoiceNode,
   mapResource: MapResourceNode,
   mapRedirect: MapRedirectNode,
+  mapRewardTarget: MapRewardTargetNode,
 };
 
 function hostLang(): EditorLang {
@@ -161,18 +168,6 @@ function readProject(): EditorProject | null {
   } catch {
     return null;
   }
-}
-
-function mergeSavedNodePositions(nodes: Node[], saved: Record<string, { x: number; y: number }>): Node[] {
-  if (!saved || Object.keys(saved).length === 0) return nodes;
-  return nodes.map((node) => {
-    if (node.type === "mapSceneGroup" || node.type === "mapSelectorGroup") {
-      return { ...node };
-    }
-    const p = saved[node.id];
-    if (!p || typeof p.x !== "number" || typeof p.y !== "number") return node;
-    return { ...node, position: { x: p.x, y: p.y } };
-  });
 }
 
 /** Déplace en bloc hotspots / choix / médias / cadre `sg:` quand on traîne le nœud scène (`sc:`). */
@@ -267,6 +262,7 @@ function InnerMap() {
   const altConnectRef = useRef(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteSceneIndex, setPaletteSceneIndex] = useState(0);
+  const [rewardOverlay, setRewardOverlay] = useState<RewardOverlayState>(() => emptyRewardOverlay());
 
   useEffect(() => {
     const onBus = (ev: Event) => {
@@ -299,21 +295,39 @@ function InnerMap() {
     const title = String(project?.title ?? "").slice(0, 120);
     const nScenes = project?.scenes?.length ?? 0;
     const layoutKey = `escape360-reactMap-pos:v1:${viewMode}:${narr ? "1" : "0"}:${nScenes}:${title}`;
-    let mergedNodes = nodes;
+    let savedPos: Record<string, { x: number; y: number }> | null = null;
     try {
       const raw = sessionStorage.getItem(layoutKey);
       if (raw) {
         const parsed = JSON.parse(raw) as unknown;
         if (parsed && typeof parsed === "object") {
-          mergedNodes = mergeSavedNodePositions(nodes, parsed as Record<string, { x: number; y: number }>);
+          savedPos = parsed as Record<string, { x: number; y: number }>;
         }
       }
     } catch {
       /* ignore */
     }
-    mergedNodes = recomputeMapLayoutGroups(mergedNodes);
-    return { nodes: mergedNodes, edges, layoutKey };
-  }, [graphRev]);
+    const merged = mergeRewardOverlay(nodes, edges, rewardOverlay, savedPos);
+    return { nodes: merged.nodes, edges: merged.edges, layoutKey };
+  }, [graphRev, rewardOverlay]);
+
+  const rewardWarnings = useMemo(() => {
+    const pl = hostLang();
+    const hs = pack.nodes.filter((n) => {
+      if (n.type !== "mapHotspot") return false;
+      const d = n.data as MapHotspotNodeData;
+      const t = String(d.actionType || "").trim();
+      return t === "req" || t === "pwd";
+    });
+    const missing = hs.filter(
+      (n) => !pack.edges.some((e) => e.source === n.id && e.sourceHandle === RF_REWARD_OUT)
+    );
+    return missing.map((n) => {
+      const d = n.data as MapHotspotNodeData;
+      const lab = d.label || (pl === "en" ? "Hotspot" : "Hotspot");
+      return pl === "en" ? `${lab} · REQ/PWD needs reward ★` : `${lab} · REQ/PWD sans cible ★`;
+    });
+  }, [pack.nodes, pack.edges]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(pack.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(pack.edges);
@@ -385,6 +399,39 @@ function InnerMap() {
         const sNode = nodes.find((n) => n.id === c.source);
         const tNode = nodes.find((n) => n.id === c.target);
         if (!sNode || !tNode) return;
+        if (
+          isValidMapRewardConnection({
+            nodes,
+            connection: c,
+            altConnect: altConnectRef.current,
+          })
+        ) {
+          const rw = tNode.data as MapRewardTargetNodeData;
+          const draft = createMinimalRewardActionV2(rw.rewardKind);
+          setRewardOverlay((prev) => {
+            const nextEdges = prev.edges.filter(
+              (e) => !(e.source === c.source && e.sourceHandle === RF_REWARD_OUT)
+            );
+            nextEdges.push({
+              id: `e:rw:${c.source}>${c.target}`,
+              source: c.source,
+              target: c.target,
+              sourceHandle: RF_REWARD_OUT,
+              targetHandle: RF_REWARD_IN,
+              type: "smoothstep",
+              style: { stroke: "#f59e0b", strokeWidth: 2 },
+            });
+            return {
+              ...prev,
+              edges: nextEdges,
+              patchByHotspotId: {
+                ...prev.patchByHotspotId,
+                [c.source]: { rewardType: rw.rewardKind, rewardActionDraft: draft },
+              },
+            };
+          });
+          return;
+        }
         if (sNode.type === "mapScene" && tNode.type === "mapHotspot") {
           const sd = sNode.data as MapSceneNodeData;
           const hd = tNode.data as MapHotspotNodeData;
@@ -538,6 +585,20 @@ function InnerMap() {
 
   const onEdgesDelete = useCallback(
     (removed: Edge[]) => {
+      const rewardRemoved = removed.filter(
+        (e) => e.sourceHandle === RF_REWARD_OUT && e.targetHandle === RF_REWARD_IN
+      );
+      if (rewardRemoved.length > 0) {
+        setRewardOverlay((prev) => {
+          const removedIds = new Set(rewardRemoved.map((e) => e.id));
+          const nextEdges = prev.edges.filter((e) => !removedIds.has(e.id));
+          const patch = { ...prev.patchByHotspotId };
+          for (const e of rewardRemoved) {
+            delete patch[e.source];
+          }
+          return { ...prev, edges: nextEdges, patchByHotspotId: patch };
+        });
+      }
       for (const edge of removed) {
         if (!isFlowEastToWestConnection(edge)) continue;
         const src = nodes.find((n) => n.id === edge.source);
@@ -555,6 +616,21 @@ function InnerMap() {
     },
     [nodes]
   );
+
+  const onNodesDelete = useCallback((removed: Node[]) => {
+    const rwIds = new Set(removed.filter((n) => n.type === "mapRewardTarget").map((n) => n.id));
+    if (rwIds.size === 0) return;
+    setRewardOverlay((prev) => {
+      const stubNodes = prev.stubNodes.filter((n) => !rwIds.has(n.id));
+      const lostSources = prev.edges.filter((e) => rwIds.has(e.target)).map((e) => e.source);
+      const nextEdges = prev.edges.filter((e) => !rwIds.has(e.target) && !rwIds.has(e.source));
+      const patch = { ...prev.patchByHotspotId };
+      for (const sid of lostSources) {
+        delete patch[sid];
+      }
+      return { ...prev, stubNodes, edges: nextEdges, patchByHotspotId: patch };
+    });
+  }, []);
 
   const onNodesChangePersistLayout = useCallback(
     (changes: NodeChange[]) => {
@@ -627,6 +703,7 @@ function InnerMap() {
           interactionWidth: 28,
         }}
         onEdgesDelete={onEdgesDelete}
+        onNodesDelete={onNodesDelete}
         onInit={({ fitView }) => fitView({ padding: 0.15 })}
         proOptions={{ hideAttribution: true }}
       >
@@ -668,6 +745,16 @@ function InnerMap() {
               </>
             )}
           </div>
+        </Panel>
+        <Panel position="bottom-right">
+          <MapRewardToolbar
+            lang={hostLang()}
+            enUi={enUi}
+            warnings={rewardWarnings}
+            onAddStub={(node) => {
+              setRewardOverlay((prev) => ({ ...prev, stubNodes: [...prev.stubNodes, node] }));
+            }}
+          />
         </Panel>
         <Panel position="bottom-left">
           <div className="rf-map-floating-palette">

@@ -7,13 +7,20 @@
  * Référence : `docs/PLAN_MAP_CONNEXIONS_FUTUR.md` (tableau § Schéma connecteurs).
  */
 import type { Connection } from "@xyflow/react";
-import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT } from "./mapFlowHandles";
+import {
+  RF_FLOW_IN,
+  RF_FLOW_OUT,
+  RF_META_IN,
+  RF_META_OUT,
+  RF_REWARD_IN,
+  RF_REWARD_OUT,
+} from "./mapFlowHandles";
 
 /** N / E / S / O comme dans le plan (O = Ouest). */
 export type MapCardinal = "N" | "E" | "S" | "O";
 
 /** Famille de lien : flux narration (bleu) vs médias / métadonnées (violet). */
-export type MapLinkFamily = "flow" | "meta";
+export type MapLinkFamily = "flow" | "meta" | "reward";
 
 export type MapHandleSemantic = {
   family: MapLinkFamily;
@@ -37,6 +44,8 @@ export const MAP_HANDLE_SEMANTICS: Readonly<
     [RF_FLOW_IN]: { family: "flow", cardinal: "O" },
     [RF_FLOW_OUT]: { family: "flow", cardinal: "E" },
     [RF_META_OUT]: { family: "meta", cardinal: "S" },
+    /** Présent visuellement seulement sur req/pwd ; la policy filtre les autres types. */
+    [RF_REWARD_OUT]: { family: "reward", cardinal: "N" },
   },
   mapSelectorChoice: {
     [RF_FLOW_IN]: { family: "flow", cardinal: "O" },
@@ -50,6 +59,9 @@ export const MAP_HANDLE_SEMANTICS: Readonly<
   /** Ressource : récepteur médias en « Nord » uniquement pour l’instant. */
   mapResource: {
     [RF_META_IN]: { family: "meta", cardinal: "N" },
+  },
+  mapRewardTarget: {
+    [RF_REWARD_IN]: { family: "reward", cardinal: "O" },
   },
 };
 
@@ -72,6 +84,11 @@ export function isFlowEastToWestConnection(c: Pick<Connection, "sourceHandle" | 
  */
 export function isMetaSouthToNorthConnection(c: Pick<Connection, "sourceHandle" | "targetHandle">): boolean {
   return c.sourceHandle === RF_META_OUT && c.targetHandle === RF_META_IN;
+}
+
+/** Liaison récompense req/pwd : sortie dédiée → entrée cible récompense. */
+export function isRewardOutToInConnection(c: Pick<Connection, "sourceHandle" | "targetHandle">): boolean {
+  return c.sourceHandle === RF_REWARD_OUT && c.targetHandle === RF_REWARD_IN;
 }
 
 /**

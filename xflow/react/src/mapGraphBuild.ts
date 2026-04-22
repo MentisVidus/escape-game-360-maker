@@ -1,6 +1,10 @@
 import type { Edge, Node } from "@xyflow/react";
 import dagre from "dagre";
 
+import type { MapRewardActionDraft, MapRewardTargetKind } from "./mapRewardActionV2";
+
+export type { MapRewardActionDraft, MapRewardTargetKind } from "./mapRewardActionV2";
+
 const SELECTOR_GRAPH_MAX_DEPTH = 48;
 
 /** Aligné sur `addScene("__editorMapStaging", …)` — file d’attente carte (editorOnly). */
@@ -68,6 +72,21 @@ export type MapHotspotNodeData = {
   mapDragSceneOut?: boolean;
   /** Présent si action `selector` : nombre de choix (amorce B3 / lisibilité graphe). */
   selectorChoiceCount?: number;
+  /**
+   * Carte uniquement : type de récompense V2 inféré depuis le nœud `mapRewardTarget`
+   * relié par `reward-out` (pas encore persisté dans le JSON projet).
+   */
+  rewardType?: MapRewardTargetKind;
+  /** Brouillon `action.payload.rewardAction` (schéma V2) pour le lot persistance. */
+  rewardActionDraft?: MapRewardActionDraft | null;
+};
+
+/** Nœud « cible récompense » (Message / Transition / Pick / Menu) — carte React uniquement. */
+export type MapRewardTargetNodeData = {
+  kind: "rewardTarget";
+  rewardKind: MapRewardTargetKind;
+  label: string;
+  lang: EditorLang;
 };
 
 export type MapSelectorChoiceNodeData = {
@@ -964,6 +983,7 @@ function nodeSizeForLayout(n: Node): LayoutSize {
   }
   if (n.type === "mapResource") return { width: 210, height: 108 };
   if (n.type === "mapRedirect") return { width: 190, height: 82 };
+  if (n.type === "mapRewardTarget") return { width: 200, height: 88 };
   if (n.style && typeof n.style.width === "number" && typeof n.style.height === "number") {
     return { width: n.style.width, height: n.style.height };
   }

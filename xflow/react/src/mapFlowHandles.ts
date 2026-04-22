@@ -17,3 +17,7 @@ export const RF_FLOW_IN = "in";
 export const RF_FLOW_OUT = "out";
 export const RF_META_IN = "metaIn";
 export const RF_META_OUT = "metaOut";
+/** Sortie récompense dédiée (req/pwd) — voir `mapConnectionPolicy` / plan carte. */
+export const RF_REWARD_OUT = "reward-out";
+/** Entrée unique des nœuds cible récompense (`mapRewardTarget`). */
+export const RF_REWARD_IN = "reward-in";

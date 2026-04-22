@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { Handle, Position, type Node as FlowNode, type NodeProps } from "@xyflow/react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { Handle, Position, useStore, type Node as FlowNode, type NodeProps } from "@xyflow/react";
 import type {
   EditorLang,
   MapHotspotNodeData,
@@ -9,9 +9,11 @@ import type {
   MapSelectorGroupNodeData,
   MapSceneNodeData,
   MapSelectorChoiceNodeData,
+  MapRewardTargetNodeData,
 } from "./mapGraphBuild";
 import { MapAddMenuPanelContent } from "./mapAddMenuUi";
-import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT } from "./mapFlowHandles";
+import { RF_FLOW_IN, RF_FLOW_OUT, RF_META_IN, RF_META_OUT, RF_REWARD_IN, RF_REWARD_OUT } from "./mapFlowHandles";
+import type { MapRewardTargetKind } from "./mapRewardActionV2";
 
 import "./mapNodeChrome.css";
 
@@ -171,18 +173,55 @@ export function MapSceneNode({ data }: SceneNodeProps) {
 
 type HotspotNodeProps = NodeProps<FlowNode<MapHotspotNodeData & { lang: EditorLang }>>;
 
-export function MapHotspotNode({ data }: HotspotNodeProps) {
+function rewardKindShortLabel(kind: MapRewardTargetKind, en: boolean): string {
+  if (kind === "msg") return en ? "Message" : "Message";
+  if (kind === "scene") return en ? "Scene" : "Scène";
+  if (kind === "pick") return en ? "Pick" : "Objet";
+  return en ? "Selector" : "Menu";
+}
+
+export function MapHotspotNode({ id, data }: HotspotNodeProps) {
   const en = data.lang === "en";
   const labAction = en ? "Action:" : "Action :";
+  const at = String(data.actionType || "").trim();
+  const showRewardPort = at === "req" || at === "pwd";
+  const hasRewardEdge = useStore(
+    useCallback(
+      (s) => s.edges.some((e) => e.source === id && e.sourceHandle === RF_REWARD_OUT),
+      [id]
+    )
+  );
+  const rewardOk = Boolean(data.rewardType) || hasRewardEdge;
   const onDelHs = (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     window.deleteHotspotFromMapIndices?.(data.sceneIndex, data.hotspotIndex);
   };
   return (
-    <div className="rf-map-hotspot-root">
+    <div
+      className={[
+        "rf-map-hotspot-root",
+        showRewardPort && !rewardOk ? "rf-map-hotspot-reward-missing" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <Handle type="target" position={Position.Left} id={RF_FLOW_IN} className="rf-map-handle-flow-in" />
       <Handle type="source" position={Position.Right} id={RF_FLOW_OUT} className="rf-map-handle-flow-out" />
       <Handle type="source" position={Position.Bottom} id={RF_META_OUT} className="rf-map-handle-meta-out" />
+      {showRewardPort ? (
+        <>
+          <Handle
+            type="source"
+            position={Position.Top}
+            id={RF_REWARD_OUT}
+            className="rf-map-handle-reward-out"
+            isConnectable
+          />
+          <span className="rf-map-reward-port-hint" title={en ? "Reward (V2)" : "Récompense (V2)"}>
+            ★
+          </span>
+        </>
+      ) : null}
       <div className="rf-map-node-actions">
         <button
           type="button"
@@ -206,7 +245,38 @@ export function MapHotspotNode({ data }: HotspotNodeProps) {
               : `Menu · ${data.selectorChoiceCount} choix`}
           </div>
         ) : null}
+        {showRewardPort && data.rewardType ? (
+          <div className="rf-map-reward-kind-badge" title={en ? "Connected reward (V2 draft)" : "Récompense reliée (brouillon V2)"}>
+            {en ? "Reward:" : "Récomp. :"} {rewardKindShortLabel(data.rewardType, en)}
+          </div>
+        ) : null}
+        {showRewardPort && !rewardOk ? (
+          <div className="rf-map-reward-missing-lbl">
+            {en ? "Missing reward link" : "Récompense manquante"}
+          </div>
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+type RewardTargetNodeProps = NodeProps<FlowNode<MapRewardTargetNodeData & { lang: EditorLang }>>;
+
+export function MapRewardTargetNode({ data }: RewardTargetNodeProps) {
+  const en = data.lang === "en";
+  return (
+    <div className="rf-map-reward-target-root">
+      <Handle
+        type="target"
+        position={Position.Left}
+        id={RF_REWARD_IN}
+        className="rf-map-handle-reward-in"
+        isConnectable
+      />
+      <div className="rf-map-reward-target-title">
+        {en ? "Reward target" : "Cible récompense"}
+      </div>
+      <div className="rf-map-reward-target-body">{data.label}</div>
     </div>
   );
 }
