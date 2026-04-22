@@ -228,7 +228,7 @@ export function MapHotspotNode({ id, data }: HotspotNodeProps) {
         <>
           <Handle
             type="source"
-            position={Position.Top}
+            position={Position.Right}
             id={RF_REWARD_OUT}
             className="rf-map-handle-reward-out"
             isConnectable

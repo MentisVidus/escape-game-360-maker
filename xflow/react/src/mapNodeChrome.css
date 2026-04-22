@@ -438,9 +438,9 @@
   border-radius: 3px;
   background: linear-gradient(145deg, #f59e0b, #d97706);
   border: 2px solid rgba(15, 23, 42, 0.95);
-  top: -7px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .rf-map-handle-reward-in.react-flow__handle {

@@ -47,7 +47,7 @@ export const MAP_HANDLE_SEMANTICS: Readonly<
     [RF_FLOW_OUT]: { family: "flow", cardinal: "E" },
     [RF_META_OUT]: { family: "meta", cardinal: "S" },
     /** Présent visuellement seulement sur req/pwd ; la policy filtre les autres types. */
-    [RF_REWARD_OUT]: { family: "reward", cardinal: "N" },
+    [RF_REWARD_OUT]: { family: "reward", cardinal: "E" },
     /** Entrée récompense pour hotspots msg|pick|selector (cible reward-out). */
     [RF_REWARD_IN]: { family: "reward", cardinal: "O" },
   },

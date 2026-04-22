@@ -22,7 +22,11 @@ export function buildRewardDraftForDirectMapTarget(
     const d = tNode.data as MapHotspotNodeData;
     const at = String(d.actionType || "").trim();
     if (at === "msg" || at === "pick" || at === "selector") {
-      return { kind: at, draft: createMinimalRewardActionV2(at) };
+      const draft = createMinimalRewardActionV2(at);
+      const p = draft.payload as { sceneIndex?: number; hotspotIndex?: number };
+      p.sceneIndex = d.sceneIndex;
+      p.hotspotIndex = d.hotspotIndex;
+      return { kind: at, draft };
     }
   }
   return null;
