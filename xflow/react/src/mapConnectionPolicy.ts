@@ -32,10 +32,10 @@ function isReqOrPwdHotspotData(d: MapHotspotNodeData): boolean {
 
 function isRewardTargetHotspotData(d: MapHotspotNodeData): boolean {
   const t = String(d.actionType || "").trim();
-  return t === "msg" || t === "pick" || t === "selector";
+  return t === "scene" || t === "msg" || t === "pick" || t === "selector";
 }
 
-/** Liaison `reward-out` (req/pwd) → scène (transition) ou hotspot msg|pick|selector (`reward-in`). */
+/** Liaison `reward-out` (req/pwd) → hotspot transition `scene` ou msg|pick|selector (`reward-in`). */
 export function isValidMapRewardConnection(ctx: MapFlowConnectionContext): boolean {
   const { nodes, connection: c } = ctx;
   if (!isRewardOutToInConnection(c)) return false;
@@ -45,7 +45,6 @@ export function isValidMapRewardConnection(ctx: MapFlowConnectionContext): boole
   if (sNode.type !== "mapHotspot") return false;
   const sd = sNode.data as MapHotspotNodeData;
   if (!isReqOrPwdHotspotData(sd)) return false;
-  if (tNode.type === "mapScene") return true;
   if (tNode.type === "mapHotspot") {
     const td = tNode.data as MapHotspotNodeData;
     return isRewardTargetHotspotData(td);

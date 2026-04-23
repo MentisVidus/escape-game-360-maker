@@ -90,13 +90,6 @@ export function MapSceneNode({ data }: SceneNodeProps) {
   return (
     <div className={wrapClass}>
       <Handle type="target" position={Position.Left} id={RF_FLOW_IN} className="rf-map-handle-flow-in" />
-      <Handle
-        type="target"
-        position={Position.Left}
-        id={RF_REWARD_IN}
-        className="rf-map-handle-reward-in rf-map-scene-reward-in"
-        isConnectable
-      />
       <Handle type="source" position={Position.Right} id={RF_FLOW_OUT} className="rf-map-handle-flow-out" />
       <Handle type="source" position={Position.Bottom} id={RF_META_OUT} className="rf-map-handle-meta-out" />
       <div className="rf-map-node-actions">
@@ -191,7 +184,7 @@ export function MapHotspotNode({ id, data }: HotspotNodeProps) {
   const labAction = en ? "Action:" : "Action :";
   const at = String(data.actionType || "").trim();
   const showRewardPort = at === "req" || at === "pwd";
-  const showRewardInPort = at === "msg" || at === "pick" || at === "selector";
+  const showRewardInPort = at === "scene" || at === "msg" || at === "pick" || at === "selector";
   const hasRewardEdge = useStore(
     useCallback(
       (s) => s.edges.some((e) => e.source === id && e.sourceHandle === RF_REWARD_OUT),

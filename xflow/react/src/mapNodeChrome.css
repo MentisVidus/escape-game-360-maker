@@ -419,13 +419,7 @@
   text-align: right;
 }
 
-/* —— Récompense req/pwd (reward-out) → scène / hotspot (reward-in) —— */
-.rf-map-scene-root .rf-map-scene-reward-in.react-flow__handle {
-  top: 62%;
-  left: -7px;
-  transform: translateY(-50%);
-}
-
+/* —— Récompense req/pwd (reward-out) → hotspot (reward-in) —— */
 .rf-map-hotspot-root .rf-map-hotspot-reward-in.react-flow__handle {
   top: 68%;
   left: -7px;

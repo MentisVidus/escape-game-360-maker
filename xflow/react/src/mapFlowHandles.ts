@@ -19,5 +19,5 @@ export const RF_META_IN = "metaIn";
 export const RF_META_OUT = "metaOut";
 /** Sortie récompense dédiée (req/pwd) — voir `mapConnectionPolicy` / plan carte. */
 export const RF_REWARD_OUT = "reward-out";
-/** Entrée récompense sur `mapScene` ou hotspot msg|pick|selector (cible du reward-out REQ/PWD). */
+/** Entrée récompense sur hotspot transition `scene` ou msg|pick|selector (cible du reward-out REQ/PWD). */
 export const RF_REWARD_IN = "reward-in";

@@ -39,8 +39,6 @@ export const MAP_HANDLE_SEMANTICS: Readonly<
     [RF_FLOW_IN]: { family: "flow", cardinal: "O" },
     [RF_FLOW_OUT]: { family: "flow", cardinal: "E" },
     [RF_META_OUT]: { family: "meta", cardinal: "S" },
-    /** Entrée récompense (reward-out REQ/PWD → scène cible transition). */
-    [RF_REWARD_IN]: { family: "reward", cardinal: "O" },
   },
   mapHotspot: {
     [RF_FLOW_IN]: { family: "flow", cardinal: "O" },
@@ -48,7 +46,7 @@ export const MAP_HANDLE_SEMANTICS: Readonly<
     [RF_META_OUT]: { family: "meta", cardinal: "S" },
     /** Présent visuellement seulement sur req/pwd ; la policy filtre les autres types. */
     [RF_REWARD_OUT]: { family: "reward", cardinal: "E" },
-    /** Entrée récompense pour hotspots msg|pick|selector (cible reward-out). */
+    /** Entrée récompense : hotspot transition `scene` ou msg|pick|selector (cible reward-out). */
     [RF_REWARD_IN]: { family: "reward", cardinal: "O" },
   },
   mapSelectorChoice: {

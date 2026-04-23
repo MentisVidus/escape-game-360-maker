@@ -89,30 +89,37 @@ function patchFromRewardAction(ra: LooseAction): RewardHotspotPatch | null {
   };
 }
 
-/** Trouve l’id nœud `sc:…` dont la scène correspond à `payload.target` (id / scId). */
-function findSceneGraphNodeIdForRewardTarget(
+function findTransitionHotspotNodeIdForRewardTarget(
   project: EditorProject,
+  parentSceneIndex: number,
   targetStr: string,
   baseNodes: Node[]
 ): string | null {
   const t = String(targetStr || "").trim();
   if (!t) return null;
   const scenes = project.scenes ?? [];
-  for (let si = 0; si < scenes.length; si++) {
-    const sc = scenes[si];
-    const sk = sceneKey(sc, si);
-    const idField = String((sc as { id?: unknown }).id ?? "").trim();
-    const scIdField = String((sc as { scId?: unknown }).scId ?? "").trim();
-    if (idField !== t && scIdField !== t && sk !== t) continue;
-    const nid = `sc:${sk}`;
-    if (baseNodes.some((n) => n.id === nid && n.type === "mapScene")) return nid;
+  const parentScene = scenes[parentSceneIndex];
+  if (!parentScene) return null;
+  const sk = sceneKey(parentScene, parentSceneIndex);
+  const hotspots = Array.isArray(parentScene.hotspots) ? parentScene.hotspots : [];
+  for (let hi = 0; hi < hotspots.length; hi++) {
+    const hs = hotspots[hi] as Record<string, unknown>;
+    const a = hs.action as { type?: string; payload?: { target?: unknown } } | undefined;
+    if (!a || a.type !== "scene") continue;
+    const tgt = String(a.payload?.target ?? "").trim();
+    if (tgt !== t) continue;
+    const nid = `hs:${sk}:${hi}`;
+    if (baseNodes.some((n) => n.id === nid && n.type === "mapHotspot")) {
+      return nid;
+    }
   }
   return null;
 }
 
 /**
- * Rétrocompat : sans edges en session, tente une arête reward-out → `mapScene`
- * quand `rewardAction.type === "scene"` et `payload.target` résout une scène du graphe.
+ * Sans edges en session : infère une arête reward-out → hotspot transition `scene`
+ * quand `rewardAction.type === "scene"` et un hotspot `action.type === "scene"` de la
+ * même scène parente porte le même `payload.target`.
  */
 export function inferRewardOverlayFromProject(
   project: EditorProject | null,
@@ -137,12 +144,17 @@ export function inferRewardOverlayFromProject(
       if (patch.rewardType !== "scene") return;
       const p = (ra as { payload?: { target?: unknown } }).payload;
       const targetStr = p && typeof p.target === "string" ? p.target : "";
-      const sceneNid = findSceneGraphNodeIdForRewardTarget(project, targetStr, baseNodes);
-      if (!sceneNid) return;
+      const transitionNid = findTransitionHotspotNodeIdForRewardTarget(
+        project,
+        si,
+        targetStr,
+        baseNodes
+      );
+      if (!transitionNid) return;
       out.edges.push({
-        id: `e:rw:${hsId}>${sceneNid}:infer`,
+        id: `e:rw:${hsId}>${transitionNid}:infer`,
         source: hsId,
-        target: sceneNid,
+        target: transitionNid,
         sourceHandle: RF_REWARD_OUT,
         targetHandle: RF_REWARD_IN,
         type: "smoothstep",
@@ -204,6 +216,10 @@ export function deserializeMapLayout(
     const source = row.source != null ? String(row.source) : "";
     const target = row.target != null ? String(row.target) : "";
     if (!source || !target) return;
+    // §0.2-5 : pas de rétrocompat. Les anciens edges reward → sc:
+    // sont simplement droppés. Le game designer recrée les liens
+    // à la main si besoin.
+    if (target.startsWith("sc:")) return;
     if (!validHotspotIds.has(source) || !validAllGraphNodeIds.has(target)) return;
     rewardOverlay.edges.push({
       id: `e:rw:${source}>${target}:${i}`,
