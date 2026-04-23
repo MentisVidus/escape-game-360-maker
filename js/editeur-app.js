@@ -515,6 +515,20 @@ function applyMapHotspotSceneConnection(sceneIndex, hotspotIndex, targetSceneInd
 }
 window.applyMapHotspotSceneConnection = applyMapHotspotSceneConnection;
 
+function readV2RewardActionFromHotspotBlock(hb) {
+    if (!hb || !hb.dataset) return null;
+    var raw = hb.dataset.v2RewardAction;
+    if (!raw || raw === "__DELETE__") return null;
+    try {
+        var parsed = JSON.parse(raw);
+        var t = parsed && typeof parsed === "object" ? String(parsed.type || "").trim() : "";
+        if (t !== "scene" && t !== "msg" && t !== "pick" && t !== "selector") return null;
+        return parsed;
+    } catch (e) {
+        return null;
+    }
+}
+
 /**
  * Carte : écrit uniquement `action.payload.rewardAction` (V2) sur un hotspot REQ/PWD.
  * @param {number} sceneIndex
@@ -541,6 +555,11 @@ function applyMapHotspotRewardAction(sceneIndex, hotspotIndex, rewardAction) {
         hb.dataset.v2RewardAction = "__DELETE__";
     } else {
         hb.dataset.v2RewardAction = JSON.stringify(rewardAction);
+    }
+    var hidM = /^hs_(\d+)$/.exec(hb.id);
+    var hidNum = hidM ? parseInt(hidM[1], 10) : 0;
+    if (hidNum && typeof updateHsFields === "function") {
+        updateHsFields(hidNum);
     }
     if (typeof refreshProjectMapGraphInPlace === "function") {
         refreshProjectMapGraphInPlace();
@@ -1429,7 +1448,25 @@ function addHotspot(sceneId, hsData = null) {
     // Remplissage des champs dynamiques avec les données sauvegardées (si on charge un projet)
     if(hsData) {
         let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
+        var hasV2RewardForRender = !!readV2RewardActionFromHotspotBlock(hsDiv);
+        var skipRewardLegacyWrites = hasV2RewardForRender && (hsData.type === "req" || hsData.type === "pwd");
+        var rewardLegacyRenderFields = {
+            "f-req-action": true,
+            "f-pwd-action": true,
+            "f-target": true,
+            "f-trans-txt": true,
+            "f-trans-btn": true,
+            "f-ok-msg": true,
+            "f-pick-id": true,
+            "f-pick-name": true,
+            "f-pick-msg": true,
+            "f-reward-sel-title": true,
+            "f-reward-sel-intro": true,
+            "f-reward-sel-display": true,
+            "f-reward-sel-choices": true
+        };
         fields.forEach(f => {
+            if (skipRewardLegacyWrites && rewardLegacyRenderFields[f]) return;
             let el = hsDiv.querySelector('.' + f);
             if(el && hsData[f.replace(/-/g, '_')] !== undefined) {
                 el.value = hsData[f.replace(/-/g, '_')];
@@ -2366,15 +2403,19 @@ function updateHsFields(hId, opts) {
         container.innerHTML = `<div class="row"><div class="col"><label>ID objet :</label><input type="text" class="f-item-id" value="cle"></div><div class="col"><label>Nom :</label><input type="text" class="f-item-name" value="La clé dorée"></div></div><label>Texte narratif :</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2" placeholder="Vous trouvez une clé."></textarea></div>${hsAdvancedHtml}`;
     }
     else if(type === 'req') {
+        var hbReq = document.getElementById(`hs_${hId}`);
+        var v2Req = readV2RewardActionFromHotspotBlock(hbReq);
+        var reqRewardType = v2Req ? v2Req.type : "scene";
+        var reqResClass = "res-" + reqRewardType;
         container.innerHTML = `
         <label>ID objet requis :</label><input type="text" class="f-item-id" value="cle">
         <label style="color:red;">Si ABSENT (Erreur) :</label><div class="wysiwyg-wrap"><textarea class="f-ko editor-rich-text" rows="2" placeholder="Verrouillé."></textarea></div>
         <label style="margin-top:10px; color:#27ae60;"><b>Si PRÉSENT (Récompense) :</b></label>
         <select class="f-req-action" onchange="document.getElementById('req_res_${hId}').className = 'res-' + this.value">
-            <option value="scene">Changer de scène</option><option value="msg">Afficher un message</option><option value="pick">Donner NOUVEL objet</option>
-            <option value="selector">Ouvrir un menu (selector)</option>
+            <option value="scene"${reqRewardType === "scene" ? " selected" : ""}>Changer de scène</option><option value="msg"${reqRewardType === "msg" ? " selected" : ""}>Afficher un message</option><option value="pick"${reqRewardType === "pick" ? " selected" : ""}>Donner NOUVEL objet</option>
+            <option value="selector"${reqRewardType === "selector" ? " selected" : ""}>Ouvrir un menu (selector)</option>
         </select>
-        <div id="req_res_${hId}" class="res-scene" style="margin-top:10px;">
+        <div id="req_res_${hId}" class="${reqResClass}" style="margin-top:10px;">
             <style>#req_res_${hId} .s-scene, #req_res_${hId} .s-msg, #req_res_${hId} .s-pick, #req_res_${hId} .s-reward-selector { display: none; } #req_res_${hId}.res-scene .s-scene { display: block; } #req_res_${hId}.res-msg .s-msg { display: block; } #req_res_${hId}.res-pick .s-pick { display: block; } #req_res_${hId}.res-selector .s-reward-selector { display: block; }</style>
             <div class="s-scene"><label>Aller vers la scène :</label>${sceneSel}<label>Texte transition :</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Bouton :</label><input type="text" class="f-trans-btn" value="" placeholder="Entrer"></div>
             <div class="s-msg"><label>Message :</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2" placeholder="Ouvert !"></textarea></div></div>
@@ -2395,15 +2436,19 @@ function updateHsFields(hId, opts) {
         container.innerHTML = `<label>Aller vers la scène :</label>${sceneSel}<label style="color:#2980b9;">Texte transition :</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Bouton :</label><input type="text" class="f-trans-btn" value="" placeholder="Continuer">${hsAdvancedHtml}`;
     }
     else if(type === 'pwd') {
+        var hbPwd = document.getElementById(`hs_${hId}`);
+        var v2Pwd = readV2RewardActionFromHotspotBlock(hbPwd);
+        var pwdRewardType = v2Pwd ? v2Pwd.type : "scene";
+        var pwdResClass = "res-" + pwdRewardType;
         container.innerHTML = `
         <label>Énigme / question :</label><div class="wysiwyg-wrap"><textarea class="f-enigme-txt editor-rich-text" rows="2" placeholder="Code :"></textarea></div>
         <label>Réponse attendue :</label><input type="text" class="f-pwd" value="1234">
         <label style="margin-top:10px;"><b>Récompense quand résolu :</b></label>
         <select class="f-pwd-action" onchange="document.getElementById('pwd_res_${hId}').className = 'res-' + this.value">
-            <option value="scene">Changer de scène</option><option value="msg">Afficher un message</option><option value="pick">Donner un objet</option>
-            <option value="selector">Ouvrir un menu (selector)</option>
+            <option value="scene"${pwdRewardType === "scene" ? " selected" : ""}>Changer de scène</option><option value="msg"${pwdRewardType === "msg" ? " selected" : ""}>Afficher un message</option><option value="pick"${pwdRewardType === "pick" ? " selected" : ""}>Donner un objet</option>
+            <option value="selector"${pwdRewardType === "selector" ? " selected" : ""}>Ouvrir un menu (selector)</option>
         </select>
-        <div id="pwd_res_${hId}" class="res-scene" style="margin-top:10px;">
+        <div id="pwd_res_${hId}" class="${pwdResClass}" style="margin-top:10px;">
             <style>#pwd_res_${hId} .s-scene, #pwd_res_${hId} .s-msg, #pwd_res_${hId} .s-pick, #pwd_res_${hId} .s-reward-selector { display: none; } #pwd_res_${hId}.res-scene .s-scene { display: block; } #pwd_res_${hId}.res-msg .s-msg { display: block; } #pwd_res_${hId}.res-pick .s-pick { display: block; } #pwd_res_${hId}.res-selector .s-reward-selector { display: block; }</style>
             <div class="s-scene"><label>Aller vers la scène :</label>${sceneSel}<label>Texte transition :</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Bouton :</label><input type="text" class="f-trans-btn" value="" placeholder="Entrer"></div>
             <div class="s-msg"><label>Message :</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2" placeholder="Déverrouillé !"></textarea></div></div>
