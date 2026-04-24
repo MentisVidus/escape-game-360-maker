@@ -2,7 +2,12 @@
 description: Contexte projet Escape Game 360° — stack, JSON V2, Quill/SRI/CORS, synchro FR/EN, export ZIP
 alwaysApply: true
 ---
-
+> **⚠ Branche `feat/nodal-map` en cours** : pour toute modification dans
+> `xflow/react/src/`, la spec autoritative est `NODAL_MAP_SPEC.mdc` v1.2+.
+> Le présent document décrit le reste du projet (éditeur vanilla, export
+> joueur, conventions FR/EN) et reste pleinement valable pour `js/*`,
+> `css/*`, `editeur.html`, `editor_en.html`, `xflow/draw/` et la doc.
+> La branche `feat/react-map` est **archivée** (tag `archive/feat-react-map`).
 # Contexte projet — Escape Game 360° Maker
 
 ## Présentation
