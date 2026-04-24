@@ -8,7 +8,7 @@ Desktop.ini
 # Dépendances (Chemin B : npm install depuis xflow/react/)
 node_modules/
 xflow/react/node_modules/
-
+xflow/react/dist/
 # Build Vite (décommenter si vous ne versionnez pas le bundle)
 # xflow/react/dist/
 
