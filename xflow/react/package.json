@@ -1,0 +1,23 @@
+{
+  "name": "escape-game-360-maker-xflow-react",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nodal map model workspace for C1.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.10.2",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.2"
+  }
+}

@@ -1,0 +1,112 @@
+import type { ActionNodeId, MediaNodeId, SatelliteNodeId } from "./ids";
+
+export type CopyPayload = {
+  bodyHtml: string;
+  buttonLabel: string;
+};
+
+export type ActionSfx = {
+  url: string;
+  volume: number;
+};
+
+export type ActionVisibility = {
+  requiresItem: string;
+  hiddenIfHasItem: string;
+  clickWhenInvisible: boolean;
+};
+
+export type BaseActionNode<TType extends string, TPayload> = {
+  id: ActionNodeId;
+  nodeType: "action";
+  actionType: TType;
+  label: string;
+  payload: TPayload;
+  sfx: ActionSfx;
+  visibility: ActionVisibility;
+};
+
+export type MsgActionNode = BaseActionNode<"msg", { copy: CopyPayload }>;
+export type PickActionNode = BaseActionNode<"pick", { itemId: string; itemName: string; copy: CopyPayload }>;
+export type GotoActionNode = BaseActionNode<"goto", { target: string; copy: CopyPayload }>;
+export type SelectorActionNode = BaseActionNode<
+  "selector",
+  { nested: { title: string; copy: CopyPayload; displayMode: "buttons" | "dropdown" } }
+>;
+export type ReqActionNode = BaseActionNode<"req", { itemId: string; copy: CopyPayload }> & {
+  rewardActionId: ActionNodeId | null;
+};
+export type PwdActionNode = BaseActionNode<"pwd", { answer: string; copy: CopyPayload }> & {
+  rewardActionId: ActionNodeId | null;
+};
+
+export type ActionNode =
+  | MsgActionNode
+  | PickActionNode
+  | GotoActionNode
+  | SelectorActionNode
+  | ReqActionNode
+  | PwdActionNode;
+
+export type SceneNode = {
+  id: import("./ids").SceneNodeId;
+  nodeType: "scene";
+  sceneId: string;
+  label: string;
+  panoramaUrl: string;
+};
+
+export type CoordsOptionsSatelliteNode = {
+  id: SatelliteNodeId;
+  nodeType: "satellite";
+  satelliteType: "coords-options";
+  data: {
+    pitch: number;
+    yaw: number;
+    visibility: Pick<ActionVisibility, "requiresItem" | "hiddenIfHasItem" | "clickWhenInvisible">;
+  };
+};
+
+export type ChoiceOptionsSatelliteNode = {
+  id: SatelliteNodeId;
+  nodeType: "satellite";
+  satelliteType: "choice-options";
+  data: {
+    visibility: Pick<ActionVisibility, "requiresItem" | "hiddenIfHasItem">;
+  };
+};
+
+export type ObjectSatelliteNode = {
+  id: SatelliteNodeId;
+  nodeType: "satellite";
+  satelliteType: "object";
+  data: {
+    objectId: string;
+    displayName: string;
+    iconMediaId: MediaNodeId | null;
+  };
+};
+
+export type SatelliteNode = CoordsOptionsSatelliteNode | ChoiceOptionsSatelliteNode | ObjectSatelliteNode;
+
+export type MediaImageNode = {
+  id: MediaNodeId;
+  nodeType: "media";
+  mediaType: "media-image";
+  data: {
+    url: string;
+  };
+};
+
+export type MediaAudioNode = {
+  id: MediaNodeId;
+  nodeType: "media";
+  mediaType: "media-audio";
+  data: {
+    url: string;
+    volume: number;
+  };
+};
+
+export type MediaNode = MediaImageNode | MediaAudioNode;
+
