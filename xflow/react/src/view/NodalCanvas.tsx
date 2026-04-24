@@ -15,7 +15,7 @@ import {
   type OnConnect,
   type OnMove,
 } from "@xyflow/react";
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
 import { asEdgeId, type AnyNodeId, type EdgeId } from "../model/ids";
@@ -103,7 +103,7 @@ export function toReactFlowEdges(state: NodalProject): RFEdge[] {
         sourceHandle: HANDLE_GOTO_OUT,
         targetHandle: HANDLE_GOTO_IN,
         animated: true,
-        style: { stroke: "#00a6ff", strokeWidth: 2, strokeDasharray: "6 4" },
+        className: "nodal-edge nodal-edge--transition",
       };
     }
     if (edge.family === "meta") {
@@ -113,7 +113,7 @@ export function toReactFlowEdges(state: NodalProject): RFEdge[] {
         target: edge.targetId,
         sourceHandle: HANDLE_META_OUT,
         targetHandle: HANDLE_META_IN,
-        style: { stroke: "#8f96a3", strokeWidth: 1.5, strokeDasharray: "2 3" },
+        className: "nodal-edge nodal-edge--meta",
       };
     }
     return {
@@ -122,7 +122,7 @@ export function toReactFlowEdges(state: NodalProject): RFEdge[] {
       target: edge.targetId,
       sourceHandle: HANDLE_FLOW_OUT,
       targetHandle: HANDLE_FLOW_IN,
-      style: { stroke: "#2d7fff", strokeWidth: 2 },
+      className: "nodal-edge nodal-edge--flow",
     };
   });
 }
@@ -135,6 +135,7 @@ function detectFamily(connection: Connection): "flow" | "transition" | "meta" | 
 }
 
 function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
+  const [mapColorMode, setMapColorMode] = useState<"light" | "dark">("light");
   const state = useSyncExternalStore(
     store.subscribe,
     store.getState,
@@ -219,11 +220,24 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     [state]
   );
 
+  const layoutClassName =
+    mapColorMode === "dark" ? "nodal-canvas-layout dark-mode" : "nodal-canvas-layout";
+
   return (
-    <div className="nodal-canvas-layout" ref={canvasRef}>
+    <div className={layoutClassName} ref={canvasRef}>
       <NodePalette store={store} canvasRef={canvasRef} />
       <div className="nodal-canvas-pane">
+        <button
+          type="button"
+          className="nodal-canvas-theme-toggle"
+          aria-label={mapColorMode === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+          title={mapColorMode === "dark" ? "Mode clair" : "Mode sombre"}
+          onClick={() => setMapColorMode((m) => (m === "dark" ? "light" : "dark"))}
+        >
+          {mapColorMode === "dark" ? "☀" : "☾"}
+        </button>
         <ReactFlow
+          colorMode={mapColorMode}
           nodes={rfNodes}
           edges={rfEdges}
           nodeTypes={nodeTypes}

@@ -2,12 +2,18 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.2 (24 avril 2026)
+> **Version** : 1.3 (24 avril 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+>
+> **Changelog v1.3** : le satellite `object` devient automatique comme
+> `coords-options` et `choice-options`. Retiré de la palette manuelle.
+> Modèle de données centralisé via `meta.objects[objectId]` (§3.6). Ajout
+> d'un chantier **C2.1 Dark mode** en amont de C3. Ajout d'une note
+> prospective sur les « edges fantômes » de logique objet (C7+).
 >
 > **Changelog v1.2** : clarification §4.2 et §4.4 sur la période
 > transitoire C1→C2 où les choix et récompenses sont des nœuds libres
@@ -251,8 +257,8 @@ rattachement. États mutuellement exclusifs.
 
 - `flow-in` connecté depuis une `scene`.
 - Fait apparaître automatiquement un satellite **coords-options** au Sud.
-- Si action `pick` ou `req` : peut aussi avoir un satellite `object` au
-  Sud (optionnel pour `pick`, recommandé pour `req`).
+- Si action `pick` ou `req` : un satellite **object** supplémentaire
+  apparaît aussi automatiquement au Sud (§3.6).
 - Stockage V2 : dans `scenes[sceneIdx].hotspots[]`.
 
 #### État 3 : CHOIX (enfant emboîté d'un selector)
@@ -262,6 +268,8 @@ rattachement. États mutuellement exclusifs.
 - **Pas de `flow-in` connecté par edge** — l'emboîtement remplace la
   connexion.
 - Fait apparaître automatiquement un satellite **choice-options** au Sud.
+- Si action `pick` ou `req` : un satellite **object** supplémentaire
+  apparaît aussi automatiquement au Sud (§3.6).
 - Style visuel : bordure en pointillés fins ou couleur plus pastel pour
   distinguer d'un hotspot.
 - **Ordre = position Y dans le layout** (relatif au selector parent).
@@ -275,8 +283,13 @@ rattachement. États mutuellement exclusifs.
 - **Pas de `flow-in` connecté par edge** — l'emboîtement remplace.
 - Le REQ/PWD parent porte un champ `rewardActionId` pointant vers cette
   action.
-- **Pas de satellite** (ni coords, ni options de choix). La récompense
-  s'exécute automatiquement quand le REQ/PWD est franchi.
+- **Pas de satellite coords-options ni choice-options** : la récompense
+  s'exécute automatiquement quand le REQ/PWD est franchi, elle n'est ni
+  cliquable ni affichée dans un menu.
+- **Exception** : si l'action récompense est `pick` ou `req`, le
+  satellite **object** apparaît quand même (§3.6). Cas d'usage
+  typique : une porte verrouillée (`req` clé) dont la récompense est
+  un `pick` d'un nouvel objet.
 - Visuellement, le REQ/PWD et sa récompense forment un **bloc Scratch** :
   une pince à l'Est du REQ/PWD accueille visuellement l'enfant, les
   deux nœuds se collent.
@@ -375,19 +388,71 @@ Pas de `clickWhenInvisible` (pas de notion d'opacité pour un choix).
 
 ### 3.6 Satellite `object`
 
-Nœud gris attaché au Sud d'une action **`pick`** ou **`req`**.
+Nœud gris attaché au Sud d'une action **`pick`** ou **`req`** en État 2
+(HOTSPOT) ou État 3 (CHOIX) ou État 4 (RÉCOMPENSE). **Automatique** :
+apparaît dès que l'action `pick` ou `req` passe dans un État productif,
+disparaît si elle repasse en État 1 (ORPHELIN).
 
-Contient :
-- `objectId` — id technique (obligatoire, unique projet-wide).
-- `displayName` — libellé inventaire (optionnel).
-- Rattache au Sud un nœud `media-image` pour l'icône (optionnel).
+Le satellite porte uniquement `objectId` (champ léger) :
 
-Un même `object` peut être référencé par plusieurs actions. Quand le
-game designer crée un nouveau satellite `object`, une interface de
-saisie propose :
-- Créer un nouvel objet (nouveau `objectId`).
-- Lier à un objet existant (auto-complétion sur les `objectId` déjà
-  définis dans le projet).
+```ts
+type ObjectSatellite = {
+  id: SatelliteNodeId;
+  nodeType: "satellite";
+  satelliteType: "object";
+  data: { objectId: string };
+};
+```
+
+Les données canoniques de chaque objet (nom affiché, icône) vivent dans
+une table centralisée `project.meta.objects` :
+
+```ts
+type ProjectMeta = {
+  // ... autres champs
+  objects: Record<string, {
+    objectId: string;
+    displayName: string;
+    iconMediaId: MediaNodeId | null;
+  }>;
+};
+```
+
+**Pourquoi cette centralisation** : évite la duplication de données
+entre plusieurs actions manipulant le même objet. Un changement de nom
+ou d'icône se propage instantanément à tous les endroits qui le
+référencent, sans logique de sync.
+
+**Édition** : un clic sur un satellite `object` ouvre un popup qui
+permet de :
+- Lier à un `objectId` existant (auto-complétion sur `meta.objects`).
+- Créer un nouvel `objectId`.
+- Éditer le `displayName` et l'`iconMediaId` (si l'utilisateur en a le
+  droit — règle à préciser §2.4.x).
+
+**Source d'autorité** : par convention, le satellite `object` attaché
+à un `pick` est considéré comme la **source de vérité** pour
+l'identité de l'objet (c'est lui qui le crée dans la fiction). Les
+satellites `object` attachés à des `req` (qui attendent l'objet) se
+contentent de référencer un `objectId` existant — leur édition porte
+seulement sur le choix de quel objet exiger.
+
+Pour le cas rare où deux `pick` créent le « même » objet à deux
+endroits différents du jeu (clé dupliquée pour redondance
+narrative), le game designer utilise simplement le même `objectId`
+pour les deux satellites — c'est cohérent avec le modèle (un objet
+avec un id unique peut être obtenu à plusieurs endroits).
+
+**Création manuelle désactivée** : la palette latérale ne propose
+**pas** de bouton « Object ». Les satellites objets ne se posent pas à
+la main — ils apparaissent automatiquement quand une action `pick` ou
+`req` devient productive.
+
+**Note prospective (C7+)** : un toggle « logique objet » dans le
+panneau de contrôle de la carte permettra d'afficher des edges
+fantômes entre tous les satellites `object` partageant le même
+`objectId`. Par défaut masqués pour ne pas polluer la vue. Utile
+pour auditer l'inventaire et voir où chaque objet est manipulé.
 
 ### 3.7 Nœuds `media-image` et `media-audio`
 
@@ -623,15 +688,35 @@ Neuf chantiers numérotés pour référence dans les commits.
 - Palette latérale simple (clic → création au centre).
 - Suppression clavier.
 
+### C2.1 — Dark mode toggle *(micro-chantier)*
+
+- Bouton toggle clair/sombre en coin de la carte.
+- State local dans le canvas, prop `colorMode="dark" | "light"` passée
+  à `<ReactFlow>`.
+- Ajustement des variables CSS de nœuds/handles pour le mode sombre.
+- Persistance de la préférence : en C5 via `map-layout.json`, en C2.1
+  un simple state local est suffisant.
+
 ### C3 — États contextuels et emboîtement
 
 - Satellites `coords-options` / `choice-options` / `object` automatiques.
+  Apparition/disparition selon l'État contextuel (§2.3).
+- **Retrait de la palette** des satellites `coords-options`,
+  `choice-options` et `object` — ils ne sont plus posés manuellement.
+  (Seuls les médias `image`/`audio` restent posables manuellement car
+  ils représentent des ressources externes volontaires.)
+- Table `meta.objects` centralisée dans `NodalProject.meta` (§3.6). Un
+  popup d'édition s'ouvre au clic sur un satellite `object`.
 - Emboîtement parent/child pour REQ/PWD + selector via intersection
-  detection.
+  detection (`onNodeDragStop` + bounding box).
 - Zone pince pour REQ/PWD (CSS custom).
-- Selector redimensionnable avec tri par Y des choix.
-- Style visuel des 4 états.
+- Selector redimensionnable (`NodeResizer`) avec tri par Y des choix.
+- Style visuel des 4 états (pointillés pour orphelin, pastel pour
+  choix, etc.).
 - Bouton « Détacher » sur nœuds enfants.
+- Ajustement policy meta-out : seuls les satellites compatibles
+  peuvent être reliés manuellement aux consommateurs (pour les médias
+  manuels qui subsistent).
 
 ### C4 — Warnings et Panel
 
@@ -728,38 +813,30 @@ interne sera redéfinie au chantier C1.
 *(À remplir au fur et à mesure.)*
 
 ### C1
-- `xflow/react/package.json`
-- `xflow/react/package-lock.json`
-- `xflow/react/tsconfig.json`
-- `xflow/react/vite.config.ts`
-- `xflow/react/src/model/ids.ts`
-- `xflow/react/src/model/nodes.ts`
-- `xflow/react/src/model/edges.ts`
-- `xflow/react/src/model/layout.ts`
-- `xflow/react/src/model/project.ts`
-- `xflow/react/src/store/nodalProjectStore.ts`
-- `xflow/react/src/serialize/v2TypeMap.ts`
-- `xflow/react/src/serialize/toProjectJson.ts`
-- `xflow/react/src/serialize/fromProjectJson.ts`
-- `xflow/react/src/serialize/mapLayoutJson.ts`
-- `xflow/react/src/__tests__/roundtrip.test.ts`
+*(à définir lors de l'implémentation)*
 
-### C2
-- `xflow/react/dev.html`
-- `xflow/react/src/dev-main.tsx`
-- `xflow/react/src/view/NodalCanvas.tsx`
-- `xflow/react/src/view/NodalCanvas.css`
-- `xflow/react/src/view/connectionPolicy.ts`
-- `xflow/react/src/view/demoProject.ts`
-- `xflow/react/src/view/handles/handleIds.ts`
-- `xflow/react/src/view/handles/handles.css`
-- `xflow/react/src/view/nodes/SceneNodeView.tsx`
-- `xflow/react/src/view/nodes/ActionNodeView.tsx`
-- `xflow/react/src/view/nodes/SatelliteNodeView.tsx`
-- `xflow/react/src/view/nodes/MediaNodeView.tsx`
-- `xflow/react/src/view/nodes/nodes.css`
-- `xflow/react/src/view/palette/NodePalette.tsx`
-- `xflow/react/src/view/palette/palette.css`
+### C2 — Rendu React Flow basique
+
+Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
+`NodalCanvas.css`, `connectionPolicy.ts`, `demoProject.ts`,
+`nodes/*`, `handles/*`, `palette/*`.
+
+### C2.1 — Dark mode toggle
+
+- `xflow/react/src/view/NodalCanvas.tsx` — `useState` clair/sombre,
+  prop `colorMode` sur `<ReactFlow>`, classe `dark-mode` sur le layout,
+  bouton ☀/☾, `className` d’edges par famille (`nodal-edge--flow` /
+  `--transition` / `--meta`).
+- `xflow/react/src/view/NodalCanvas.css` — **seul fichier** des
+  variables CSS (`--node-*`, `--edge-*`, `--handle-*`, `--palette-*`,
+  toggle) ; overrides sous `.nodal-canvas-layout.dark-mode` ; styles
+  des tracés d’edges et sélection.
+- `xflow/react/src/view/nodes/nodes.css` — fonds / bordures / texte
+  des nœuds via `var(--node-…)`.
+- `xflow/react/src/view/handles/handles.css` — couleurs des handles
+  via `var(--handle-…)`.
+- `xflow/react/src/view/palette/palette.css` — thème palette aligné
+  sur les mêmes variables.
 
 *etc.*
 
@@ -786,4 +863,4 @@ interne sera redéfinie au chantier C1.
 
 ---
 
-*Fin de NODAL_MAP_SPEC v1.1.*
+*Fin de NODAL_MAP_SPEC v1.3.*

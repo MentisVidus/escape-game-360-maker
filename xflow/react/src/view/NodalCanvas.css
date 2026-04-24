@@ -1,11 +1,111 @@
+/* Tokens carte (C2.1) : un seul endroit pour les variables thème clair/sombre. */
 .nodal-canvas-layout {
   display: flex;
   width: 100vw;
   height: 100vh;
+
+  --node-scene-bg: #e6f8e6;
+  --node-scene-border: #4fae68;
+  --node-action-bg: #fff4dd;
+  --node-action-border: #c9933f;
+  --node-satellite-bg: #f0f2f5;
+  --node-satellite-border: #9ca3af;
+  --node-media-bg: #efe7ff;
+  --node-media-border: #8a5fd1;
+  --node-text: #1f2937;
+  --node-subtitle-opacity: 0.8;
+  --node-border-generic: rgba(0, 0, 0, 0.25);
+  --node-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --node-selected-outline: #2563eb;
+  --node-selected-glow: rgba(37, 99, 235, 0.15);
+
+  --handle-flow-bg: #2d7fff;
+  --handle-transition-bg: #00a6ff;
+  --handle-meta-bg: #8f96a3;
+  --handle-border: rgba(0, 0, 0, 0.3);
+
+  --edge-flow-stroke: #2d7fff;
+  --edge-transition-stroke: #00a6ff;
+  --edge-meta-stroke: #8f96a3;
+  --edge-selected-stroke: #2563eb;
+
+  --palette-bg: #f8fafc;
+  --palette-border: #dde2ea;
+  --palette-heading: #374151;
+  --palette-button-bg: #fff;
+  --palette-button-border: #c7ceda;
+  --palette-button-hover: #f1f5f9;
+
+  --theme-toggle-bg: #fff;
+  --theme-toggle-border: #c7ceda;
+  --theme-toggle-color: #1f2937;
+  --theme-toggle-hover-bg: #f1f5f9;
+}
+
+.nodal-canvas-layout.dark-mode {
+  --node-scene-bg: #1b3a25;
+  --node-scene-border: #4fae68;
+  --node-action-bg: #3a2e15;
+  --node-action-border: #c9933f;
+  --node-satellite-bg: #2a2d33;
+  --node-satellite-border: #6b7280;
+  --node-media-bg: #2d1f4a;
+  --node-media-border: #8a5fd1;
+  --node-text: #e5e7eb;
+  --node-subtitle-opacity: 0.85;
+  --node-border-generic: rgba(255, 255, 255, 0.2);
+  --node-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --node-selected-outline: #60a5fa;
+  --node-selected-glow: rgba(96, 165, 250, 0.25);
+
+  --handle-flow-bg: #5b9dff;
+  --handle-transition-bg: #38bdf8;
+  --handle-meta-bg: #b4bcc9;
+  --handle-border: rgba(255, 255, 255, 0.35);
+
+  --edge-flow-stroke: #5b9dff;
+  --edge-transition-stroke: #38bdf8;
+  --edge-meta-stroke: #b4bcc9;
+  --edge-selected-stroke: #60a5fa;
+
+  --palette-bg: #1e293b;
+  --palette-border: #334155;
+  --palette-heading: #e2e8f0;
+  --palette-button-bg: #0f172a;
+  --palette-button-border: #475569;
+  --palette-button-hover: #334155;
+
+  --theme-toggle-bg: #0f172a;
+  --theme-toggle-border: #475569;
+  --theme-toggle-color: #e5e7eb;
+  --theme-toggle-hover-bg: #334155;
 }
 
 .nodal-canvas-pane {
   flex: 1;
+  position: relative;
+}
+
+.nodal-canvas-theme-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--theme-toggle-border);
+  border-radius: 8px;
+  background: var(--theme-toggle-bg);
+  color: var(--theme-toggle-color);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.nodal-canvas-theme-toggle:hover {
+  background: var(--theme-toggle-hover-bg);
 }
 
 /* Force la visibilité des nœuds React Flow */
@@ -15,23 +115,38 @@
 
 /* Feedback visuel de sélection des nœuds */
 .react-flow__node.selected .nodal-node {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--node-selected-outline);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 4px var(--node-selected-glow);
+}
+
+/* Edges par famille — stroke hors inline pour suivre le thème (C2.1) */
+.nodal-canvas-layout .react-flow__edge.nodal-edge--flow .react-flow__edge-path {
+  stroke: var(--edge-flow-stroke);
+  stroke-width: 2;
+}
+
+.nodal-canvas-layout .react-flow__edge.nodal-edge--transition .react-flow__edge-path {
+  stroke: var(--edge-transition-stroke);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.nodal-canvas-layout .react-flow__edge.nodal-edge--meta .react-flow__edge-path {
+  stroke: var(--edge-meta-stroke);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 3;
 }
 
 /* Sélection d'edges — zone de clic élargie et feedback */
 .react-flow__edge-path {
   stroke-width: 2;
 }
-/* React Flow applies an inline style on .react-flow__edge-path
-   for the default stroke. We need !important to override it for
-   the selected state. This will be refactored in C3 when edges
-   get className-based styling per family. */
+
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:focus .react-flow__edge-path,
 .react-flow__edge:focus-visible .react-flow__edge-path {
-  stroke: #2563eb !important;
+  stroke: var(--edge-selected-stroke) !important;
   stroke-width: 3;
 }
 
@@ -39,4 +154,3 @@
 .react-flow__edge-interaction {
   stroke-width: 20;
 }
-

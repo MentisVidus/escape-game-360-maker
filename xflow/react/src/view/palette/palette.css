@@ -1,7 +1,7 @@
 .nodal-palette {
   width: 220px;
-  border-right: 1px solid #dde2ea;
-  background: #f8fafc;
+  border-right: 1px solid var(--palette-border);
+  background: var(--palette-bg);
   padding: 10px;
   overflow: auto;
 }
@@ -9,7 +9,7 @@
 .nodal-palette h3 {
   margin: 10px 0 6px;
   font: 700 12px/1 Arial, sans-serif;
-  color: #374151;
+  color: var(--palette-heading);
   text-transform: uppercase;
 }
 
@@ -17,16 +17,16 @@
   display: block;
   width: 100%;
   margin-bottom: 6px;
-  border: 1px solid #c7ceda;
+  border: 1px solid var(--palette-button-border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--palette-button-bg);
   padding: 8px;
   text-align: left;
   font: 12px/1.2 Arial, sans-serif;
+  color: var(--node-text);
   cursor: pointer;
 }
 
 .nodal-palette button:hover {
-  background: #f1f5f9;
+  background: var(--palette-button-hover);
 }
-

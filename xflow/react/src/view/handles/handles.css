@@ -1,16 +1,16 @@
 .nodal-handle {
   width: 10px;
   height: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--handle-border);
 }
 
 .nodal-handle.flow {
-  background: #2d7fff;
+  background: var(--handle-flow-bg);
   border-radius: 999px;
 }
 
 .nodal-handle.transition {
-  background: #00a6ff;
+  background: var(--handle-transition-bg);
   clip-path: polygon(0 0, 100% 50%, 0 100%);
   border: none;
 }
@@ -18,7 +18,6 @@
 .nodal-handle.meta {
   width: 8px;
   height: 8px;
-  background: #8f96a3;
+  background: var(--handle-meta-bg);
   border-radius: 999px;
 }
-
