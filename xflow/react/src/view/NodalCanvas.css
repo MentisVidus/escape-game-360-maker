@@ -8,3 +8,35 @@
   flex: 1;
 }
 
+/* Force la visibilité des nœuds React Flow */
+.react-flow__node {
+  visibility: visible;
+}
+
+/* Feedback visuel de sélection des nœuds */
+.react-flow__node.selected .nodal-node {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+/* Sélection d'edges — zone de clic élargie et feedback */
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+/* React Flow applies an inline style on .react-flow__edge-path
+   for the default stroke. We need !important to override it for
+   the selected state. This will be refactored in C3 when edges
+   get className-based styling per family. */
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus .react-flow__edge-path,
+.react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke: #2563eb !important;
+  stroke-width: 3;
+}
+
+/* Hitbox invisible plus large pour faciliter la sélection des edges */
+.react-flow__edge-interaction {
+  stroke-width: 20;
+}
+

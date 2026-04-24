@@ -750,7 +750,6 @@ interne sera redéfinie au chantier C1.
 - `xflow/react/src/view/NodalCanvas.tsx`
 - `xflow/react/src/view/NodalCanvas.css`
 - `xflow/react/src/view/connectionPolicy.ts`
-- `xflow/react/src/view/keyboardHandlers.ts`
 - `xflow/react/src/view/demoProject.ts`
 - `xflow/react/src/view/handles/handleIds.ts`
 - `xflow/react/src/view/handles/handles.css`

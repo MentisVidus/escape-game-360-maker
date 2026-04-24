@@ -4,8 +4,8 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
-  applyEdgeChanges,
-  applyNodeChanges,
+  useNodesState,
+  useEdgesState,
   type Connection,
   type Edge as RFEdge,
   type EdgeChange,
@@ -14,10 +14,8 @@ import {
   type NodeTypes,
   type OnConnect,
   type OnMove,
-  type OnSelectionChangeFunc,
 } from "@xyflow/react";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { useStore } from "zustand";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
 import { asEdgeId, type AnyNodeId, type EdgeId } from "../model/ids";
@@ -37,7 +35,6 @@ import { MediaNodeView } from "./nodes/MediaNodeView";
 import { SatelliteNodeView } from "./nodes/SatelliteNodeView";
 import { SceneNodeView } from "./nodes/SceneNodeView";
 import { NodePalette } from "./palette/NodePalette";
-import { useKeyboardHandlers } from "./keyboardHandlers";
 import "./NodalCanvas.css";
 
 type NodalRFData = { nodeType: "scene" | "action" | "satellite" | "media"; node: unknown };
@@ -138,43 +135,66 @@ function detectFamily(connection: Connection): "flow" | "transition" | "meta" | 
 }
 
 function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
-  const state = useStore(store, (s) => s);
+  const state = useSyncExternalStore(
+    store.subscribe,
+    store.getState,
+    store.getState
+  );
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
-  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
 
-  const rfNodes = useMemo(() => toReactFlowNodes(state), [state]);
-  const rfEdges = useMemo(() => toReactFlowEdges(state), [state]);
+  // State React Flow pour nodes et edges (permet à RF de gérer drag, sélection, mesures)
+  const [rfNodes, setRfNodes, onNodesChangeRF] = useNodesState<RFNode<NodalRFData>>([]);
+  const [rfEdges, setRfEdges, onEdgesChangeRF] = useEdgesState<RFEdge>([]);
 
-  useKeyboardHandlers({
-    selectedNodeIds,
-    selectedEdgeIds,
-    removeNode: (id) => state.removeNode(id as AnyNodeId),
-    disconnect: (id) => state.disconnect(id as EdgeId),
-  });
+  // Synchronise le state Zustand → React Flow quand le store change
+  // (ajout/suppression de nœuds, edges — pas les changements de position
+  // qui passent par le drag de RF)
+  useEffect(() => {
+    const nextNodes = toReactFlowNodes(state);
+    setRfNodes((current) => {
+      // Préserve le state interne (position pendant drag, mesures, sélection)
+      // pour les nœuds qui existent déjà des deux côtés
+      const currentById = new Map(current.map((n) => [n.id, n]));
+      return nextNodes.map((n) => {
+        const existing = currentById.get(n.id);
+        if (!existing) return n;
+        const merged: RFNode<NodalRFData> = {
+          ...n,
+          position: existing.position,
+        };
+        if (existing.selected !== undefined) merged.selected = existing.selected;
+        if (existing.measured !== undefined) merged.measured = existing.measured;
+        return merged;
+      });
+    });
+  }, [state.scenes, state.actions, state.satellites, state.media, state.layout, setRfNodes]);
 
+  useEffect(() => {
+    setRfEdges(toReactFlowEdges(state));
+  }, [state.edges, setRfEdges]);
+
+  // Wrap onNodesChange pour persister les positions finales vers Zustand
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      const next = applyNodeChanges(changes, rfNodes);
+    (changes: NodeChange<RFNode<NodalRFData>>[]) => {
+      onNodesChangeRF(changes);
       for (const change of changes) {
-        if (change.type === "remove") state.removeNode(change.id as AnyNodeId);
-      }
-      for (const node of next) {
-        state.updateNodeLayout(node.id as AnyNodeId, { x: node.position.x, y: node.position.y });
+        if (change.type === "position" && change.position && !change.dragging) {
+          state.updateNodeLayout(change.id as AnyNodeId, {
+            x: change.position.x,
+            y: change.position.y,
+          });
+        }
       }
     },
-    [rfNodes, state]
+    [onNodesChangeRF, state]
   );
 
+  // Wrap onEdgesChange pour passer à React Flow
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
-      const next = applyEdgeChanges(changes, rfEdges);
-      const nextIds = new Set(next.map((edge) => edge.id));
-      for (const edge of rfEdges) {
-        if (!nextIds.has(edge.id)) state.disconnect(edge.id as EdgeId);
-      }
+      onEdgesChangeRF(changes);
     },
-    [rfEdges, state]
+    [onEdgesChangeRF]
   );
 
   const onConnect: OnConnect = useCallback(
@@ -191,11 +211,6 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     },
     [state]
   );
-
-  const onSelectionChange: OnSelectionChangeFunc = useCallback((params) => {
-    setSelectedNodeIds(params.nodes.map((node) => node.id));
-    setSelectedEdgeIds(params.edges.map((edge) => edge.id));
-  }, []);
 
   const onMoveEnd: OnMove = useCallback(
     (_event, viewport) => {
@@ -215,6 +230,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          deleteKeyCode={["Delete", "Backspace"]}
+          onNodesDelete={(deleted) => {
+            for (const n of deleted) state.removeNode(n.id as AnyNodeId);
+          }}
+          onEdgesDelete={(deleted) => {
+            for (const e of deleted) state.disconnect(e.id as EdgeId);
+          }}
           isValidConnection={(connectionLike) =>
             isValidConnection(
               {
@@ -226,7 +248,6 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
               state
             )
           }
-          onSelectionChange={onSelectionChange}
           onMoveEnd={onMoveEnd}
           fitView
         >
