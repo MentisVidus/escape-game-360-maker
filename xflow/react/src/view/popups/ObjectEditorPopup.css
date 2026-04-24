@@ -1,0 +1,71 @@
+.object-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.object-editor-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.object-editor-panel {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 92vw);
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: #fff;
+  color: #111827;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  font: 13px/1.3 Arial, sans-serif;
+}
+
+.object-editor-panel h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.object-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.object-editor-field span {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+
+.object-editor-field input {
+  padding: 6px 8px;
+  border: 1px solid #c7ceda;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.object-editor-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.object-editor-actions button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #c7ceda;
+  background: #f8fafc;
+  cursor: pointer;
+  font: inherit;
+}
+
+.object-editor-actions button:hover {
+  background: #e5e7eb;
+}

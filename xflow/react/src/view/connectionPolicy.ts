@@ -63,7 +63,8 @@ export function isValidConnection(connection: Connection, state: NodalProject): 
 
   if (connection.sourceHandle === HANDLE_META_OUT && connection.targetHandle === HANDLE_META_IN) {
     if (sourceKind !== "scene" && sourceKind !== "action") return false;
-    return targetKind === "satellite" || targetKind === "media";
+    /* C3a : les satellites sont exclusivement auto-réconciliés ; seuls les médias restent connectables à la main. */
+    return targetKind === "media";
   }
 
   return false;

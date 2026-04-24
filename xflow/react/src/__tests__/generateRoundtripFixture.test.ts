@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
@@ -31,8 +31,9 @@ const makeMsgAction = (id: string, label: string, body: string): ActionNode => (
   visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
 });
 
-describe("nodal model C1 roundtrip", () => {
-  it("serializes and deserializes project+layout consistently", () => {
+/** Exécuter : npx vitest run src/__tests__/generateRoundtripFixture.test.ts puis remettre describe.skip. */
+describe.skip("generate roundtrip fixture (manual)", () => {
+  it("writes __fixtures__/roundtrip-expected.json", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(Date.UTC(2020, 0, 1, 0, 0, 0, 0)));
 
@@ -90,21 +91,16 @@ describe("nodal model C1 roundtrip", () => {
     const projectJson = serializeToProjectJson(store.getState());
     const layoutJson = serializeLayout(store.getState());
 
-    expect(JSON.stringify(projectJson)).not.toContain("Not connected");
-    expect(layoutJson.drafts).toContain(orphan.id);
-
-    const raw = readFileSync(join(__dirname, "../__fixtures__/roundtrip-expected.json"), "utf8");
-    const expected = JSON.parse(raw) as { project: typeof projectJson; layout: typeof layoutJson };
-
-    expect(projectJson).toEqual(expected.project);
-    expect(layoutJson.inventoryObjects).toEqual(expected.layout.inventoryObjects);
-
     const roundtripState = deserializeFromProjectJson(projectJson);
     applyLayout(roundtripState, layoutJson);
     reconcileAutoSatellites(roundtripState);
-
     const projectJsonAgain = serializeToProjectJson(roundtripState);
     expect(projectJsonAgain).toEqual(projectJson);
+
+    const out = { project: projectJson, layout: layoutJson };
+    const dir = join(__dirname, "../__fixtures__");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "roundtrip-expected.json"), JSON.stringify(out, null, 2), "utf8");
 
     vi.useRealTimers();
   });

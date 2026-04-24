@@ -2,12 +2,14 @@ import type { Edge } from "./edges";
 import type { ActionNodeId, AnyNodeId, MediaNodeId, SatelliteNodeId, SceneNodeId } from "./ids";
 import type { NodeLayout, Viewport } from "./layout";
 import type { ActionNode, MediaNode, SatelliteNode, SceneNode } from "./nodes";
+import type { ObjectEntry } from "./objects";
 
 export type ProjectMeta = {
   title: string;
   startSceneId: SceneNodeId | null;
   viewport: Viewport;
   draftActionIds: ActionNodeId[];
+  objects: Record<string, ObjectEntry>;
 };
 
 export type NodalProject = {

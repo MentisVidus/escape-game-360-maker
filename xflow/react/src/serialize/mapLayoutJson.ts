@@ -1,4 +1,5 @@
 import type { ActionNodeId, AnyNodeId } from "../model/ids";
+import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 
 export type MapLayoutJson = {
@@ -7,6 +8,8 @@ export type MapLayoutJson = {
   collapsed: Record<string, boolean>;
   drafts: string[];
   viewport: { x: number; y: number; zoom: number };
+  /** Inventaire partagé (C3a). Les satellites / edges meta ne sont pas sérialisés ici : recréés par reconcile après apply. */
+  inventoryObjects?: Record<string, ObjectEntry>;
 };
 
 const isActionOrphan = (state: NodalProject, actionId: ActionNodeId): boolean => {
@@ -44,6 +47,7 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
     collapsed,
     drafts: [...draftSet],
     viewport: { ...state.meta.viewport },
+    inventoryObjects: { ...state.meta.objects },
   };
 };
 
@@ -59,5 +63,8 @@ export const applyLayout = (state: NodalProject, layout: MapLayoutJson): void =>
   }
   state.meta.draftActionIds = layout.drafts as ActionNodeId[];
   state.meta.viewport = { ...layout.viewport };
-};
 
+  if (layout.inventoryObjects !== undefined) {
+    state.meta.objects = { ...layout.inventoryObjects };
+  }
+};

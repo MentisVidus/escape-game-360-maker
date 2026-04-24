@@ -18,7 +18,7 @@ import {
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import { asEdgeId, type AnyNodeId, type EdgeId } from "../model/ids";
+import { asEdgeId, type AnyNodeId, type EdgeId, type SatelliteNodeId } from "../model/ids";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
 import { isValidConnection } from "./connectionPolicy";
@@ -34,7 +34,9 @@ import { ActionNodeView } from "./nodes/ActionNodeView";
 import { MediaNodeView } from "./nodes/MediaNodeView";
 import { SatelliteNodeView } from "./nodes/SatelliteNodeView";
 import { SceneNodeView } from "./nodes/SceneNodeView";
+import { NodalUiContext } from "./nodalUiContext";
 import { NodePalette } from "./palette/NodePalette";
+import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
 import "./NodalCanvas.css";
 
 type NodalRFData = { nodeType: "scene" | "action" | "satellite" | "media"; node: unknown };
@@ -136,6 +138,7 @@ function detectFamily(connection: Connection): "flow" | "transition" | "meta" | 
 
 function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [mapColorMode, setMapColorMode] = useState<"light" | "dark">("light");
+  const [objectEditorSatelliteId, setObjectEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
   const state = useSyncExternalStore(
     store.subscribe,
     store.getState,
@@ -224,9 +227,12 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     mapColorMode === "dark" ? "nodal-canvas-layout dark-mode" : "nodal-canvas-layout";
 
   return (
-    <div className={layoutClassName} ref={canvasRef}>
-      <NodePalette store={store} canvasRef={canvasRef} />
-      <div className="nodal-canvas-pane">
+    <NodalUiContext.Provider
+      value={{ store, objectEditorSatelliteId, setObjectEditorSatelliteId }}
+    >
+      <div className={layoutClassName} ref={canvasRef}>
+        <NodePalette store={store} canvasRef={canvasRef} />
+        <div className="nodal-canvas-pane">
         <button
           type="button"
           className="nodal-canvas-theme-toggle"
@@ -269,8 +275,14 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           <MiniMap />
           <Controls />
         </ReactFlow>
+        <ObjectEditorPopup
+          store={store}
+          satelliteId={objectEditorSatelliteId}
+          onClose={() => setObjectEditorSatelliteId(null)}
+        />
       </div>
     </div>
+    </NodalUiContext.Provider>
   );
 }
 

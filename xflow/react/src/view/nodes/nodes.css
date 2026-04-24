@@ -37,3 +37,7 @@
   background: var(--node-media-bg);
   border-color: var(--node-media-border);
 }
+
+.nodal-node.satellite--clickable {
+  cursor: pointer;
+}

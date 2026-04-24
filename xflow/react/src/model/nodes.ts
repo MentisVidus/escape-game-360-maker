@@ -82,8 +82,6 @@ export type ObjectSatelliteNode = {
   satelliteType: "object";
   data: {
     objectId: string;
-    displayName: string;
-    iconMediaId: MediaNodeId | null;
   };
 };
 

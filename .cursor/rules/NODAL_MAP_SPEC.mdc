@@ -793,6 +793,12 @@ formulation). Ne modifie pas la spec directement.
 - Conformité matrice §4.2.
 - Pas d'edge pour les relations d'emboîtement (§0.2-8).
 
+**Checklist C3a (pré-commit)** : réconciliation uniquement dans le
+store sur mutations ; satellites auto filtrés par `satelliteType` ;
+médias intacts ; `npm run build` / `npm run test` verts ; Annexe B à
+jour ; fixture roundtrip incluant `inventoryObjects` + appel
+`reconcileAutoSatellites` après `applyLayout` sur le state désérialisé.
+
 ---
 
 ## Annexe A — Fichiers conservés de `feat/react-map`
@@ -837,6 +843,40 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
   via `var(--handle-…)`.
 - `xflow/react/src/view/palette/palette.css` — thème palette aligné
   sur les mêmes variables.
+
+### C3a — Satellites automatiques + `meta.objects`
+
+- `xflow/react/src/model/objects.ts` — type `ObjectEntry`.
+- `xflow/react/src/model/project.ts` — `meta.objects` sur `ProjectMeta`.
+- `xflow/react/src/model/nodes.ts` — satellite `object` : `data` réduit
+  à `{ objectId }` (canon dans `meta.objects`).
+- `xflow/react/src/store/reconcileAutoSatellites.ts` — réconciliation
+  appelée depuis les mutations du store (pas de `useEffect`).
+- `xflow/react/src/store/nodalProjectStore.ts` — `upsertObject` /
+  `removeObject` ; retrait de `addSatellite` public ; pas de
+  `querySelector` côté store.
+- `xflow/react/src/serialize/mapLayoutJson.ts` — champ
+  `inventoryObjects` dans le layout (roundtrip V2 + inventaire).
+- `xflow/react/src/serialize/fromProjectJson.ts` — `meta.objects: {}`
+  à l’initialisation.
+- `xflow/react/src/view/connectionPolicy.ts` — meta manuel uniquement
+  vers **médias** (plus vers satellites).
+- `xflow/react/src/view/palette/NodePalette.tsx` — retrait des boutons
+  satellites manuels.
+- `xflow/react/src/view/nodalUiContext.tsx` — contexte UI (édition
+  objet).
+- `xflow/react/src/view/popups/ObjectEditorPopup.tsx` +
+  `ObjectEditorPopup.css` — popup minimal objet.
+- `xflow/react/src/view/NodalCanvas.tsx` — provider + popup.
+- `xflow/react/src/view/nodes/SatelliteNodeView.tsx` — clic satellite
+  `object`.
+- `xflow/react/src/__tests__/reconcile.test.ts` — réconciliation +
+  `upsertObject`.
+- `xflow/react/src/__tests__/roundtrip.test.ts` — fixture
+  `__fixtures__/roundtrip-expected.json` + `reconcileAutoSatellites`
+  après `applyLayout`.
+- `xflow/react/src/__tests__/generateRoundtripFixture.test.ts` —
+  générateur de fixture (describe en `skip` par défaut).
 
 *etc.*
 

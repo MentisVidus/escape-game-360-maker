@@ -2,8 +2,8 @@ import { useReactFlow } from "@xyflow/react";
 import type { RefObject } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import { asActionNodeId, asMediaNodeId, asSatelliteNodeId, asSceneNodeId } from "../../model/ids";
-import type { ActionNode, MediaNode, SatelliteNode, SceneNode } from "../../model/nodes";
+import { asActionNodeId, asMediaNodeId, asSceneNodeId } from "../../model/ids";
+import type { ActionNode, MediaNode, SceneNode } from "../../model/nodes";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
 import "./palette.css";
 
@@ -70,23 +70,6 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
     store.getState().addAction(node, { x: center.x, y: center.y });
   };
 
-  const addSatellite = (satelliteType: SatelliteNode["satelliteType"]) => {
-    const id = asSatelliteNodeId(nextId("sat"));
-    const node: SatelliteNode =
-      satelliteType === "coords-options"
-        ? {
-            id,
-            nodeType: "satellite",
-            satelliteType,
-            data: { pitch: 0, yaw: 0, visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true } },
-          }
-        : satelliteType === "choice-options"
-          ? { id, nodeType: "satellite", satelliteType, data: { visibility: { requiresItem: "", hiddenIfHasItem: "" } } }
-          : { id, nodeType: "satellite", satelliteType: "object", data: { objectId: "", displayName: "", iconMediaId: null } };
-    const center = getCenterPosition();
-    store.getState().addSatellite(node, { x: center.x, y: center.y });
-  };
-
   const addMedia = (mediaType: MediaNode["mediaType"]) => {
     const id = asMediaNodeId(nextId("media"));
     const node: MediaNode =
@@ -110,15 +93,9 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
       <button onClick={() => addAction("req")}>Req</button>
       <button onClick={() => addAction("pwd")}>Pwd</button>
 
-      <h3>Satellites</h3>
-      <button onClick={() => addSatellite("coords-options")}>Coords/Options</button>
-      <button onClick={() => addSatellite("choice-options")}>Choice/Options</button>
-      <button onClick={() => addSatellite("object")}>Object</button>
-
       <h3>Media</h3>
       <button onClick={() => addMedia("media-image")}>Image</button>
       <button onClick={() => addMedia("media-audio")}>Audio</button>
     </aside>
   );
 }
-

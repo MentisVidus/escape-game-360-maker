@@ -1,0 +1,222 @@
+{
+  "project": {
+    "schemaVersion": 2,
+    "title": "Untitled",
+    "startSceneId": "scene-a",
+    "scenes": [
+      {
+        "id": "scene-a",
+        "title": "Scene A",
+        "panoramaUrl": "scene-a.jpg",
+        "hotspots": [
+          {
+            "action": {
+              "type": "req",
+              "payload": {
+                "itemId": "key",
+                "copy": {
+                  "bodyHtml": "Need key",
+                  "buttonLabel": "Try"
+                },
+                "rewardAction": {
+                  "type": "msg",
+                  "payload": {
+                    "copy": {
+                      "bodyHtml": "Door unlocked",
+                      "buttonLabel": "OK"
+                    }
+                  },
+                  "sfx": {
+                    "url": "",
+                    "volume": 1
+                  },
+                  "visibility": {
+                    "requiresItem": "",
+                    "hiddenIfHasItem": "",
+                    "clickWhenInvisible": true
+                  }
+                }
+              },
+              "sfx": {
+                "url": "",
+                "volume": 1
+              },
+              "visibility": {
+                "requiresItem": "",
+                "hiddenIfHasItem": "",
+                "clickWhenInvisible": true
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "scene-b",
+        "title": "Scene B",
+        "panoramaUrl": "scene-b.jpg",
+        "hotspots": [
+          {
+            "action": {
+              "type": "selector",
+              "payload": {
+                "nested": {
+                  "title": "Choose",
+                  "copy": {
+                    "bodyHtml": "Pick one",
+                    "buttonLabel": ""
+                  },
+                  "displayMode": "buttons",
+                  "choices": [
+                    {
+                      "label": "Option 1",
+                      "action": {
+                        "type": "msg",
+                        "payload": {
+                          "copy": {
+                            "bodyHtml": "First",
+                            "buttonLabel": "OK"
+                          }
+                        },
+                        "sfx": {
+                          "url": "",
+                          "volume": 1
+                        },
+                        "visibility": {
+                          "requiresItem": "",
+                          "hiddenIfHasItem": "",
+                          "clickWhenInvisible": true
+                        }
+                      }
+                    },
+                    {
+                      "label": "Option 2",
+                      "action": {
+                        "type": "msg",
+                        "payload": {
+                          "copy": {
+                            "bodyHtml": "Second",
+                            "buttonLabel": "OK"
+                          }
+                        },
+                        "sfx": {
+                          "url": "",
+                          "volume": 1
+                        },
+                        "visibility": {
+                          "requiresItem": "",
+                          "hiddenIfHasItem": "",
+                          "clickWhenInvisible": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "sfx": {
+                "url": "",
+                "volume": 1
+              },
+              "visibility": {
+                "requiresItem": "",
+                "hiddenIfHasItem": "",
+                "clickWhenInvisible": true
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout": {
+    "positions": {
+      "scn-a": {
+        "x": 0,
+        "y": 0
+      },
+      "scn-b": {
+        "x": 500,
+        "y": 0
+      },
+      "act-req": {
+        "x": 150,
+        "y": 50
+      },
+      "act-reward": {
+        "x": 260,
+        "y": 50
+      },
+      "sat-coords-options-act-req-1577836800000-1": {
+        "x": 150,
+        "y": 150
+      },
+      "sat-object-act-req-1577836800000-3": {
+        "x": 350,
+        "y": 240
+      },
+      "act-selector": {
+        "x": 650,
+        "y": 60
+      },
+      "act-choice-bottom": {
+        "x": 700,
+        "y": 180
+      },
+      "act-choice-top": {
+        "x": 700,
+        "y": 120
+      },
+      "sat-choice-options-act-choice-bottom-1577836800000-1": {
+        "x": 700,
+        "y": 280
+      },
+      "sat-choice-options-act-choice-top-1577836800000-3": {
+        "x": 700,
+        "y": 220
+      },
+      "sat-coords-options-act-selector-1577836800000-1": {
+        "x": 650,
+        "y": 160
+      },
+      "act-orphan": {
+        "x": 1000,
+        "y": 100
+      }
+    },
+    "parentId": {
+      "act-reward": "act-req",
+      "act-choice-bottom": "act-selector",
+      "act-choice-top": "act-selector"
+    },
+    "collapsed": {
+      "scn-a": false,
+      "scn-b": false,
+      "act-req": false,
+      "act-reward": false,
+      "sat-coords-options-act-req-1577836800000-1": false,
+      "sat-object-act-req-1577836800000-3": false,
+      "act-selector": false,
+      "act-choice-bottom": false,
+      "act-choice-top": false,
+      "sat-choice-options-act-choice-bottom-1577836800000-1": false,
+      "sat-choice-options-act-choice-top-1577836800000-3": false,
+      "sat-coords-options-act-selector-1577836800000-1": false,
+      "act-orphan": false
+    },
+    "drafts": [
+      "act-orphan"
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    },
+    "inventoryObjects": {
+      "key": {
+        "objectId": "key",
+        "displayName": "",
+        "iconMediaId": null,
+        "iconUrl": ""
+      }
+    }
+  }
+}
