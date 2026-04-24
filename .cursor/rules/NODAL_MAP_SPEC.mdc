@@ -728,7 +728,21 @@ interne sera redéfinie au chantier C1.
 *(À remplir au fur et à mesure.)*
 
 ### C1
-*(à définir lors de l'implémentation)*
+- `xflow/react/package.json`
+- `xflow/react/package-lock.json`
+- `xflow/react/tsconfig.json`
+- `xflow/react/vite.config.ts`
+- `xflow/react/src/model/ids.ts`
+- `xflow/react/src/model/nodes.ts`
+- `xflow/react/src/model/edges.ts`
+- `xflow/react/src/model/layout.ts`
+- `xflow/react/src/model/project.ts`
+- `xflow/react/src/store/nodalProjectStore.ts`
+- `xflow/react/src/serialize/v2TypeMap.ts`
+- `xflow/react/src/serialize/toProjectJson.ts`
+- `xflow/react/src/serialize/fromProjectJson.ts`
+- `xflow/react/src/serialize/mapLayoutJson.ts`
+- `xflow/react/src/__tests__/roundtrip.test.ts`
 
 ### C2
 *(à définir)*
