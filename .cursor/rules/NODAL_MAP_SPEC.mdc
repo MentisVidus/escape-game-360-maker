@@ -745,7 +745,22 @@ interne sera redéfinie au chantier C1.
 - `xflow/react/src/__tests__/roundtrip.test.ts`
 
 ### C2
-*(à définir)*
+- `xflow/react/dev.html`
+- `xflow/react/src/dev-main.tsx`
+- `xflow/react/src/view/NodalCanvas.tsx`
+- `xflow/react/src/view/NodalCanvas.css`
+- `xflow/react/src/view/connectionPolicy.ts`
+- `xflow/react/src/view/keyboardHandlers.ts`
+- `xflow/react/src/view/demoProject.ts`
+- `xflow/react/src/view/handles/handleIds.ts`
+- `xflow/react/src/view/handles/handles.css`
+- `xflow/react/src/view/nodes/SceneNodeView.tsx`
+- `xflow/react/src/view/nodes/ActionNodeView.tsx`
+- `xflow/react/src/view/nodes/SatelliteNodeView.tsx`
+- `xflow/react/src/view/nodes/MediaNodeView.tsx`
+- `xflow/react/src/view/nodes/nodes.css`
+- `xflow/react/src/view/palette/NodePalette.tsx`
+- `xflow/react/src/view/palette/palette.css`
 
 *etc.*
 

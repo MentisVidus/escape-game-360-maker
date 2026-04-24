@@ -1,0 +1,24 @@
+.nodal-handle {
+  width: 10px;
+  height: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+.nodal-handle.flow {
+  background: #2d7fff;
+  border-radius: 999px;
+}
+
+.nodal-handle.transition {
+  background: #00a6ff;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  border: none;
+}
+
+.nodal-handle.meta {
+  width: 8px;
+  height: 8px;
+  background: #8f96a3;
+  border-radius: 999px;
+}
+

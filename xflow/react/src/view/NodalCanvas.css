@@ -1,0 +1,10 @@
+.nodal-canvas-layout {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+}
+
+.nodal-canvas-pane {
+  flex: 1;
+}
+

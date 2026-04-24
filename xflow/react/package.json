@@ -5,6 +5,7 @@
   "description": "Nodal map model workspace for C1.",
   "type": "module",
   "scripts": {
+    "dev": "vite --host",
     "build": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -17,7 +18,11 @@
   },
   "devDependencies": {
     "@types/node": "^24.8.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.4",
     "typescript": "^5.9.3",
+    "vite": "^7.1.10",
     "vitest": "^4.0.2"
   }
 }

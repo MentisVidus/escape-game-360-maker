@@ -1,0 +1,32 @@
+.nodal-palette {
+  width: 220px;
+  border-right: 1px solid #dde2ea;
+  background: #f8fafc;
+  padding: 10px;
+  overflow: auto;
+}
+
+.nodal-palette h3 {
+  margin: 10px 0 6px;
+  font: 700 12px/1 Arial, sans-serif;
+  color: #374151;
+  text-transform: uppercase;
+}
+
+.nodal-palette button {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  border: 1px solid #c7ceda;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  text-align: left;
+  font: 12px/1.2 Arial, sans-serif;
+  cursor: pointer;
+}
+
+.nodal-palette button:hover {
+  background: #f1f5f9;
+}
+

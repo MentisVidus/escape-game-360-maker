@@ -26,6 +26,7 @@ export type NodalProjectStore = NodalProject & {
   attachChild: (parentId: AnyNodeId, childId: AnyNodeId) => void;
   detachChild: (childId: AnyNodeId) => void;
   updateNodeData: (nodeId: AnyNodeId, patch: NodePatch) => void;
+  updateNodeLayout: (nodeId: AnyNodeId, patch: Partial<NodeLayout>) => void;
   setStartScene: (sceneId: SceneNodeId) => void;
   setViewport: (viewport: Viewport) => void;
 };
@@ -248,6 +249,19 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           },
         });
       }
+    },
+
+    updateNodeLayout: (nodeId, patch) => {
+      const state = get();
+      const current = state.layout[nodeId];
+      if (!current) return;
+      set({
+        ...state,
+        layout: {
+          ...state.layout,
+          [nodeId]: { ...current, ...patch },
+        },
+      });
     },
 
     setStartScene: (sceneId) => {
