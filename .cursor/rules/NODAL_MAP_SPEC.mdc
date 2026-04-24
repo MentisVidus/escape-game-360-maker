@@ -1,0 +1,761 @@
+# NODAL_MAP_SPEC
+
+## Spécification de conception de la carte nodale — Escape Game 360
+
+> **Version** : 1.2 (24 avril 2026)
+> **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
+> **Statut** : document de référence pour Cursor AI et pour le game designer.
+> Cette spec décrit **la cible produit et architecture** de la carte nodale
+> autonome. Elle remplace intégralement la spec v0.6 et la branche
+> `feat/react-map` abandonnée.
+>
+> **Changelog v1.2** : clarification §4.2 et §4.4 sur la période
+> transitoire C1→C2 où les choix et récompenses sont des nœuds libres
+> reliés par edges, avant l'implémentation de l'emboîtement en C3. Ajout
+> d'une note explicite pour éviter toute confusion côté Cursor.
+>
+> **Changelog v1.1** (par rapport à v1.0, non publiée) :
+> - **Métaphore Scratch pour REQ/PWD** : la récompense n'est plus un edge
+>   ambre sortant, c'est un nœud enfant emboîté dans le REQ/PWD via le
+>   système `parentId` / `extent: "parent"` de React Flow. La famille de
+>   handle `reward` est supprimée.
+> - **Choix de selector en sub-flow** : même mécanique que pour REQ/PWD
+>   — les choix deviennent des enfants du selector. Tri par position Y.
+> - **Famille de handle `transition` distincte de `flow`** : le `goto` a
+>   un `goto-out` visuel distinct (triangle, edge pointillé animé).
+> - **Objets (inventaire) comme satellites database** : concept formalisé,
+>   partagé entre `pick` et `req`.
+> - Tous les handles meta alignés au **Sud** (médias et satellites), plus
+>   aucun handle Nord sauf sur les satellites/médias eux-mêmes.
+
+---
+
+## 0. Préambule
+
+### 0.1 À qui s'adresse ce document
+
+Ce document s'adresse à **Cursor AI** et tout agent de codage travaillant
+sur la branche `feat/nodal-map`, ainsi qu'au **game designer** pour
+valider l'intention produit. Il décrit :
+
+- Le modèle de données en mémoire (§1).
+- Le catalogue d'actions et les états contextuels (§2).
+- Le catalogue de nœuds carte, dont les satellites et médias (§3).
+- La grammaire des handles et connexions (§4).
+- La sérialisation vers `project.json` V2 et `map-layout.json` (§5).
+- Les règles de cohérence et warnings (§6).
+- La roadmap d'implémentation (§7).
+- Les règles de collaboration avec l'agent (§8).
+
+### 0.2 Règles transversales produit
+
+Ces règles contraignent toutes les décisions d'implémentation.
+
+1. **La carte est source de vérité unique.** Le modèle de la carte vit
+   en mémoire sous forme de structures TypeScript typées. Toute
+   modification métier passe par une action sur ce modèle. Aucune
+   écriture dans le DOM legacy ne fait autorité.
+
+2. **Le formulaire DOM legacy est en lecture seule.** Tous ses inputs,
+   selects, textarea et boutons d'édition sont désactivés. Il sert
+   uniquement de **vue de vérification** pour observer ce qui sera
+   exporté. Il n'est jamais modifié directement par l'utilisateur.
+
+3. **Format V2 exclusivement.** Le modèle carte se sérialise vers un
+   `project.json` au format V2 (schéma d'action unifié avec `type`,
+   `payload`, `sfx`, `visibility`). Les champs plats legacy ne sont ni
+   produits ni lus dans la branche `feat/nodal-map`.
+
+4. **Axe Ouest → Est pour le flux narratif.** Toute connexion `flow` ou
+   `transition` va de gauche (entrée) vers droite (sortie). Jamais de
+   handle narratif au Nord ou Sud.
+
+5. **Axe vers le Sud pour les données contextuelles.** Les médias,
+   satellites et objets se rattachent **au Sud** du nœud consommateur.
+   Un nœud satellite/média *reçoit* au Nord (son propre handle) et est
+   rattaché en bas d'une action ou scène. Cette règle est **uniforme
+   pour tous les nœuds** : satellites et médias sont toujours dessous.
+
+6. **Pas de rétrocompatibilité (statut pré-alpha).** Le projet n'a
+   jamais été publié. La branche `feat/nodal-map` part de `main` propre.
+   Aucun code de migration pour des sauvegardes de la branche
+   `feat/react-map` abandonnée. Quand on casse, on casse.
+
+7. **Pas de nœud fantôme de routage.** Une connexion relie deux nœuds
+   éditables réels. Pas de stubs intermédiaires invisibles.
+
+8. **Emboîtement = parent/child React Flow.** Les relations
+   d'emboîtement visuel (REQ/PWD → récompense, selector → choix) se
+   modélisent via `parentId` + `extent: "parent"` de React Flow. Le
+   modèle de données n'a pas d'edge pour ces relations : il a des
+   champs de référence (`rewardActionId`, liste implicite des enfants).
+
+---
+
+## 1. Architecture : modèle en mémoire autonome
+
+### 1.1 Le renversement
+
+**Avant** (branche `feat/react-map`, abandonnée) :
+```
+Formulaire DOM (source de vérité)
+    ↓ lecture
+Carte React Flow (vue dérivée, fragile)
+    ↓ écriture détournée via data-v2-* + applyMap*
+Formulaire DOM (conflit)
+```
+
+**Maintenant** (branche `feat/nodal-map`) :
+```
+Modèle carte en mémoire (source de vérité)
+    ├→ Rendu React Flow (vue principale, éditable)
+    ├→ Formulaire DOM legacy (vue secondaire, lecture seule)
+    └→ Sérialisation V2 → project.json
+           └→ generate-game.js (inchangé pour l'instant)
+```
+
+### 1.2 Structure du modèle en mémoire
+
+Le modèle est un unique objet racine `NodalProject`, tenu en mémoire
+par un store (proposition : Zustand, à valider dans le chantier C1).
+
+```ts
+type NodalProject = {
+  /** Métadonnées projet : titre, langue, id de la scène de départ, etc. */
+  meta: ProjectMeta;
+  
+  /** Nœuds action, indexés par id stable. */
+  actions: Record<ActionNodeId, ActionNode>;
+  
+  /** Nœuds scène, indexés par id stable. */
+  scenes: Record<SceneNodeId, SceneNode>;
+  
+  /** Nœuds satellites (coords-options, choice-options, object). */
+  satellites: Record<SatelliteNodeId, SatelliteNode>;
+  
+  /** Nœuds média (image, audio). */
+  media: Record<MediaNodeId, MediaNode>;
+  
+  /** Edges — uniquement pour les relations non-emboîtées (flow, transition, meta). */
+  edges: Edge[];
+  
+  /** Disposition visuelle : positions x,y, repliés, parentId, etc. */
+  layout: Record<AnyNodeId, NodeLayout>;
+};
+```
+
+**Points clés** :
+
+- Les nœuds sont **indexés par id stable**, pas par tableau. Aucun ordre
+  implicite sauf règle métier explicite (position Y pour ordonner les
+  choix d'un selector, par exemple).
+- **La scène de départ** est identifiée par un champ `meta.startSceneId`,
+  pas par un index de tableau. Le game designer peut la changer via un
+  bouton sur n'importe quelle scène.
+- **Chaque catégorie** (action, scene, satellite, media) a son propre
+  index pour simplifier les recherches de type.
+- Les **edges** portent uniquement les relations **non-emboîtées** :
+  - `flow` bleu (hotspot dans scène — hors emboîtement) ;
+  - `transition` bleu vif/pointillé/animé (`goto` vers scène) ;
+  - `meta` gris pointillé (satellite/média rattaché à une action ou scène).
+- Les **relations d'emboîtement** (REQ/PWD → récompense enfant, selector
+  → choix enfants) ne sont **pas** des edges. Elles vivent dans le
+  modèle comme :
+  - pour REQ/PWD : un champ `rewardActionId` dans l'action parent ;
+  - pour selector : un parcours des actions dont `layout.parentId`
+    désigne le selector.
+- Le **layout** (positions, tailles, repliés, parentId React Flow) est
+  séparé des données métier — il va dans `map-layout.json`.
+- Les **edges ont un rendu visuel différencié par famille** : couleur et
+  style (traits/pointillés/animation). Voir §4.
+
+### 1.3 Les fichiers du ZIP `.escapegame`
+
+| Fichier | Contenu | Consommateur (cible) | Consommateur (actuel) |
+|---|---|---|---|
+| `project.json` | Modèle métier V2. Scènes, actions matérialisées, connexions sémantiques. | `generate-game.js` | Le formulaire legacy (qui alimente `generate-game.js`). À terme, `generate-game.js` lira directement. |
+| `map-layout.json` | Positions, repliés, `parentId`, drafts (nœuds orphelins). | Éditeur uniquement, ignoré par le moteur. | *(nouveau)* |
+| *(actifs médias)* | Images panoramiques, audios. | Moteur. | Moteur. |
+
+Les **nœuds orphelins** (État 1, cf. §2.3) vivent dans `map-layout.json`
+uniquement — absents de `project.json`. Cela permet de poser des nœuds
+en prévision et de revenir dessus sans polluer l'export métier.
+
+### 1.4 Persistance de session
+
+Un auto-save vers **IndexedDB** existe déjà côté éditeur. La carte
+s'appuiera sur ce système via un hook plutôt que de créer son propre
+cache. Pas de `sessionStorage` dédié à la carte.
+
+---
+
+## 2. Modèle unifié action-première
+
+### 2.1 Principe fondateur
+
+**Tout ce qui est interactif dans le jeu est une action.** Les autres
+nœuds éditables sont :
+
+- **Scène** : conteneur, image 360, avec son ambiance audio en loop.
+- **Média** : ressource externe (image, audio).
+- **Satellite** : donnée contextuelle attachée à un consommateur.
+  - `coords-options` : pitch/yaw + visibilité d'un hotspot.
+  - `choice-options` : visibilité d'un choix.
+  - `object` : fiche d'objet d'inventaire (id, nom, icône optionnelle).
+
+### 2.2 Catalogue des types d'action
+
+| `type` | Rôle métier | Peut être hotspot ? | Peut être choix ? | Peut être récompense ? | Peut contenir `rewardAction` ? |
+|---|---|---|---|---|---|
+| `msg` | Afficher un message | Oui | Oui | Oui | Non |
+| `pick` | Donner un objet au joueur | Oui | Oui | Oui | Non |
+| `goto` | Transition vers une scène | Oui | Oui | Oui | Non |
+| `selector` | Ouvrir un menu de choix | Oui | Oui | Oui | Non |
+| `req` | Exiger un objet avant de déclencher la récompense | Oui | Oui | Oui | **Oui** |
+| `pwd` | Exiger un mot de passe avant de déclencher la récompense | Oui | Oui | Oui | **Oui** |
+
+**Renommage** : l'action historiquement nommée `scene` dans V2 devient
+`goto`. Ça clarifie la distinction entre *le nœud scène* (conteneur) et
+*l'action transition* (téléportation). Le schéma V2 de `editor-core.js`
+est ajusté en conséquence. Pas de rétrocompat (§0.2-6).
+
+**Nœud `object` comme satellite database** : `req` et `pick` référencent
+un objet via un satellite `object` rattaché au Sud. Ce satellite peut
+être **partagé** : plusieurs `pick` ou `req` peuvent pointer vers le
+même nœud `object`. Un `object` a :
+- `objectId` (obligatoire) — identifiant technique, unique projet-wide.
+- `displayName` (optionnel) — nom affiché dans l'inventaire.
+- `iconMedia` (optionnel) — satellite média image rattaché.
+
+Quand on crée un nouveau satellite `object` lié à un `req` ou `pick`, la
+palette propose soit **créer un nouveau `objectId`**, soit **lier à un
+`objectId` existant** (auto-complétion sur la liste des objets déjà
+présents dans le projet).
+
+### 2.3 Les quatre états contextuels d'une action
+
+L'état d'une action est **entièrement déterminé** par son contexte de
+rattachement. États mutuellement exclusifs.
+
+#### État 1 : ORPHELINE (brouillon)
+
+- Action posée sur la carte sans aucun rattachement parent.
+- Aucun `flow-in` connecté, aucun `parentId` dans le layout.
+- Affichage : bordure pointillée, opacité réduite.
+- Warning : « Action orpheline — reliez-la à une scène, un selector, ou
+  un REQ/PWD pour qu'elle soit prise en compte. »
+- Stockage : `map-layout.json` uniquement. **Absente de `project.json`**.
+- Export `generate-game` : **ignorée**.
+
+#### État 2 : HOTSPOT
+
+- `flow-in` connecté depuis une `scene`.
+- Fait apparaître automatiquement un satellite **coords-options** au Sud.
+- Si action `pick` ou `req` : peut aussi avoir un satellite `object` au
+  Sud (optionnel pour `pick`, recommandé pour `req`).
+- Stockage V2 : dans `scenes[sceneIdx].hotspots[]`.
+
+#### État 3 : CHOIX (enfant emboîté d'un selector)
+
+- `layout.parentId` désigne un nœud action de type `selector` (qui peut
+  lui-même être hotspot, choix récursif, ou récompense).
+- **Pas de `flow-in` connecté par edge** — l'emboîtement remplace la
+  connexion.
+- Fait apparaître automatiquement un satellite **choice-options** au Sud.
+- Style visuel : bordure en pointillés fins ou couleur plus pastel pour
+  distinguer d'un hotspot.
+- **Ordre = position Y dans le layout** (relatif au selector parent).
+  Choix le plus haut = choix 1.
+- Stockage V2 : dans `payload.nested.choices[]` du selector parent,
+  tableau trié par Y.
+
+#### État 4 : RÉCOMPENSE (enfant emboîté d'un REQ/PWD)
+
+- `layout.parentId` désigne un nœud action de type `req` ou `pwd`.
+- **Pas de `flow-in` connecté par edge** — l'emboîtement remplace.
+- Le REQ/PWD parent porte un champ `rewardActionId` pointant vers cette
+  action.
+- **Pas de satellite** (ni coords, ni options de choix). La récompense
+  s'exécute automatiquement quand le REQ/PWD est franchi.
+- Visuellement, le REQ/PWD et sa récompense forment un **bloc Scratch** :
+  une pince à l'Est du REQ/PWD accueille visuellement l'enfant, les
+  deux nœuds se collent.
+- Stockage V2 : dans `payload.rewardAction` du REQ/PWD parent.
+
+### 2.4 Règles de cohérence des états
+
+- **Un seul rattachement à la fois**. Une action ne peut être qu'en un
+  seul État parmi 2, 3, 4. Elle passe de l'un à l'autre en changeant de
+  contexte (connexion/emboîtement).
+- Dans un premier temps : **refus** d'ajouter un nouveau rattachement
+  si un existe déjà. Évolution future : remplacement silencieux.
+- Déconnecter le seul rattachement d'une action → repasse en **État 1
+  ORPHELINE** dans le projet (mais reste visible sur la carte).
+- **Chaîne REQ → REQ → REQ** autorisée sans limite. Warning
+  `REWARD_CHAIN` affiché à partir du 2ème niveau — purement informatif,
+  aucune limite dure.
+
+---
+
+## 3. Catalogue des nœuds carte
+
+### 3.1 Vue d'ensemble
+
+| Famille | Couleur | Rôle | Sous-types |
+|---|---|---|---|
+| **Scène** | Vert | Image 360, conteneur narratif | 1 (`scene`) |
+| **Action** | Ambre/brun | Unité métier éditable | 6 (`msg`, `pick`, `goto`, `selector`, `req`, `pwd`) |
+| **Satellite** | Gris clair | Donnée contextuelle liée à un consommateur | 3 (`coords-options`, `choice-options`, `object`) |
+| **Média** | Violet | Ressource externe | 2 (`media-image`, `media-audio`) |
+
+**Note sur les choix** : une action en État 3 (choix de selector) n'est
+**pas** une famille distincte — c'est une action qui porte un style
+visuel variant (pastel ou pointillé fin) déterminé par son contexte.
+
+### 3.2 Nœud `scene`
+
+- Couleur : vert.
+- Représente une image 360 du jeu.
+- Porte : titre (label), identifiant `scId`, lien vers la fiche de la
+  scène dans le projet.
+- Flag « scène de départ » affiché si `meta.startSceneId === scId`.
+- Handles :
+  - **Ouest** : reçoit une transition depuis un `goto` (`transition-in`).
+  - **Est** : émet `flow-out` vers ses hotspots.
+  - **Sud** : rattache médias et satellites (image panoramique, audio
+    d'ambiance).
+- Pas de handle Nord (les médias viennent du Sud comme partout).
+
+### 3.3 Nœud action (générique)
+
+Handles communs à toutes les actions :
+- **Ouest** : `flow-in` (entrée narrative).
+- **Est** : dépend du type (voir §4.3).
+- **Sud** : rattache médias (sfx) et satellites (coords-options /
+  choice-options / object).
+- Pas de handle Nord.
+
+**Variantes visuelles selon l'état contextuel** :
+- État 1 (orphelin) : bordure pointillée, opacité réduite.
+- État 2 (hotspot) : aspect standard, satellite coords visible au Sud.
+- État 3 (choix) : bordure fine ou teinte pastel.
+- État 4 (récompense) : emboîtée visuellement à droite du REQ/PWD
+  parent (bloc Scratch).
+
+**Cas `req` et `pwd`** : ont une **zone de pince à l'Est** (rendu
+custom dans le composant) qui accueille visuellement le nœud enfant
+récompense. Quand la récompense est absente, la pince affiche un
+placeholder « Déposer une action ici ». Cette pince **n'est pas un
+handle React Flow** — l'emboîtement se fait par drag sur le nœud
+parent (intersection detection), pas par connexion d'edge.
+
+### 3.4 Satellite `coords-options`
+
+Nœud gris automatique attaché au Sud d'une action en **État 2
+(HOTSPOT)**.
+
+Contient :
+- `pitch`, `yaw` — coordonnées 3D dans la scène 360.
+- `visibility.requiresItem` — objet requis pour être visible.
+- `visibility.hiddenIfHasItem` — objet qui masque le hotspot.
+- `visibility.clickWhenInvisible` — cliquable en opacité zéro.
+
+Apparition automatique au passage en État 2, disparition au passage vers
+les autres états. Repliable (clic sur chevron, replié par défaut).
+
+### 3.5 Satellite `choice-options`
+
+Nœud gris automatique attaché au Sud d'une action en **État 3 (CHOIX)**.
+
+Contient :
+- `visibility.requiresItem` — objet requis pour voir ce choix.
+- `visibility.hiddenIfHasItem` — objet qui masque ce choix.
+
+Pas de `clickWhenInvisible` (pas de notion d'opacité pour un choix).
+
+### 3.6 Satellite `object`
+
+Nœud gris attaché au Sud d'une action **`pick`** ou **`req`**.
+
+Contient :
+- `objectId` — id technique (obligatoire, unique projet-wide).
+- `displayName` — libellé inventaire (optionnel).
+- Rattache au Sud un nœud `media-image` pour l'icône (optionnel).
+
+Un même `object` peut être référencé par plusieurs actions. Quand le
+game designer crée un nouveau satellite `object`, une interface de
+saisie propose :
+- Créer un nouvel objet (nouveau `objectId`).
+- Lier à un objet existant (auto-complétion sur les `objectId` déjà
+  définis dans le projet).
+
+### 3.7 Nœuds `media-image` et `media-audio`
+
+Couleur : violet. Rôle : référencer une ressource externe.
+
+- `media-image` : URL d'image. Utilisé pour scène 360, icône d'objet,
+  futur thumbnail.
+- `media-audio` : URL audio + volume. Utilisé pour SFX d'actions,
+  ambiance de scène.
+
+Handle : un seul au Nord (entrée de rattachement à un consommateur).
+
+---
+
+## 4. Grammaire des handles et connexions
+
+### 4.1 Les trois familles de handles
+
+| Famille | Couleur | Forme | Style d'edge | Rôle |
+|---|---|---|---|---|
+| **Flow** | Bleu standard | Rond | Trait plein | Hotspot dans scène, choix hors sub-flow |
+| **Transition** | Bleu vif | Triangle ▸ | Pointillé animé ▸▸▸ gauche→droite | `goto` → `scene` |
+| **Meta** | Gris | Rond plus petit | Pointillé fin | Rattachement satellite/média à un consommateur |
+
+**Plus de famille reward** : remplacée par l'emboîtement parent/child
+(§0.2-8, §2.3 État 4).
+
+**Plus de famille choice distincte** : les choix sont des enfants de
+selector via sub-flow, pas via un handle dédié.
+
+### 4.2 Matrice des handles par nœud
+
+| Nœud | flow-in (O) | flow-out (E) | goto-in (O) | goto-out (E) | meta-in (N) | meta-out (S) |
+|---|---|---|---|---|---|---|
+| `scene` | — | ✓ | ✓ | — | — | ✓ (média/satellite) |
+| `action.msg` | ✓ | — | — | — | — | ✓ |
+| `action.pick` | ✓ | — | — | — | — | ✓ |
+| `action.goto` | ✓ | — | — | ✓ | — | ✓ |
+| `action.selector` | ✓ | — *(voir note ci-dessous)* | — | — | — | ✓ |
+| `action.req` | ✓ | — *(voir note ci-dessous)* | — | — | — | ✓ |
+| `action.pwd` | ✓ | — *(voir note ci-dessous)* | — | — | — | ✓ |
+| `satellite.*` | — | — | — | — | ✓ | — |
+| `media.*` | — | — | — | — | ✓ | — |
+
+**Note — selector, req, pwd et leurs enfants emboîtés** :
+
+Dans la **version cible** (§2.3 États 3 et 4), les choix d'un `selector`
+et la récompense d'un `req`/`pwd` sont des **enfants emboîtés** via
+`parentId` React Flow. Il n'y a donc **pas** de `flow-out` visible sur
+ces trois types de nœuds — la relation passe par l'emboîtement, pas par
+un edge.
+
+**Toutefois**, le chantier C3 (§7) implémente l'emboîtement. Avant C3,
+les chantiers C1 et C2 fonctionnent sans emboîtement : les choix et les
+récompenses sont alors des **nœuds libres** reliés par des edges
+`flow-out → flow-in` classiques, de façon à pouvoir tester le modèle et
+le rendu avant d'ajouter la complexité de l'emboîtement.
+
+Conséquences concrètes pour Cursor :
+
+- **En C1** (modèle en mémoire) : les types TypeScript prévoient **dès
+  le départ** les deux modes — `rewardActionId` dans `req`/`pwd` et
+  champ `parentId` dans le layout. L'API du store supporte à la fois
+  `connect(edge)` et `attachChild(parentId, childId)`. Les sérialiseurs
+  V2 lisent les deux sources pour construire `payload.rewardAction` et
+  `payload.nested.choices[]`.
+- **En C2** (rendu de base) : on expose un `flow-out` temporaire sur
+  `selector`, `req` et `pwd` pour permettre à l'utilisateur de relier
+  manuellement (edge classique). Le code est commenté
+  `// TODO(C3): remove flow-out once nesting is in place`.
+- **En C3** : on retire le `flow-out` de ces trois types, on ajoute
+  l'intersection detection et l'emboîtement. Les edges existants sont
+  convertis en `parentId` au chargement.
+
+Cette approche progressive évite d'avoir à tout coder d'un coup et
+permet de tester le modèle V2 sans dépendre du système d'emboîtement.
+
+Lecture :
+- **Scène** n'a pas de `flow-in` : elle reçoit via `goto-in` (famille
+  transition).
+- **Action goto** a un `goto-out` unique, pas de `flow-out`. Son rôle
+  est exclusif : téléporter vers une scène.
+- **Actions msg, pick, selector, req, pwd** n'ont pas de sortie flow —
+  leur « sortie » est soit l'emboîtement (selector, req, pwd), soit
+  leur exécution terminale (msg, pick).
+- **Tous les consommateurs** (scène, action) ont `meta-out` au Sud pour
+  rattacher médias et satellites.
+- **Pas de handle Nord** sur les scènes et actions. Le Nord est réservé
+  aux satellites/médias qui *reçoivent* leur rattachement.
+
+### 4.3 Règles de validation des connexions
+
+1. **Compatibilité de famille** : un handle ne se connecte qu'à un
+   handle de même famille.
+2. **Compatibilité de type** :
+   - `flow-out` de scène → `flow-in` d'action (crée un hotspot État 2).
+   - `goto-out` de `action.goto` → `goto-in` de scène (transition).
+   - `meta-out` de scène/action → `meta-in` de satellite ou média.
+3. **Exclusivité d'entrée narrative** : une action ne peut avoir qu'un
+   seul `flow-in` connecté à la fois. Si elle a déjà un rattachement
+   (flow-in ou parentId), toute nouvelle connexion flow-in est
+   **refusée**.
+4. **Exclusivité du goto-out** : un `action.goto` ne peut cibler qu'une
+   seule scène à la fois.
+5. **Pas de cycles flow directs**. Un cycle de `selector → choix →
+   selector → ...` (par emboîtement) affiche un warning.
+6. **Refus silencieux** : une connexion invalide n'est pas créée, pas
+   de toast. Le snap de React Flow ne se produit pas.
+
+### 4.4 Règles d'emboîtement (parent/child) — *cible C3+*
+
+> **Période transitoire C1→C2** : avant l'implémentation du chantier
+> C3, l'emboîtement n'existe pas. Les choix et récompenses sont des
+> nœuds libres reliés par edges `flow-out → flow-in`. Les règles
+> ci-dessous décrivent l'état cible à partir de C3.
+
+Le rattachement État 3 (CHOIX) et État 4 (RÉCOMPENSE) se fait **par
+drag d'un nœud sur un autre**, pas par connexion.
+
+1. **Cibles valides d'emboîtement** :
+   - `selector` accepte en enfant : toute action sauf elle-même comme
+     parent direct (pas de selector enfant de lui-même ; les selectors
+     récursifs passent par un nœud intermédiaire).
+   - `req` / `pwd` acceptent en enfant : toute action (y compris un
+     autre req/pwd pour chaînage, avec warning).
+
+2. **Règle de détection** : quand un nœud action est drag-dropped sur
+   un nœud `selector`, `req` ou `pwd` compatible, on applique
+   `parentId` + `extent: "parent"`. Le nœud devient enfant, sa position
+   passe en coordonnées relatives.
+
+3. **Détachement** : un bouton « Détacher » sur le nœud enfant (visible
+   au hover/sélection) permet de le sortir du parent. Il repasse en
+   État 1 (orphelin) avec ses coordonnées absolues recalculées.
+
+4. **Limite de taille** : pour REQ/PWD, le parent affiche son bloc
+   principal + une zone « pince » à droite (CSS). L'enfant est
+   positionné dans cette zone avec une taille adaptée. Si la récompense
+   est elle-même un REQ/PWD (chaînage), la pince s'étend pour accueillir
+   la chaîne.
+
+5. **Limite de taille selector** : le selector est un rectangle
+   redimensionnable qui affiche ses choix empilés verticalement. Les
+   choix se trient automatiquement selon leur position Y à l'intérieur
+   du selector.
+
+---
+
+## 5. Sérialisation
+
+### 5.1 Vers `project.json` (V2)
+
+Parcours du modèle :
+
+1. Pour chaque scène, collecter les actions dont `flow-in` pointe vers
+   elle (État 2 HOTSPOT). Sérialiser chaque action en format V2 :
+   - `type`, `payload` (lu depuis l'action + satellite coords-options +
+     satellite object si applicable).
+   - `sfx` (lu depuis le média audio rattaché, si présent).
+   - `visibility` (lu depuis le satellite coords-options).
+   - Si `type === "req"` ou `"pwd"` : `payload.rewardAction` est
+     sérialisée récursivement depuis l'action pointée par
+     `rewardActionId`. S'il n'y en a pas, l'export saute ce REQ/PWD et
+     émet un warning `REWARD_MISSING`.
+   - Si `type === "selector"` : `payload.nested.choices[]` est sérialisé
+     depuis les actions dont `layout.parentId` est ce selector, triées
+     par position Y croissante.
+2. Les actions en État 1 (orphelines) **ne sont pas** exportées.
+3. La scène de départ est marquée via `meta.startSceneId`.
+
+### 5.2 Vers `map-layout.json`
+
+Contenu :
+- `positions` : coordonnées absolues x,y de chaque nœud (pour les
+  enfants emboîtés, les coordonnées sont relatives au parent).
+- `parentId` : pour chaque nœud enfant, id du parent React Flow.
+- `collapsed` : état replié/déplié de chaque nœud.
+- `drafts` : ids des nœuds en État 1 qui doivent persister.
+- `viewport` : zoom, pan actuels.
+
+### 5.3 Lecture : désérialisation
+
+1. Charger `project.json` → matérialise scènes, actions hotspots,
+   actions enfants (choix, récompenses), satellites, médias, edges
+   narratifs.
+2. Charger `map-layout.json` → applique positions, `parentId`, repliés,
+   réhydrate les drafts.
+3. Si un nœud matérialisé n'a pas de position : auto-layout (grille
+   simple en première version).
+
+---
+
+## 6. Règles de cohérence et warnings
+
+Warnings affichés dans un Panel bas-droite. Liste cliquable : clic
+centre la vue sur le nœud concerné.
+
+| Code | Déclencheur | Message |
+|---|---|---|
+| `DRAFT` | Action en État 1 | Action orpheline — reliez-la pour qu'elle soit exportée. |
+| `REWARD_MISSING` | REQ ou PWD sans enfant récompense (pince vide) | Récompense manquante pour *<label>*. |
+| `REWARD_CHAIN` | Chaîne REQ/PWD → REQ/PWD de 2+ niveaux | Chaîne de récompenses profonde — vérifier l'intention. |
+| `SELECTOR_EMPTY` | Selector sans aucun choix enfant | Menu vide — ajoutez au moins un choix. |
+| `SCENE_UNREACHABLE` | Scène non atteinte depuis `meta.startSceneId` | Scène inaccessible dans le parcours joueur. |
+| `GOTO_ORPHAN` | Action `goto` sans `goto-out` connecté | Transition sans cible. |
+| `SELECTOR_CYCLE` | Cycle dans une chaîne de selectors emboîtés | Menu récursif détecté. |
+| `OBJECT_UNDEFINED` | REQ référençant un `objectId` qui n'est pas défini dans le projet | Objet requis sans définition. |
+
+---
+
+## 7. Roadmap d'implémentation
+
+Neuf chantiers numérotés pour référence dans les commits.
+
+### C1 — Fondation du modèle en mémoire *(pas de rendu)*
+
+- Types TypeScript : `NodalProject`, `ActionNode`, `SceneNode`,
+  `SatelliteNode`, `MediaNode`, `Edge`, `NodeLayout`.
+- Store Zustand avec API : `addNode`, `removeNode`, `connect`,
+  `disconnect`, `attachChild`, `detachChild`, `updateNodeData`.
+- Sérialiseurs : `serializeToProjectJson`, `serializeLayout`.
+- Désérialiseurs : `deserializeFromProjectJson`, `applyLayout`.
+- Tests unitaires : petit projet fictif, serialisation, désérialisation,
+  vérification d'équivalence.
+- **Aucun rendu React Flow** à ce stade.
+
+### C2 — Rendu React Flow basique
+
+- Composants de nœuds par type.
+- Handles selon matrice §4.2.
+- Famille `transition` avec styles distincts (edge animé).
+- Policy de connexion (§4.3).
+- Palette latérale simple (clic → création au centre).
+- Suppression clavier.
+
+### C3 — États contextuels et emboîtement
+
+- Satellites `coords-options` / `choice-options` / `object` automatiques.
+- Emboîtement parent/child pour REQ/PWD + selector via intersection
+  detection.
+- Zone pince pour REQ/PWD (CSS custom).
+- Selector redimensionnable avec tri par Y des choix.
+- Style visuel des 4 états.
+- Bouton « Détacher » sur nœuds enfants.
+
+### C4 — Warnings et Panel
+
+- Calcul continu des warnings §6.
+- Panel bas-droite.
+- Centrage sur nœud au clic.
+
+### C5 — Persistance ZIP `.escapegame`
+
+- Écriture `project.json` + `map-layout.json` dans le ZIP.
+- Lecture à l'ouverture.
+- Hook sur l'IndexedDB existant pour auto-save.
+
+### C6 — Formulaire DOM legacy en lecture seule
+
+- Désactivation de tous les inputs/selects/boutons.
+- Génération du formulaire depuis le modèle carte.
+- Pipeline `formulaire → generate-game.js` préservé.
+
+### C7 — Popups d'édition de contenu
+
+- Clic sur nœud `msg` → popup Quill pour `bodyHtml`.
+- Idem pour `pick`, `selector`, `req`, `pwd`.
+- Ajout de `req`/`pwd` comme types autorisés de `rewardAction` dans
+  `editor-core.js` (nécessaire pour la récursion §2.2).
+
+### C8 — Ajustements UX
+
+- Nœuds repliables.
+- Zoom automatique sur sélection.
+- Raccourcis clavier (suppression, duplication).
+
+### C9 — Drag & drop depuis la palette
+
+- Palette **latérale** (pas horizontale).
+- Drag & drop vers la vue.
+- Aperçu au survol.
+
+---
+
+## 8. Règles de collaboration avec Cursor
+
+### 8.1 Pattern « questions d'abord »
+
+Pour tout chantier non trivial :
+
+1. Phase questions : lit la spec et le code, pose des questions
+   préalables en texte. Attend validation.
+2. Phase implémentation : code après validation.
+
+Assouplissement : fix trivial → annonce en une ligne et code directement.
+
+### 8.2 Scope par commit
+
+Un commit = un chantier. Si la limite de contexte est atteinte, commit
+partiel avec préfixe `partial:` et liste de ce qui reste.
+
+### 8.3 Pas de rétrocompat (rappel §0.2-6)
+
+### 8.4 Documenter les fichiers ajoutés
+
+Tout nouveau fichier source listé dans l'Annexe B au fil des chantiers.
+
+### 8.5 Ne pas réécrire la spec unilatéralement
+
+Cursor propose en diff markdown (trois catégories : factuel / vision /
+formulation). Ne modifie pas la spec directement.
+
+### 8.6 Relecture avant commit
+
+- Aucune écriture dans un champ legacy DOM.
+- Aucun `document.querySelector` dans le code du modèle carte.
+- Aucun handle hors des cardinaux attendus.
+- Conformité matrice §4.2.
+- Pas d'edge pour les relations d'emboîtement (§0.2-8).
+
+---
+
+## Annexe A — Fichiers conservés de `feat/react-map`
+
+```
+NODAL_MAP_SPEC.mdc                       ← ce document, v1.1
+xflow/react/src/mapRewardActionV2.ts     ← schéma V2 réutilisable
+xflow/react/src/mapFlowHandles.ts        ← constantes d'ids de handles
+xflow/react/src/mapConnectionMatrix.ts   ← squelette de matrice cardinaux
+```
+
+Tous les autres fichiers de la branche précédente sont **abandonnés**.
+Le répertoire `xflow/react/src/` reste la cible mais sa structure
+interne sera redéfinie au chantier C1.
+
+## Annexe B — Fichiers ajoutés par chantier
+
+*(À remplir au fur et à mesure.)*
+
+### C1
+*(à définir lors de l'implémentation)*
+
+### C2
+*(à définir)*
+
+*etc.*
+
+## Annexe C — Glossaire
+
+- **Action** : unité métier éditable. Types `msg`, `pick`, `goto`,
+  `selector`, `req`, `pwd`.
+- **Bloc Scratch** : métaphore visuelle pour REQ/PWD + récompense
+  emboîtée (§2.3 État 4).
+- **Choix** : action en État 3 (enfant emboîté d'un selector).
+- **Draft / orphelin** : action en État 1 — posée sur la carte sans
+  rattachement. Non exportée.
+- **Emboîtement** : relation parent/child React Flow via `parentId` +
+  `extent: "parent"`.
+- **Goto** : action de transition vers une scène.
+- **Hotspot** : action en État 2 (rattachée à une scène par flow-in).
+- **Objet** : satellite database partagé, référencé par les actions
+  `pick` et `req`.
+- **Récompense** : action en État 4 (enfant emboîté d'un REQ/PWD).
+- **Satellite** : nœud gris portant des données contextuelles
+  (`coords-options`, `choice-options`, `object`).
+- **Transition** (famille handle) : nouvelle famille dédiée au `goto` —
+  couleur bleu vif, forme triangle, edge pointillé animé.
+
+---
+
+*Fin de NODAL_MAP_SPEC v1.1.*
