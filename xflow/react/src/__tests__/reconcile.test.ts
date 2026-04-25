@@ -10,7 +10,7 @@ import {
   ATTACH_OVERLAP_THRESHOLD,
   DETACH_OVERLAP_THRESHOLD,
 } from "../view/nesting/constants";
-import { overlapRatioByChild } from "../view/nesting/geometry";
+import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "../view/nesting/geometry";
 
 const findObjectSatelliteIdForAction = (
   state: NodalProjectStore,
@@ -581,6 +581,44 @@ describe("C3c selector sub-flow + contextual state", () => {
       return sat?.satelliteType === "choice-options";
     });
     expect(choiceMeta).toBe(true);
+  });
+
+  it("attach msg sur selector → position relative correcte (abs → rel)", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const sel = makeSelector("act-c3c-rel-sel", "Sel");
+    const msg: ActionNode = {
+      id: asActionNodeId("act-c3c-rel-msg"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "M",
+      payload: { copy: { bodyHtml: "x", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addAction(sel, { x: 100, y: 100 });
+    state.addAction(msg, { x: 120, y: 130 });
+
+    const parentRf: NestedNodeLike = { id: sel.id, position: { x: 100, y: 100 } };
+    const childRf: NestedNodeLike = { id: msg.id, position: { x: 120, y: 130 } };
+    const nodesById = new Map<string, NestedNodeLike>([
+      [sel.id, parentRf],
+      [msg.id, childRf],
+    ]);
+    const childRect = toAbsoluteRect(childRf, nodesById);
+    const parentAbsRect = toAbsoluteRect(parentRf, nodesById);
+    const relX = childRect.x - parentAbsRect.x;
+    const relY = childRect.y - parentAbsRect.y;
+    expect(relX).toBeCloseTo(20, 5);
+    expect(relY).toBeCloseTo(30, 5);
+
+    state.attachChild(sel.id, msg.id);
+    state.updateNodeLayout(msg.id, { parentId: sel.id, x: relX, y: relY });
+
+    const lay = store.getState().layout[msg.id];
+    expect(lay?.parentId).toBe(sel.id);
+    expect(lay?.x).toBeCloseTo(20, 5);
+    expect(lay?.y).toBeCloseTo(30, 5);
   });
 
   it("attachChild selector→selector : no-op", () => {

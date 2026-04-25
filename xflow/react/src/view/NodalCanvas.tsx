@@ -341,6 +341,17 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           x: parentSize + REWARD_CHILD_GAP_X,
           y: 0,
         });
+      } else if (parentAction?.actionType === "selector") {
+        const parentNode = nodesById.get(bestParentId);
+        if (!parentNode) return;
+        const parentAbsRect = toAbsoluteRect(parentNode, nodesById);
+        const relX = childRect.x - parentAbsRect.x;
+        const relY = childRect.y - parentAbsRect.y;
+        state.updateNodeLayout(draggedNode.id as AnyNodeId, {
+          parentId: bestParentId,
+          x: relX,
+          y: relY,
+        });
       }
     },
     [reactFlow, state]
