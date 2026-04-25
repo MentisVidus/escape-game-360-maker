@@ -6,6 +6,7 @@ import "./ObjectEditorPopup.css";
 type Props = {
   satellite: ObjectSatelliteNode | null;
   objectEntry: ObjectEntry | null;
+  objectEntries: Record<string, ObjectEntry>;
   objectIds: string[];
   onChangeObjectId: (objectId: string) => void;
   onUpsertObject: (entry: ObjectEntry) => void;
@@ -15,6 +16,7 @@ type Props = {
 export function ObjectEditorPopup({
   satellite,
   objectEntry,
+  objectEntries,
   objectIds,
   onChangeObjectId,
   onUpsertObject,
@@ -44,6 +46,15 @@ export function ObjectEditorPopup({
     }
   }, [satellite, objectEntry]);
 
+  useEffect(() => {
+    if (!satellite || !objectEntry) return;
+    if (lastSatelliteIdRef.current !== satellite.id) return;
+    // Pas de branche else volontaire: on ne reset jamais à vide ici
+    // pour éviter la régression C3a.2 (écrasement pendant édition active).
+    setDisplayNameInput(objectEntry.displayName ?? "");
+    setIconUrlInput(objectEntry.iconUrl ?? "");
+  }, [satellite?.id, satellite?.data.objectId, objectEntry]);
+
   if (!satellite) return null;
   const safeObjectIds = objectIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0);
 
@@ -59,18 +70,21 @@ export function ObjectEditorPopup({
             value={objectIdInput}
             onChange={(e) => setObjectIdInput(e.target.value)}
             onBlur={() => {
-              const oid = objectIdInput.trim();
-              if (!oid) {
+              const trimmed = objectIdInput.trim();
+              if (!trimmed) {
                 setObjectIdInput(satellite.data.objectId ?? "");
                 return;
               }
-              onChangeObjectId(oid);
-              onUpsertObject({
-                objectId: oid,
-                displayName: displayNameInput,
-                iconMediaId: objectEntry?.iconMediaId ?? null,
-                iconUrl: iconUrlInput,
-              });
+              onChangeObjectId(trimmed);
+              const existingEntry = objectEntries[trimmed];
+              if (!existingEntry) {
+                onUpsertObject({
+                  objectId: trimmed,
+                  displayName: displayNameInput,
+                  iconMediaId: null,
+                  iconUrl: iconUrlInput,
+                });
+              }
             }}
           />
           <datalist id={listId}>
@@ -86,12 +100,13 @@ export function ObjectEditorPopup({
             onChange={(e) => setDisplayNameInput(e.target.value)}
             onBlur={() => {
               const oid = objectIdInput.trim();
-              if (!oid) return;
+              // Ne pas écrire sur un objectId vide ou non-existant.
+              if (!oid || !objectEntries[oid]) return;
               onUpsertObject({
                 objectId: oid,
                 displayName: displayNameInput,
-                iconMediaId: objectEntry?.iconMediaId ?? null,
-                iconUrl: iconUrlInput,
+                iconMediaId: objectEntries[oid].iconMediaId,
+                iconUrl: objectEntries[oid].iconUrl,
               });
             }}
           />
@@ -103,11 +118,12 @@ export function ObjectEditorPopup({
             onChange={(e) => setIconUrlInput(e.target.value)}
             onBlur={() => {
               const oid = objectIdInput.trim();
-              if (!oid) return;
+              // Ne pas écrire sur un objectId vide ou non-existant.
+              if (!oid || !objectEntries[oid]) return;
               onUpsertObject({
                 objectId: oid,
-                displayName: displayNameInput,
-                iconMediaId: objectEntry?.iconMediaId ?? null,
+                displayName: objectEntries[oid].displayName,
+                iconMediaId: objectEntries[oid].iconMediaId,
                 iconUrl: iconUrlInput,
               });
             }}

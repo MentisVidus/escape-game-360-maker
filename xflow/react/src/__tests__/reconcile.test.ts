@@ -224,4 +224,84 @@ describe("C3a reconcileAutoSatellites + meta.objects", () => {
     state.upsertObject({ objectId: "  cle  ", displayName: "Clef", iconMediaId: null, iconUrl: "" });
     expect(Object.keys(store.getState().meta.objects)).toEqual(["cle"]);
   });
+
+  it("sélection d'un objectId existant ne doit pas écraser ses données", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-obj-c"),
+      nodeType: "scene",
+      sceneId: "obj-c",
+      label: "Scene",
+      panoramaUrl: "",
+    };
+    const reqA: ActionNode = {
+      id: asActionNodeId("act-req-a"),
+      nodeType: "action",
+      actionType: "req",
+      label: "Req A",
+      payload: { itemId: "cle", copy: { bodyHtml: "", buttonLabel: "" } },
+      rewardActionId: null,
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    const reqB: ActionNode = {
+      id: asActionNodeId("act-req-b"),
+      nodeType: "action",
+      actionType: "req",
+      label: "Req B",
+      payload: { itemId: "autre", copy: { bodyHtml: "", buttonLabel: "" } },
+      rewardActionId: null,
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addScene(scene, { x: 0, y: 0 });
+    state.addAction(reqA, { x: 100, y: 50 });
+    state.addAction(reqB, { x: 220, y: 50 });
+    state.connect({ id: asEdgeId("flow-ra"), family: "flow", sourceId: scene.id, targetId: reqA.id });
+    state.connect({ id: asEdgeId("flow-rb"), family: "flow", sourceId: scene.id, targetId: reqB.id });
+
+    state.upsertObject({
+      objectId: "cle",
+      displayName: "Clé rouillée",
+      iconMediaId: null,
+      iconUrl: "url1",
+    });
+    const satBId = findObjectSatelliteIdForAction(store.getState(), reqB.id);
+
+    // Simule le flux popup C3a.3: updateNodeData seul si l'entrée existe.
+    state.updateNodeData(satBId as never, { data: { objectId: "cle" } } as never);
+
+    expect(store.getState().meta.objects["cle"]!.displayName).toBe("Clé rouillée");
+    expect(store.getState().meta.objects["cle"]!.iconUrl).toBe("url1");
+    const finalState = store.getState();
+    const satB = finalState.satellites[satBId as keyof typeof finalState.satellites];
+    expect(satB?.satelliteType).toBe("object");
+    if (satB?.satelliteType === "object") {
+      expect(satB.data.objectId).toBe("cle");
+    }
+  });
+
+  it("édition displayName seul conserve iconUrl", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    state.upsertObject({
+      objectId: "cle",
+      displayName: "Clé rouillée",
+      iconMediaId: null,
+      iconUrl: "url1",
+    });
+
+    // Simule blur displayName: displayName modifié, iconUrl repris courant.
+    state.upsertObject({
+      objectId: "cle",
+      displayName: "Clé neuve",
+      iconMediaId: null,
+      iconUrl: store.getState().meta.objects["cle"]!.iconUrl,
+    });
+
+    expect(store.getState().meta.objects["cle"]!.displayName).toBe("Clé neuve");
+    expect(store.getState().meta.objects["cle"]!.iconUrl).toBe("url1");
+  });
 });

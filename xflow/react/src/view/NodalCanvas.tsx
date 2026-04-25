@@ -285,6 +285,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <ObjectEditorPopup
           satellite={objectSatellite}
           objectEntry={objectEntry}
+          objectEntries={state.meta.objects}
           objectIds={Object.keys(state.meta.objects)}
           onChangeObjectId={(objectId) => {
             if (!objectEditorSatelliteId) return;
