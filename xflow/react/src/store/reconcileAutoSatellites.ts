@@ -140,16 +140,19 @@ function layoutSouthOfAction(state: NodalProject, actionId: ActionNodeId, index:
 }
 
 const AUTO_ORDER: AutoSatelliteType[] = ["coords-options", "choice-options", "object"];
+type NextAutoId = (prefix: string) => string;
 
 /**
  * Réconcilie les satellites automatiques (store uniquement, pas de React).
  * Idempotent si le graphe est déjà cohérent.
  */
-export function reconcileAutoSatellites(state: NodalProject): void {
-  let idSeq = 0;
+export function reconcileAutoSatellites(state: NodalProject, nextAutoId?: NextAutoId): void {
+  let localSeq = 0;
+  const localNextAutoId: NextAutoId = (prefix) => `${prefix}-${++localSeq}`;
+  const createAutoId = nextAutoId ?? localNextAutoId;
   const nextSatId = (actionId: ActionNodeId, kind: AutoSatelliteType): SatelliteNodeId =>
-    asSatelliteNodeId(`sat-${kind}-${actionId}-${Date.now()}-${++idSeq}`);
-  const nextMetaEdgeId = (): EdgeId => asEdgeId(`meta-e-${Date.now()}-${++idSeq}`);
+    asSatelliteNodeId(createAutoId(`sat-${kind}-${actionId}`));
+  const nextMetaEdgeId = (): EdgeId => asEdgeId(createAutoId("meta-e"));
 
   state.satellites = { ...state.satellites };
   state.layout = { ...state.layout };

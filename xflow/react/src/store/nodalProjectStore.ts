@@ -100,7 +100,11 @@ const defaultObjectEntry = (objectId: string): ObjectEntry => ({
 });
 
 export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
-  createStore<NodalProjectStore>((set, get) => ({
+  {
+    let autoIdSeq = 0;
+    const nextAutoId = (prefix: string) => `${prefix}-${++autoIdSeq}`;
+
+    return createStore<NodalProjectStore>((set, get) => ({
     ...createEmptyProject(),
 
     addScene: (node, layout) => {
@@ -155,7 +159,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         if (layout.parentId === nodeId) layout.parentId = null;
       }
       pruneOrphanSatellites(next);
-      reconcileAutoSatellites(next);
+      reconcileAutoSatellites(next, nextAutoId);
       set(next);
     },
 
@@ -163,7 +167,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       set((state) => {
         if (state.edges.some((existing) => existing.id === edge.id)) return state;
         const next = { ...state, edges: [...state.edges, edge] };
-        reconcileAutoSatellites(next);
+        reconcileAutoSatellites(next, nextAutoId);
         return next;
       });
     },
@@ -171,7 +175,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     disconnect: (edgeId) => {
       set((state) => {
         const next = { ...state, edges: state.edges.filter((edge) => edge.id !== edgeId) };
-        reconcileAutoSatellites(next);
+        reconcileAutoSatellites(next, nextAutoId);
         return next;
       });
     },
@@ -191,12 +195,12 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
             [parent.id]: { ...parent, rewardActionId: childId as ActionNodeId },
           },
         };
-        reconcileAutoSatellites(next);
+        reconcileAutoSatellites(next, nextAutoId);
         set(next);
         return;
       }
       const next = { ...state, layout: nextLayout };
-      reconcileAutoSatellites(next);
+      reconcileAutoSatellites(next, nextAutoId);
       set(next);
     },
 
@@ -208,7 +212,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       const nextLayout = { ...state.layout, [childId]: { ...childLayout, parentId: null } };
       if (!parentId) {
         const next = { ...state, layout: nextLayout };
-        reconcileAutoSatellites(next);
+        reconcileAutoSatellites(next, nextAutoId);
         set(next);
         return;
       }
@@ -219,12 +223,12 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           layout: nextLayout,
           actions: { ...state.actions, [parent.id]: { ...parent, rewardActionId: null } },
         };
-        reconcileAutoSatellites(next);
+        reconcileAutoSatellites(next, nextAutoId);
         set(next);
         return;
       }
       const next = { ...state, layout: nextLayout };
-      reconcileAutoSatellites(next);
+      reconcileAutoSatellites(next, nextAutoId);
       set(next);
     },
 
@@ -238,7 +242,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
               [nodeId]: { ...state.actions[nodeId as ActionNodeId], ...(patch as Partial<ActionNode>) } as ActionNode,
             },
           };
-          reconcileAutoSatellites(next);
+          reconcileAutoSatellites(next, nextAutoId);
           return next;
         }
         if (nodeId in state.scenes) {
@@ -261,7 +265,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
               } as SatelliteNode,
             },
           };
-          reconcileAutoSatellites(next);
+          reconcileAutoSatellites(next, nextAutoId);
           return next;
         }
         if (nodeId in state.media) {
@@ -313,7 +317,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           ...state,
           meta: { ...state.meta, objects: { ...state.meta.objects, [entry.objectId]: merged } },
         };
-        reconcileAutoSatellites(next);
+        reconcileAutoSatellites(next, nextAutoId);
         return next;
       });
     },
@@ -332,10 +336,11 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
             next.satellites[sid] = { ...s, data: { objectId: "" } };
           }
         }
-        reconcileAutoSatellites(next);
+        reconcileAutoSatellites(next, nextAutoId);
         return next;
       });
     },
   }));
+  };
 
 export const getStoreState = (store: StoreApi<NodalProjectStore>): NodalProjectStore => store.getState();

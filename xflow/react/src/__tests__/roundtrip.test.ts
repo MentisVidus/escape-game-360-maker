@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
@@ -33,9 +33,6 @@ const makeMsgAction = (id: string, label: string, body: string): ActionNode => (
 
 describe("nodal model C1 roundtrip", () => {
   it("serializes and deserializes project+layout consistently", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(Date.UTC(2020, 0, 1, 0, 0, 0, 0)));
-
     const store = createNodalProjectStore();
     const state = store.getState();
 
@@ -105,7 +102,5 @@ describe("nodal model C1 roundtrip", () => {
 
     const projectJsonAgain = serializeToProjectJson(roundtripState);
     expect(projectJsonAgain).toEqual(projectJson);
-
-    vi.useRealTimers();
   });
 });

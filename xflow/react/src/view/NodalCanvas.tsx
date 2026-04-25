@@ -19,6 +19,8 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import type { StoreApi } from "zustand/vanilla";
 
 import { asEdgeId, type AnyNodeId, type EdgeId, type SatelliteNodeId } from "../model/ids";
+import type { ObjectSatelliteNode } from "../model/nodes";
+import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
 import { isValidConnection } from "./connectionPolicy";
@@ -225,11 +227,16 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
   const layoutClassName =
     mapColorMode === "dark" ? "nodal-canvas-layout dark-mode" : "nodal-canvas-layout";
+  const objectSatellite =
+    objectEditorSatelliteId && state.satellites[objectEditorSatelliteId]?.satelliteType === "object"
+      ? (state.satellites[objectEditorSatelliteId] as ObjectSatelliteNode)
+      : null;
+  const objectEntry: ObjectEntry | null = objectSatellite?.data.objectId
+    ? state.meta.objects[objectSatellite.data.objectId] ?? null
+    : null;
 
   return (
-    <NodalUiContext.Provider
-      value={{ store, objectEditorSatelliteId, setObjectEditorSatelliteId }}
-    >
+    <NodalUiContext.Provider value={{ objectEditorSatelliteId, setObjectEditorSatelliteId }}>
       <div className={layoutClassName} ref={canvasRef}>
         <NodePalette store={store} canvasRef={canvasRef} />
         <div className="nodal-canvas-pane">
@@ -276,8 +283,14 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           <Controls />
         </ReactFlow>
         <ObjectEditorPopup
-          store={store}
-          satelliteId={objectEditorSatelliteId}
+          satellite={objectSatellite}
+          objectEntry={objectEntry}
+          objectIds={Object.keys(state.meta.objects)}
+          onChangeObjectId={(objectId) => {
+            if (!objectEditorSatelliteId) return;
+            state.updateNodeData(objectEditorSatelliteId, { data: { objectId } } as never);
+          }}
+          onUpsertObject={(entry) => state.upsertObject(entry)}
           onClose={() => setObjectEditorSatelliteId(null)}
         />
       </div>

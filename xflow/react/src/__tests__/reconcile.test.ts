@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
@@ -6,9 +6,6 @@ import { createNodalProjectStore } from "../store/nodalProjectStore";
 
 describe("C3a reconcileAutoSatellites + meta.objects", () => {
   it("ajoute coords-options + edge meta au flow-in scène → action", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(Date.UTC(2020, 5, 1, 12, 0, 0, 0)));
-
     const store = createNodalProjectStore();
     const scene: SceneNode = {
       id: asSceneNodeId("scn-x"),
@@ -49,14 +46,9 @@ describe("C3a reconcileAutoSatellites + meta.objects", () => {
     store.getState().disconnect(asEdgeId("f1"));
     expect(Object.keys(store.getState().satellites)).toHaveLength(0);
     expect(store.getState().edges.filter((e) => e.family === "meta")).toHaveLength(0);
-
-    vi.useRealTimers();
   });
 
   it("pick en hotspot reçoit coords-options + object", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(Date.UTC(2021, 0, 1, 0, 0, 0, 0)));
-
     const store = createNodalProjectStore();
     const scene: SceneNode = {
       id: asSceneNodeId("scn-p"),
@@ -92,8 +84,6 @@ describe("C3a reconcileAutoSatellites + meta.objects", () => {
       iconMediaId: null,
       iconUrl: "",
     });
-
-    vi.useRealTimers();
   });
 
   it("upsertObject met à jour sans dupliquer", () => {
