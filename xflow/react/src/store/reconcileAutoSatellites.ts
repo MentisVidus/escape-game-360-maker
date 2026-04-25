@@ -183,13 +183,24 @@ export function reconcileAutoSatellites(state: NodalProject, nextAutoId?: NextAu
       const existingId = findExistingAutoSatellite(state, actionId, satType);
       if (existingId) {
         if (satType === "object") {
-          const oid = objectIdFromPickOrReq(state, actionId);
-          if (oid && !state.meta.objects[oid]) {
-            state.meta.objects = { ...state.meta.objects, [oid]: defaultObjectEntry(oid) };
-          }
           const cur = state.satellites[existingId];
-          if (cur?.satelliteType === "object" && cur.data.objectId !== oid) {
-            state.satellites[existingId] = { ...cur, data: { objectId: oid } };
+          if (cur?.satelliteType === "object") {
+            const currentObjectId = cur.data.objectId.trim();
+            const fallbackObjectId = objectIdFromPickOrReq(state, actionId);
+            const effectiveObjectId = currentObjectId || fallbackObjectId;
+
+            if (effectiveObjectId && !state.meta.objects[effectiveObjectId]) {
+              state.meta.objects = {
+                ...state.meta.objects,
+                [effectiveObjectId]: defaultObjectEntry(effectiveObjectId),
+              };
+            }
+
+            // Ne pas écraser la référence utilisateur déjà renseignée ;
+            // ne prend le fallback action.itemId qu'en absence de valeur.
+            if (cur.data.objectId !== effectiveObjectId) {
+              state.satellites[existingId] = { ...cur, data: { objectId: effectiveObjectId } };
+            }
           }
         }
         slot++;

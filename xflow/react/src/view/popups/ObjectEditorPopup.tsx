@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ObjectEntry } from "../../model/objects";
 import type { ObjectSatelliteNode } from "../../model/nodes";
 import "./ObjectEditorPopup.css";
@@ -21,19 +21,31 @@ export function ObjectEditorPopup({
   onClose,
 }: Props) {
   const listId = useId();
+  const lastSatelliteIdRef = useRef<string | null>(null);
 
   const [objectIdInput, setObjectIdInput] = useState("");
   const [displayNameInput, setDisplayNameInput] = useState("");
   const [iconUrlInput, setIconUrlInput] = useState("");
 
   useEffect(() => {
-    if (!satellite) return;
-    setObjectIdInput(satellite.data.objectId);
-    setDisplayNameInput(objectEntry?.displayName ?? "");
-    setIconUrlInput(objectEntry?.iconUrl ?? "");
+    if (!satellite) {
+      lastSatelliteIdRef.current = null;
+      setObjectIdInput("");
+      setDisplayNameInput("");
+      setIconUrlInput("");
+      return;
+    }
+
+    if (lastSatelliteIdRef.current !== satellite.id) {
+      lastSatelliteIdRef.current = satellite.id;
+      setObjectIdInput(satellite.data.objectId ?? "");
+      setDisplayNameInput(objectEntry?.displayName ?? "");
+      setIconUrlInput(objectEntry?.iconUrl ?? "");
+    }
   }, [satellite, objectEntry]);
 
   if (!satellite) return null;
+  const safeObjectIds = objectIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0);
 
   return (
     <div className="object-editor-overlay" role="dialog" aria-modal="true" aria-labelledby="object-editor-title">
@@ -48,8 +60,11 @@ export function ObjectEditorPopup({
             onChange={(e) => setObjectIdInput(e.target.value)}
             onBlur={() => {
               const oid = objectIdInput.trim();
+              if (!oid) {
+                setObjectIdInput(satellite.data.objectId ?? "");
+                return;
+              }
               onChangeObjectId(oid);
-              if (!oid) return;
               onUpsertObject({
                 objectId: oid,
                 displayName: displayNameInput,
@@ -59,7 +74,7 @@ export function ObjectEditorPopup({
             }}
           />
           <datalist id={listId}>
-            {objectIds.map((k) => (
+            {safeObjectIds.map((k) => (
               <option key={k} value={k} />
             ))}
           </datalist>

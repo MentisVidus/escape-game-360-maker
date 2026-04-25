@@ -306,16 +306,20 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
 
     upsertObject: (entry) => {
       set((state) => {
-        const prev = state.meta.objects[entry.objectId];
+        if (typeof entry.objectId !== "string") return state;
+        const normalizedObjectId = entry.objectId.trim();
+        if (!normalizedObjectId) return state;
+
+        const prev = state.meta.objects[normalizedObjectId];
         const merged: ObjectEntry = {
-          ...defaultObjectEntry(entry.objectId),
+          ...defaultObjectEntry(normalizedObjectId),
           ...prev,
           ...entry,
-          objectId: entry.objectId,
+          objectId: normalizedObjectId,
         };
         const next = {
           ...state,
-          meta: { ...state.meta, objects: { ...state.meta.objects, [entry.objectId]: merged } },
+          meta: { ...state.meta, objects: { ...state.meta.objects, [normalizedObjectId]: merged } },
         };
         reconcileAutoSatellites(next, nextAutoId);
         return next;
