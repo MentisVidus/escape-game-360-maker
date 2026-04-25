@@ -20,11 +20,12 @@ import {
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import { asEdgeId, type AnyNodeId, type EdgeId, type SatelliteNodeId } from "../model/ids";
+import { asEdgeId, type ActionNodeId, type AnyNodeId, type EdgeId, type SatelliteNodeId } from "../model/ids";
 import type { ObjectSatelliteNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
+import { getActionContextualState } from "../store/reconcileAutoSatellites";
 import { isValidConnection } from "./connectionPolicy";
 import {
   HANDLE_FLOW_IN,
@@ -40,7 +41,7 @@ import { SatelliteNodeView } from "./nodes/SatelliteNodeView";
 import { SceneNodeView } from "./nodes/SceneNodeView";
 import { NodalUiContext } from "./nodalUiContext";
 import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X } from "./nesting/constants";
-import { getAbsolutePosition, overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
+import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
 import { NodePalette } from "./palette/NodePalette";
 import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
 import "./NodalCanvas.css";
@@ -50,6 +51,7 @@ type NodalRFData = {
   node: unknown;
   isRewardChild?: boolean;
   rewardParentType?: "req" | "pwd" | null;
+  contextualState?: 1 | 2 | 3 | 4;
 };
 
 function sortNodesParentFirst(nodes: RFNode<NodalRFData>[]): RFNode<NodalRFData>[] {
@@ -107,8 +109,12 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
           parentAction?.actionType === "req" || parentAction?.actionType === "pwd"
             ? (parentAction.actionType as "req" | "pwd")
             : null,
+        contextualState: getActionContextualState(state, action.id as ActionNodeId),
       },
     };
+    if (action.actionType === "selector" && layout.width && layout.height) {
+      actionNode.style = { width: layout.width, height: layout.height };
+    }
     if (layout.parentId) {
       actionNode.parentId = layout.parentId;
       // C3b: pas d'extent sur récompense pour éviter le clamp RF
@@ -304,7 +310,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         if (candidate.id === draggedNode.id) continue;
         const candidateAction = state.actions[candidate.id as keyof typeof state.actions];
         if (!candidateAction) continue;
-        if (candidateAction.actionType !== "req" && candidateAction.actionType !== "pwd") continue;
+        if (
+          candidateAction.actionType !== "req" &&
+          candidateAction.actionType !== "pwd" &&
+          candidateAction.actionType !== "selector"
+        ) {
+          continue;
+        }
         const parentRect = toAbsoluteRect(candidate as unknown as NestedNodeLike, nodesById);
         const overlap = overlapRatioByChild(childRect, parentRect);
         if (overlap > bestOverlap) {
@@ -316,14 +328,20 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       if (!bestParentId || bestOverlap < ATTACH_OVERLAP_THRESHOLD) return;
 
       state.attachChild(bestParentId, draggedNode.id as AnyNodeId);
-      const parentNode = nodesById.get(bestParentId);
-      if (!parentNode) return;
-      const parentSize = parentNode.measured?.width ?? parentNode.width ?? 180;
-      state.updateNodeLayout(draggedNode.id as AnyNodeId, {
-        parentId: bestParentId,
-        x: parentSize + REWARD_CHILD_GAP_X,
-        y: 0,
-      });
+      const parentAction = state.actions[bestParentId as keyof typeof state.actions];
+      if (
+        parentAction &&
+        (parentAction.actionType === "req" || parentAction.actionType === "pwd")
+      ) {
+        const parentNode = nodesById.get(bestParentId);
+        if (!parentNode) return;
+        const parentSize = parentNode.measured?.width ?? parentNode.width ?? 180;
+        state.updateNodeLayout(draggedNode.id as AnyNodeId, {
+          parentId: bestParentId,
+          x: parentSize + REWARD_CHILD_GAP_X,
+          y: 0,
+        });
+      }
     },
     [reactFlow, state]
   );

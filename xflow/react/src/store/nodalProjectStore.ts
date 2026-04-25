@@ -34,12 +34,18 @@ export type NodalProjectStore = NodalProject & {
   removeObject: (objectId: string) => void;
 };
 
-const defaultLayout = (override?: Partial<NodeLayout>): NodeLayout => ({
-  x: override?.x ?? 0,
-  y: override?.y ?? 0,
-  parentId: override?.parentId ?? null,
-  collapsed: override?.collapsed ?? false,
-});
+const defaultLayout = (override?: Partial<NodeLayout>): NodeLayout => {
+  const base: NodeLayout = {
+    x: override?.x ?? 0,
+    y: override?.y ?? 0,
+    parentId: override?.parentId ?? null,
+    collapsed: override?.collapsed ?? false,
+  };
+  if (override?.width != null && override?.height != null) {
+    return { ...base, width: override.width, height: override.height };
+  }
+  return base;
+};
 
 const isReqOrPwd = (node: ActionNode): node is Extract<ActionNode, { actionType: "req" | "pwd" }> =>
   node.actionType === "req" || node.actionType === "pwd";
@@ -185,6 +191,10 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
 
     attachChild: (parentId, childId) => {
       const state = get();
+      if (parentId === childId) return;
+      const childAction = state.actions[childId as ActionNodeId];
+      const parentAction = state.actions[parentId as ActionNodeId];
+      if (parentAction?.actionType === "selector" && childAction?.actionType === "selector") return;
       const childLayout = state.layout[childId];
       if (!childLayout) return;
       if (!(childId in state.actions)) return;

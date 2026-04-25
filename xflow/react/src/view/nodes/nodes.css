@@ -90,3 +90,20 @@
   pointer-events: none;
   transition: opacity 120ms ease-in-out;
 }
+
+.action-node--orphan {
+  opacity: 0.65;
+  border-style: dashed;
+}
+
+.action-node--choice {
+  border-width: 1px;
+  border-style: dashed;
+  border-color: var(--node-border-choice, oklch(0.78 0.08 75));
+  background: var(--node-bg-choice, oklch(0.97 0.02 75));
+}
+
+.nodal-canvas-layout.dark-mode .action-node--choice {
+  border-color: var(--node-border-choice-dark, oklch(0.55 0.08 75));
+  background: var(--node-bg-choice-dark, oklch(0.22 0.03 75));
+}

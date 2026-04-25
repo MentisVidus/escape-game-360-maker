@@ -5,6 +5,7 @@ import type { ActionNode, SceneNode } from "../model/nodes";
 import { serializeToProjectJson } from "../serialize/toProjectJson";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
+import { getActionContextualState } from "../store/reconcileAutoSatellites";
 import {
   ATTACH_OVERLAP_THRESHOLD,
   DETACH_OVERLAP_THRESHOLD,
@@ -538,5 +539,128 @@ describe("C3a reconcileAutoSatellites + meta.objects", () => {
     );
     expect(ratioAttach).toBeGreaterThanOrEqual(ATTACH_OVERLAP_THRESHOLD);
     expect(ratioDetach).toBeLessThan(DETACH_OVERLAP_THRESHOLD);
+  });
+});
+
+describe("C3c selector sub-flow + contextual state", () => {
+  const makeSelector = (id: string, label: string): ActionNode => ({
+    id: asActionNodeId(id),
+    nodeType: "action",
+    actionType: "selector",
+    label,
+    payload: {
+      nested: { title: label, copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" },
+    },
+    sfx: { url: "", volume: 1 },
+    visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+  });
+
+  it("attachChild selector→msg : état 3 + satellite choice-options", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const sel = makeSelector("act-c3c-sel-a", "Sel");
+    const msg: ActionNode = {
+      id: asActionNodeId("act-c3c-msg-a"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "Choix",
+      payload: { copy: { bodyHtml: "c", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addAction(sel, { x: 0, y: 0 });
+    state.addAction(msg, { x: 10, y: 10 });
+    state.attachChild(sel.id, msg.id);
+
+    const next = store.getState();
+    expect(getActionContextualState(next, msg.id)).toBe(3);
+    expect(next.layout[msg.id]?.parentId).toBe(sel.id);
+    const choiceMeta = next.edges.some((e) => {
+      if (e.family !== "meta" || e.sourceId !== msg.id) return false;
+      const sat = next.satellites[e.targetId as keyof typeof next.satellites];
+      return sat?.satelliteType === "choice-options";
+    });
+    expect(choiceMeta).toBe(true);
+  });
+
+  it("attachChild selector→selector : no-op", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const parentSel = makeSelector("act-c3c-sel-p", "P");
+    const childSel = makeSelector("act-c3c-sel-c", "C");
+    state.addAction(parentSel, { x: 0, y: 0 });
+    state.addAction(childSel, { x: 50, y: 50 });
+    state.attachChild(parentSel.id, childSel.id);
+    expect(store.getState().layout[childSel.id]?.parentId).toBeNull();
+  });
+
+  it("attachChild auto-parentage : no-op", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const sel = makeSelector("act-c3c-sel-self", "S");
+    state.addAction(sel, { x: 0, y: 0 });
+    state.attachChild(sel.id, sel.id);
+    expect(store.getState().layout[sel.id]?.parentId).toBeNull();
+  });
+
+  it("sérialisation selector : choix triés par Y croissant", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-c3c-y"),
+      nodeType: "scene",
+      sceneId: "s-y",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const sel = makeSelector("act-c3c-sel-y", "Sel");
+    const msgHighY: ActionNode = {
+      id: asActionNodeId("act-c3c-high"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "Haut Y",
+      payload: { copy: { bodyHtml: "high-y", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    const msgLowY: ActionNode = {
+      id: asActionNodeId("act-c3c-low"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "Bas Y",
+      payload: { copy: { bodyHtml: "low-y", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addScene(scene, { x: 0, y: 0 });
+    state.addAction(sel, { x: 100, y: 0 });
+    state.addAction(msgHighY, { x: 0, y: 200, parentId: sel.id });
+    state.addAction(msgLowY, { x: 0, y: 100, parentId: sel.id });
+    state.connect({ id: asEdgeId("flow-c3c-y"), family: "flow", sourceId: scene.id, targetId: sel.id });
+
+    const project = serializeToProjectJson(store.getState());
+    const selectorAction = project.scenes[0]?.hotspots?.[0]?.action;
+    expect(selectorAction?.type).toBe("selector");
+    const nested = selectorAction?.payload?.nested as
+      | { choices?: Array<{ action: { payload?: { copy?: { bodyHtml?: string } } } }> }
+      | undefined;
+    const bodies = nested?.choices?.map((c) => c.action.payload?.copy?.bodyHtml);
+    expect(bodies).toEqual(["low-y", "high-y"]);
+  });
+
+  it("getActionContextualState : orphelin sans flow-in ni parent → 1", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const msg: ActionNode = {
+      id: asActionNodeId("act-c3c-orphan"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "O",
+      payload: { copy: { bodyHtml: "x", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addAction(msg, { x: 0, y: 0 });
+    expect(getActionContextualState(store.getState(), msg.id)).toBe(1);
   });
 });

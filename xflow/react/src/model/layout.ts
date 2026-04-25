@@ -11,5 +11,7 @@ export type NodeLayout = {
   y: number;
   parentId: AnyNodeId | null;
   collapsed: boolean;
+  width?: number;
+  height?: number;
 };
 
