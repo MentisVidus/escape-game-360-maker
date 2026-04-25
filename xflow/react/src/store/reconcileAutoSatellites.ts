@@ -127,13 +127,12 @@ function createAutoSatelliteNode(
   };
 }
 
-function layoutSouthOfAction(state: NodalProject, actionId: ActionNodeId, index: number): NodeLayout {
-  const base = state.layout[actionId] ?? { x: 0, y: 0, parentId: null, collapsed: false };
+function layoutSouthOfAction(index: number): NodeLayout {
   const dy = 100 + index * 90;
   const dx = index > 0 ? 200 : 0;
   return {
-    x: base.x + dx,
-    y: base.y + dy,
+    x: dx,
+    y: dy,
     parentId: null,
     collapsed: false,
   };
@@ -208,7 +207,10 @@ export function reconcileAutoSatellites(state: NodalProject, nextAutoId?: NextAu
       }
       const sid = nextSatId(actionId, satType);
       state.satellites[sid] = createAutoSatelliteNode(state, sid, satType, actionId);
-      state.layout[sid] = layoutSouthOfAction(state, actionId, slot);
+      state.layout[sid] = {
+        ...layoutSouthOfAction(slot),
+        parentId: actionId,
+      };
       slot++;
       const edge: Edge = {
         id: nextMetaEdgeId(),

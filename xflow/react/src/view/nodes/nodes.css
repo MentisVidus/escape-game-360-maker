@@ -33,6 +33,20 @@
   border-color: var(--node-satellite-border);
 }
 
+/* Satellites — nœuds compacts (données secondaires) */
+.nodal-node.satellite,
+.satellite-node {
+  max-width: 140px;
+  font-size: 11px;
+  padding: 4px 8px;
+  opacity: 0.85;
+}
+
+.nodal-canvas-layout.dark-mode .nodal-node.satellite,
+.nodal-canvas-layout.dark-mode .satellite-node {
+  opacity: 0.75;
+}
+
 .nodal-node.media {
   background: var(--node-media-bg);
   border-color: var(--node-media-border);

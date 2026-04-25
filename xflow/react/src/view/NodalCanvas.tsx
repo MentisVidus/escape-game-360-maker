@@ -125,12 +125,16 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
   for (const satellite of Object.values(state.satellites)) {
     const layout = state.layout[satellite.id];
     if (!layout) continue;
-    nodes.push({
+    const satelliteNode: RFNode<NodalRFData> = {
       id: satellite.id,
       type: "satelliteNode",
       position: { x: layout.x, y: layout.y },
       data: { nodeType: "satellite", node: satellite },
-    });
+    };
+    if (layout.parentId) {
+      satelliteNode.parentId = layout.parentId;
+    }
+    nodes.push(satelliteNode);
   }
   for (const media of Object.values(state.media)) {
     const layout = state.layout[media.id];
@@ -147,37 +151,48 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
 }
 
 export function toReactFlowEdges(state: NodalProject): RFEdge[] {
-  return state.edges.map((edge) => {
-    if (edge.family === "transition") {
+  return state.edges
+    .filter((edge) => {
+      if (edge.family === "meta") {
+        const targetId = edge.targetId as AnyNodeId;
+        if (targetId in state.satellites) {
+          const satLayout = state.layout[targetId];
+          if (satLayout?.parentId) return false;
+        }
+      }
+      return true;
+    })
+    .map((edge) => {
+      if (edge.family === "transition") {
+        return {
+          id: edge.id,
+          source: edge.sourceId,
+          target: edge.targetId,
+          sourceHandle: HANDLE_GOTO_OUT,
+          targetHandle: HANDLE_GOTO_IN,
+          animated: true,
+          className: "nodal-edge nodal-edge--transition",
+        };
+      }
+      if (edge.family === "meta") {
+        return {
+          id: edge.id,
+          source: edge.sourceId,
+          target: edge.targetId,
+          sourceHandle: HANDLE_META_OUT,
+          targetHandle: HANDLE_META_IN,
+          className: "nodal-edge nodal-edge--meta",
+        };
+      }
       return {
         id: edge.id,
         source: edge.sourceId,
         target: edge.targetId,
-        sourceHandle: HANDLE_GOTO_OUT,
-        targetHandle: HANDLE_GOTO_IN,
-        animated: true,
-        className: "nodal-edge nodal-edge--transition",
+        sourceHandle: HANDLE_FLOW_OUT,
+        targetHandle: HANDLE_FLOW_IN,
+        className: "nodal-edge nodal-edge--flow",
       };
-    }
-    if (edge.family === "meta") {
-      return {
-        id: edge.id,
-        source: edge.sourceId,
-        target: edge.targetId,
-        sourceHandle: HANDLE_META_OUT,
-        targetHandle: HANDLE_META_IN,
-        className: "nodal-edge nodal-edge--meta",
-      };
-    }
-    return {
-      id: edge.id,
-      source: edge.sourceId,
-      target: edge.targetId,
-      sourceHandle: HANDLE_FLOW_OUT,
-      targetHandle: HANDLE_FLOW_IN,
-      className: "nodal-edge nodal-edge--flow",
-    };
-  });
+    });
 }
 
 function detectFamily(connection: Connection): "flow" | "transition" | "meta" | null {
@@ -229,7 +244,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
   useEffect(() => {
     setRfEdges(toReactFlowEdges(state));
-  }, [state.edges, setRfEdges]);
+  }, [state.edges, state.layout, setRfEdges]);
 
   // Wrap onNodesChange pour persister les positions finales vers Zustand
   const onNodesChange = useCallback(
@@ -304,35 +319,44 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       );
       if (hasFlowInFromScene) return;
 
-      let bestParentId: AnyNodeId | null = null;
-      let bestOverlap = 0;
+      let bestRewardParentId: AnyNodeId | null = null;
+      let bestRewardOverlap = 0;
+      let bestChoiceParentId: AnyNodeId | null = null;
+      let bestChoiceOverlap = 0;
+
       for (const candidate of allNodes) {
         if (candidate.id === draggedNode.id) continue;
         const candidateAction = state.actions[candidate.id as keyof typeof state.actions];
         if (!candidateAction) continue;
-        if (
-          candidateAction.actionType !== "req" &&
-          candidateAction.actionType !== "pwd" &&
-          candidateAction.actionType !== "selector"
-        ) {
-          continue;
-        }
         const parentRect = toAbsoluteRect(candidate as unknown as NestedNodeLike, nodesById);
         const overlap = overlapRatioByChild(childRect, parentRect);
-        if (overlap > bestOverlap) {
-          bestOverlap = overlap;
-          bestParentId = candidate.id as AnyNodeId;
+
+        if (candidateAction.actionType === "req" || candidateAction.actionType === "pwd") {
+          if (overlap > bestRewardOverlap) {
+            bestRewardOverlap = overlap;
+            bestRewardParentId = candidate.id as AnyNodeId;
+          }
+        } else if (candidateAction.actionType === "selector") {
+          if (overlap > bestChoiceOverlap) {
+            bestChoiceOverlap = overlap;
+            bestChoiceParentId = candidate.id as AnyNodeId;
+          }
         }
       }
 
-      if (!bestParentId || bestOverlap < ATTACH_OVERLAP_THRESHOLD) return;
+      const useRewardParent =
+        bestRewardParentId !== null && bestRewardOverlap >= ATTACH_OVERLAP_THRESHOLD;
+      const useChoiceParent =
+        !useRewardParent &&
+        bestChoiceParentId !== null &&
+        bestChoiceOverlap >= ATTACH_OVERLAP_THRESHOLD;
 
+      if (!useRewardParent && !useChoiceParent) return;
+
+      const bestParentId = useRewardParent ? bestRewardParentId! : bestChoiceParentId!;
       state.attachChild(bestParentId, draggedNode.id as AnyNodeId);
-      const parentAction = state.actions[bestParentId as keyof typeof state.actions];
-      if (
-        parentAction &&
-        (parentAction.actionType === "req" || parentAction.actionType === "pwd")
-      ) {
+
+      if (useRewardParent) {
         const parentNode = nodesById.get(bestParentId);
         if (!parentNode) return;
         const parentSize = parentNode.measured?.width ?? parentNode.width ?? 180;
@@ -341,16 +365,14 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           x: parentSize + REWARD_CHILD_GAP_X,
           y: 0,
         });
-      } else if (parentAction?.actionType === "selector") {
+      } else {
         const parentNode = nodesById.get(bestParentId);
         if (!parentNode) return;
         const parentAbsRect = toAbsoluteRect(parentNode, nodesById);
-        const relX = childRect.x - parentAbsRect.x;
-        const relY = childRect.y - parentAbsRect.y;
         state.updateNodeLayout(draggedNode.id as AnyNodeId, {
           parentId: bestParentId,
-          x: relX,
-          y: relY,
+          x: childRect.x - parentAbsRect.x,
+          y: childRect.y - parentAbsRect.y,
         });
       }
     },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
+import { asActionNodeId, asEdgeId, asSatelliteNodeId, asSceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
 import { serializeToProjectJson } from "../serialize/toProjectJson";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
@@ -63,6 +63,11 @@ describe("C3a reconcileAutoSatellites + meta.objects", () => {
     expect(meta).toHaveLength(1);
     expect(meta[0]!.sourceId).toBe(msg.id);
     expect(meta[0]!.targetId).toBe(sat0.id);
+
+    const satLayout = store.getState().layout[sat0.id]!;
+    expect(satLayout.parentId).toBe(msg.id);
+    expect(satLayout.x).toBe(0);
+    expect(satLayout.y).toBe(100);
 
     store.getState().disconnect(asEdgeId("f1"));
     expect(Object.keys(store.getState().satellites)).toHaveLength(0);
@@ -700,5 +705,96 @@ describe("C3c selector sub-flow + contextual state", () => {
     };
     state.addAction(msg, { x: 0, y: 0 });
     expect(getActionContextualState(store.getState(), msg.id)).toBe(1);
+  });
+});
+
+describe("satellites relatifs + priorité drag attach", () => {
+  it("création satellite auto : coords relatives + parentId action", () => {
+    const store = createNodalProjectStore();
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-sat-rel"),
+      nodeType: "scene",
+      sceneId: "sr",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const msg: ActionNode = {
+      id: asActionNodeId("act-sat-rel-msg"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "M",
+      payload: { copy: { bodyHtml: "x", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    store.getState().addScene(scene, { x: 0, y: 0 });
+    store.getState().addAction(msg, { x: 200, y: 40 });
+    store.getState().connect({
+      id: asEdgeId("flow-sat-rel"),
+      family: "flow",
+      sourceId: scene.id,
+      targetId: msg.id,
+    });
+    const satId = asSatelliteNodeId(Object.keys(store.getState().satellites)[0]!);
+    const lay = store.getState().layout[satId]!;
+    expect(lay.parentId).toBe(msg.id);
+    expect(lay.x).toBe(0);
+    expect(lay.y).toBe(100);
+  });
+
+  it("déplacement action : coordonnées relatives du satellite inchangées dans le store", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-sat-move"),
+      nodeType: "scene",
+      sceneId: "sm",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const msg: ActionNode = {
+      id: asActionNodeId("act-sat-move-msg"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "M",
+      payload: { copy: { bodyHtml: "x", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addScene(scene, { x: 0, y: 0 });
+    state.addAction(msg, { x: 10, y: 20 });
+    state.connect({
+      id: asEdgeId("flow-sat-move"),
+      family: "flow",
+      sourceId: scene.id,
+      targetId: msg.id,
+    });
+    const satId = asSatelliteNodeId(Object.keys(store.getState().satellites)[0]!);
+    const beforeSat = { ...store.getState().layout[satId] };
+    state.updateNodeLayout(msg.id, { x: 110, y: 70 });
+    const afterSat = store.getState().layout[satId]!;
+    expect(afterSat.x).toBe(beforeSat.x);
+    expect(afterSat.y).toBe(beforeSat.y);
+    expect(afterSat.parentId).toBe(beforeSat.parentId);
+  });
+
+  it("priorité REQ/PWD sur selector quand les deux dépassent le seuil d'attache", () => {
+    const th = ATTACH_OVERLAP_THRESHOLD;
+    const bestRewardOverlap = 0.5;
+    const bestChoiceOverlap = 0.99;
+    const useRewardParent = bestRewardOverlap >= th;
+    const useChoiceParent = !useRewardParent && bestChoiceOverlap >= th;
+    expect(useRewardParent).toBe(true);
+    expect(useChoiceParent).toBe(false);
+  });
+
+  it("selector gagne si REQ/PWD sous le seuil", () => {
+    const th = ATTACH_OVERLAP_THRESHOLD;
+    const bestRewardOverlap = 0.1;
+    const bestChoiceOverlap = 0.5;
+    const useRewardParent = bestRewardOverlap >= th;
+    const useChoiceParent = !useRewardParent && bestChoiceOverlap >= th;
+    expect(useRewardParent).toBe(false);
+    expect(useChoiceParent).toBe(true);
   });
 });
