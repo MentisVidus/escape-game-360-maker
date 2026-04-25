@@ -48,7 +48,7 @@ export function isValidConnection(connection: Connection, state: NodalProject): 
     if (sourceKind === "scene") return true;
     if (sourceKind === "action") {
       const sourceAction = source as ActionNode;
-      return sourceAction.actionType === "selector" || sourceAction.actionType === "req" || sourceAction.actionType === "pwd";
+      return sourceAction.actionType === "selector";
     }
     return false;
   }

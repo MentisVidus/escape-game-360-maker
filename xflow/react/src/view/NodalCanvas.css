@@ -120,6 +120,12 @@
   box-shadow: 0 0 0 4px var(--node-selected-glow);
 }
 
+.react-flow__node:hover .nodal-detach-btn,
+.react-flow__node.selected .nodal-detach-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* Edges par famille — stroke hors inline pour suivre le thème (C2.1) */
 .nodal-canvas-layout .react-flow__edge.nodal-edge--flow .react-flow__edge-path {
   stroke: var(--edge-flow-stroke);

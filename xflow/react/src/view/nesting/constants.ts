@@ -1,0 +1,3 @@
+export const ATTACH_OVERLAP_THRESHOLD = 0.3;
+export const DETACH_OVERLAP_THRESHOLD = 0.1;
+export const REWARD_CHILD_GAP_X = 8;

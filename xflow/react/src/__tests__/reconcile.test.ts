@@ -2,8 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
+import { serializeToProjectJson } from "../serialize/toProjectJson";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
+import {
+  ATTACH_OVERLAP_THRESHOLD,
+  DETACH_OVERLAP_THRESHOLD,
+} from "../view/nesting/constants";
+import { overlapRatioByChild } from "../view/nesting/geometry";
 
 const findObjectSatelliteIdForAction = (
   state: NodalProjectStore,
@@ -303,5 +309,234 @@ describe("C3a reconcileAutoSatellites + meta.objects", () => {
 
     expect(store.getState().meta.objects["cle"]!.displayName).toBe("Clé neuve");
     expect(store.getState().meta.objects["cle"]!.iconUrl).toBe("url1");
+  });
+
+  it("attachChild req→msg pose parentId/rewardActionId et sérialise rewardAction", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-c3b-a"),
+      nodeType: "scene",
+      sceneId: "s-c3b-a",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const req: ActionNode = {
+      id: asActionNodeId("act-c3b-req"),
+      nodeType: "action",
+      actionType: "req",
+      label: "Req",
+      payload: { itemId: "k", copy: { bodyHtml: "", buttonLabel: "" } },
+      rewardActionId: null,
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    const msg: ActionNode = {
+      id: asActionNodeId("act-c3b-msg"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "Msg",
+      payload: { copy: { bodyHtml: "ok", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addScene(scene, { x: 0, y: 0 });
+    state.addAction(req, { x: 100, y: 20 });
+    state.addAction(msg, { x: 380, y: 20 });
+    state.connect({ id: asEdgeId("flow-c3b-a"), family: "flow", sourceId: scene.id, targetId: req.id });
+
+    state.attachChild(req.id, msg.id);
+
+    const next = store.getState();
+    expect(next.layout[msg.id]?.parentId).toBe(req.id);
+    const reqAfter = next.actions[req.id];
+    expect(reqAfter).toBeDefined();
+    if (!reqAfter) throw new Error("reqAfter absent");
+    expect(reqAfter.actionType).toBe("req");
+    if (reqAfter.actionType === "req") {
+      expect(reqAfter.rewardActionId).toBe(msg.id);
+    }
+
+    const msgSat = Object.values(next.satellites).filter(
+      (sat) =>
+        next.edges.some((e) => e.family === "meta" && e.targetId === sat.id && e.sourceId === msg.id) &&
+        sat.satelliteType === "coords-options"
+    );
+    expect(msgSat).toHaveLength(0);
+
+    const project = serializeToProjectJson(next);
+    const reqSerialized = project.scenes[0]?.hotspots?.[0]?.action;
+    expect(reqSerialized?.type).toBe("req");
+    const payload = (reqSerialized?.payload ?? {}) as Record<string, unknown>;
+    const rewardAction = payload.rewardAction as { type?: string } | undefined;
+    expect(rewardAction?.type).toBe("msg");
+  });
+
+  it("detachChild remet parentId/rewardActionId à null et sort du export hotspot", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-c3b-b"),
+      nodeType: "scene",
+      sceneId: "s-c3b-b",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const req: ActionNode = {
+      id: asActionNodeId("act-c3b-req2"),
+      nodeType: "action",
+      actionType: "req",
+      label: "Req",
+      payload: { itemId: "k", copy: { bodyHtml: "", buttonLabel: "" } },
+      rewardActionId: null,
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    const msg: ActionNode = {
+      id: asActionNodeId("act-c3b-msg2"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "Msg",
+      payload: { copy: { bodyHtml: "ok", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addScene(scene, { x: 0, y: 0 });
+    state.addAction(req, { x: 100, y: 20 });
+    state.addAction(msg, { x: 380, y: 20 });
+    state.connect({ id: asEdgeId("flow-c3b-b"), family: "flow", sourceId: scene.id, targetId: req.id });
+    state.attachChild(req.id, msg.id);
+
+    state.detachChild(msg.id, { x: 420, y: 90 });
+    const next = store.getState();
+    expect(next.layout[msg.id]?.parentId).toBeNull();
+    const reqAfter = next.actions[req.id];
+    expect(reqAfter).toBeDefined();
+    if (!reqAfter) throw new Error("reqAfter absent");
+    expect(reqAfter.actionType).toBe("req");
+    if (reqAfter.actionType === "req") {
+      expect(reqAfter.rewardActionId).toBeNull();
+    }
+    const project = serializeToProjectJson(next);
+    expect(JSON.stringify(project)).not.toContain("ok");
+  });
+
+  it("chaînage REQ → REQ → MSG est sérialisé récursivement", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-c3b-c"),
+      nodeType: "scene",
+      sceneId: "s-c3b-c",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const reqA: ActionNode = {
+      id: asActionNodeId("act-c3b-reqA"),
+      nodeType: "action",
+      actionType: "req",
+      label: "Req A",
+      payload: { itemId: "a", copy: { bodyHtml: "", buttonLabel: "" } },
+      rewardActionId: null,
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    const reqB: ActionNode = {
+      id: asActionNodeId("act-c3b-reqB"),
+      nodeType: "action",
+      actionType: "req",
+      label: "Req B",
+      payload: { itemId: "b", copy: { bodyHtml: "", buttonLabel: "" } },
+      rewardActionId: null,
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    const msg: ActionNode = {
+      id: asActionNodeId("act-c3b-msg3"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "Msg",
+      payload: { copy: { bodyHtml: "done", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addScene(scene, { x: 0, y: 0 });
+    state.addAction(reqA, { x: 50, y: 20 });
+    state.addAction(reqB, { x: 200, y: 20 });
+    state.addAction(msg, { x: 360, y: 20 });
+    state.connect({ id: asEdgeId("flow-c3b-c"), family: "flow", sourceId: scene.id, targetId: reqA.id });
+
+    state.attachChild(reqA.id, reqB.id);
+    state.attachChild(reqB.id, msg.id);
+
+    const project = serializeToProjectJson(store.getState());
+    const root = project.scenes[0]?.hotspots?.[0]?.action;
+    expect(root?.type).toBe("req");
+    const rewardA = ((root?.payload ?? {}) as Record<string, unknown>).rewardAction as
+      | { type?: string; payload?: Record<string, unknown> }
+      | undefined;
+    expect(rewardA?.type).toBe("req");
+    const rewardB = (rewardA?.payload ?? {})["rewardAction"] as { type?: string } | undefined;
+    expect(rewardB?.type).toBe("msg");
+  });
+
+  it("refuse attachChild d'une action déjà hotspot", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-c3b-d"),
+      nodeType: "scene",
+      sceneId: "s-c3b-d",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const req: ActionNode = {
+      id: asActionNodeId("act-c3b-req4"),
+      nodeType: "action",
+      actionType: "req",
+      label: "Req",
+      payload: { itemId: "x", copy: { bodyHtml: "", buttonLabel: "" } },
+      rewardActionId: null,
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    const msg: ActionNode = {
+      id: asActionNodeId("act-c3b-msg4"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "Msg",
+      payload: { copy: { bodyHtml: "hot", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addScene(scene, { x: 0, y: 0 });
+    state.addAction(req, { x: 100, y: 20 });
+    state.addAction(msg, { x: 300, y: 20 });
+    state.connect({ id: asEdgeId("flow-c3b-d-req"), family: "flow", sourceId: scene.id, targetId: req.id });
+    state.connect({ id: asEdgeId("flow-c3b-d-msg"), family: "flow", sourceId: scene.id, targetId: msg.id });
+
+    state.attachChild(req.id, msg.id);
+    const next = store.getState();
+    expect(next.layout[msg.id]?.parentId).toBeNull();
+    const reqAfter = next.actions[req.id];
+    expect(reqAfter).toBeDefined();
+    if (!reqAfter) throw new Error("reqAfter absent");
+    expect(reqAfter.actionType).toBe("req");
+    if (reqAfter.actionType === "req") {
+      expect(reqAfter.rewardActionId).toBeNull();
+    }
+  });
+
+  it("intersection threshold helpers restent stables", () => {
+    const ratioAttach = overlapRatioByChild(
+      { x: 0, y: 0, width: 100, height: 100 },
+      { x: 70, y: 0, width: 100, height: 100 }
+    );
+    const ratioDetach = overlapRatioByChild(
+      { x: 0, y: 0, width: 100, height: 100 },
+      { x: 95, y: 0, width: 100, height: 100 }
+    );
+    expect(ratioAttach).toBeGreaterThanOrEqual(ATTACH_OVERLAP_THRESHOLD);
+    expect(ratioDetach).toBeLessThan(DETACH_OVERLAP_THRESHOLD);
   });
 });

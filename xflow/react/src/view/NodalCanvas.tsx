@@ -9,6 +9,7 @@ import {
   type Connection,
   type Edge as RFEdge,
   type EdgeChange,
+  type OnNodeDrag,
   type Node as RFNode,
   type NodeChange,
   type NodeTypes,
@@ -37,11 +38,18 @@ import { MediaNodeView } from "./nodes/MediaNodeView";
 import { SatelliteNodeView } from "./nodes/SatelliteNodeView";
 import { SceneNodeView } from "./nodes/SceneNodeView";
 import { NodalUiContext } from "./nodalUiContext";
+import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X } from "./nesting/constants";
+import { getAbsolutePosition, overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
 import { NodePalette } from "./palette/NodePalette";
 import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
 import "./NodalCanvas.css";
 
-type NodalRFData = { nodeType: "scene" | "action" | "satellite" | "media"; node: unknown };
+type NodalRFData = {
+  nodeType: "scene" | "action" | "satellite" | "media";
+  node: unknown;
+  isRewardChild?: boolean;
+  rewardParentType?: "req" | "pwd" | null;
+};
 
 const nodeTypes: NodeTypes = {
   sceneNode: SceneNodeView,
@@ -66,12 +74,26 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
   for (const action of Object.values(state.actions)) {
     const layout = state.layout[action.id];
     if (!layout) continue;
-    nodes.push({
+    const parentAction = layout.parentId ? state.actions[layout.parentId as keyof typeof state.actions] : undefined;
+    const actionNode: RFNode<NodalRFData> = {
       id: action.id,
       type: "actionNode",
       position: { x: layout.x, y: layout.y },
-      data: { nodeType: "action", node: action },
-    });
+      data: {
+        nodeType: "action",
+        node: action,
+        isRewardChild: parentAction?.actionType === "req" || parentAction?.actionType === "pwd",
+        rewardParentType:
+          parentAction?.actionType === "req" || parentAction?.actionType === "pwd"
+            ? (parentAction.actionType as "req" | "pwd")
+            : null,
+      },
+    };
+    if (layout.parentId) {
+      actionNode.parentId = layout.parentId;
+      actionNode.extent = "parent";
+    }
+    nodes.push(actionNode);
   }
   for (const satellite of Object.values(state.satellites)) {
     const layout = state.layout[satellite.id];
@@ -225,6 +247,61 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     [state]
   );
 
+  const onNodeDragStop: OnNodeDrag<RFNode<NodalRFData>> = useCallback(
+    (_event, draggedNode, nodes) => {
+      const draggedAction = state.actions[draggedNode.id as keyof typeof state.actions];
+      if (!draggedAction) return;
+      const nodesById = new Map(nodes.map((n) => [n.id, n as unknown as NestedNodeLike]));
+      const childRect = toAbsoluteRect(draggedNode as unknown as NestedNodeLike, nodesById);
+      const draggedLayout = state.layout[draggedNode.id as AnyNodeId];
+      if (!draggedLayout) return;
+
+      if (draggedLayout.parentId && draggedLayout.parentId in state.actions) {
+        const parentNode = nodesById.get(draggedLayout.parentId);
+        if (!parentNode) return;
+        const parentRect = toAbsoluteRect(parentNode, nodesById);
+        const overlap = overlapRatioByChild(childRect, parentRect);
+        if (overlap < DETACH_OVERLAP_THRESHOLD) {
+          state.detachChild(draggedNode.id as AnyNodeId, { x: childRect.x, y: childRect.y });
+        }
+        return;
+      }
+
+      const hasFlowInFromScene = state.edges.some(
+        (edge) => edge.family === "flow" && edge.targetId === draggedNode.id && edge.sourceId in state.scenes
+      );
+      if (hasFlowInFromScene) return;
+
+      let bestParentId: AnyNodeId | null = null;
+      let bestOverlap = 0;
+      for (const candidate of nodes) {
+        if (candidate.id === draggedNode.id) continue;
+        const candidateAction = state.actions[candidate.id as keyof typeof state.actions];
+        if (!candidateAction) continue;
+        if (candidateAction.actionType !== "req" && candidateAction.actionType !== "pwd") continue;
+        const parentRect = toAbsoluteRect(candidate as unknown as NestedNodeLike, nodesById);
+        const overlap = overlapRatioByChild(childRect, parentRect);
+        if (overlap > bestOverlap) {
+          bestOverlap = overlap;
+          bestParentId = candidate.id as AnyNodeId;
+        }
+      }
+
+      if (!bestParentId || bestOverlap < ATTACH_OVERLAP_THRESHOLD) return;
+
+      state.attachChild(bestParentId, draggedNode.id as AnyNodeId);
+      const parentNode = nodesById.get(bestParentId);
+      if (!parentNode) return;
+      const parentSize = parentNode.measured?.width ?? parentNode.width ?? 180;
+      state.updateNodeLayout(draggedNode.id as AnyNodeId, {
+        parentId: bestParentId,
+        x: parentSize + REWARD_CHILD_GAP_X,
+        y: 0,
+      });
+    },
+    [state]
+  );
+
   const layoutClassName =
     mapColorMode === "dark" ? "nodal-canvas-layout dark-mode" : "nodal-canvas-layout";
   const objectSatellite =
@@ -236,7 +313,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     : null;
 
   return (
-    <NodalUiContext.Provider value={{ objectEditorSatelliteId, setObjectEditorSatelliteId }}>
+    <NodalUiContext.Provider value={{ store, objectEditorSatelliteId, setObjectEditorSatelliteId }}>
       <div className={layoutClassName} ref={canvasRef}>
         <NodePalette store={store} canvasRef={canvasRef} />
         <div className="nodal-canvas-pane">
@@ -276,6 +353,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             )
           }
           onMoveEnd={onMoveEnd}
+          onNodeDragStop={onNodeDragStop}
           fitView
         >
           <Background />

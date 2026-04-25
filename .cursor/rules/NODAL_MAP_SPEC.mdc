@@ -878,6 +878,38 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
 - `xflow/react/src/__tests__/generateRoundtripFixture.test.ts` —
   générateur de fixture (describe en `skip` par défaut).
 
+### C3b — Emboîtement REQ/PWD (bloc Scratch)
+
+- `xflow/react/src/view/NodalCanvas.tsx` — détection d’intersection
+  au `onNodeDragStop`, attache (`attachChild`) seuil
+  `ATTACH_OVERLAP_THRESHOLD`, détache (`detachChild`) seuil
+  `DETACH_OVERLAP_THRESHOLD`, conversion absolu/relatif et position
+  d’accueil (gap pince).
+- `xflow/react/src/view/nesting/constants.ts` — constantes
+  d’emboîtement (`ATTACH_OVERLAP_THRESHOLD = 0.3`, seuil de détache,
+  gap visuel).
+- `xflow/react/src/view/nesting/geometry.ts` — fonctions pures
+  testables de géométrie (rectangles absolus, ratio d’overlap).
+- `xflow/react/src/view/nodes/ActionNodeView.tsx` — retrait du
+  `flow-out` REQ/PWD ; bouton **Détacher** sur enfant de récompense ;
+  placeholder visuel REQ/PWD sans enfant.
+- `xflow/react/src/view/nodes/nodes.css` — styles pince/placeholder
+  REQ/PWD + bouton détacher.
+- `xflow/react/src/view/NodalCanvas.css` — visibilité du bouton
+  détacher au hover/sélection.
+- `xflow/react/src/view/connectionPolicy.ts` — suppression de la
+  branche `flow-out` pour REQ/PWD (selector seul conserve `flow-out`).
+- `xflow/react/src/store/nodalProjectStore.ts` — garde métier
+  `attachChild` (refus hotspot/enfant déjà rattaché ailleurs) ;
+  `detachChild` avec position absolue optionnelle.
+- `xflow/react/src/serialize/toProjectJson.ts` — suppression du
+  fallback legacy `flow` pour `rewardActionId` (pas de rétrocompat).
+- `xflow/react/src/view/nodalUiContext.tsx` — store réinjecté au
+  contexte UI (action bouton détacher).
+- `xflow/react/src/__tests__/reconcile.test.ts` — scénarios C3b :
+  attach, detach, chaînage REQ→REQ→MSG, refus attach hotspot, helper
+  de seuil overlap.
+
 *etc.*
 
 ## Annexe C — Glossaire

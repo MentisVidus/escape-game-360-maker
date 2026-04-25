@@ -1,8 +1,11 @@
 import { createContext, useContext } from "react";
+import type { StoreApi } from "zustand/vanilla";
 
 import type { SatelliteNodeId } from "../model/ids";
+import type { NodalProjectStore } from "../store/nodalProjectStore";
 
 export type NodalUiContextValue = {
+  store: StoreApi<NodalProjectStore>;
   objectEditorSatelliteId: SatelliteNodeId | null;
   setObjectEditorSatelliteId: (id: SatelliteNodeId | null) => void;
 };

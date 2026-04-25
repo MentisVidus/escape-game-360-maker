@@ -41,3 +41,52 @@
 .nodal-node.satellite--clickable {
   cursor: pointer;
 }
+
+.nodal-node.action.action-req,
+.nodal-node.action.action-pwd {
+  position: relative;
+  overflow: visible;
+}
+
+.nodal-node.action.action-req::after,
+.nodal-node.action.action-pwd::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  right: -12px;
+  width: 10px;
+  height: calc(100% - 28px);
+  border: 2px solid var(--node-action-border);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  opacity: 0.75;
+}
+
+.nodal-reward-placeholder {
+  position: absolute;
+  right: -88px;
+  top: 8px;
+  font: 10px/1 Arial, sans-serif;
+  color: var(--node-action-border);
+  opacity: 0.65;
+  border: 1px dashed var(--node-action-border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  pointer-events: none;
+}
+
+.nodal-detach-btn {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  border: 1px solid var(--node-action-border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--node-action-bg) 85%, #ffffff 15%);
+  color: var(--node-text);
+  font: 11px/1 Arial, sans-serif;
+  padding: 3px 6px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-in-out;
+}

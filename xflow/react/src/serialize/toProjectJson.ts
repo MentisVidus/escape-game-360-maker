@@ -29,16 +29,6 @@ const isReqOrPwd = (action: ActionNode): action is ReqActionNode | PwdActionNode
 
 const isSelector = (action: ActionNode): action is SelectorActionNode => action.actionType === "selector";
 
-const getRewardFromTransitionalFlow = (
-  state: NodalProject,
-  parentId: ActionNodeId
-): ActionNodeId | null => {
-  const edge = state.edges.find(
-    (current) => current.family === "flow" && current.sourceId === parentId && current.targetId in state.actions
-  );
-  return edge ? (edge.targetId as ActionNodeId) : null;
-};
-
 const getSelectorChildren = (state: NodalProject, parentId: ActionNodeId): ActionNodeId[] => {
   const viaParentId = (Object.keys(state.actions) as ActionNodeId[]).filter(
     (candidateId) => state.layout[candidateId]?.parentId === parentId
@@ -65,7 +55,7 @@ const serializeAction = (state: NodalProject, actionId: ActionNodeId): ProjectJs
   const actionType = INTERNAL_TO_V2_ACTION_TYPE[action.actionType];
 
   if (isReqOrPwd(action)) {
-    const rewardActionId = action.rewardActionId ?? getRewardFromTransitionalFlow(state, action.id);
+    const rewardActionId = action.rewardActionId;
     if (!rewardActionId) return null;
     const rewardAction = serializeAction(state, rewardActionId);
     if (!rewardAction) return null;

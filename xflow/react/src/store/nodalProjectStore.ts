@@ -25,7 +25,7 @@ export type NodalProjectStore = NodalProject & {
   connect: (edge: Edge) => void;
   disconnect: (edgeId: EdgeId) => void;
   attachChild: (parentId: AnyNodeId, childId: AnyNodeId) => void;
-  detachChild: (childId: AnyNodeId) => void;
+  detachChild: (childId: AnyNodeId, absolutePosition?: { x: number; y: number }) => void;
   updateNodeData: (nodeId: AnyNodeId, patch: NodePatch) => void;
   updateNodeLayout: (nodeId: AnyNodeId, patch: Partial<NodeLayout>) => void;
   setStartScene: (sceneId: SceneNodeId) => void;
@@ -98,6 +98,9 @@ const defaultObjectEntry = (objectId: string): ObjectEntry => ({
   iconMediaId: null,
   iconUrl: "",
 });
+
+const hasIncomingFlowFromScene = (state: NodalProjectStore, actionId: ActionNodeId): boolean =>
+  state.edges.some((edge) => edge.family === "flow" && edge.targetId === actionId && edge.sourceId in state.scenes);
 
 export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
   {
@@ -184,9 +187,14 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       const state = get();
       const childLayout = state.layout[childId];
       if (!childLayout) return;
+      if (!(childId in state.actions)) return;
+      const childActionId = childId as ActionNodeId;
       const nextLayout = { ...state.layout, [childId]: { ...childLayout, parentId } };
       const parent = state.actions[parentId as ActionNodeId];
+      if (childLayout.parentId && childLayout.parentId !== parentId) return;
       if (parent && isReqOrPwd(parent) && childId in state.actions) {
+        // C3b : uniquement des actions orphelines peuvent devenir récompense.
+        if (hasIncomingFlowFromScene(state, childActionId)) return;
         const next = {
           ...state,
           layout: nextLayout,
@@ -204,12 +212,20 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       set(next);
     },
 
-    detachChild: (childId) => {
+    detachChild: (childId, absolutePosition) => {
       const state = get();
       const childLayout = state.layout[childId];
       if (!childLayout) return;
       const parentId = childLayout.parentId;
-      const nextLayout = { ...state.layout, [childId]: { ...childLayout, parentId: null } };
+      const nextLayout = {
+        ...state.layout,
+        [childId]: {
+          ...childLayout,
+          x: absolutePosition?.x ?? childLayout.x,
+          y: absolutePosition?.y ?? childLayout.y,
+          parentId: null,
+        },
+      };
       if (!parentId) {
         const next = { ...state, layout: nextLayout };
         reconcileAutoSatellites(next, nextAutoId);
