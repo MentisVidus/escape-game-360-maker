@@ -42,6 +42,8 @@ export function isValidConnection(connection: Connection, state: NodalProject): 
   if (connection.sourceHandle === HANDLE_FLOW_OUT && connection.targetHandle === HANDLE_FLOW_IN) {
     if (targetKind !== "action") return false;
     const targetAction = target as ActionNode;
+    // C3b: une action déjà emboîtée (récompense enfant) ne peut pas devenir hotspot.
+    if (state.layout[targetAction.id]?.parentId) return false;
     const hasFlowIn = state.edges.some((edge) => edge.family === "flow" && edge.targetId === targetAction.id);
     if (hasFlowIn) return false;
 

@@ -4,6 +4,7 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
   useNodesState,
   useEdgesState,
   type Connection,
@@ -51,6 +52,25 @@ type NodalRFData = {
   rewardParentType?: "req" | "pwd" | null;
 };
 
+function sortNodesParentFirst(nodes: RFNode<NodalRFData>[]): RFNode<NodalRFData>[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const visited = new Set<string>();
+  const result: RFNode<NodalRFData>[] = [];
+
+  const visit = (node: RFNode<NodalRFData>) => {
+    if (visited.has(node.id)) return;
+    if (node.parentId) {
+      const parent = byId.get(node.parentId);
+      if (parent) visit(parent);
+    }
+    visited.add(node.id);
+    result.push(node);
+  };
+
+  for (const node of nodes) visit(node);
+  return result;
+}
+
 const nodeTypes: NodeTypes = {
   sceneNode: SceneNodeView,
   actionNode: ActionNodeView,
@@ -91,7 +111,8 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
     };
     if (layout.parentId) {
       actionNode.parentId = layout.parentId;
-      actionNode.extent = "parent";
+      // C3b: pas d'extent sur récompense pour éviter le clamp RF
+      // (parent non redimensionné + slot visuel hors bbox parent).
     }
     nodes.push(actionNode);
   }
@@ -116,7 +137,7 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
     });
   }
 
-  return nodes;
+  return sortNodesParentFirst(nodes);
 }
 
 export function toReactFlowEdges(state: NodalProject): RFEdge[] {
@@ -161,6 +182,7 @@ function detectFamily(connection: Connection): "flow" | "transition" | "meta" | 
 }
 
 function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
+  const reactFlow = useReactFlow<RFNode<NodalRFData>, RFEdge>();
   const [mapColorMode, setMapColorMode] = useState<"light" | "dark">("light");
   const [objectEditorSatelliteId, setObjectEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
   const state = useSyncExternalStore(
@@ -186,9 +208,11 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       return nextNodes.map((n) => {
         const existing = currentById.get(n.id);
         if (!existing) return n;
+        const parentChanged = (existing.parentId ?? null) !== (n.parentId ?? null);
         const merged: RFNode<NodalRFData> = {
           ...n,
-          position: existing.position,
+          // Si le parent change, la position doit venir du store (nouveau référentiel).
+          position: parentChanged ? n.position : existing.position,
         };
         if (existing.selected !== undefined) merged.selected = existing.selected;
         if (existing.measured !== undefined) merged.measured = existing.measured;
@@ -248,11 +272,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   );
 
   const onNodeDragStop: OnNodeDrag<RFNode<NodalRFData>> = useCallback(
-    (_event, draggedNode, nodes) => {
+    (_event, draggedNode) => {
+      const allNodes = reactFlow.getNodes();
+      const latestDragged = allNodes.find((n) => n.id === draggedNode.id) ?? draggedNode;
       const draggedAction = state.actions[draggedNode.id as keyof typeof state.actions];
       if (!draggedAction) return;
-      const nodesById = new Map(nodes.map((n) => [n.id, n as unknown as NestedNodeLike]));
-      const childRect = toAbsoluteRect(draggedNode as unknown as NestedNodeLike, nodesById);
+      const nodesById = new Map(allNodes.map((n) => [n.id, n as unknown as NestedNodeLike]));
+      const childRect = toAbsoluteRect(latestDragged as unknown as NestedNodeLike, nodesById);
       const draggedLayout = state.layout[draggedNode.id as AnyNodeId];
       if (!draggedLayout) return;
 
@@ -274,7 +300,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
       let bestParentId: AnyNodeId | null = null;
       let bestOverlap = 0;
-      for (const candidate of nodes) {
+      for (const candidate of allNodes) {
         if (candidate.id === draggedNode.id) continue;
         const candidateAction = state.actions[candidate.id as keyof typeof state.actions];
         if (!candidateAction) continue;
@@ -299,7 +325,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         y: 0,
       });
     },
-    [state]
+    [reactFlow, state]
   );
 
   const layoutClassName =
