@@ -910,7 +910,47 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
   attach, detach, chaînage REQ→REQ→MSG, refus attach hotspot, helper
   de seuil overlap.
 
-*etc.*
+- `xflow/react/src/view/NodalCanvas.tsx` — correctif drag C3b :
+  détection des candidats parent sur le graphe complet React Flow,
+  tri parent→enfant et merge de position quand `parentId` change.
+- `xflow/react/src/view/connectionPolicy.ts` — verrou métier :
+  une action déjà emboîtée (`layout.parentId`) ne peut plus recevoir
+  un `flow-in` de scène.
+
+### C3c — Sub-flow selector + styles 4 états
+
+- `xflow/react/src/model/layout.ts` — ajout de `width?` / `height?`
+  sur `NodeLayout` pour la persistance du redimensionnement selector.
+- `xflow/react/src/serialize/mapLayoutJson.ts` — sérialisation /
+  application de `dimensions` (width/height) dans `map-layout.json`.
+- `xflow/react/src/store/nodalProjectStore.ts` — gardes `attachChild`
+  (refus auto-parentage, refus selector→selector direct).
+- `xflow/react/src/view/NodalCanvas.tsx` — attache selector en
+  intersection, `contextualState` dans les data RF, style width/height
+  selector, retrait `flow-out` visuel selector, fix position relative
+  post-attach selector.
+- `xflow/react/src/view/connectionPolicy.ts` — suppression du
+  `flow-out` temporaire selector (flow hotspot depuis scène uniquement).
+- `xflow/react/src/view/nodes/ActionNodeView.tsx` — classes d’état
+  (`orphan`, `choice`) + `NodeResizer` pour selector.
+- `xflow/react/src/view/nodes/nodes.css` — styles 4 états (orphelin /
+  choice), plus variants dark mode associés.
+- `xflow/react/src/__tests__/reconcile.test.ts` — scénarios C3c
+  (attache selector, refus selector→selector, auto-parentage, tri Y
+  en sérialisation, orphelin état 1, fix position relative selector).
+
+### Fixes post-C3c
+
+- `xflow/react/src/store/reconcileAutoSatellites.ts` — satellites auto
+  créés en coordonnées relatives avec `parentId` action (sans migration).
+- `xflow/react/src/view/NodalCanvas.tsx` — satellites RF enfant du
+  parent (`parentId`), priorité d’attache REQ/PWD sur selector, puis
+  restauration des edges meta visibles en vue RF.
+- `xflow/react/src/view/nodes/nodes.css` — style compact des satellites
+  (taille, padding, opacité light/dark).
+- `xflow/react/src/__tests__/reconcile.test.ts` — tests satellites
+  relatifs, stabilité du layout relatif au déplacement parent, priorité
+  REQ/PWD vs selector.
 
 ## Annexe C — Glossaire
 
