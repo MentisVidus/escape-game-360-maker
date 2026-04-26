@@ -64,15 +64,20 @@ function sortNodesParentFirst(nodes: RFNode<NodalRFData>[]): RFNode<NodalRFData>
   const visit = (node: RFNode<NodalRFData>) => {
     if (visited.has(node.id)) return;
     if (inStack.has(node.id)) {
-      console.warn(
-        `[sortNodesParentFirst] cycle détecté sur le nœud ${node.id}, parentId ignoré pour le tri`
-      );
+      console.warn(`[sortNodesParentFirst] cycle résiduel sur ${node.id}, ignoré`);
+      visited.add(node.id);
       return;
     }
     inStack.add(node.id);
     if (node.parentId) {
       const parent = byId.get(node.parentId);
-      if (parent) visit(parent);
+      if (parent) {
+        visit(parent);
+      } else {
+        console.warn(
+          `[sortNodesParentFirst] parentId ${node.parentId} introuvable pour ${node.id} — désync store/RF`
+        );
+      }
     }
     inStack.delete(node.id);
     visited.add(node.id);
@@ -221,19 +226,35 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   // qui passent par le drag de RF)
   useEffect(() => {
     const nextNodes = toReactFlowNodes(state);
+    const knownIds = new Set(nextNodes.map((n) => n.id));
+
     setRfNodes((current) => {
       // Préserve le state interne (position pendant drag, mesures, sélection)
       // pour les nœuds qui existent déjà des deux côtés
       const currentById = new Map(current.map((n) => [n.id, n]));
       return nextNodes.map((n) => {
         const existing = currentById.get(n.id);
-        if (!existing) return n;
+        if (!existing) {
+          if (n.parentId && !knownIds.has(n.parentId)) {
+            console.warn(
+              `[useEffect sync] strip parentId fantôme ${n.parentId} sur ${n.id} (nouveau nœud)`
+            );
+            const stripped: RFNode<NodalRFData> = { ...n };
+            delete stripped.parentId;
+            return stripped;
+          }
+          return n;
+        }
         const parentChanged = (existing.parentId ?? null) !== (n.parentId ?? null);
         const merged: RFNode<NodalRFData> = {
           ...n,
           // Si le parent change, la position doit venir du store (nouveau référentiel).
           position: parentChanged ? n.position : existing.position,
         };
+        if (merged.parentId && !knownIds.has(merged.parentId)) {
+          console.warn(`[useEffect sync] strip parentId fantôme ${merged.parentId} sur ${merged.id}`);
+          delete merged.parentId;
+        }
         if (existing.selected !== undefined) merged.selected = existing.selected;
         if (existing.measured !== undefined) merged.measured = existing.measured;
         return merged;

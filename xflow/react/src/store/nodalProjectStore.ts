@@ -251,7 +251,6 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       const childActionId = childId as ActionNodeId;
       const nextLayout = { ...state.layout, [childId]: { ...childLayout, parentId } };
       const parent = state.actions[parentId as ActionNodeId];
-      if (childLayout.parentId && childLayout.parentId !== parentId) return;
       if (parent && isReqOrPwd(parent) && childId in state.actions) {
         // C3b : uniquement des actions orphelines peuvent devenir récompense.
         if (hasIncomingFlowFromScene(state, childActionId)) return;
