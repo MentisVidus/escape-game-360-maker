@@ -1,7 +1,7 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 
 import type { NodalProject } from "../model/project";
-import { applyLayout, serializeLayout, type MapLayoutJson } from "../serialize/mapLayoutJson";
+import { applyHydratedLayout, serializeLayout, type MapLayoutJson } from "../serialize/mapLayoutJson";
 import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
 import type { ProjectJsonV2 } from "../serialize/toProjectJson";
 import { serializeToProjectJson } from "../serialize/toProjectJson";
@@ -50,6 +50,6 @@ export function importProjectEscapegameZip(buf: ArrayBuffer): ImportedNodalBundl
 /** Reconstruit un `NodalProject` en mémoire (sans passer par le store). */
 export function buildNodalProjectFromBundle(projectJson: ProjectJsonV2, layoutJson: MapLayoutJson) {
   const project = deserializeFromProjectJson(projectJson);
-  applyLayout(project, layoutJson);
+  applyHydratedLayout(project, layoutJson);
   return project;
 }

@@ -13,7 +13,7 @@ import type { NodeLayout, Viewport } from "../model/layout";
 import type { ActionNode, MediaNode, SatelliteNode, SceneNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
-import { applyLayout, type MapLayoutJson } from "../serialize/mapLayoutJson";
+import { applyHydratedLayout, type MapLayoutJson } from "../serialize/mapLayoutJson";
 import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
 import type { ProjectJsonV2 } from "../serialize/toProjectJson";
 import { computeWarnings, type Warning } from "./computeWarnings";
@@ -434,7 +434,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     hydrateFromProject: (projectJson, layoutJson) => {
       const state = get();
       const base = deserializeFromProjectJson(projectJson);
-      applyLayout(base, layoutJson);
+      applyHydratedLayout(base, layoutJson);
       const next: NodalProjectStore = {
         ...state,
         meta: {

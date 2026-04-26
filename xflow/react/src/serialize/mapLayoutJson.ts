@@ -1,6 +1,53 @@
 import type { ActionNodeId, AnyNodeId } from "../model/ids";
+import type { NodeLayout } from "../model/layout";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
+
+/** Clés de layout des satellites auto (recréés par `reconcileAutoSatellites`) — ne pas persister ni réappliquer telles quelles. */
+export const AUTO_SATELLITE_LAYOUT_KEY_RE = /^sat-(coords-options|choice-options|object)-/;
+
+export function stripAutoSatelliteLayoutFromMap(layout: MapLayoutJson): MapLayoutJson {
+  const keep = (id: string) => !AUTO_SATELLITE_LAYOUT_KEY_RE.test(id);
+  const positions = Object.fromEntries(Object.entries(layout.positions).filter(([k]) => keep(k)));
+  const parentId = Object.fromEntries(Object.entries(layout.parentId).filter(([k]) => keep(k)));
+  const collapsed = Object.fromEntries(Object.entries(layout.collapsed).filter(([k]) => keep(k)));
+  const dimensionsRaw = layout.dimensions
+    ? Object.fromEntries(Object.entries(layout.dimensions).filter(([k]) => keep(k)))
+    : undefined;
+  const out: MapLayoutJson = {
+    ...layout,
+    positions,
+    parentId,
+    collapsed,
+    drafts: (layout.drafts || []).filter((id) => keep(String(id))),
+    viewport: { ...layout.viewport },
+    ...(layout.inventoryObjects !== undefined ? { inventoryObjects: { ...layout.inventoryObjects } } : {}),
+  };
+  if (dimensionsRaw && Object.keys(dimensionsRaw).length > 0) {
+    out.dimensions = dimensionsRaw;
+  }
+  return out;
+}
+
+/** Après désérialisation + `applyLayout`, garantit un layout pour chaque nœud durable (évite parent RF fantôme). */
+export function ensureGraphNodeLayoutsAfterHydrate(state: NodalProject): void {
+  const fallback: NodeLayout = { x: 0, y: 0, parentId: null, collapsed: false };
+  for (const id of Object.keys(state.scenes) as AnyNodeId[]) {
+    if (!state.layout[id]) state.layout[id] = { ...fallback };
+  }
+  for (const id of Object.keys(state.actions) as AnyNodeId[]) {
+    if (!state.layout[id]) state.layout[id] = { ...fallback };
+  }
+  for (const id of Object.keys(state.media) as AnyNodeId[]) {
+    if (!state.layout[id]) state.layout[id] = { ...fallback };
+  }
+}
+
+/** Applique le layout carte en ignorant les entrées satellites auto + complète les nœuds manquants. */
+export function applyHydratedLayout(state: NodalProject, layout: MapLayoutJson): void {
+  applyLayout(state, stripAutoSatelliteLayoutFromMap(layout));
+  ensureGraphNodeLayoutsAfterHydrate(state);
+}
 
 export type MapLayoutJson = {
   positions: Record<string, { x: number; y: number }>;
@@ -34,6 +81,7 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
   const dimensions: NonNullable<MapLayoutJson["dimensions"]> = {};
 
   for (const [nodeId, layout] of Object.entries(state.layout) as Array<[AnyNodeId, NodalProject["layout"][AnyNodeId]]>) {
+    if (AUTO_SATELLITE_LAYOUT_KEY_RE.test(String(nodeId))) continue;
     positions[nodeId] = { x: layout.x, y: layout.y };
     collapsed[nodeId] = layout.collapsed;
     if (layout.parentId) parentId[nodeId] = layout.parentId;

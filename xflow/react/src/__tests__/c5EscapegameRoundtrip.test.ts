@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { strToU8, zipSync } from "fflate";
 
+import type { AnyNodeId } from "../model/ids";
 import { exportProjectEscapegameZip, importProjectEscapegameZip } from "../persistence/zipBundle";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
@@ -30,6 +31,21 @@ describe("C5 — ZIP .escapegame + hydrate", () => {
     expect(after.sceneCount).toBe(before.sceneCount);
     expect(after.actionCount).toBe(before.actionCount);
     expect(after.viewport).toEqual(before.viewport);
+
+    const s = storeB.getState();
+    const layout = s.layout;
+    for (const id of Object.keys(s.scenes)) {
+      expect(layout[id as AnyNodeId]).toBeDefined();
+    }
+    for (const id of Object.keys(s.actions)) {
+      expect(layout[id as AnyNodeId]).toBeDefined();
+    }
+    for (const sat of Object.values(s.satellites)) {
+      const pid = layout[sat.id]?.parentId;
+      if (pid && pid in s.actions) {
+        expect(layout[pid]).toBeDefined();
+      }
+    }
   });
 
   it("lève une erreur explicite si project.json est absent", () => {

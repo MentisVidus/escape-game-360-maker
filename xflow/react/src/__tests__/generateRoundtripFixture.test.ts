@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
-import { applyLayout, serializeLayout } from "../serialize/mapLayoutJson";
+import { applyHydratedLayout, serializeLayout } from "../serialize/mapLayoutJson";
 import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
 import { serializeToProjectJson } from "../serialize/toProjectJson";
 import { reconcileAutoSatellites } from "../store/reconcileAutoSatellites";
@@ -92,7 +92,7 @@ describe.skip("generate roundtrip fixture (manual)", () => {
     const layoutJson = serializeLayout(store.getState());
 
     const roundtripState = deserializeFromProjectJson(projectJson);
-    applyLayout(roundtripState, layoutJson);
+    applyHydratedLayout(roundtripState, layoutJson);
     reconcileAutoSatellites(roundtripState);
     const projectJsonAgain = serializeToProjectJson(roundtripState);
     expect(projectJsonAgain).toEqual(projectJson);

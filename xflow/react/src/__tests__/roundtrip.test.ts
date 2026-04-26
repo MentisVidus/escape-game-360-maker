@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
-import { applyLayout, serializeLayout } from "../serialize/mapLayoutJson";
+import { applyHydratedLayout, serializeLayout } from "../serialize/mapLayoutJson";
 import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
 import { serializeToProjectJson } from "../serialize/toProjectJson";
 import { reconcileAutoSatellites } from "../store/reconcileAutoSatellites";
@@ -97,7 +97,7 @@ describe("nodal model C1 roundtrip", () => {
     expect(layoutJson.inventoryObjects).toEqual(expected.layout.inventoryObjects);
 
     const roundtripState = deserializeFromProjectJson(projectJson);
-    applyLayout(roundtripState, layoutJson);
+    applyHydratedLayout(roundtripState, layoutJson);
     reconcileAutoSatellites(roundtripState);
 
     const projectJsonAgain = serializeToProjectJson(roundtripState);
