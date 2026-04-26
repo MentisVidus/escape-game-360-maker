@@ -3,18 +3,22 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 
-import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
+import { asActionNodeId, asEdgeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
 import { applyHydratedLayout, serializeLayout } from "../serialize/mapLayoutJson";
-import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
+import {
+  deserializeFromProjectJson,
+  stableActionNodeIdFromPathKey,
+  stableSceneNodeIdFromExternal,
+} from "../serialize/fromProjectJson";
 import { serializeToProjectJson } from "../serialize/toProjectJson";
 import { reconcileAutoSatellites } from "../store/reconcileAutoSatellites";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const makeScene = (id: string, sceneId: string, label: string): SceneNode => ({
-  id: asSceneNodeId(id),
+const makeScene = (sceneId: string, label: string): SceneNode => ({
+  id: stableSceneNodeIdFromExternal(sceneId),
   nodeType: "scene",
   sceneId,
   label,
@@ -40,14 +44,14 @@ describe.skip("generate roundtrip fixture (manual)", () => {
     const store = createNodalProjectStore();
     const state = store.getState();
 
-    const sceneA = makeScene("scn-a", "scene-a", "Scene A");
-    const sceneB = makeScene("scn-b", "scene-b", "Scene B");
+    const sceneA = makeScene("scene-a", "Scene A");
+    const sceneB = makeScene("scene-b", "Scene B");
     state.addScene(sceneA, { x: 0, y: 0 });
     state.addScene(sceneB, { x: 500, y: 0 });
     state.setStartScene(sceneA.id);
 
     const req = {
-      id: asActionNodeId("act-req"),
+      id: stableActionNodeIdFromPathKey("scene-a:h:0"),
       nodeType: "action" as const,
       actionType: "req" as const,
       label: "Need key",
@@ -56,14 +60,14 @@ describe.skip("generate roundtrip fixture (manual)", () => {
       sfx: { url: "", volume: 1 },
       visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
     };
-    const rewardMsg = makeMsgAction("act-reward", "Reward", "Door unlocked");
+    const rewardMsg = makeMsgAction(stableActionNodeIdFromPathKey("scene-a:h:0:r"), "Reward", "Door unlocked");
     state.addAction(req, { x: 150, y: 50 });
     state.addAction(rewardMsg, { x: 260, y: 50, parentId: req.id });
     state.attachChild(req.id, rewardMsg.id);
     state.connect({ id: asEdgeId("edge-scn-a-req"), family: "flow", sourceId: sceneA.id, targetId: req.id });
 
     const selector = {
-      id: asActionNodeId("act-selector"),
+      id: stableActionNodeIdFromPathKey("scene-b:h:0"),
       nodeType: "action" as const,
       actionType: "selector" as const,
       label: "Choose",
@@ -71,8 +75,8 @@ describe.skip("generate roundtrip fixture (manual)", () => {
       sfx: { url: "", volume: 1 },
       visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
     };
-    const choiceTop = makeMsgAction("act-choice-top", "Top", "First");
-    const choiceBottom = makeMsgAction("act-choice-bottom", "Bottom", "Second");
+    const choiceTop = makeMsgAction(stableActionNodeIdFromPathKey("scene-b:h:0:c:0"), "Top", "First");
+    const choiceBottom = makeMsgAction(stableActionNodeIdFromPathKey("scene-b:h:0:c:1"), "Bottom", "Second");
     state.addAction(selector, { x: 650, y: 60 });
     state.addAction(choiceBottom, { x: 700, y: 180, parentId: selector.id });
     state.addAction(choiceTop, { x: 700, y: 120, parentId: selector.id });

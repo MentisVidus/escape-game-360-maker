@@ -2,8 +2,9 @@ import { useReactFlow } from "@xyflow/react";
 import type { RefObject } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import { asActionNodeId, asMediaNodeId, asSceneNodeId } from "../../model/ids";
+import { asActionNodeId, asMediaNodeId } from "../../model/ids";
 import type { ActionNode, MediaNode, SceneNode } from "../../model/nodes";
+import { stableSceneNodeIdFromExternal } from "../../serialize/fromProjectJson";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
 import "./palette.css";
 
@@ -28,11 +29,12 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
   };
 
   const addScene = () => {
-    const id = asSceneNodeId(nextId("scene"));
+    const sceneId = nextId("scene");
+    const id = stableSceneNodeIdFromExternal(sceneId);
     const node: SceneNode = {
       id,
       nodeType: "scene",
-      sceneId: id,
+      sceneId,
       label: "New Scene",
       panoramaUrl: "",
     };

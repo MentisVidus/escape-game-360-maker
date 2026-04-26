@@ -129,53 +129,33 @@
   },
   "layout": {
     "positions": {
-      "scn-a": {
+      "scn__scene_a": {
         "x": 0,
         "y": 0
       },
-      "scn-b": {
+      "scn__scene_b": {
         "x": 500,
         "y": 0
       },
-      "act-req": {
+      "act__scene_a_h_0": {
         "x": 150,
         "y": 50
       },
-      "act-reward": {
+      "act__scene_a_h_0_r": {
         "x": 260,
         "y": 50
       },
-      "sat-coords-options-act-req-1577836800000-1": {
-        "x": 150,
-        "y": 150
-      },
-      "sat-object-act-req-1577836800000-3": {
-        "x": 350,
-        "y": 240
-      },
-      "act-selector": {
+      "act__scene_b_h_0": {
         "x": 650,
         "y": 60
       },
-      "act-choice-bottom": {
+      "act__scene_b_h_0_c_1": {
         "x": 700,
         "y": 180
       },
-      "act-choice-top": {
+      "act__scene_b_h_0_c_0": {
         "x": 700,
         "y": 120
-      },
-      "sat-choice-options-act-choice-bottom-1577836800000-1": {
-        "x": 700,
-        "y": 280
-      },
-      "sat-choice-options-act-choice-top-1577836800000-3": {
-        "x": 700,
-        "y": 220
-      },
-      "sat-coords-options-act-selector-1577836800000-1": {
-        "x": 650,
-        "y": 160
       },
       "act-orphan": {
         "x": 1000,
@@ -183,23 +163,18 @@
       }
     },
     "parentId": {
-      "act-reward": "act-req",
-      "act-choice-bottom": "act-selector",
-      "act-choice-top": "act-selector"
+      "act__scene_a_h_0_r": "act__scene_a_h_0",
+      "act__scene_b_h_0_c_1": "act__scene_b_h_0",
+      "act__scene_b_h_0_c_0": "act__scene_b_h_0"
     },
     "collapsed": {
-      "scn-a": false,
-      "scn-b": false,
-      "act-req": false,
-      "act-reward": false,
-      "sat-coords-options-act-req-1577836800000-1": false,
-      "sat-object-act-req-1577836800000-3": false,
-      "act-selector": false,
-      "act-choice-bottom": false,
-      "act-choice-top": false,
-      "sat-choice-options-act-choice-bottom-1577836800000-1": false,
-      "sat-choice-options-act-choice-top-1577836800000-3": false,
-      "sat-coords-options-act-selector-1577836800000-1": false,
+      "scn__scene_a": false,
+      "scn__scene_b": false,
+      "act__scene_a_h_0": false,
+      "act__scene_a_h_0_r": false,
+      "act__scene_b_h_0": false,
+      "act__scene_b_h_0_c_1": false,
+      "act__scene_b_h_0_c_0": false,
       "act-orphan": false
     },
     "drafts": [

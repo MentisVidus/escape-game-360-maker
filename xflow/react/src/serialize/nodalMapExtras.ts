@@ -7,7 +7,7 @@ import type {
 } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 
-import { getHotspotActionIdsForScene, getSelectorChildren, sortActionIdsByY } from "./toProjectJson";
+import { getHotspotActionIdsForScene, getSelectorChildren, getSelectorChildrenFlowOrder, sortActionIdsByY } from "./toProjectJson";
 
 /** Données des satellites auto, indexées par chemin stable `sceneId:h:i[:r|:c:j…]`. */
 export type NodalAutoSatellitePayload = {
@@ -46,7 +46,9 @@ function walkActionTree(
     walkActionTree(state, a.rewardActionId, `${pathKey}:r`, visitor);
   }
   if (a.actionType === "selector") {
-    const children = sortActionIdsByY(state, getSelectorChildren(state, actionId));
+    const flowCh = getSelectorChildrenFlowOrder(state, actionId);
+    const children =
+      flowCh.length > 0 ? flowCh : sortActionIdsByY(state, getSelectorChildren(state, actionId));
     children.forEach((cid, ci) => walkActionTree(state, cid, `${pathKey}:c:${ci}`, visitor));
   }
 }

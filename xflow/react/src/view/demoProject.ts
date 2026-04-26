@@ -1,5 +1,6 @@
-import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
+import { asActionNodeId, asEdgeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
+import { stableActionNodeIdFromPathKey, stableSceneNodeIdFromExternal } from "../serialize/fromProjectJson";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 
 export function createDemoStore() {
@@ -7,14 +8,14 @@ export function createDemoStore() {
   const state = store.getState();
 
   const sceneA: SceneNode = {
-    id: asSceneNodeId("demo-scene-a"),
+    id: stableSceneNodeIdFromExternal("scene-a"),
     nodeType: "scene",
     sceneId: "scene-a",
     label: "Hall",
     panoramaUrl: "",
   };
   const sceneB: SceneNode = {
-    id: asSceneNodeId("demo-scene-b"),
+    id: stableSceneNodeIdFromExternal("scene-b"),
     nodeType: "scene",
     sceneId: "scene-b",
     label: "Lab",
@@ -22,7 +23,7 @@ export function createDemoStore() {
   };
 
   const msg: ActionNode = {
-    id: asActionNodeId("demo-msg"),
+    id: stableActionNodeIdFromPathKey("scene-a:h:0"),
     nodeType: "action",
     actionType: "msg",
     label: "Read Note",
@@ -31,7 +32,7 @@ export function createDemoStore() {
     visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
   };
   const goto: ActionNode = {
-    id: asActionNodeId("demo-goto"),
+    id: stableActionNodeIdFromPathKey("scene-a:h:1"),
     nodeType: "action",
     actionType: "goto",
     label: "Go To Lab",

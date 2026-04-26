@@ -3,6 +3,7 @@ import { strToU8, zipSync } from "fflate";
 
 import type { AnyNodeId } from "../model/ids";
 import { exportProjectEscapegameZip, importProjectEscapegameZip } from "../persistence/zipBundle";
+import { stableActionNodeIdFromPathKey } from "../serialize/fromProjectJson";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 import { createDemoStore } from "../view/demoProject";
@@ -34,6 +35,9 @@ describe("C5 — ZIP .escapegame + hydrate", () => {
 
     const s = storeB.getState();
     const layout = s.layout;
+    const msgId = stableActionNodeIdFromPathKey("scene-a:h:0");
+    expect(layout[msgId]?.x).toBe(350);
+    expect(layout[msgId]?.y).toBe(80);
     for (const id of Object.keys(s.scenes)) {
       expect(layout[id as AnyNodeId]).toBeDefined();
     }

@@ -35,10 +35,14 @@ export const getSelectorChildren = (state: NodalProject, parentId: ActionNodeId)
   );
   if (viaParentId.length > 0) return viaParentId;
 
-  return state.edges
+  return getSelectorChildrenFlowOrder(state, parentId);
+};
+
+/** Ordre des choix = ordre des arêtes `flow` (aligné `deserializeFromProjectJson` et path keys sat/media). */
+export const getSelectorChildrenFlowOrder = (state: NodalProject, parentId: ActionNodeId): ActionNodeId[] =>
+  state.edges
     .filter((edge) => edge.family === "flow" && edge.sourceId === parentId && edge.targetId in state.actions)
     .map((edge) => edge.targetId as ActionNodeId);
-};
 
 export const sortActionIdsByY = (state: NodalProject, actionIds: ActionNodeId[]): ActionNodeId[] =>
   [...actionIds].sort((a, b) => {
@@ -63,7 +67,9 @@ const serializeAction = (state: NodalProject, actionId: ActionNodeId): ProjectJs
   }
 
   if (isSelector(action)) {
-    const children = sortActionIdsByY(state, getSelectorChildren(state, action.id));
+    const flowCh = getSelectorChildrenFlowOrder(state, action.id);
+    const children =
+      flowCh.length > 0 ? flowCh : sortActionIdsByY(state, getSelectorChildren(state, action.id));
     payload.nested = {
       ...action.payload.nested,
       choices: children

@@ -5,6 +5,25 @@ import type { ProjectJsonV2, ProjectJsonV2Action } from "./toProjectJson";
 
 const defaultCopy = (): CopyPayload => ({ bodyHtml: "", buttonLabel: "" });
 
+/** Slug pour id interne stable (même graphe V2 → mêmes clés map-layout après réimport). */
+function slugForStableId(raw: string): string {
+  const s = raw.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return s.length > 0 ? s : "x";
+}
+
+/** Id scène interne dérivé de `scene.id` métier (JSON V2). À utiliser aussi à la création (palette, démos). */
+export function stableSceneNodeIdFromExternal(externalSceneId: string): SceneNodeId {
+  return asSceneNodeId(`scn__${slugForStableId(externalSceneId)}`);
+}
+
+/**
+ * Id action interne dérivé du chemin d’export (même convention que `forEachActionInExportWalkOrder` : `ext:h:i`, `:r`, `:c:j`).
+ * Les `:` et autres caractères non alphanumériques sont normalisés en `_`.
+ */
+export function stableActionNodeIdFromPathKey(pathKey: string): ActionNodeId {
+  return asActionNodeId(`act__${slugForStableId(pathKey)}`);
+}
+
 const emptyProject = (): NodalProject => ({
   meta: {
     title: "Untitled",
@@ -35,13 +54,9 @@ const fromV2Type = (value: string): ActionNode["actionType"] => {
   }
 };
 
-const deserializeAction = (
-  state: NodalProject,
-  raw: ProjectJsonV2Action,
-  makeActionId: () => ActionNodeId
-): ActionNodeId => {
+const deserializeAction = (state: NodalProject, raw: ProjectJsonV2Action, pathKey: string): ActionNodeId => {
   const actionType = fromV2Type(raw.type);
-  const actionId = makeActionId();
+  const actionId = stableActionNodeIdFromPathKey(pathKey);
   const base = {
     id: actionId,
     nodeType: "action" as const,
@@ -54,7 +69,7 @@ const deserializeAction = (
   if (actionType === "req" || actionType === "pwd") {
     const payload = (raw.payload ?? {}) as Record<string, unknown>;
     const rewardRaw = payload.rewardAction as ProjectJsonV2Action | undefined;
-    const rewardActionId = rewardRaw ? deserializeAction(state, rewardRaw, makeActionId) : null;
+    const rewardActionId = rewardRaw ? deserializeAction(state, rewardRaw, `${pathKey}:r`) : null;
     if (actionType === "req") {
       state.actions[actionId] = {
         ...base,
@@ -96,16 +111,16 @@ const deserializeAction = (
         },
       },
     };
-    for (const choice of choices) {
-      if (!choice.action) continue;
-      const childActionId = deserializeAction(state, choice.action, makeActionId);
+    choices.forEach((choice, ci) => {
+      if (!choice.action) return;
+      const childActionId = deserializeAction(state, choice.action, `${pathKey}:c:${ci}`);
       state.edges.push({
         id: asEdgeId(`edge-flow-${actionId}-${childActionId}`),
         family: "flow",
         sourceId: actionId,
         targetId: childActionId,
       });
-    }
+    });
     return actionId;
   }
 
@@ -147,13 +162,8 @@ export const deserializeFromProjectJson = (json: ProjectJsonV2): NodalProject =>
   const state = emptyProject();
   state.meta.title = json.title;
 
-  let sceneCounter = 0;
-  let actionCounter = 0;
-  const makeSceneId = () => asSceneNodeId(`scn-${++sceneCounter}`);
-  const makeActionId = () => asActionNodeId(`act-${++actionCounter}`);
-
   for (const scene of json.scenes) {
-    const sceneId = makeSceneId();
+    const sceneId = stableSceneNodeIdFromExternal(scene.id);
     state.scenes[sceneId] = {
       id: sceneId,
       nodeType: "scene",
@@ -165,15 +175,16 @@ export const deserializeFromProjectJson = (json: ProjectJsonV2): NodalProject =>
       state.meta.startSceneId = sceneId;
     }
 
-    for (const hotspot of scene.hotspots) {
-      const actionId = deserializeAction(state, hotspot.action, makeActionId);
+    scene.hotspots.forEach((hotspot, hi) => {
+      const pathKey = `${scene.id}:h:${hi}`;
+      const actionId = deserializeAction(state, hotspot.action, pathKey);
       state.edges.push({
         id: asEdgeId(`edge-scene-${sceneId}-${actionId}`),
         family: "flow",
         sourceId: sceneId,
         targetId: actionId,
       });
-    }
+    });
   }
   wireGotoTransitions(state);
   return state;
