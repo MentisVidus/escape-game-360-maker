@@ -2,12 +2,17 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.3 (24 avril 2026)
+> **Version** : 1.4 (26 avril 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+>
+> **Changelog v1.4** : Annexe B complétée pour le chantier **C5**
+> (persistance `project.json` + `map-layout.json` dans le ZIP
+> `.escapegame`, hydrate du store, IndexedDB). Aucun changement de règle
+> métier §1–§6.
 >
 > **Changelog v1.3** : le satellite `object` devient automatique comme
 > `coords-options` et `choice-options`. Retiré de la palette manuelle.
@@ -729,6 +734,7 @@ Neuf chantiers numérotés pour référence dans les commits.
 - Écriture `project.json` + `map-layout.json` dans le ZIP.
 - Lecture à l'ouverture.
 - Hook sur l'IndexedDB existant pour auto-save.
+- Détail des fichiers et extensions : **Annexe B — C5**.
 
 ### C6 — Formulaire DOM legacy en lecture seule
 
@@ -815,8 +821,6 @@ Le répertoire `xflow/react/src/` reste la cible mais sa structure
 interne sera redéfinie au chantier C1.
 
 ## Annexe B — Fichiers ajoutés par chantier
-
-*(À remplir au fur et à mesure.)*
 
 ### C1
 *(à définir lors de l'implémentation)*
@@ -969,6 +973,86 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
 - `xflow/react/src/__tests__/warnings.test.ts` — couverture unitaire
   des règles de warning C4.
 
+### C5 — Persistance ZIP `.escapegame` + hydrate carte
+
+**Dépendance** : `fflate` dans `xflow/react/package.json` (ZIP
+synchrone en mémoire).
+
+**Nouveaux modules persistance** :
+
+- `xflow/react/src/persistence/zipBundle.ts` — `exportProjectEscapegameZip`
+  / `importProjectEscapegameZip` : archive `project.json` +
+  `map-layout.json` ; `buildNodalProjectFromBundle` (désérialisation +
+  `applyHydratedLayout`).
+- `xflow/react/src/persistence/nodalDraftAdapter.ts` — enveloppe
+  `_nodalV1` (`projectJson` + `layoutJson`) pour les callbacks attendus
+  par `EditorSharedLocalDraft` (vanilla) ; `buildNodalDraftCallbacks`,
+  `parseDraftEnvelope`, `isNodalDraftRecord` ; TODO médias portables
+  C7+ laissés en no-op.
+- `xflow/react/src/persistence/useNodalAutoSave.ts` — hook
+  `useNodalAutoSave` : branche le store sur le gestionnaire IndexedDB
+  existant, filtre les brouillons nodal, `hydrateFromProject` à la
+  restauration ; `markNodalDraftSynchronized` pour la démo.
+
+**Sérialisation / hydrate (extensions par rapport à C1–C4)** :
+
+- `xflow/react/src/serialize/fromProjectJson.ts` — désérialisation V2
+  vers `NodalProject` ; ids actions stables `stableActionNodeIdFromPathKey`
+  alignés sur les chemins d’export ; `wireGotoTransitions` ; parcours
+  JSON `forEachActionPathKeyInProjectJson` /
+  `buildActionIdByPathKeyMapFromProjectJson` (recâblage layout stable
+  cohérent avec les **selectors imbriqués**, ordre `nested.choices`) ;
+  fallback legacy cible `goto` (`scn__…`).
+- `xflow/react/src/serialize/toProjectJson.ts` — export V2 ;
+  `getSelectorChildren` / `getSelectorChildrenFlowOrder` ; tri des choix
+  selector par Y avec **tie-break déterministe** sur l’id d’action.
+- `xflow/react/src/serialize/mapLayoutJson.ts` — type `MapLayoutJson`
+  enrichi (`nodalSceneLayoutByExternalId`, `nodalActionLayoutByPathKey`,
+  `nodalAutoSatelliteData`, `nodalMedia`, `nodalMetaMediaLinks`,
+  `nodalSceneMetaMediaLinks`) ; `serializeLayout` / `applyHydratedLayout`
+  (3ᵉ argument `projectJson` pour la carte path→id) ;
+  `stripAutoSatelliteLayoutFromMap` ; `ensureGraphNodeLayoutsAfterHydrate` ;
+  retrait des edges `flow` legacy selector→choix après restauration
+  `parentId`.
+- `xflow/react/src/serialize/nodalMapExtras.ts` — données satellites auto
+  et liens méta par **chemin d’action** stable ; application après
+  hydrate.
+
+**Store et vue** :
+
+- `xflow/react/src/store/nodalProjectStore.ts` — `hydrateFromProject` ;
+  synchronisation **`goto.payload.target`** avec les arêtes
+  `transition` à `connect` / `disconnect` (export cohérent avec le
+  graphe) ; enchaînement `reconcileAutoSatellites` +
+  `applyNodalAutoSatelliteData` + `applyMetaMediaLinks` après hydrate.
+- `xflow/react/src/view/NodalCanvas.tsx` — sync Zustand → React Flow :
+  **position toujours prise du store** après hydrate/import (évite
+  positions RF obsolètes sur ids déjà présents).
+
+**Démo Vite** :
+
+- `xflow/react/src/dev-main.tsx` — chargement démo, export/import
+  `.escapegame`, auto-save + marquage synchro brouillon.
+
+**Tests** :
+
+- `xflow/react/src/__tests__/c5EscapegameRoundtrip.test.ts` — roundtrip
+  ZIP démo (titres, comptages, viewport, layout stable).
+- `xflow/react/src/__tests__/sceneMetaMediaPersist.test.ts` — liens
+  méta scène→média dans `map-layout.json` après hydrate.
+- `xflow/react/src/__tests__/gotoTransitionPayloadSync.test.ts` —
+  `payload.target` aligné sur edge `transition`.
+- `xflow/react/src/__tests__/nestedSelectorHydrate.test.ts` — hydrate
+  **selector imbriqué** + même Y (carte path depuis JSON).
+- `xflow/react/src/__tests__/roundtrip.test.ts` et
+  `generateRoundtripFixture.test.ts` — `applyHydratedLayout(..., projectJson)`.
+
+**Note d’intégration** : le branchement IndexedDB est prêt côté React
+(adaptateur + hook). L’intégration dans `editeur.html` / charge utile
+vanilla hors démo Vite relève du chantier d’**embarquement** de la
+carte dans l’éditeur principal (hors périmètre strict du code listé
+ci-dessus si non encore câblé).
+
 ## Annexe C — Glossaire
 
 - **Action** : unité métier éditable. Types `msg`, `pick`, `goto`,
@@ -992,4 +1076,4 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
 
 ---
 
-*Fin de NODAL_MAP_SPEC v1.3.*
+*Fin de NODAL_MAP_SPEC v1.4.*
