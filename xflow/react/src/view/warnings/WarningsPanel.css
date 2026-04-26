@@ -51,6 +51,7 @@
   max-height: 280px;
   overflow-y: auto;
   background: var(--palette-bg);
+  color: var(--node-text);
   border: 1px solid var(--palette-border);
   border-radius: 10px;
   box-shadow: var(--node-shadow);
