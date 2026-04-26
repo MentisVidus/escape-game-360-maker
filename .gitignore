@@ -8,10 +8,8 @@ Desktop.ini
 # Dépendances (Chemin B : npm install depuis xflow/react/)
 node_modules/
 xflow/react/node_modules/
-# Build Vite : tout le dossier sauf le bundle IIFE versionné pour l’éditeur HTML
-xflow/react/dist/*
-!xflow/react/dist/editor-map.js
-!xflow/react/dist/editor-map.css
+# Build Vite (xflow/react) — ne pas versionner : régénérer avec `npm run build:editor-map`
+xflow/react/dist/
 
 # Fichiers locaux de travail (jeux générés / exports)
 # Décommentez si vous ne voulez pas versionner certains dossiers :

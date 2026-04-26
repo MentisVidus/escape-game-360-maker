@@ -15,6 +15,16 @@ Contributors comfortable editing HTML/CSS/JS, and **AI tools** applying patches.
 
 Save filenames: `projet.json` (FR editor) vs `project.json` (EN editor) — **same JSON shape**; either editor can load a file saved by the other.
 
+## Carte nodale React (`feat/nodal-map`, dossier `xflow/react/`)
+
+L’éditeur charge **`xflow/react/dist/editor-map.js`** et **`editor-map.css`** depuis le dépôt : ces fichiers **ne sont pas versionnés** (dossier `xflow/react/dist/` dans `.gitignore`). Après `git pull` ou toute modification des sources TypeScript de la carte :
+
+```bash
+cd xflow/react && npm install && npm run build:editor-map
+```
+
+Puis rouvrir **Carte du projet** → onglet **« Carte nodale (bêta) »** (voir aussi `xflow/react/README.md`).
+
 ## Making changes safely
 
 1. **Grep** for related symbols (`generateGame`, `sceneAudios`, `hotspotDispatcher`, etc.).

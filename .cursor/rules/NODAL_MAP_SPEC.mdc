@@ -2,12 +2,16 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.4.2 (26 avril 2026)
+> **Version** : 1.4.3 (26 avril 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+>
+> **Changelog v1.4.3** : **C6.0** — `xflow/react/dist/` **non versionné**
+> (évite les diffs énormes) ; hint d’accès dans la modale carte ; doc
+> `CONTRIBUTING` + `xflow/react/README.md`.
 >
 > **Changelog v1.4.2** : **C6.0** — intégration carte nodale dans
 > `editeur.html` / `editor_en.html` (bundle `editor-map`, bootstrap,
@@ -1127,8 +1131,9 @@ ci-dessus si non encore câblé).
 - [x] Carte React (`xflow/react`) montée dans `editeur.html` /
   `editor_en.html` avec accès au **même** store que la projection (hors
   seule démo Vite `dev-main`) : onglets **Drawflow** / **Carte nodale** dans
-  la modale carte ; bundle `xflow/react/dist/editor-map.{js,css}` +
-  `js/editor-nodal-map-bootstrap.js`.
+  la modale carte ; bundle **`npm run build:editor-map`** →
+  `xflow/react/dist/editor-map.{js,css}` (**hors Git**, `.gitignore`) +
+  `js/editor-nodal-map-bootstrap.js` ; texte d’aide dans l’en-tête modale.
 - [x] Point d’entrée unique : `window.__ESCAPE360_NODAL_STORE__` après le
   premier `Escape360EditorNodalMap.mount()` sur `#nodal-map-root` (store
   démo jusqu’à branchement `getCurrentProjectData` / hydrate).
@@ -1201,4 +1206,4 @@ ci-dessus si non encore câblé).
 
 ---
 
-*Fin de NODAL_MAP_SPEC v1.4.2.*
+*Fin de NODAL_MAP_SPEC v1.4.3.*

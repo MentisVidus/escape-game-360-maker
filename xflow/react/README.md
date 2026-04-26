@@ -9,15 +9,18 @@ Voir **[docs/PLAN_REACT_INTEGRATION.md](../../docs/PLAN_REACT_INTEGRATION.md)**.
 
 ## Intégration éditeur HTML (chantier C6.0, `feat/nodal-map`)
 
-Après modification des sources React, régénérer le bundle servi par
-`editeur.html` / `editor_en.html` :
+Le dépôt **ignore** `xflow/react/dist/` : chaque clone / machine doit
+régénérer le bundle avant d’ouvrir la carte nodale dans l’éditeur :
 
 ```bash
 cd xflow/react && npm install && npm run build:editor-map
 ```
 
-Sortie versionnée : **`dist/editor-map.js`** + **`dist/editor-map.css`**
+Sortie locale : **`dist/editor-map.js`** + **`dist/editor-map.css`**
 (IIFE global `Escape360EditorNodalMap` : `mount`, `unmount`, `getStore`).
 Le store courant est aussi exposé sur **`window.__ESCAPE360_NODAL_STORE__`**
 après le premier `mount` sur `#nodal-map-root` (voir
 `js/editor-nodal-map-bootstrap.js`).
+
+**Accès UI** : dans l’éditeur, bouton **« Afficher la carte »** → dans
+l’en-tête de la modale, onglets **Drawflow** | **Carte nodale (bêta)**.
