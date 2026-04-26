@@ -255,8 +255,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         const parentChanged = (existing.parentId ?? null) !== (n.parentId ?? null);
         const merged: RFNode<NodalRFData> = {
           ...n,
-          // Si le parent change, la position doit venir du store (nouveau référentiel).
-          position: parentChanged ? n.position : existing.position,
+          // Toujours appliquer la position du store (source de vérité).
+          // Sinon, lors d'un hydrate/import sur des ids déjà présents,
+          // RF conserve des positions obsolètes et la reconstruction diverge.
+          position: n.position,
         };
         if (merged.parentId && !knownIds.has(merged.parentId)) {
           console.warn(`[useEffect sync] strip parentId fantôme ${merged.parentId} sur ${merged.id}`);
