@@ -24,6 +24,42 @@ export function stableActionNodeIdFromPathKey(pathKey: string): ActionNodeId {
   return asActionNodeId(`act__${slugForStableId(pathKey)}`);
 }
 
+/**
+ * Parcourt l’arbre d’actions du JSON V2 dans le **même ordre** que `deserializeAction`
+ * (indices `c:i` = ordre du tableau `nested.choices`). Sert à recâbler `nodalActionLayoutByPathKey`
+ * sans dépendre du tri Y du store, qui peut diverger (ex. choix imbriqués sous selector, Y identiques).
+ */
+export function forEachActionPathKeyInProjectJson(json: ProjectJsonV2, visit: (pathKey: string) => void): void {
+  const walk = (raw: ProjectJsonV2Action, pathKey: string) => {
+    visit(pathKey);
+    const t = raw.type;
+    if (t === "req" || t === "pwd") {
+      const reward = (raw.payload as { rewardAction?: ProjectJsonV2Action } | undefined)?.rewardAction;
+      if (reward) walk(reward, `${pathKey}:r`);
+    }
+    if (t === "selector") {
+      const nested = (raw.payload as { nested?: { choices?: Array<{ action?: ProjectJsonV2Action }> } } | undefined)
+        ?.nested;
+      const choices = Array.isArray(nested?.choices) ? nested!.choices : [];
+      choices.forEach((c, ci) => {
+        if (c?.action) walk(c.action, `${pathKey}:c:${ci}`);
+      });
+    }
+  };
+  for (const scene of json.scenes) {
+    scene.hotspots.forEach((h, hi) => walk(h.action, `${scene.id}:h:${hi}`));
+  }
+}
+
+/** Même convention d’ids internes que `deserializeAction` (`stableActionNodeIdFromPathKey`). */
+export function buildActionIdByPathKeyMapFromProjectJson(json: ProjectJsonV2): Map<string, ActionNodeId> {
+  const m = new Map<string, ActionNodeId>();
+  forEachActionPathKeyInProjectJson(json, (pathKey) => {
+    m.set(pathKey, stableActionNodeIdFromPathKey(pathKey));
+  });
+  return m;
+}
+
 const emptyProject = (): NodalProject => ({
   meta: {
     title: "Untitled",

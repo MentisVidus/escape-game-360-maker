@@ -50,6 +50,6 @@ export function importProjectEscapegameZip(buf: ArrayBuffer): ImportedNodalBundl
 /** Reconstruit un `NodalProject` en mémoire (sans passer par le store). */
 export function buildNodalProjectFromBundle(projectJson: ProjectJsonV2, layoutJson: MapLayoutJson) {
   const project = deserializeFromProjectJson(projectJson);
-  applyHydratedLayout(project, layoutJson);
+  applyHydratedLayout(project, layoutJson, projectJson);
   return project;
 }

@@ -101,7 +101,7 @@ describe("nodal model C1 roundtrip", () => {
     expect(layoutJson.inventoryObjects).toEqual(expected.layout.inventoryObjects);
 
     const roundtripState = deserializeFromProjectJson(projectJson);
-    applyHydratedLayout(roundtripState, layoutJson);
+    applyHydratedLayout(roundtripState, layoutJson, projectJson);
     reconcileAutoSatellites(roundtripState);
 
     expect(roundtripState.layout[stableActionNodeIdFromPathKey("scene-a:h:0")]?.x).toBe(150);

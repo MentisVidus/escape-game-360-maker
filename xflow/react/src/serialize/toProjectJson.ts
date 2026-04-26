@@ -48,7 +48,8 @@ export const sortActionIdsByY = (state: NodalProject, actionIds: ActionNodeId[])
   [...actionIds].sort((a, b) => {
     const ya = state.layout[a]?.y ?? 0;
     const yb = state.layout[b]?.y ?? 0;
-    return ya - yb;
+    if (ya !== yb) return ya - yb;
+    return String(a).localeCompare(String(b));
   });
 
 const serializeAction = (state: NodalProject, actionId: ActionNodeId): ProjectJsonV2Action | null => {

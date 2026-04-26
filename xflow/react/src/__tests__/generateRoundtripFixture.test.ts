@@ -96,7 +96,7 @@ describe.skip("generate roundtrip fixture (manual)", () => {
     const layoutJson = serializeLayout(store.getState());
 
     const roundtripState = deserializeFromProjectJson(projectJson);
-    applyHydratedLayout(roundtripState, layoutJson);
+    applyHydratedLayout(roundtripState, layoutJson, projectJson);
     reconcileAutoSatellites(roundtripState);
     const projectJsonAgain = serializeToProjectJson(roundtripState);
     expect(projectJsonAgain).toEqual(projectJson);

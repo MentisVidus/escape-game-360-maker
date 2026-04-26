@@ -3,6 +3,8 @@ import type { NodeLayout } from "../model/layout";
 import type { MediaNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
+import { buildActionIdByPathKeyMapFromProjectJson } from "./fromProjectJson";
+import type { ProjectJsonV2 } from "./toProjectJson";
 
 import {
   applySceneMetaMediaLinks,
@@ -93,12 +95,13 @@ export function ensureGraphNodeLayoutsAfterHydrate(state: NodalProject): void {
 }
 
 /** Applique le layout carte en ignorant les entrées satellites auto + complète les nœuds manquants. */
-export function applyHydratedLayout(state: NodalProject, layout: MapLayoutJson): void {
+export function applyHydratedLayout(state: NodalProject, layout: MapLayoutJson, projectJson: ProjectJsonV2): void {
   if (layout.nodalMedia && Object.keys(layout.nodalMedia).length > 0) {
     state.media = { ...layout.nodalMedia };
   }
   applyLayout(state, stripAutoSatelliteLayoutFromMap(layout));
-  applyStableSceneAndActionLayout(state, layout);
+  applyStableSceneAndActionLayout(state, layout, buildActionIdByPathKeyMapFromProjectJson(projectJson));
+  stripSelectorChoiceFlowEdgesAfterParentRestore(state);
   applySceneMetaMediaLinks(state, layout.nodalSceneMetaMediaLinks);
   ensureGraphNodeLayoutsAfterHydrate(state);
 }
@@ -110,7 +113,11 @@ function deriveParentPathKey(pathKey: string): string | null {
 }
 
 /** Applique le layout stable (indépendant des ids internes) pour scènes + actions. */
-function applyStableSceneAndActionLayout(state: NodalProject, layout: MapLayoutJson): void {
+function applyStableSceneAndActionLayout(
+  state: NodalProject,
+  layout: MapLayoutJson,
+  actionIdByPathFromJson: Map<string, AnyNodeId>
+): void {
   const sceneStable = layout.nodalSceneLayoutByExternalId;
   if (sceneStable && Object.keys(sceneStable).length > 0) {
     const sceneIdByExternal = new Map<string, AnyNodeId>();
@@ -133,17 +140,14 @@ function applyStableSceneAndActionLayout(state: NodalProject, layout: MapLayoutJ
   const actionStable = layout.nodalActionLayoutByPathKey;
   if (!actionStable || Object.keys(actionStable).length === 0) return;
 
-  const actionIdByPath = new Map<string, AnyNodeId>();
-  forEachActionInExportWalkOrder(state, (actionId, pathKey) => {
-    actionIdByPath.set(pathKey, actionId);
-  });
-
   for (const [pathKey, l] of Object.entries(actionStable)) {
-    const actionId = actionIdByPath.get(pathKey);
+    const actionId = actionIdByPathFromJson.get(pathKey);
     if (!actionId) continue;
     const existing = state.layout[actionId];
     const parentPath = deriveParentPathKey(pathKey);
-    const parentId = parentPath ? actionIdByPath.get(parentPath) ?? null : null;
+    const mappedParent = parentPath !== null ? actionIdByPathFromJson.get(parentPath) ?? null : null;
+    const parentId =
+      parentPath === null ? null : (mappedParent ?? (existing?.parentId as AnyNodeId | null | undefined) ?? null);
     state.layout[actionId] = {
       ...existing,
       x: l.x,
@@ -153,6 +157,16 @@ function applyStableSceneAndActionLayout(state: NodalProject, layout: MapLayoutJ
       ...(l.width != null && l.height != null ? { width: l.width, height: l.height } : {}),
     };
   }
+}
+
+/** C3: une fois `parentId` restauré, les edges legacy `selector -> choix` sont supprimées. */
+function stripSelectorChoiceFlowEdgesAfterParentRestore(state: NodalProject): void {
+  state.edges = state.edges.filter((e) => {
+    if (e.family !== "flow" || !(e.sourceId in state.actions) || !(e.targetId in state.actions)) return true;
+    const src = state.actions[e.sourceId as ActionNodeId];
+    if (!src || src.actionType !== "selector") return true;
+    return state.layout[e.targetId as ActionNodeId]?.parentId !== src.id;
+  });
 }
 
 const isActionOrphan = (state: NodalProject, actionId: ActionNodeId): boolean => {

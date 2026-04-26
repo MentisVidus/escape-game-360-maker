@@ -35,7 +35,7 @@ describe("persist meta scène → média", () => {
     );
 
     const base = deserializeFromProjectJson(projectJson);
-    applyHydratedLayout(base, layoutJson);
+    applyHydratedLayout(base, layoutJson, projectJson);
 
     expect(base.edges.some((e) => e.family === "meta" && e.sourceId === sc.id && e.targetId === mid)).toBe(true);
   });

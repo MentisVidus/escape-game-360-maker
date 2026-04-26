@@ -464,7 +464,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     hydrateFromProject: (projectJson, layoutJson) => {
       const state = get();
       const base = deserializeFromProjectJson(projectJson);
-      applyHydratedLayout(base, layoutJson);
+      applyHydratedLayout(base, layoutJson, projectJson);
       const next: NodalProjectStore = {
         ...state,
         meta: {
