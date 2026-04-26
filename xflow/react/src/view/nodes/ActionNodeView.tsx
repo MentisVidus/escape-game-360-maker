@@ -2,7 +2,7 @@ import { Handle, NodeResizer, Position, type NodeProps } from "@xyflow/react";
 
 import type { ActionNodeId, AnyNodeId } from "../../model/ids";
 import type { ActionNode } from "../../model/nodes";
-import { HANDLE_FLOW_IN, HANDLE_GOTO_OUT, HANDLE_META_OUT } from "../handles/handleIds";
+import { HANDLE_FLOW_IN, HANDLE_FLOW_OUT, HANDLE_GOTO_OUT, HANDLE_META_OUT } from "../handles/handleIds";
 import { useNodalUi } from "../nodalUiContext";
 import "../handles/handles.css";
 import "./nodes.css";
@@ -57,8 +57,26 @@ export function ActionNodeView({ id, data }: NodeProps) {
       <div className="subtitle">{getActionSubtitle(node)}</div>
       <Handle id={HANDLE_FLOW_IN} type="target" position={Position.Left} className="nodal-handle flow" />
       {node.actionType === "goto" ? (
-        <Handle id={HANDLE_GOTO_OUT} type="source" position={Position.Right} className="nodal-handle transition" />
-      ) : null}
+        <>
+          {/* Flux action→action (ex. pick → goto) : `toReactFlowEdges` attend toujours `flow-out` côté source. */}
+          <Handle
+            id={HANDLE_FLOW_OUT}
+            type="source"
+            position={Position.Right}
+            className="nodal-handle flow"
+            style={{ top: "32%" }}
+          />
+          <Handle
+            id={HANDLE_GOTO_OUT}
+            type="source"
+            position={Position.Right}
+            className="nodal-handle transition"
+            style={{ top: "68%" }}
+          />
+        </>
+      ) : (
+        <Handle id={HANDLE_FLOW_OUT} type="source" position={Position.Right} className="nodal-handle flow" />
+      )}
       <Handle id={HANDLE_META_OUT} type="source" position={Position.Bottom} className="nodal-handle meta" />
       {showDetach ? (
         <button
