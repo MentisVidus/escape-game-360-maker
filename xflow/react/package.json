@@ -5,13 +5,14 @@
   "description": "Nodal map model workspace for C1.",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "dev": "vite dev.html --host",
     "build": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@xyflow/react": "^12.10.2",
+    "fflate": "^0.8.2",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "zustand": "^5.0.8"

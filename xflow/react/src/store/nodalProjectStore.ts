@@ -13,6 +13,9 @@ import type { NodeLayout, Viewport } from "../model/layout";
 import type { ActionNode, MediaNode, SatelliteNode, SceneNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
+import { applyLayout, type MapLayoutJson } from "../serialize/mapLayoutJson";
+import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
+import type { ProjectJsonV2 } from "../serialize/toProjectJson";
 import { computeWarnings, type Warning } from "./computeWarnings";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 
@@ -34,7 +37,11 @@ export type NodalProjectStore = NodalProject & {
   setViewport: (viewport: Viewport) => void;
   upsertObject: (entry: ObjectEntry) => void;
   removeObject: (objectId: string) => void;
+  /** Remplace tout le projet (ZIP / brouillon) : même schéma que `removeNode` — copie + reconcile + withWarnings. */
+  hydrateFromProject: (projectJson: ProjectJsonV2, layoutJson: MapLayoutJson) => void;
 };
+
+export type NodalProjectStoreApi = StoreApi<NodalProjectStore>;
 
 const defaultLayout = (override?: Partial<NodeLayout>): NodeLayout => {
   const base: NodeLayout = {
@@ -422,6 +429,28 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         reconcileAutoSatellites(next, nextAutoId);
         return withWarnings(next);
       });
+    },
+
+    hydrateFromProject: (projectJson, layoutJson) => {
+      const state = get();
+      const base = deserializeFromProjectJson(projectJson);
+      applyLayout(base, layoutJson);
+      const next: NodalProjectStore = {
+        ...state,
+        meta: {
+          ...base.meta,
+          objects: { ...base.meta.objects },
+          draftActionIds: [...base.meta.draftActionIds],
+        },
+        actions: { ...base.actions },
+        scenes: { ...base.scenes },
+        satellites: { ...base.satellites },
+        media: { ...base.media },
+        edges: [...base.edges],
+        layout: { ...base.layout },
+      };
+      reconcileAutoSatellites(next, nextAutoId);
+      set(withWarnings(next));
     },
   }));
   };
