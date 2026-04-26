@@ -151,18 +151,7 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
 }
 
 export function toReactFlowEdges(state: NodalProject): RFEdge[] {
-  return state.edges
-    .filter((edge) => {
-      if (edge.family === "meta") {
-        const targetId = edge.targetId as AnyNodeId;
-        if (targetId in state.satellites) {
-          const satLayout = state.layout[targetId];
-          if (satLayout?.parentId) return false;
-        }
-      }
-      return true;
-    })
-    .map((edge) => {
+  return state.edges.map((edge) => {
       if (edge.family === "transition") {
         return {
           id: edge.id,
@@ -244,7 +233,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
   useEffect(() => {
     setRfEdges(toReactFlowEdges(state));
-  }, [state.edges, state.layout, setRfEdges]);
+  }, [state.edges, setRfEdges]);
 
   // Wrap onNodesChange pour persister les positions finales vers Zustand
   const onNodesChange = useCallback(
