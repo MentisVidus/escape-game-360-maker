@@ -5,7 +5,7 @@
   "description": "Nodal map model workspace for C1.",
   "type": "module",
   "scripts": {
-    "dev": "vite dev.html --host",
+    "dev": "vite --host",
     "build": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
