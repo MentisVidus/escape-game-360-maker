@@ -44,6 +44,7 @@ import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X 
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
 import { NodePalette } from "./palette/NodePalette";
 import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
+import { WarningsPanel } from "./warnings/WarningsPanel";
 import "./NodalCanvas.css";
 
 type NodalRFData = {
@@ -426,6 +427,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           <MiniMap />
           <Controls />
         </ReactFlow>
+        <WarningsPanel warnings={state.warnings} />
         <ObjectEditorPopup
           satellite={objectSatellite}
           objectEntry={objectEntry}

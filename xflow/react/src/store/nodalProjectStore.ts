@@ -13,11 +13,13 @@ import type { NodeLayout, Viewport } from "../model/layout";
 import type { ActionNode, MediaNode, SatelliteNode, SceneNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
+import { computeWarnings, type Warning } from "./computeWarnings";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 
 type NodePatch = Partial<ActionNode | SceneNode | SatelliteNode | MediaNode>;
 
 export type NodalProjectStore = NodalProject & {
+  warnings: Warning[];
   addScene: (node: SceneNode, layout?: Partial<NodeLayout>) => void;
   addAction: (node: ActionNode, layout?: Partial<NodeLayout>) => void;
   addMedia: (node: MediaNode, layout?: Partial<NodeLayout>) => void;
@@ -64,6 +66,11 @@ const createEmptyProject = (): NodalProject => ({
   media: {},
   edges: [],
   layout: {},
+});
+
+const withWarnings = <T extends NodalProject>(state: T): T & { warnings: Warning[] } => ({
+  ...state,
+  warnings: computeWarnings(state),
 });
 
 const hasIncomingMeta = (state: NodalProjectStore, nodeId: SatelliteNodeId): boolean =>
@@ -115,6 +122,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
 
     return createStore<NodalProjectStore>((set, get) => ({
     ...createEmptyProject(),
+    warnings: [],
 
     addScene: (node, layout) => {
       const state = get();
@@ -122,6 +130,11 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         ...state,
         scenes: { ...state.scenes, [node.id]: node },
         layout: { ...state.layout, [node.id]: defaultLayout(layout) },
+        warnings: computeWarnings({
+          ...state,
+          scenes: { ...state.scenes, [node.id]: node },
+          layout: { ...state.layout, [node.id]: defaultLayout(layout) },
+        }),
       });
     },
 
@@ -131,6 +144,11 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         ...state,
         actions: { ...state.actions, [node.id]: node },
         layout: { ...state.layout, [node.id]: defaultLayout(layout) },
+        warnings: computeWarnings({
+          ...state,
+          actions: { ...state.actions, [node.id]: node },
+          layout: { ...state.layout, [node.id]: defaultLayout(layout) },
+        }),
       });
     },
 
@@ -140,6 +158,11 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         ...state,
         media: { ...state.media, [node.id]: node },
         layout: { ...state.layout, [node.id]: defaultLayout(layout) },
+        warnings: computeWarnings({
+          ...state,
+          media: { ...state.media, [node.id]: node },
+          layout: { ...state.layout, [node.id]: defaultLayout(layout) },
+        }),
       });
     },
 
@@ -169,7 +192,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       }
       pruneOrphanSatellites(next);
       reconcileAutoSatellites(next, nextAutoId);
-      set(next);
+      set(withWarnings(next));
     },
 
     connect: (edge) => {
@@ -177,7 +200,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         if (state.edges.some((existing) => existing.id === edge.id)) return state;
         const next = { ...state, edges: [...state.edges, edge] };
         reconcileAutoSatellites(next, nextAutoId);
-        return next;
+        return withWarnings(next);
       });
     },
 
@@ -185,7 +208,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       set((state) => {
         const next = { ...state, edges: state.edges.filter((edge) => edge.id !== edgeId) };
         reconcileAutoSatellites(next, nextAutoId);
-        return next;
+        return withWarnings(next);
       });
     },
 
@@ -214,12 +237,12 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           },
         };
         reconcileAutoSatellites(next, nextAutoId);
-        set(next);
+        set(withWarnings(next));
         return;
       }
       const next = { ...state, layout: nextLayout };
       reconcileAutoSatellites(next, nextAutoId);
-      set(next);
+      set(withWarnings(next));
     },
 
     detachChild: (childId, absolutePosition) => {
@@ -239,7 +262,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       if (!parentId) {
         const next = { ...state, layout: nextLayout };
         reconcileAutoSatellites(next, nextAutoId);
-        set(next);
+        set(withWarnings(next));
         return;
       }
       const parent = state.actions[parentId as ActionNodeId];
@@ -250,12 +273,12 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           actions: { ...state.actions, [parent.id]: { ...parent, rewardActionId: null } },
         };
         reconcileAutoSatellites(next, nextAutoId);
-        set(next);
+        set(withWarnings(next));
         return;
       }
       const next = { ...state, layout: nextLayout };
       reconcileAutoSatellites(next, nextAutoId);
-      set(next);
+      set(withWarnings(next));
     },
 
     updateNodeData: (nodeId, patch) => {
@@ -269,16 +292,17 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
             },
           };
           reconcileAutoSatellites(next, nextAutoId);
-          return next;
+          return withWarnings(next);
         }
         if (nodeId in state.scenes) {
-          return {
+          const next = {
             ...state,
             scenes: {
               ...state.scenes,
               [nodeId]: { ...state.scenes[nodeId as SceneNodeId], ...(patch as Partial<SceneNode>) },
             },
           };
+          return withWarnings(next);
         }
         if (nodeId in state.satellites) {
           const next = {
@@ -292,16 +316,17 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
             },
           };
           reconcileAutoSatellites(next, nextAutoId);
-          return next;
+          return withWarnings(next);
         }
         if (nodeId in state.media) {
-          return {
+          const next = {
             ...state,
             media: {
               ...state.media,
               [nodeId]: { ...state.media[nodeId as MediaNodeId], ...(patch as Partial<MediaNode>) } as MediaNode,
             },
           };
+          return withWarnings(next);
         }
         return state;
       });
@@ -317,12 +342,20 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           ...state.layout,
           [nodeId]: { ...current, ...patch },
         },
+        warnings: computeWarnings({
+          ...state,
+          layout: {
+            ...state.layout,
+            [nodeId]: { ...current, ...patch },
+          },
+        }),
       });
     },
 
     setStartScene: (sceneId) => {
       const state = get();
-      set({ ...state, meta: { ...state.meta, startSceneId: sceneId } });
+      const next = { ...state, meta: { ...state.meta, startSceneId: sceneId } };
+      set(withWarnings(next));
     },
 
     setViewport: (viewport) => {
@@ -348,7 +381,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           meta: { ...state.meta, objects: { ...state.meta.objects, [normalizedObjectId]: merged } },
         };
         reconcileAutoSatellites(next, nextAutoId);
-        return next;
+        return withWarnings(next);
       });
     },
 
@@ -367,7 +400,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           }
         }
         reconcileAutoSatellites(next, nextAutoId);
-        return next;
+        return withWarnings(next);
       });
     },
   }));

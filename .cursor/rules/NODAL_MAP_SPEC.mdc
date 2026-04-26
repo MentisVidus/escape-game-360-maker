@@ -952,6 +952,23 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
   relatifs, stabilité du layout relatif au déplacement parent, priorité
   REQ/PWD vs selector.
 
+### C4 — Warnings et panel bas-droite
+
+- `xflow/react/src/store/computeWarnings.ts` — calcul pur des warnings
+  §6 (`DRAFT`, `REWARD_MISSING`, `REWARD_CHAIN`, `SELECTOR_EMPTY`,
+  `SCENE_UNREACHABLE`, `GOTO_ORPHAN`, `SELECTOR_CYCLE`,
+  `OBJECT_UNDEFINED`).
+- `xflow/react/src/store/nodalProjectStore.ts` — ajout du champ
+  `warnings` au store et recalcul côté Zustand après mutations.
+- `xflow/react/src/view/warnings/WarningsPanel.tsx` — panneau warnings
+  repliable, badge compteur, clic centré sur nœud via `fitView`.
+- `xflow/react/src/view/warnings/WarningsPanel.css` — styles du panel
+  compatibles light/dark via variables existantes de `NodalCanvas.css`.
+- `xflow/react/src/view/NodalCanvas.tsx` — rendu du panel dans la
+  vue carte et abonnement aux warnings du store.
+- `xflow/react/src/__tests__/warnings.test.ts` — couverture unitaire
+  des règles de warning C4.
+
 ## Annexe C — Glossaire
 
 - **Action** : unité métier éditable. Types `msg`, `pick`, `goto`,
