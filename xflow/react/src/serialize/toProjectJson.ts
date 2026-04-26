@@ -67,9 +67,8 @@ const serializeAction = (state: NodalProject, actionId: ActionNodeId): ProjectJs
   }
 
   if (isSelector(action)) {
-    const flowCh = getSelectorChildrenFlowOrder(state, action.id);
-    const children =
-      flowCh.length > 0 ? flowCh : sortActionIdsByY(state, getSelectorChildren(state, action.id));
+    // C3 : ordre des choix = `parentId` + Y (fallback legacy : edges flow encore présentes).
+    const children = sortActionIdsByY(state, getSelectorChildren(state, action.id));
     payload.nested = {
       ...action.payload.nested,
       choices: children

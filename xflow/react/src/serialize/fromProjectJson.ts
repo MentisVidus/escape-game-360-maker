@@ -111,15 +111,10 @@ const deserializeAction = (state: NodalProject, raw: ProjectJsonV2Action, pathKe
         },
       },
     };
+    // C3 : pas d’edge `flow` selector→choix — filiation via `layout.parentId` (+ positions dans map-layout).
     choices.forEach((choice, ci) => {
       if (!choice.action) return;
-      const childActionId = deserializeAction(state, choice.action, `${pathKey}:c:${ci}`);
-      state.edges.push({
-        id: asEdgeId(`edge-flow-${actionId}-${childActionId}`),
-        family: "flow",
-        sourceId: actionId,
-        targetId: childActionId,
-      });
+      deserializeAction(state, choice.action, `${pathKey}:c:${ci}`);
     });
     return actionId;
   }
@@ -187,8 +182,24 @@ export const deserializeFromProjectJson = (json: ProjectJsonV2): NodalProject =>
     });
   }
   wireGotoTransitions(state);
+  stripLegacySelectorChoiceFlowEdges(state);
   return state;
 };
+
+/** Ancien import : edges `flow` selector→choix (hors spec §4.2). Supprimées si encore présentes. */
+function stripLegacySelectorChoiceFlowEdges(state: NodalProject): void {
+  const selectorIds = new Set(
+    (Object.keys(state.actions) as ActionNodeId[]).filter((id) => state.actions[id]?.actionType === "selector")
+  );
+  state.edges = state.edges.filter(
+    (e) =>
+      !(
+        e.family === "flow" &&
+        selectorIds.has(e.sourceId as ActionNodeId) &&
+        e.targetId in state.actions
+      )
+  );
+}
 
 /** Arêtes `transition` goto → scène cible (non portées par le JSON V2 seul). */
 function wireGotoTransitions(state: NodalProject): void {
