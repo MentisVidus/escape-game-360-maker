@@ -239,12 +239,6 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         );
         return;
       }
-      const childAction = state.actions[childId as ActionNodeId];
-      const parentAction = state.actions[parentId as ActionNodeId];
-      if (parentAction?.actionType === "selector" && childAction?.actionType === "selector") {
-        console.warn("[attachChild] selector ne peut pas être parent direct d'un autre selector");
-        return;
-      }
       const childLayout = state.layout[childId];
       if (!childLayout) return;
       if (!(childId in state.actions)) return;

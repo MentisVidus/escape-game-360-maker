@@ -627,8 +627,7 @@ describe("C3c selector sub-flow + contextual state", () => {
     expect(lay?.y).toBeCloseTo(30, 5);
   });
 
-  it("attachChild selector→selector : no-op", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("attachChild selector→selector : parentId + satellite choice-options (spec 4.4)", () => {
     const store = createNodalProjectStore();
     const state = store.getState();
     const parentSel = makeSelector("act-c3c-sel-p", "P");
@@ -636,11 +635,16 @@ describe("C3c selector sub-flow + contextual state", () => {
     state.addAction(parentSel, { x: 0, y: 0 });
     state.addAction(childSel, { x: 50, y: 50 });
     state.attachChild(parentSel.id, childSel.id);
-    expect(store.getState().layout[childSel.id]?.parentId).toBeNull();
-    expect(warnSpy).toHaveBeenCalledWith(
-      "[attachChild] selector ne peut pas être parent direct d'un autre selector"
-    );
-    warnSpy.mockRestore();
+
+    const next = store.getState();
+    expect(next.layout[childSel.id]?.parentId).toBe(parentSel.id);
+    expect(getActionContextualState(next, childSel.id)).toBe(3);
+    const choiceMeta = next.edges.some((e) => {
+      if (e.family !== "meta" || e.sourceId !== childSel.id) return false;
+      const sat = next.satellites[e.targetId as keyof typeof next.satellites];
+      return sat?.satelliteType === "choice-options";
+    });
+    expect(choiceMeta).toBe(true);
   });
 
   it("attachChild auto-parentage : no-op", () => {
