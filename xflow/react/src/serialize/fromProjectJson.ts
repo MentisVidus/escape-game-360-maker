@@ -182,24 +182,8 @@ export const deserializeFromProjectJson = (json: ProjectJsonV2): NodalProject =>
     });
   }
   wireGotoTransitions(state);
-  stripLegacySelectorChoiceFlowEdges(state);
   return state;
 };
-
-/** Ancien import : edges `flow` selector→choix (hors spec §4.2). Supprimées si encore présentes. */
-function stripLegacySelectorChoiceFlowEdges(state: NodalProject): void {
-  const selectorIds = new Set(
-    (Object.keys(state.actions) as ActionNodeId[]).filter((id) => state.actions[id]?.actionType === "selector")
-  );
-  state.edges = state.edges.filter(
-    (e) =>
-      !(
-        e.family === "flow" &&
-        selectorIds.has(e.sourceId as ActionNodeId) &&
-        e.targetId in state.actions
-      )
-  );
-}
 
 /** Arêtes `transition` goto → scène cible (non portées par le JSON V2 seul). */
 function wireGotoTransitions(state: NodalProject): void {
@@ -211,7 +195,16 @@ function wireGotoTransitions(state: NodalProject): void {
     if (action.actionType !== "goto") continue;
     const ext = String((action.payload as { target?: string }).target ?? "").trim();
     if (!ext) continue;
-    const targetSceneId = sceneIdByExternal.get(ext);
+    let targetSceneId = sceneIdByExternal.get(ext);
+    // Legacy : `target` pouvait contenir l’id interne `scn__…` au lieu de l’id métier V2.
+    if (!targetSceneId) {
+      for (const s of Object.values(state.scenes)) {
+        if (String(s.id) === ext) {
+          targetSceneId = s.id;
+          break;
+        }
+      }
+    }
     if (!targetSceneId) continue;
     const dup = state.edges.some(
       (e) => e.family === "transition" && e.sourceId === action.id && e.targetId === targetSceneId

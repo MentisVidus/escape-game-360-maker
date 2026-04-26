@@ -123,6 +123,32 @@ const defaultObjectEntry = (objectId: string): ObjectEntry => ({
 const hasIncomingFlowFromScene = (state: NodalProjectStore, actionId: ActionNodeId): boolean =>
   state.edges.some((edge) => edge.family === "flow" && edge.targetId === actionId && edge.sourceId in state.scenes);
 
+/** `project.json` ne porte que `goto.payload.target` : à chaque transition UI, aligner le payload sur `scene.sceneId`. */
+function syncGotoTargetFromTransitionEdge(state: NodalProjectStore, edge: Edge): void {
+  if (edge.family !== "transition") return;
+  if (!(edge.sourceId in state.actions) || !(edge.targetId in state.scenes)) return;
+  const action = state.actions[edge.sourceId as ActionNodeId];
+  const scene = state.scenes[edge.targetId as SceneNodeId];
+  if (!action || action.actionType !== "goto" || !scene) return;
+  state.actions[action.id] = {
+    ...action,
+    payload: { ...action.payload, target: scene.sceneId },
+  } as ActionNode;
+}
+
+function clearGotoTargetIfNoTransition(state: NodalProjectStore, removed: Edge): void {
+  if (removed.family !== "transition") return;
+  if (!(removed.sourceId in state.actions)) return;
+  const action = state.actions[removed.sourceId as ActionNodeId];
+  if (!action || action.actionType !== "goto") return;
+  const stillHas = state.edges.some((e) => e.family === "transition" && e.sourceId === action.id);
+  if (stillHas) return;
+  state.actions[action.id] = {
+    ...action,
+    payload: { ...action.payload, target: "" },
+  } as ActionNode;
+}
+
 /** Refuse d'attacher child sous parent si parent est déjà un descendant de child (évite cycle parentId). */
 function wouldCreateCycle(
   layout: Record<string, { parentId?: AnyNodeId | null }>,
@@ -224,7 +250,8 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     connect: (edge) => {
       set((state) => {
         if (state.edges.some((existing) => existing.id === edge.id)) return state;
-        const next = { ...state, edges: [...state.edges, edge] };
+        const next: NodalProjectStore = { ...state, edges: [...state.edges, edge] };
+        syncGotoTargetFromTransitionEdge(next, edge);
         reconcileAutoSatellites(next, nextAutoId);
         return withWarnings(next);
       });
@@ -232,7 +259,9 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
 
     disconnect: (edgeId) => {
       set((state) => {
-        const next = { ...state, edges: state.edges.filter((edge) => edge.id !== edgeId) };
+        const removed = state.edges.find((e) => e.id === edgeId);
+        const next: NodalProjectStore = { ...state, edges: state.edges.filter((edge) => edge.id !== edgeId) };
+        if (removed) clearGotoTargetIfNoTransition(next, removed);
         reconcileAutoSatellites(next, nextAutoId);
         return withWarnings(next);
       });
