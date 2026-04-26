@@ -75,22 +75,77 @@ const collectReachableSceneIds = (state: NodalProject): Set<SceneNodeId> => {
   const start = state.meta.startSceneId;
   if (!start || !(start in state.scenes)) return new Set<SceneNodeId>();
 
-  const visited = new Set<AnyNodeId>();
   const reachableScenes = new Set<SceneNodeId>();
-  const stack: AnyNodeId[] = [start];
+  const hasFlowInFromReachableScene = (actionId: ActionNodeId): boolean =>
+    state.edges.some(
+      (edge) =>
+        edge.family === "flow" &&
+        edge.targetId === actionId &&
+        edge.sourceId in state.scenes &&
+        reachableScenes.has(edge.sourceId as SceneNodeId)
+    );
 
-  while (stack.length > 0) {
-    const nodeId = stack.pop()!;
-    if (visited.has(nodeId)) continue;
-    visited.add(nodeId);
-    if (nodeId in state.scenes) reachableScenes.add(nodeId as SceneNodeId);
+  const isNestedUnderReachableScene = (actionId: ActionNodeId): boolean => {
+    const seen = new Set<ActionNodeId>();
+    let currentId: ActionNodeId | null = actionId;
+    while (currentId) {
+      if (seen.has(currentId)) return false;
+      seen.add(currentId);
+      if (hasFlowInFromReachableScene(currentId)) return true;
+      const parentId = state.layout[currentId]?.parentId;
+      if (!parentId) return false;
+      if (parentId in state.actions) {
+        currentId = parentId as ActionNodeId;
+        continue;
+      }
+      if (parentId in state.scenes) {
+        return reachableScenes.has(parentId as SceneNodeId);
+      }
+      return false;
+    }
+    return false;
+  };
 
-    for (const edge of state.edges) {
-      if (edge.sourceId !== nodeId) continue;
-      if (edge.family !== "flow" && edge.family !== "transition") continue;
-      if (!visited.has(edge.targetId)) stack.push(edge.targetId);
+  let changed = true;
+  reachableScenes.add(start);
+  while (changed) {
+    changed = false;
+    const visited = new Set<AnyNodeId>();
+    const stack: AnyNodeId[] = [...reachableScenes];
+    while (stack.length > 0) {
+      const nodeId = stack.pop()!;
+      if (visited.has(nodeId)) continue;
+      visited.add(nodeId);
+      if (nodeId in state.scenes) {
+        const sid = nodeId as SceneNodeId;
+        if (!reachableScenes.has(sid)) {
+          reachableScenes.add(sid);
+          changed = true;
+        }
+      }
+      for (const edge of state.edges) {
+        if (edge.sourceId !== nodeId) continue;
+        if (edge.family !== "flow" && edge.family !== "transition") continue;
+        if (!visited.has(edge.targetId)) stack.push(edge.targetId);
+      }
+    }
+
+    for (const action of Object.values(state.actions)) {
+      if (action.actionType !== "goto") continue;
+      if (!isNestedUnderReachableScene(action.id)) continue;
+      for (const edge of state.edges) {
+        if (edge.family !== "transition") continue;
+        if (edge.sourceId !== action.id) continue;
+        if (!(edge.targetId in state.scenes)) continue;
+        const targetSceneId = edge.targetId as SceneNodeId;
+        if (!reachableScenes.has(targetSceneId)) {
+          reachableScenes.add(targetSceneId);
+          changed = true;
+        }
+      }
     }
   }
+
   return reachableScenes;
 };
 

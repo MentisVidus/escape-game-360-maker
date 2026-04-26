@@ -45,6 +45,16 @@ const makeReq = (id: string, label = "Req"): ActionNode => ({
   visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
 });
 
+const makeGoto = (id: string, label = "Goto"): ActionNode => ({
+  id: asActionNodeId(id),
+  nodeType: "action",
+  actionType: "goto",
+  label,
+  payload: { target: "scene-b", copy: { bodyHtml: "", buttonLabel: "Go" } },
+  sfx: { url: "", volume: 1 },
+  visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+});
+
 describe("computeWarnings (C4)", () => {
   it("DRAFT : action sans flow-in ni parentId", () => {
     const store = createNodalProjectStore();
@@ -98,6 +108,46 @@ describe("computeWarnings (C4)", () => {
     store.getState().setStartScene(s1.id);
     const warnings = computeWarnings(store.getState());
     expect(warnings.filter((w) => w.code === "SCENE_UNREACHABLE")).toHaveLength(1);
+  });
+
+  it("SCENE_UNREACHABLE : goto en choix (etat 3) depuis selector hotspot rend la scene cible atteignable", () => {
+    const store = createNodalProjectStore();
+    const a = makeScene("scn-a", "a", "A");
+    const b = makeScene("scn-b", "b", "B");
+    const selector = makeSelector("act-sel-a", "Sel");
+    const goto = makeGoto("act-goto-choice");
+    store.getState().addScene(a, { x: 0, y: 0 });
+    store.getState().addScene(b, { x: 300, y: 0 });
+    store.getState().setStartScene(a.id);
+    store.getState().addAction(selector, { x: 120, y: 0 });
+    store.getState().addAction(goto, { x: 160, y: 60 });
+    store.getState().connect({ id: asEdgeId("flow-a-sel"), family: "flow", sourceId: a.id, targetId: selector.id });
+    store.getState().attachChild(selector.id, goto.id);
+    store.getState().connect({ id: asEdgeId("tr-goto-b"), family: "transition", sourceId: goto.id, targetId: b.id });
+    const warnings = computeWarnings(store.getState());
+    expect(
+      warnings.some((w) => w.code === "SCENE_UNREACHABLE" && w.nodeId === b.id)
+    ).toBe(false);
+  });
+
+  it("SCENE_UNREACHABLE : goto en recompense (etat 4) depuis req hotspot rend la scene cible atteignable", () => {
+    const store = createNodalProjectStore();
+    const a = makeScene("scn-a2", "a2", "A2");
+    const b = makeScene("scn-b2", "b2", "B2");
+    const req = makeReq("act-req-a2");
+    const goto = makeGoto("act-goto-reward");
+    store.getState().addScene(a, { x: 0, y: 0 });
+    store.getState().addScene(b, { x: 300, y: 0 });
+    store.getState().setStartScene(a.id);
+    store.getState().addAction(req, { x: 120, y: 0 });
+    store.getState().addAction(goto, { x: 180, y: 0 });
+    store.getState().connect({ id: asEdgeId("flow-a-req"), family: "flow", sourceId: a.id, targetId: req.id });
+    store.getState().attachChild(req.id, goto.id);
+    store.getState().connect({ id: asEdgeId("tr-goto-b2"), family: "transition", sourceId: goto.id, targetId: b.id });
+    const warnings = computeWarnings(store.getState());
+    expect(
+      warnings.some((w) => w.code === "SCENE_UNREACHABLE" && w.nodeId === b.id)
+    ).toBe(false);
   });
 
   it("OBJECT_UNDEFINED : req avec satellite object non défini", () => {
