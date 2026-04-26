@@ -1,6 +1,65 @@
 /* Vue carte (Drawflow) — styles des nœuds dans l’éditeur */
 
 /* Barre de modes (Focus / Complète / Acyclique) */
+/* C6.0 — moteur Drawflow vs carte nodale (React), dans la même modale */
+.project-map-engine-tabs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin: 0 4px 0 10px;
+    padding: 0 0 0 10px;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.project-map-engine-tab {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #5d6d7e;
+    background: #34495e;
+    color: #ecf0f1;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.project-map-engine-tab:hover {
+    background: #3d566e;
+}
+
+.project-map-engine-tab.active {
+    background: #2980b9;
+    border-color: #1f6dad;
+    color: #fff;
+    font-weight: 600;
+}
+
+#nodal-map-root.nodal-map-root {
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    display: none;
+    flex-direction: column;
+    min-height: 0;
+    background: #2c2c3a;
+}
+
+/* Dans la modale : le layout nodal ne doit pas forcer 100vw/100vh (fichier bundle). */
+#nodal-map-root.nodal-map-root .nodal-canvas-layout {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.project-map-canvas-wrap.project-map-engine-nodal #nodal-map-root.nodal-map-root {
+    display: flex;
+}
+
+.project-map-canvas-wrap.project-map-engine-nodal #project-drawflow {
+    visibility: hidden;
+    pointer-events: none;
+}
+
 .project-map-toolbar {
     display: flex;
     flex-wrap: wrap;

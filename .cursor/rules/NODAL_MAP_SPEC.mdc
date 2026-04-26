@@ -2,12 +2,17 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.4.1 (26 avril 2026)
+> **Version** : 1.4.2 (26 avril 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+>
+> **Changelog v1.4.2** : **C6.0** — intégration carte nodale dans
+> `editeur.html` / `editor_en.html` (bundle `editor-map`, bootstrap,
+> onglet Drawflow / nodale) ; annexe « Chantier C6 » mise à jour (cases
+> C6.0 cochées).
 >
 > **Changelog v1.4.1** : ajout fin de document d’une **annexe de suivi
 > chantier C6** (workspace, branche de travail, plan — à retirer après
@@ -1094,8 +1099,8 @@ ci-dessus si non encore câblé).
 - **Fusion** : PR / merge **vers `feat/nodal-map` uniquement** ; **pas**
   de PR vers `main` tant que le chantier carte nodale global n’est pas
   terminé (décision auteur).
-- **État** : plan figé + spec à jour ; implémentation **à démarrer** sur
-  `feat/c6-legacy-readonly`.
+- **État** : **C6.0 livré** sur `feat/c6-legacy-readonly` (montage carte +
+  store global) ; C6.1+ à venir.
 
 ### Décisions produit (validées)
 
@@ -1119,11 +1124,14 @@ ci-dessus si non encore câblé).
 
 **C6.0 — Prérequis intégration** *(si pas déjà fait au moment du code)*
 
-- [ ] Carte React (`xflow/react`) montée dans `editeur.html` /
+- [x] Carte React (`xflow/react`) montée dans `editeur.html` /
   `editor_en.html` avec accès au **même** store que la projection (hors
-  seule démo Vite `dev-main`).
-- [ ] Point d’entrée unique : où vit le `StoreApi<NodalProjectStore>` côté
-  page éditeur (global contrôlé, pas d’instance orpheline).
+  seule démo Vite `dev-main`) : onglets **Drawflow** / **Carte nodale** dans
+  la modale carte ; bundle `xflow/react/dist/editor-map.{js,css}` +
+  `js/editor-nodal-map-bootstrap.js`.
+- [x] Point d’entrée unique : `window.__ESCAPE360_NODAL_STORE__` après le
+  premier `Escape360EditorNodalMap.mount()` sur `#nodal-map-root` (store
+  démo jusqu’à branchement `getCurrentProjectData` / hydrate).
 
 **C6.1 — Verrou lecture seule + bandeau**
 
@@ -1193,4 +1201,4 @@ ci-dessus si non encore câblé).
 
 ---
 
-*Fin de NODAL_MAP_SPEC v1.4.1.*
+*Fin de NODAL_MAP_SPEC v1.4.2.*

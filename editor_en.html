@@ -21,7 +21,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.css" integrity="sha512-XMxqcAfuPHOh2Kz0Z3oDynUcLgyKP6B1NCKUTxyVbM02u1ZrygDcLddKw7KpN/SGmdw8raHbKgaIHP7+bEfGYw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="https://unpkg.com/drawflow@0.0.59/dist/drawflow.min.css" integrity="sha512-GTNFMKejVzflYCjpOETNHO0QkDLuSQA8uv+edsDWiHgz+dw3XjA4Xz2RulzhJTzzQxt4nOAdSzjAcBadGIIALw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="xflow/draw/project-graph.css" />
-    
+    <link rel="stylesheet" href="xflow/react/dist/editor-map.css" />
+
     <!-- Injected CSS for live scene preview (hotspot outlines) -->
     <style id="live-preview-styles"></style>
 </head>
@@ -439,16 +440,21 @@
                 <button type="button" class="project-map-tool" data-project-map-view="full" onclick="setProjectMapView('full')">Full graph</button>
                 <button type="button" class="project-map-tool" data-project-map-view="tree" onclick="setProjectMapView('tree')">Acyclic view</button>
             </div>
+            <div id="project-map-engine-tabs" class="project-map-engine-tabs" role="tablist" aria-label="Map engine">
+                <button type="button" class="project-map-engine-tab active" role="tab" aria-selected="true" data-project-map-engine="drawflow">Drawflow</button>
+                <button type="button" class="project-map-engine-tab" role="tab" aria-selected="false" data-project-map-engine="nodal">Nodal map (beta)</button>
+            </div>
             <label class="project-map-narration-label"><input type="checkbox" id="project-map-narration-only"> Narration mode (transitions only)</label>
             <small class="project-map-toolbar-hint">Focus / tree: click a node to edit it in the right panel. Double-click a compact scene to center it.</small>
         </div>
         <button type="button" onclick="closeProjectMap()" style="background:#e74c3c;">Close</button>
     </div>
     <div id="project-map-body" class="project-map-body">
-        <div id="project-map-canvas-wrap" class="project-map-canvas-wrap">
+        <div id="project-map-canvas-wrap" class="project-map-canvas-wrap project-map-engine-drawflow">
             <button type="button" id="project-map-fab-settings" class="project-map-fab project-map-fab-settings" title="Global game settings">⚙</button>
             <button type="button" id="project-map-fab-add-scene" class="project-map-fab project-map-fab-add-scene" title="New scene">+</button>
             <div id="project-drawflow"></div>
+            <div id="nodal-map-root" class="nodal-map-root" aria-label="Nodal map (React Flow)"></div>
         </div>
         <aside id="project-map-side-panel" class="project-map-side-panel" aria-hidden="true">
             <div class="project-map-side-panel-header">
@@ -488,5 +494,7 @@
     <script src="js/editor-en-app.js" defer></script>
     <script src="js/editor-en-generate.js" defer></script>
     <script src="xflow/draw/project-graph.js" defer></script>
+    <script src="xflow/react/dist/editor-map.js" defer></script>
+    <script src="js/editor-nodal-map-bootstrap.js" defer></script>
 </body>
 </html>
