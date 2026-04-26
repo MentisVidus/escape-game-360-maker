@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { asActionNodeId, asEdgeId, asSatelliteNodeId, asSceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
@@ -11,6 +11,7 @@ import {
   DETACH_OVERLAP_THRESHOLD,
 } from "../view/nesting/constants";
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "../view/nesting/geometry";
+import { toReactFlowNodes } from "../view/NodalCanvas";
 
 const findObjectSatelliteIdForAction = (
   state: NodalProjectStore,
@@ -627,6 +628,7 @@ describe("C3c selector sub-flow + contextual state", () => {
   });
 
   it("attachChild selector→selector : no-op", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const store = createNodalProjectStore();
     const state = store.getState();
     const parentSel = makeSelector("act-c3c-sel-p", "P");
@@ -635,6 +637,10 @@ describe("C3c selector sub-flow + contextual state", () => {
     state.addAction(childSel, { x: 50, y: 50 });
     state.attachChild(parentSel.id, childSel.id);
     expect(store.getState().layout[childSel.id]?.parentId).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[attachChild] selector ne peut pas être parent direct d'un autre selector"
+    );
+    warnSpy.mockRestore();
   });
 
   it("attachChild auto-parentage : no-op", () => {
@@ -796,5 +802,94 @@ describe("satellites relatifs + priorité drag attach", () => {
     const useChoiceParent = !useRewardParent && bestChoiceOverlap >= th;
     expect(useRewardParent).toBe(false);
     expect(useChoiceParent).toBe(true);
+  });
+});
+
+describe("attachChild anti-cycle parentId", () => {
+  const makeMsg = (id: string): ActionNode => ({
+    id: asActionNodeId(id),
+    nodeType: "action",
+    actionType: "msg",
+    label: id,
+    payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+    sfx: { url: "", volume: 1 },
+    visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+  });
+
+  it("cycle direct : attachChild(B,A) refusé si B est déjà enfant de A", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const a = makeMsg("act-cycle-a");
+    const b = makeMsg("act-cycle-b");
+    state.addAction(a, { x: 0, y: 0 });
+    state.addAction(b, { x: 10, y: 10 });
+    state.attachChild(a.id, b.id);
+    let next = store.getState();
+    expect(next.layout[b.id]?.parentId).toBe(a.id);
+    expect(next.layout[a.id]?.parentId).toBeNull();
+
+    state.attachChild(b.id, a.id);
+    next = store.getState();
+    expect(next.layout[b.id]?.parentId).toBe(a.id);
+    expect(next.layout[a.id]?.parentId).toBeNull();
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("cycle indirect : attachChild(C,A) refusé si chaîne A→B→C", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const a = makeMsg("act-cycle2-a");
+    const b = makeMsg("act-cycle2-b");
+    const c = makeMsg("act-cycle2-c");
+    state.addAction(a, { x: 0, y: 0 });
+    state.addAction(b, { x: 10, y: 10 });
+    state.addAction(c, { x: 20, y: 20 });
+    state.attachChild(a.id, b.id);
+    state.attachChild(b.id, c.id);
+    expect(store.getState().layout[c.id]?.parentId).toBe(b.id);
+
+    state.attachChild(c.id, a.id);
+    const next = store.getState();
+    expect(next.layout[a.id]?.parentId).toBeNull();
+    expect(next.layout[b.id]?.parentId).toBe(a.id);
+    expect(next.layout[c.id]?.parentId).toBe(b.id);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("toReactFlowNodes ne plante pas si parentId forme un cycle (données corrompues)", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const a = makeMsg("act-rf-cyc-a");
+    const b = makeMsg("act-rf-cyc-b");
+    state.addAction(a, { x: 0, y: 0 });
+    state.addAction(b, { x: 50, y: 0 });
+    state.updateNodeLayout(a.id, { parentId: b.id });
+    state.updateNodeLayout(b.id, { parentId: a.id });
+    expect(() => toReactFlowNodes(store.getState())).not.toThrow();
+  });
+
+  it("cycle indirect via updateNodeLayout : attachChild(C,A) refusé", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const a = makeMsg("act-cycle3-a");
+    const b = makeMsg("act-cycle3-b");
+    const c = makeMsg("act-cycle3-c");
+    state.addAction(a, { x: 0, y: 0 });
+    state.addAction(b, { x: 10, y: 10 });
+    state.addAction(c, { x: 20, y: 20 });
+    state.updateNodeLayout(b.id, { parentId: a.id });
+    state.updateNodeLayout(c.id, { parentId: b.id });
+    state.attachChild(c.id, a.id);
+    const next = store.getState();
+    expect(next.layout[a.id]?.parentId).toBeNull();
+    expect(next.layout[b.id]?.parentId).toBe(a.id);
+    expect(next.layout[c.id]?.parentId).toBe(b.id);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

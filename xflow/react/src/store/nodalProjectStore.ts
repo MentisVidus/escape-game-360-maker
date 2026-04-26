@@ -115,6 +115,24 @@ const defaultObjectEntry = (objectId: string): ObjectEntry => ({
 const hasIncomingFlowFromScene = (state: NodalProjectStore, actionId: ActionNodeId): boolean =>
   state.edges.some((edge) => edge.family === "flow" && edge.targetId === actionId && edge.sourceId in state.scenes);
 
+/** Refuse d'attacher child sous parent si parent est déjà un descendant de child (évite cycle parentId). */
+function wouldCreateCycle(
+  layout: Record<string, { parentId?: AnyNodeId | null }>,
+  parentId: string,
+  childId: string
+): boolean {
+  let current: string | null | undefined = parentId;
+  const seen = new Set<string>();
+  while (current) {
+    if (seen.has(current)) return true;
+    if (current === childId) return true;
+    seen.add(current);
+    const parentNext: AnyNodeId | null | undefined = layout[current]?.parentId;
+    current = parentNext ?? undefined;
+  }
+  return false;
+}
+
 export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
   {
     let autoIdSeq = 0;
@@ -215,9 +233,18 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     attachChild: (parentId, childId) => {
       const state = get();
       if (parentId === childId) return;
+      if (wouldCreateCycle(state.layout, parentId as string, childId as string)) {
+        console.warn(
+          `[attachChild] attachement refusé : créerait un cycle (${childId} → ... → ${parentId} → ${childId})`
+        );
+        return;
+      }
       const childAction = state.actions[childId as ActionNodeId];
       const parentAction = state.actions[parentId as ActionNodeId];
-      if (parentAction?.actionType === "selector" && childAction?.actionType === "selector") return;
+      if (parentAction?.actionType === "selector" && childAction?.actionType === "selector") {
+        console.warn("[attachChild] selector ne peut pas être parent direct d'un autre selector");
+        return;
+      }
       const childLayout = state.layout[childId];
       if (!childLayout) return;
       if (!(childId in state.actions)) return;

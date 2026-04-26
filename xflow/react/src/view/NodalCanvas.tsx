@@ -58,14 +58,23 @@ type NodalRFData = {
 function sortNodesParentFirst(nodes: RFNode<NodalRFData>[]): RFNode<NodalRFData>[] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const visited = new Set<string>();
+  const inStack = new Set<string>();
   const result: RFNode<NodalRFData>[] = [];
 
   const visit = (node: RFNode<NodalRFData>) => {
     if (visited.has(node.id)) return;
+    if (inStack.has(node.id)) {
+      console.warn(
+        `[sortNodesParentFirst] cycle détecté sur le nœud ${node.id}, parentId ignoré pour le tri`
+      );
+      return;
+    }
+    inStack.add(node.id);
     if (node.parentId) {
       const parent = byId.get(node.parentId);
       if (parent) visit(parent);
     }
+    inStack.delete(node.id);
     visited.add(node.id);
     result.push(node);
   };
