@@ -2,12 +2,35 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.4.3 (26 avril 2026)
+> **Version** : 1.4.6 (26 avril 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+>
+> **Changelog v1.4.6** : **C6.3 partiel** — `store.subscribe` + rAF dans
+> `editor-nodal-map-bootstrap.js` : projection DOM pendant l’onglet nodal
+> (plus seulement au changement d’onglet). Retrait **`inert`** panneau
+> latéral. **C6.2 étendu** : satellite **`object`** → `itemId` pick/req ;
+> **`coords-options`** → pitch/yaw ; **selector** : choix depuis
+> `layout.parentId`.
+>
+> **Changelog v1.4.5** : **C6.2** (premier incrément) — module
+> `js/editor-shared-nodal-to-dom.js` : `applyFromStore` / projection
+> scènes + hotspots (`flow` depuis chaque scène, `goto` → type legacy
+> `scene`) ; `window.__escape360EditorDomApi` dans *-app.js* ; appel
+> depuis `editor-nodal-map-bootstrap.js` à l’activation de l’onglet nodal.
+> *(Pas d’abonnement temps réel : C6.3.)*
+>
+> **Changelog v1.4.4** : **C6.1** (premier incrément) — bandeau FR/EN + verrou
+> panneau latéral (`inert`) + masquage FAB « nouvelle scène » + classe
+> `escape360-nodal-map-ro` sur `body` ; `closeProjectMap` réinitialise le
+> moteur Drawflow. **Polish** : fond `#nodal-map-root` clair par défaut,
+> sombre si `.nodal-canvas-layout.dark-mode` (`:has`) — alignement visuel
+> mode clair carte / `dev.html`. *Limite* : avec `inert`, les boutons de
+> prévisualisation du panneau latéral sont inactifs sur l’onglet nodal ;
+> passer à Drawflow pour prévisualiser depuis ce panneau (affinement C6.x).
 >
 > **Changelog v1.4.3** : **C6.0** — `xflow/react/dist/` **non versionné**
 > (évite les diffs énormes) ; hint d’accès dans la modale carte ; doc
@@ -353,8 +376,8 @@ visuel variant (pastel ou pointillé fin) déterminé par son contexte.
 - Handles :
   - **Ouest** : reçoit une transition depuis un `goto` (`transition-in`).
   - **Est** : émet `flow-out` vers ses hotspots.
-  - **Sud** : rattache médias et satellites (image panoramique, audio
-    d'ambiance).
+  - **Sud** : rattache médias et satellites (**image 360** via nœud
+    `media-image` en meta → projection DOM ; audio séparé).
 - Pas de handle Nord (les médias viennent du Sud comme partout).
 
 ### 3.3 Nœud action (générique)
@@ -362,8 +385,9 @@ visuel variant (pastel ou pointillé fin) déterminé par son contexte.
 Handles communs à toutes les actions :
 - **Ouest** : `flow-in` (entrée narrative).
 - **Est** : dépend du type (voir §4.3).
-- **Sud** : rattache médias (sfx) et satellites (coords-options /
-  choice-options / object).
+- **Sud** : rattache médias (**audio** SFX via nœud `media-audio` en meta ;
+  pas de SFX dans les popups `coords-options` / `choice-options`) et
+  satellites (coords-options / choice-options / object).
 - Pas de handle Nord.
 
 **Variantes visuelles selon l'état contextuel** :
@@ -882,8 +906,8 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
   satellites manuels.
 - `xflow/react/src/view/nodalUiContext.tsx` — contexte UI (édition
   objet).
-- `xflow/react/src/view/popups/ObjectEditorPopup.tsx` +
-  `ObjectEditorPopup.css` — popup minimal objet.
+- `xflow/react/src/view/popups/ObjectEditorPopup.tsx` — popup minimal objet
+  (styles partagés `.nodal-popup-*` dans `NodalCanvas.css`).
 - `xflow/react/src/view/NodalCanvas.tsx` — provider + popup.
 - `xflow/react/src/view/nodes/SatelliteNodeView.tsx` — clic satellite
   `object`.
@@ -1096,37 +1120,63 @@ ci-dessus si non encore câblé).
 > détail fichier sera reporté dans **Annexe B — C6** ; la roadmap §7
 > reste la référence produit.
 
-### Branche Git et intégration `main`
+- **Source de vérité unique** : la carte nodale.
+- Le **DOM legacy** est un **miroir de lecture / debug** (et
+  compatibilité temporaire export joueur), jamais une source métier.
+- Les flux de persistance doivent rester :
+  - **save** : `Nodal -> sauvegarde`
+  - **load** : `sauvegarde -> Nodal -> DOM`
+- Aucune logique métier nouvelle ne doit être ajoutée côté legacy.
 
 - **Branche de travail** : `feat/c6-legacy-readonly` (créée depuis
-  `feat/nodal-map`).
+  `feat/nodal-map`) — *les commits sur cette branche peuvent être peu
+  fréquents ; viser des commits petits et ciblés dès la reprise.*
 - **Fusion** : PR / merge **vers `feat/nodal-map` uniquement** ; **pas**
   de PR vers `main` tant que le chantier carte nodale global n’est pas
   terminé (décision auteur).
-- **État** : **C6.0 livré** sur `feat/c6-legacy-readonly` (montage carte +
-  store global) ; C6.1+ à venir.
+- **État synthétique** : **C6.0** (carte + store) et surtout **C6.2**
+  (adaptateur nodal → DOM, popups satellites / médias, thème popups)
+  avancés en priorité. **C6.1** (verrou lecture seule + bandeau sur le
+  formulaire legacy) **n’a pas été traité** dans cette itération : le
+  legacy reste **éditable** en parallèle de la carte ; la nodale reste
+  la **source de vérité** pour le bundle / la projection. Reprise ou
+  abandon explicite de C6.1 à trancher plus tard.
 
-### Décisions produit (validées)
+- **C6.0** : intégré (montage carte React + store partagé).
+- **C6.1** : **non livré / reporté** (désactivation UI legacy + bandeau
+  « miroir nodal » — hors périmètre immédiat ; pas de régression attendue
+  tant que l’équipe ne s’appuie pas sur le legacy comme source métier).
+- **C6.2** : en cours de durcissement (REQ/PWD, `generateGame()`, ordre
+  selector) ; projection DOM déjà riche (scène + média image meta,
+  hotspots, SFX via média audio meta, etc.).
+- **C6.3** : abonnement store → projection et flush après load **déjà
+  branchés** côté app ; stabilisation continue (garde ré-entrance,
+  refresh carte).
 
-| # | Sujet | Décision |
-|---|--------|----------|
-| Q1 | Boutons « ajouter scène / hotspot » côté legacy | **Oui**, désactivés jusqu’à **C7** (médias / texte riches depuis la nodale) ; objectif C6 : vérifier déjà la **cohérence visuelle** des scènes / structure pour un pas vers `generateGame`. |
-| Q2 | Fréquence sync store → DOM | **Sur mutation du store** (Zustand) : charge négligeable (pas d’édition à 10 mut/s). Optionnel plus tard : coalescence `requestAnimationFrame` si profilage réel. |
-| Q3 | Pipeline export joueur | **Oui** : `generateGame()` continue de lire le **DOM legacy** pour l’instant ; pas de lecture directe depuis le store nodal en C6. |
-| Q4 | Bandeau UX | **Oui** : message explicite du type *Formulaire en lecture seule — miroir de la carte nodale*. |
+### C6.2 — Reste à finaliser
 
-### Objectif C6 (rappel §7)
+- [ ] **REQ/PWD récompense** : garantir la projection complète dans le
+  DOM, y compris les enchaînements de récompenses.
+- [ ] **`generateGame()`** : valider que les chaînes REQ/PWD projetées
+  depuis la nodale sont bien relues sans perte.
+- [x] **Popup `coords-options`** : pitch/yaw + visibilité hotspot ; SFX
+  exclusivement via **nœud média audio** relié en meta à l’action (plus
+  de champs SFX dans la popup satellite).
+- [x] **Popup `choice-options`** : visibilité choix selector ; SFX via
+  **média audio** meta sur l’action enfant (idem, pas de champs SFX dans
+  la popup satellite).
+- [ ] Vérifier que la projection garde l’ordre des choix selector
+  (éviter toute dérive entre rendu nodal et JSON final).
 
-- Désactivation de tous les **inputs / selects / boutons** d’édition du
-  formulaire legacy (y compris ajout scène / hotspot).
-- **Projection** du modèle carte (`NodalProject` / JSON V2 équivalent)
-  vers le DOM pour que `getCurrentProjectData()` et **`generateGame()`**
-  restent alignés sur la carte.
-- Aucune écriture utilisateur dans le legacy (cf. §0.2 et §8.6).
+### C6.3 — Points de stabilisation
 
-### Plan d’implémentation (ordre proposé)
+- [x] Projection explicite après `hydrateFromBundle` (pipeline bundle + flush DOM).
+- [x] Vérifier qu’aucune étape n’hydrate la nodale depuis le DOM lors de
+  l’ouverture de la carte (graphe d’exemple ou bundle nodal uniquement).
+- [ ] Conserver toute manipulation DOM strictement dans `js/*`
+  (rien dans `xflow/react`).
 
-**C6.0 — Prérequis intégration** *(si pas déjà fait au moment du code)*
+### Validation manuelle attendue
 
 - [x] Carte React (`xflow/react`) montée dans `editeur.html` /
   `editor_en.html` avec accès au **même** store que la projection (hors
@@ -1152,26 +1202,24 @@ ci-dessus si non encore câblé).
 
 **C6.2 — Adaptateur « nodal → DOM legacy »** *(module partagé)*
 
-- [ ] Nouveau module **`js/editor-shared-nodal-to-dom.js`** (nom indicatif) :
-  fonctions pures ou presque, **sans** logique FR/EN dupliquée ; options
-  de locale pour chaînes si besoin.
-- [ ] Entrée principale du type `applyNodalProjectToLegacyDom(state,
-  deps)` : parcours scènes / hotspots / actions V2 et remplit les champs
-  attendus par la sérialisation actuelle (réutiliser les mêmes conventions
-  que `hotspotDomToV2` / `getCurrentProjectData()` en sens inverse —
-  auditer les sélecteurs `.sc-id`, `f-target`, champs selector, etc.).
-- [ ] Cas prioritaires pour le premier incrément : **scènes** (id, titre,
-  panorama URL de base), **hotspots** attachés (au moins structure + type
-  d’action visible) ; puis selector imbriqué, req/pwd, goto, médias au fil
-  des besoins de `generateGame()`.
+- [x] Module **`js/editor-shared-nodal-to-dom.js`** : projection store nodal
+  → DOM legacy (scènes, hotspots, selector, satellites, média-audio meta
+  pour SFX, etc.) ; **sans** logique FR/EN dupliquée.
+- [x] Entrée **`applyNodalStateToLegacyDom`** (export `EditorSharedNodalToDom`) :
+  parcours scènes / hotspots / actions V2 et remplit les champs attendus
+  par la sérialisation (conventions alignées `hotspotDomToV2` / legacy).
+- [x] Incréments livrés : scènes (titre + **image 360** : `scene.panoramaUrl`
+  ou URL du nœud **media-image** lié en meta à la scène), hotspots,
+  selector enfants, satellites coords/choice (sans SFX satellite dans
+  la projection), **SFX** depuis nœud **media-audio** meta sur l’action ;
+  reste à durcir REQ/PWD / `generateGame()` (cases ouvertes ci-dessus).
 
 **C6.3 — Abonnement store → projection**
 
-- [ ] `store.subscribe` (ou équivalent) : à chaque changement de
-  `NodalProject`, ré-appeler l’adaptateur C6.2 (avec garde simple anti
-  re-entrancy si besoin).
-- [ ] Après **load** projet / hydrate ZIP : une passe de projection
-  explicite.
+- [x] `store.subscribe` / pipeline actif : ré-appel adaptateur C6.2 avec
+  garde ré-entrance côté `editor-shared-nodal-to-dom.js`.
+- [x] Après **load** projet / hydrate ZIP : passe de projection explicite
+  (`flushNodalStoreToEditorDom` / équivalent dans `*-app.js`).
 - [ ] Ne pas introduire de `document.querySelector` dans **`xflow/react`**
   (règle §8.6) : tout le DOM legacy reste côté **`js/*`**.
 
@@ -1205,5 +1253,3 @@ ci-dessus si non encore câblé).
   une ligne « C6 livré — voir Annexe B »).
 
 ---
-
-*Fin de NODAL_MAP_SPEC v1.4.3.*

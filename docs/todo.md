@@ -8,6 +8,7 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 
 ## Traitée ou partiellement adressée ici
 
+- **Bundle `.escapegame` + carte nodale** — nodal = source de vérité stricte : save via `serializeForBundle()` (écriture directe `project.json` nodal + `map-layout.json`), sans passer par `getCurrentProjectData()` ; load ZIP : `hydrateFromBundle` puis projection DOM (`flushNodalStoreToEditorDom`) ; ouverture carte sans bundle nodal = graphe d’exemple (pas d’hydratation depuis le DOM) ; synchro 8 s + flush sortie (`editor-shared-bundle.js`, `*-app.js`, `editor-nodal-map-bootstrap.js`, `editor-map-main.tsx` + `dist/editor-map.js`).
 - **Export ZIP + médias mixtes** — extension de `eachPortableMediaUrlInProject` / `rewritePortableUrlsInProjectClone` (FR + EN) : `globalAudioUrl`, `invIcon` (URL), `media.ambianceUrl` (legacy). Alerte si des `blob:` subsistent dans `index.html` après remplacement (export ZIP).
 - **README — tests localhost** — rechargement forcé / cache (`Ctrl+F5`, etc.) ajouté dans les conseils FR + EN.
 - **Sauvegarde `.json` + médias locaux** — `saveProject()` : `confirm` si `collectPortableBundleEmbeds` non vide ; recommande **`.escapegame`** (FR + EN).
