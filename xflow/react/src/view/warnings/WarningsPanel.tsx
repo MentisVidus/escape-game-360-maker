@@ -23,8 +23,9 @@ export function WarningsPanel({ warnings }: WarningPanelProps) {
         className="warnings-panel-toggle"
         onClick={() => setCollapsed((v) => !v)}
         aria-expanded={!collapsed}
+        aria-label="Avertissements"
       >
-        <span>Avertissements</span>
+        <span className="warnings-panel-icon">⚠</span>
         {warnings.length > 0 ? <span className="warnings-panel-badge">{warnings.length}</span> : null}
       </button>
 

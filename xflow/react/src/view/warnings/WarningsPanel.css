@@ -1,48 +1,59 @@
 .warnings-panel {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  top: 12px;
+  right: 52px;
   z-index: 12;
-  min-width: 280px;
-  max-width: 360px;
-  border: 1px solid var(--palette-border);
-  border-radius: 10px;
-  background: var(--palette-bg);
-  color: var(--node-text);
-  box-shadow: var(--node-shadow);
 }
 
 .warnings-panel-toggle {
-  width: 100%;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: 600 12px/1.2 Arial, sans-serif;
-  padding: 10px 12px;
+  justify-content: center;
+  position: relative;
+  border: 1px solid var(--palette-border);
+  border-radius: 8px;
+  background: var(--palette-bg);
+  color: var(--node-text);
   cursor: pointer;
+  font-size: 16px;
+  box-shadow: var(--node-shadow);
+}
+
+.warnings-panel-icon {
+  line-height: 1;
 }
 
 .warnings-panel-badge {
-  min-width: 20px;
-  height: 20px;
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
   border-radius: 999px;
-  padding: 0 6px;
+  padding: 0 3px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: #dc2626;
   color: #fff;
-  font: 700 11px/1 Arial, sans-serif;
+  font: 700 10px/1 Arial, sans-serif;
 }
 
 .warnings-panel-body {
-  border-top: 1px solid var(--palette-border);
-  max-height: 220px;
-  overflow: auto;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 260px;
+  max-width: 360px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--palette-bg);
+  border: 1px solid var(--palette-border);
+  border-radius: 10px;
+  box-shadow: var(--node-shadow);
 }
 
 .warnings-panel-empty {
