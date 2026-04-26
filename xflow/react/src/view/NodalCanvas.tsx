@@ -7,6 +7,7 @@ import {
   useReactFlow,
   useNodesState,
   useEdgesState,
+  useUpdateNodeInternals,
   type Connection,
   type Edge as RFEdge,
   type EdgeChange,
@@ -208,6 +209,7 @@ function detectFamily(connection: Connection): "flow" | "transition" | "meta" | 
 
 function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const reactFlow = useReactFlow<RFNode<NodalRFData>, RFEdge>();
+  const updateNodeInternals = useUpdateNodeInternals();
   const [mapColorMode, setMapColorMode] = useState<"light" | "dark">("light");
   const [objectEditorSatelliteId, setObjectEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
   const state = useSyncExternalStore(
@@ -232,7 +234,9 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       // Préserve le state interne (position pendant drag, mesures, sélection)
       // pour les nœuds qui existent déjà des deux côtés
       const currentById = new Map(current.map((n) => [n.id, n]));
-      return nextNodes.map((n) => {
+      const nodesToUpdate: string[] = [];
+
+      const result = nextNodes.map((n) => {
         const existing = currentById.get(n.id);
         if (!existing) {
           if (n.parentId && !knownIds.has(n.parentId)) {
@@ -241,8 +245,11 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             );
             const stripped: RFNode<NodalRFData> = { ...n };
             delete stripped.parentId;
+            nodesToUpdate.push(stripped.id);
             return stripped;
           }
+          nodesToUpdate.push(n.id);
+          if (n.parentId) nodesToUpdate.push(n.parentId);
           return n;
         }
         const parentChanged = (existing.parentId ?? null) !== (n.parentId ?? null);
@@ -255,12 +262,39 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           console.warn(`[useEffect sync] strip parentId fantôme ${merged.parentId} sur ${merged.id}`);
           delete merged.parentId;
         }
+        if (parentChanged) {
+          nodesToUpdate.push(merged.id);
+          if (merged.parentId) nodesToUpdate.push(merged.parentId);
+          const prevParent = existing.parentId;
+          if (prevParent) nodesToUpdate.push(prevParent);
+        }
         if (existing.selected !== undefined) merged.selected = existing.selected;
         if (existing.measured !== undefined) merged.measured = existing.measured;
         return merged;
       });
+
+      for (const n of result) {
+        if (!currentById.has(n.id)) {
+          nodesToUpdate.push(n.id);
+          if (n.parentId) nodesToUpdate.push(n.parentId);
+        }
+      }
+
+      if (nodesToUpdate.length > 0) {
+        const unique = [...new Set(nodesToUpdate)];
+        setTimeout(() => updateNodeInternals(unique), 0);
+      }
+      return result;
     });
-  }, [state.scenes, state.actions, state.satellites, state.media, state.layout, setRfNodes]);
+  }, [
+    state.scenes,
+    state.actions,
+    state.satellites,
+    state.media,
+    state.layout,
+    setRfNodes,
+    updateNodeInternals,
+  ]);
 
   useEffect(() => {
     setRfEdges(toReactFlowEdges(state));
