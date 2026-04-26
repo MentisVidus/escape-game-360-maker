@@ -339,6 +339,22 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       );
       if (hasFlowInFromScene) return;
 
+      // Chaîne parentId lue sur le store à jour (getState) : plusieurs onNodeDragStop
+      // peuvent s'enchaîner avant re-render React ; state.layout du closure serait obsolète.
+      const getAncestors = (nodeId: string): Set<string> => {
+        const ancestors = new Set<string>();
+        let current: string | null | undefined = store.getState().layout[nodeId as AnyNodeId]?.parentId as
+          | string
+          | null
+          | undefined;
+        while (current) {
+          if (ancestors.has(current)) break;
+          ancestors.add(current);
+          current = store.getState().layout[current as AnyNodeId]?.parentId as string | null | undefined;
+        }
+        return ancestors;
+      };
+
       let bestRewardParentId: AnyNodeId | null = null;
       let bestRewardOverlap = 0;
       let bestChoiceParentId: AnyNodeId | null = null;
@@ -357,6 +373,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             bestRewardParentId = candidate.id as AnyNodeId;
           }
         } else if (candidateAction.actionType === "selector") {
+          const candidateAncestors = getAncestors(candidate.id);
+          const draggedAncestors = getAncestors(draggedNode.id);
+          if (candidateAncestors.has(draggedNode.id)) continue;
+          if (draggedAncestors.has(candidate.id)) continue;
           if (overlap > bestChoiceOverlap) {
             bestChoiceOverlap = overlap;
             bestChoiceParentId = candidate.id as AnyNodeId;
@@ -396,7 +416,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         });
       }
     },
-    [reactFlow, state]
+    [reactFlow, state, store]
   );
 
   const layoutClassName =
