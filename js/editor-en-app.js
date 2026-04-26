@@ -409,6 +409,24 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "", sceneTargetR
     return sId;
 }
 
+/** After removing `.scene-block` nodes: set `sceneIdCounter` to max existing `scene_N` id. */
+function resyncSceneIdCounterFromDom() {
+    var container = document.getElementById("scenes-container");
+    if (!container) return;
+    var maxNum = 0;
+    var blocks = container.querySelectorAll(":scope > .scene-block");
+    var bi;
+    for (bi = 0; bi < blocks.length; bi++) {
+        var b = blocks[bi];
+        if (!b || !b.id) continue;
+        var m = /^scene_(\d+)$/.exec(b.id);
+        if (!m) continue;
+        var n = parseInt(m[1], 10);
+        if (!isNaN(n) && n > maxNum) maxNum = n;
+    }
+    sceneIdCounter = maxNum;
+}
+
 // --- Add hotspot to a scene ---
 function addHotspot(sceneId, hsData = null) {
     hsIdCounter++; 
@@ -1869,6 +1887,7 @@ window.__escape360EditorDomApi = {
     addHotspot: addHotspot,
     actionV2ToLegacyHotspotData: actionV2ToLegacyHotspotData,
     EditorCore: EditorCore,
+    resyncSceneIdCounterFromDom: resyncSceneIdCounterFromDom,
     refreshAllSceneTargetSelects:
         typeof refreshAllSceneTargetSelects === "function" ? refreshAllSceneTargetSelects : undefined,
     initAllSceneIdStableFields:

@@ -1168,6 +1168,40 @@ ci-dessus si non encore câblé).
 - [ ] Vérifier que la projection garde l’ordre des choix selector
   (éviter toute dérive entre rendu nodal et JSON final).
 
+### Plan — Enchaînements REQ→REQ, PWD→PWD ou mixtes *(à cadrer avant impl.)*
+
+> **Constat** : le **DOM legacy** et le **runtime joueur** (`generateGame` /
+> `editeur-generate.js`) modélisent aujourd’hui **une seule** récompense
+> sous un hotspot `req` / `pwd` : `payload.rewardAction` (V2) ou champs
+> dérivés type `f_req_action` / `f_pwd_action` côté legacy / export. Il
+> n’existe pas de chaîne native « récompense puis nouvelle énigme » dans
+> le même hotspot.
+
+**Pistes (à trancher en spec produit + technique)** :
+
+1. **Graphe nodal** : plusieurs actions `req`/`pwd` enchaînées comme
+   nœuds **récompense** successifs (parent REQ/PWD) sont déjà possibles
+   visuellement ; la question est la **projection** vers le legacy et
+   l’**export joueur**.
+2. **Option A — Aplatissement** : à la projection / à l’export, fusionner
+   la chaîne en **une** action composite ou en **liste ordonnée** dans un
+   schéma V2 étendu (`rewardChain[]`) puis adapter `actionV2ToLegacyHotspotData`
+   et le template joueur pour exécuter séquentiellement (sans casser les
+   jeux existants à un seul palier).
+3. **Option B — Runtime uniquement** : garder un seul slot legacy mais
+   faire pointer `rewardAction` vers un type interne « séquence »
+   interprété par le JS joueur (plus de travail sur `generateGame` que
+   sur le DOM éditeur).
+4. **Option C — Limite produit** : documenter que **un seul** palier
+   req/pwd par hotspot reste supporté en export tant que C7 n’étend pas
+   le schéma ; chaînes réservées à la seule carte nodale + bundle nodal.
+
+**Étapes de préparation** : auditer `actionV2ToLegacyHotspotData` /
+`legacyActionToV2` ; lire les branches `req` / `pwd` dans
+`editeur-generate.js` (~1770+ et exécution hotspot) ; décider si la
+cible prioritaire est **miroir DOM** ou **ZIP joueur** ; ajouter tests
+Vitest / smoke sur un jeu minimal avant d’étendre le graphe.
+
 ### C6.3 — Points de stabilisation
 
 - [x] Projection explicite après `hydrateFromBundle` (pipeline bundle + flush DOM).
@@ -1209,10 +1243,12 @@ ci-dessus si non encore câblé).
   parcours scènes / hotspots / actions V2 et remplit les champs attendus
   par la sérialisation (conventions alignées `hotspotDomToV2` / legacy).
 - [x] Incréments livrés : scènes (titre + **image 360** : `scene.panoramaUrl`
-  ou URL du nœud **media-image** lié en meta à la scène), hotspots,
+  ou URL du nœud **media-image** lié en meta à la scène), **suppression
+  des blocs scène legacy** dont l’ID court n’existe plus dans le store
+  nodal + resynchronisation du compteur `scene_N`, hotspots,
   selector enfants, satellites coords/choice (sans SFX satellite dans
   la projection), **SFX** depuis nœud **media-audio** meta sur l’action ;
-  reste à durcir REQ/PWD / `generateGame()` (cases ouvertes ci-dessus).
+  reste à durcir REQ/PWD / `generateGame()` (voir plan chaînes ci-dessus).
 
 **C6.3 — Abonnement store → projection**
 

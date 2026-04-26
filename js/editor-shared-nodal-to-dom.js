@@ -337,6 +337,27 @@
 
             var actionsById = state.actions || {};
             var scenes = sortedScenes(state);
+            var wantSceneIds = {};
+            var si0;
+            for (si0 = 0; si0 < scenes.length; si0++) {
+                if (scenes[si0] && scenes[si0].sceneId) {
+                    wantSceneIds[String(scenes[si0].sceneId).trim()] = true;
+                }
+            }
+            var orphanBlocks = container.querySelectorAll(":scope > .scene-block");
+            var oi;
+            for (oi = 0; oi < orphanBlocks.length; oi++) {
+                var ob = orphanBlocks[oi];
+                var scInp = ob.querySelector(".sc-id");
+                var shortId = scInp ? String(scInp.value || "").trim() : "";
+                if (!shortId || !wantSceneIds[shortId]) {
+                    ob.remove();
+                }
+            }
+            if (typeof api.resyncSceneIdCounterFromDom === "function") {
+                api.resyncSceneIdCounterFromDom();
+            }
+
             var si;
             for (si = 0; si < scenes.length; si++) {
                 var sc = scenes[si];

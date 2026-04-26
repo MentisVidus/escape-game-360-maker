@@ -414,6 +414,24 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "", sceneTargetR
     return sId;
 }
 
+/** Après suppression de blocs `.scene-block` hors graphe nodal : remet `sceneIdCounter` au max des `scene_N` restants (évite collision avec `addScene`). */
+function resyncSceneIdCounterFromDom() {
+    var container = document.getElementById("scenes-container");
+    if (!container) return;
+    var maxNum = 0;
+    var blocks = container.querySelectorAll(":scope > .scene-block");
+    var bi;
+    for (bi = 0; bi < blocks.length; bi++) {
+        var b = blocks[bi];
+        if (!b || !b.id) continue;
+        var m = /^scene_(\d+)$/.exec(b.id);
+        if (!m) continue;
+        var n = parseInt(m[1], 10);
+        if (!isNaN(n) && n > maxNum) maxNum = n;
+    }
+    sceneIdCounter = maxNum;
+}
+
 // --- FONCTION : AJOUTER UN HOTSPOT ---
 // Ajoute un point d'interaction à une scène spécifique
 function addHotspot(sceneId, hsData = null) {
@@ -1882,6 +1900,7 @@ window.__escape360EditorDomApi = {
     addHotspot: addHotspot,
     actionV2ToLegacyHotspotData: actionV2ToLegacyHotspotData,
     EditorCore: EditorCore,
+    resyncSceneIdCounterFromDom: resyncSceneIdCounterFromDom,
     refreshAllSceneTargetSelects:
         typeof refreshAllSceneTargetSelects === "function" ? refreshAllSceneTargetSelects : undefined,
     initAllSceneIdStableFields:
