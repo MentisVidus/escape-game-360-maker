@@ -46,6 +46,13 @@ describe("C5 — ZIP .escapegame + hydrate", () => {
         expect(layout[pid]).toBeDefined();
       }
     }
+
+    const transitions = s.edges.filter((e) => e.family === "transition");
+    expect(transitions.length).toBe(1);
+    const goto = Object.values(s.actions).find((a) => a.actionType === "goto");
+    const sceneB = Object.values(s.scenes).find((sc) => sc.sceneId === "scene-b");
+    expect(goto && sceneB).toBeTruthy();
+    expect(transitions.some((t) => t.sourceId === goto!.id && t.targetId === sceneB!.id)).toBe(true);
   });
 
   it("lève une erreur explicite si project.json est absent", () => {

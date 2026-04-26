@@ -29,7 +29,7 @@ const isReqOrPwd = (action: ActionNode): action is ReqActionNode | PwdActionNode
 
 const isSelector = (action: ActionNode): action is SelectorActionNode => action.actionType === "selector";
 
-const getSelectorChildren = (state: NodalProject, parentId: ActionNodeId): ActionNodeId[] => {
+export const getSelectorChildren = (state: NodalProject, parentId: ActionNodeId): ActionNodeId[] => {
   const viaParentId = (Object.keys(state.actions) as ActionNodeId[]).filter(
     (candidateId) => state.layout[candidateId]?.parentId === parentId
   );
@@ -40,7 +40,7 @@ const getSelectorChildren = (state: NodalProject, parentId: ActionNodeId): Actio
     .map((edge) => edge.targetId as ActionNodeId);
 };
 
-const sortActionIdsByY = (state: NodalProject, actionIds: ActionNodeId[]): ActionNodeId[] =>
+export const sortActionIdsByY = (state: NodalProject, actionIds: ActionNodeId[]): ActionNodeId[] =>
   [...actionIds].sort((a, b) => {
     const ya = state.layout[a]?.y ?? 0;
     const yb = state.layout[b]?.y ?? 0;
@@ -84,7 +84,7 @@ const serializeAction = (state: NodalProject, actionId: ActionNodeId): ProjectJs
   };
 };
 
-const getHotspotActionIdsForScene = (state: NodalProject, sceneId: SceneNodeId): ActionNodeId[] =>
+export const getHotspotActionIdsForScene = (state: NodalProject, sceneId: SceneNodeId): ActionNodeId[] =>
   state.edges
     .filter(
       (edge) =>

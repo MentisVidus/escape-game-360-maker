@@ -14,6 +14,7 @@ import type { ActionNode, MediaNode, SatelliteNode, SceneNode } from "../model/n
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import { applyHydratedLayout, type MapLayoutJson } from "../serialize/mapLayoutJson";
+import { applyMetaMediaLinks, applyNodalAutoSatelliteData } from "../serialize/nodalMapExtras";
 import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
 import type { ProjectJsonV2 } from "../serialize/toProjectJson";
 import { computeWarnings, type Warning } from "./computeWarnings";
@@ -450,6 +451,8 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         layout: { ...base.layout },
       };
       reconcileAutoSatellites(next, nextAutoId);
+      applyNodalAutoSatelliteData(next, layoutJson.nodalAutoSatelliteData);
+      applyMetaMediaLinks(next, layoutJson.nodalMetaMediaLinks);
       set(withWarnings(next));
     },
   }));

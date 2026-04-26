@@ -1,4 +1,4 @@
-import { asActionNodeId, asEdgeId, asSceneNodeId, type ActionNodeId } from "../model/ids";
+import { asActionNodeId, asEdgeId, asSceneNodeId, type ActionNodeId, type SceneNodeId } from "../model/ids";
 import type { ActionNode, CopyPayload } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import type { ProjectJsonV2, ProjectJsonV2Action } from "./toProjectJson";
@@ -175,6 +175,32 @@ export const deserializeFromProjectJson = (json: ProjectJsonV2): NodalProject =>
       });
     }
   }
+  wireGotoTransitions(state);
   return state;
 };
+
+/** Arêtes `transition` goto → scène cible (non portées par le JSON V2 seul). */
+function wireGotoTransitions(state: NodalProject): void {
+  const sceneIdByExternal = new Map<string, SceneNodeId>();
+  for (const s of Object.values(state.scenes)) {
+    sceneIdByExternal.set(s.sceneId, s.id);
+  }
+  for (const action of Object.values(state.actions)) {
+    if (action.actionType !== "goto") continue;
+    const ext = String((action.payload as { target?: string }).target ?? "").trim();
+    if (!ext) continue;
+    const targetSceneId = sceneIdByExternal.get(ext);
+    if (!targetSceneId) continue;
+    const dup = state.edges.some(
+      (e) => e.family === "transition" && e.sourceId === action.id && e.targetId === targetSceneId
+    );
+    if (dup) continue;
+    state.edges.push({
+      id: asEdgeId(`edge-goto-${action.id}-${targetSceneId}`),
+      family: "transition",
+      sourceId: action.id,
+      targetId: targetSceneId,
+    });
+  }
+}
 

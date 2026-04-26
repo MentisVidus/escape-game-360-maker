@@ -1,7 +1,28 @@
 import type { ActionNodeId, AnyNodeId } from "../model/ids";
 import type { NodeLayout } from "../model/layout";
+import type { MediaNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
+
+import {
+  buildNodalAutoSatelliteData,
+  collectMetaMediaLinks,
+  type NodalAutoSatellitePayload,
+  type NodalMetaMediaLink,
+} from "./nodalMapExtras";
+
+export type MapLayoutJson = {
+  positions: Record<string, { x: number; y: number }>;
+  parentId: Record<string, string>;
+  collapsed: Record<string, boolean>;
+  drafts: string[];
+  viewport: { x: number; y: number; zoom: number };
+  dimensions?: Record<string, { width: number; height: number }>;
+  inventoryObjects?: Record<string, ObjectEntry>;
+  nodalAutoSatelliteData?: Record<string, NodalAutoSatellitePayload>;
+  nodalMedia?: Record<string, MediaNode>;
+  nodalMetaMediaLinks?: NodalMetaMediaLink[];
+};
 
 /** Clés de layout des satellites auto (recréés par `reconcileAutoSatellites`) — ne pas persister ni réappliquer telles quelles. */
 export const AUTO_SATELLITE_LAYOUT_KEY_RE = /^sat-(coords-options|choice-options|object)-/;
@@ -26,6 +47,15 @@ export function stripAutoSatelliteLayoutFromMap(layout: MapLayoutJson): MapLayou
   if (dimensionsRaw && Object.keys(dimensionsRaw).length > 0) {
     out.dimensions = dimensionsRaw;
   }
+  if (layout.nodalAutoSatelliteData && Object.keys(layout.nodalAutoSatelliteData).length > 0) {
+    out.nodalAutoSatelliteData = { ...layout.nodalAutoSatelliteData };
+  }
+  if (layout.nodalMedia && Object.keys(layout.nodalMedia).length > 0) {
+    out.nodalMedia = { ...layout.nodalMedia };
+  }
+  if (layout.nodalMetaMediaLinks?.length) {
+    out.nodalMetaMediaLinks = [...layout.nodalMetaMediaLinks];
+  }
   return out;
 }
 
@@ -45,21 +75,12 @@ export function ensureGraphNodeLayoutsAfterHydrate(state: NodalProject): void {
 
 /** Applique le layout carte en ignorant les entrées satellites auto + complète les nœuds manquants. */
 export function applyHydratedLayout(state: NodalProject, layout: MapLayoutJson): void {
+  if (layout.nodalMedia && Object.keys(layout.nodalMedia).length > 0) {
+    state.media = { ...layout.nodalMedia };
+  }
   applyLayout(state, stripAutoSatelliteLayoutFromMap(layout));
   ensureGraphNodeLayoutsAfterHydrate(state);
 }
-
-export type MapLayoutJson = {
-  positions: Record<string, { x: number; y: number }>;
-  parentId: Record<string, string>;
-  collapsed: Record<string, boolean>;
-  drafts: string[];
-  viewport: { x: number; y: number; zoom: number };
-  /** Tailles nœud (ex. selector redimensionné, C3c). */
-  dimensions?: Record<string, { width: number; height: number }>;
-  /** Inventaire partagé (C3a). Les satellites / edges meta ne sont pas sérialisés ici : recréés par reconcile après apply. */
-  inventoryObjects?: Record<string, ObjectEntry>;
-};
 
 const isActionOrphan = (state: NodalProject, actionId: ActionNodeId): boolean => {
   const layout = state.layout[actionId];
@@ -105,6 +126,17 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
   };
   if (Object.keys(dimensions).length > 0) {
     out.dimensions = dimensions;
+  }
+  const satData = buildNodalAutoSatelliteData(state);
+  if (Object.keys(satData).length > 0) {
+    out.nodalAutoSatelliteData = satData;
+  }
+  if (Object.keys(state.media).length > 0) {
+    out.nodalMedia = { ...state.media };
+  }
+  const metaLinks = collectMetaMediaLinks(state);
+  if (metaLinks.length > 0) {
+    out.nodalMetaMediaLinks = metaLinks;
   }
   return out;
 };
