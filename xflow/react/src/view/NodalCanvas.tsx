@@ -21,8 +21,21 @@ import {
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import { asEdgeId, type ActionNodeId, type AnyNodeId, type EdgeId, type SatelliteNodeId } from "../model/ids";
-import type { ObjectSatelliteNode } from "../model/nodes";
+import {
+  asEdgeId,
+  type ActionNodeId,
+  type AnyNodeId,
+  type EdgeId,
+  type MediaNodeId,
+  type SatelliteNodeId,
+} from "../model/ids";
+import type {
+  ActionNode,
+  ChoiceOptionsSatelliteNode,
+  CoordsOptionsSatelliteNode,
+  MediaNode,
+  ObjectSatelliteNode,
+} from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
@@ -45,6 +58,9 @@ import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X 
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
 import { NodePalette } from "./palette/NodePalette";
 import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
+import { CoordsOptionsPopup } from "./popups/CoordsOptionsPopup";
+import { ChoiceOptionsPopup } from "./popups/ChoiceOptionsPopup";
+import { MediaEditorPopup } from "./popups/MediaEditorPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
 import "./NodalCanvas.css";
 
@@ -212,6 +228,9 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const updateNodeInternals = useUpdateNodeInternals();
   const [mapColorMode, setMapColorMode] = useState<"light" | "dark">("light");
   const [objectEditorSatelliteId, setObjectEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
+  const [coordsEditorSatelliteId, setCoordsEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
+  const [choiceEditorSatelliteId, setChoiceEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
+  const [mediaEditorMediaId, setMediaEditorMediaId] = useState<MediaNodeId | null>(null);
   const state = useSyncExternalStore(
     store.subscribe,
     store.getState,
@@ -464,9 +483,40 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const objectEntry: ObjectEntry | null = objectSatellite?.data.objectId
     ? state.meta.objects[objectSatellite.data.objectId] ?? null
     : null;
+  const coordsSatellite =
+    coordsEditorSatelliteId && state.satellites[coordsEditorSatelliteId]?.satelliteType === "coords-options"
+      ? (state.satellites[coordsEditorSatelliteId] as CoordsOptionsSatelliteNode)
+      : null;
+  const choiceSatellite =
+    choiceEditorSatelliteId && state.satellites[choiceEditorSatelliteId]?.satelliteType === "choice-options"
+      ? (state.satellites[choiceEditorSatelliteId] as ChoiceOptionsSatelliteNode)
+      : null;
+  const findParentAction = (sid: SatelliteNodeId | null): ActionNode | null => {
+    if (!sid) return null;
+    const e = state.edges.find((edge) => edge.family === "meta" && edge.targetId === sid);
+    if (!e) return null;
+    const a = state.actions[e.sourceId as keyof typeof state.actions];
+    return (a as ActionNode) || null;
+  };
+  const coordsParentAction = findParentAction(coordsEditorSatelliteId);
+  const choiceParentAction = findParentAction(choiceEditorSatelliteId);
+  const mediaToEdit: MediaNode | null =
+    mediaEditorMediaId && state.media[mediaEditorMediaId] ? state.media[mediaEditorMediaId] : null;
 
   return (
-    <NodalUiContext.Provider value={{ store, objectEditorSatelliteId, setObjectEditorSatelliteId }}>
+    <NodalUiContext.Provider
+      value={{
+        store,
+        objectEditorSatelliteId,
+        setObjectEditorSatelliteId,
+        coordsEditorSatelliteId,
+        setCoordsEditorSatelliteId,
+        choiceEditorSatelliteId,
+        setChoiceEditorSatelliteId,
+        mediaEditorMediaId,
+        setMediaEditorMediaId,
+      }}
+    >
       <div className={layoutClassName} ref={canvasRef}>
         <NodePalette store={store} canvasRef={canvasRef} />
         <div className="nodal-canvas-pane">
@@ -525,6 +575,52 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           }}
           onUpsertObject={(entry) => state.upsertObject(entry)}
           onClose={() => setObjectEditorSatelliteId(null)}
+        />
+        <CoordsOptionsPopup
+          satellite={coordsSatellite}
+          parentAction={coordsParentAction}
+          onChangeSatellite={(patch) => {
+            if (!coordsEditorSatelliteId) return;
+            state.updateNodeData(coordsEditorSatelliteId, { data: patch } as never);
+          }}
+          onChangeActionOptions={(patch) => {
+            if (!coordsParentAction) return;
+            state.updateNodeData(coordsParentAction.id, {
+              visibility: patch.visibility as ActionNode["visibility"],
+            } as never);
+          }}
+          onClose={() => setCoordsEditorSatelliteId(null)}
+        />
+        <ChoiceOptionsPopup
+          satellite={choiceSatellite}
+          parentAction={choiceParentAction}
+          onChangeSatellite={(patch) => {
+            if (!choiceEditorSatelliteId) return;
+            state.updateNodeData(choiceEditorSatelliteId, { data: patch } as never);
+          }}
+          onChangeActionOptions={(patch) => {
+            if (!choiceParentAction) return;
+            const cur = choiceParentAction.visibility;
+            state.updateNodeData(choiceParentAction.id, {
+              visibility: {
+                requiresItem: patch.visibility.requiresItem,
+                hiddenIfHasItem: patch.visibility.hiddenIfHasItem,
+                clickWhenInvisible: cur.clickWhenInvisible,
+              },
+            } as never);
+          }}
+          onClose={() => setChoiceEditorSatelliteId(null)}
+        />
+        <MediaEditorPopup
+          media={mediaToEdit}
+          onChange={(patch) => {
+            if (!mediaEditorMediaId) return;
+            const snap = store.getState();
+            const cur = snap.media[mediaEditorMediaId];
+            if (!cur) return;
+            snap.updateNodeData(mediaEditorMediaId, { data: { ...cur.data, ...patch } } as never);
+          }}
+          onClose={() => setMediaEditorMediaId(null)}
         />
       </div>
     </div>

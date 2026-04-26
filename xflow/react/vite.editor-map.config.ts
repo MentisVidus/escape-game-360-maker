@@ -56,6 +56,10 @@ function serveRepoJsPlugin() {
 }
 
 export default defineConfig({
+  /** Évite `ReferenceError: process is not defined` dans l’IIFE navigateur (React / deps). */
+  define: {
+    "process.env.NODE_ENV": JSON.stringify("production"),
+  },
   plugins: [serveRepoJsPlugin(), react()],
   build: {
     lib: {
@@ -71,6 +75,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         assetFileNames: "editor-map[extname]",
+        /** Polyfill minimal si une dépendance lit `process` hors `process.env`. */
+        banner:
+          "typeof globalThis!=='undefined'&&typeof globalThis.process==='undefined'&&(globalThis.process={env:{NODE_ENV:'production'}});",
       },
     },
   },

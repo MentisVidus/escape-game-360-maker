@@ -64,6 +64,7 @@ export type CoordsOptionsSatelliteNode = {
     pitch: number;
     yaw: number;
     visibility: Pick<ActionVisibility, "requiresItem" | "hiddenIfHasItem" | "clickWhenInvisible">;
+    sfx: ActionSfx;
   };
 };
 
@@ -73,6 +74,7 @@ export type ChoiceOptionsSatelliteNode = {
   satelliteType: "choice-options";
   data: {
     visibility: Pick<ActionVisibility, "requiresItem" | "hiddenIfHasItem">;
+    sfx: ActionSfx;
   };
 };
 

@@ -52,7 +52,8 @@
   border-color: var(--node-media-border);
 }
 
-.nodal-node.satellite--clickable {
+.nodal-node.satellite--clickable,
+.nodal-node.media--clickable {
   cursor: pointer;
 }
 

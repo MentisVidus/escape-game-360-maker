@@ -68,6 +68,7 @@
         (project.scenes || []).forEach(function (scene) {
             var media = scene.media || {};
             V(media.panoramaUrl);
+            if (scene.panoramaUrl != null) V(scene.panoramaUrl);
             if (media.ambianceUrl != null) V(media.ambianceUrl);
             var amb = media.ambiance;
             if (typeof amb === "string") V(amb);
@@ -106,6 +107,7 @@
         (project.scenes || []).forEach(function (scene) {
             var media = scene.media || {};
             if (media.panoramaUrl != null) media.panoramaUrl = Rw(media.panoramaUrl);
+            if (scene.panoramaUrl != null) scene.panoramaUrl = Rw(scene.panoramaUrl);
             if (media.ambianceUrl != null) media.ambianceUrl = Rw(media.ambianceUrl);
             var amb = media.ambiance;
             if (typeof amb === "string") scene.media.ambiance = Rw(amb);
@@ -258,6 +260,35 @@
         rewritePortableUrlsInProjectClone(project, R);
     }
 
+    /**
+     * Propage le graphe nodal vers les formulaires / liste de scènes (source de vérité = nodal avant sauvegarde).
+     */
+    /** Nodal = source de vérité : recopie le graphe (démo, bundle ou édition) vers le formulaire / debug DOM. */
+    function flushNodalStoreToEditorDom() {
+        var st = global.__ESCAPE360_NODAL_STORE__;
+        var Ex = global.EditorSharedNodalToDom;
+        if (!st || !Ex || typeof Ex.applyFromStore !== "function") return;
+        Ex.applyFromStore(st);
+    }
+
+    /** Après chargement projet / bundle : remet la carte nodale à l’état « non monté » pour le prochain onglet. */
+    function detachNodalMapEditorAfterProjectLoad() {
+        var doc = global.document;
+        if (!doc || typeof doc.getElementById !== "function") return;
+        var host = doc.getElementById("nodal-map-root");
+        var api = global.Escape360EditorNodalMap;
+        if (host) {
+            host.dataset.nodalMounted = "0";
+        }
+        if (host && api && typeof api.unmount === "function") {
+            try {
+                api.unmount(host);
+            } catch (eU) {
+                console.warn("nodal.unmount", eU);
+            }
+        }
+    }
+
     global.EditorSharedBundle = {
         registerBundleBlobUrl: registerBundleBlobUrl,
         revokeEditorBundleSession: revokeEditorBundleSession,
@@ -275,6 +306,8 @@
         onBundleLocalMediaSelected: onBundleLocalMediaSelected,
         collectPortableBundleEmbeds: collectPortableBundleEmbeds,
         mapZipAssetsToEditorSession: mapZipAssetsToEditorSession,
-        rewriteLoadedProjectPathsToBlobUrls: rewriteLoadedProjectPathsToBlobUrls
+        rewriteLoadedProjectPathsToBlobUrls: rewriteLoadedProjectPathsToBlobUrls,
+        flushNodalStoreToEditorDom: flushNodalStoreToEditorDom,
+        detachNodalMapEditorAfterProjectLoad: detachNodalMapEditorAfterProjectLoad
     };
 })(typeof window !== "undefined" ? window : this);

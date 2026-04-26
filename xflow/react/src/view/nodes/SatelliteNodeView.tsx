@@ -26,25 +26,25 @@ export function SatelliteNodeView({ id, data }: NodeProps) {
   const openEditor = useCallback(() => {
     if (node.satelliteType === "object") {
       ui.setObjectEditorSatelliteId(id as SatelliteNodeId);
+    } else if (node.satelliteType === "coords-options") {
+      ui.setCoordsEditorSatelliteId(id as SatelliteNodeId);
+    } else if (node.satelliteType === "choice-options") {
+      ui.setChoiceEditorSatelliteId(id as SatelliteNodeId);
     }
   }, [id, node.satelliteType, ui]);
 
   return (
     <div
-      className={`nodal-node satellite${node.satelliteType === "object" ? " satellite--clickable" : ""}`}
-      onClick={node.satelliteType === "object" ? openEditor : undefined}
-      onKeyDown={
-        node.satelliteType === "object"
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                openEditor();
-              }
-            }
-          : undefined
-      }
-      role={node.satelliteType === "object" ? "button" : undefined}
-      tabIndex={node.satelliteType === "object" ? 0 : undefined}
+      className="nodal-node satellite satellite--clickable"
+      onClick={openEditor}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openEditor();
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
       <div className="title">Satellite</div>
       <div className="subtitle">{getSatelliteSubtitle(node)}</div>

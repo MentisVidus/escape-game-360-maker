@@ -1,0 +1,82 @@
+import { useEffect, useState } from "react";
+
+import type { MediaAudioNode, MediaNode } from "../../model/nodes";
+
+type Props = {
+  media: MediaNode | null;
+  onChange: (patch: { url?: string; volume?: number }) => void;
+  onClose: () => void;
+};
+
+export function MediaEditorPopup({ media, onChange, onClose }: Props) {
+  const [url, setUrl] = useState("");
+  const [volume, setVolume] = useState("1");
+
+  useEffect(() => {
+    if (!media) {
+      setUrl("");
+      setVolume("1");
+      return;
+    }
+    setUrl(String(media.data.url ?? ""));
+    setVolume(String(media.mediaType === "media-audio" ? (media.data as MediaAudioNode["data"]).volume ?? 1 : 1));
+  }, [media]);
+
+  if (!media) return null;
+
+  const isAudio = media.mediaType === "media-audio";
+  const title = isAudio ? "Média — audio" : "Média — image";
+
+  const flushUrl = () => {
+    const trimmed = url.trim();
+    if (isAudio) {
+      const v = Number(volume);
+      const vol = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
+      onChange({ url: trimmed, volume: vol });
+    } else {
+      onChange({ url: trimmed });
+    }
+  };
+
+  return (
+    <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="media-editor-title">
+      <div className="nodal-popup-backdrop" onClick={onClose} />
+      <div className="nodal-popup-panel">
+        <h2 id="media-editor-title">{title}</h2>
+        <label className="nodal-popup-field">
+          <span>URL</span>
+          <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} onBlur={flushUrl} />
+        </label>
+        {!isAudio && url.trim() ? (
+          <div className="nodal-popup-media-preview">
+            <img key={url.trim()} src={url.trim()} alt="" />
+          </div>
+        ) : null}
+        {isAudio ? (
+          <label className="nodal-popup-field">
+            <span>Volume ({volume})</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={Number.isFinite(Number(volume)) ? Number(volume) : 1}
+              onChange={(e) => {
+                setVolume(e.target.value);
+                const v = Number(e.target.value);
+                if (Number.isFinite(v)) {
+                  onChange({ url: url.trim(), volume: Math.max(0, Math.min(1, v)) });
+                }
+              }}
+            />
+          </label>
+        ) : null}
+        <div className="nodal-popup-actions">
+          <button type="button" onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

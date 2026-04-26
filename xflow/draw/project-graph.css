@@ -52,6 +52,7 @@
     background: rgba(0, 0, 0, 0.35);
 }
 
+/* Fond : clair par défaut (aligné tokens `NodalCanvas` / dev.html) ; sombre si toggle interne `.dark-mode`. */
 #nodal-map-root.nodal-map-root {
     position: absolute;
     inset: 0;
@@ -59,7 +60,32 @@
     display: none;
     flex-direction: column;
     min-height: 0;
+    background: #f8fafc;
+}
+
+#nodal-map-root.nodal-map-root:has(.nodal-canvas-layout.dark-mode) {
     background: #2c2c3a;
+}
+
+/* C6.1 — bandeau lecture seule (onglet carte nodale) ; visibilité via attribut `hidden`. */
+.project-map-nodal-ro-banner {
+    margin: 0;
+    padding: 8px 12px;
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #0f172a;
+    background: #fef9c3;
+    border-bottom: 1px solid #eab308;
+}
+
+.project-map-nodal-ro-banner[hidden] {
+    display: none !important;
+}
+
+#project-map-modal.project-map-nodal-engine-active #project-map-fab-add-scene {
+    visibility: hidden;
+    pointer-events: none;
 }
 
 /* Dans la modale : le layout nodal ne doit pas forcer 100vw/100vh (fichier bundle). */
@@ -432,4 +458,13 @@
     border: 1px solid #bc6c25;
     border-radius: 8px;
     color: #ffe8d6;
+}
+
+/* C6.1 — liste principale : pas d’ajout scène / hotspot tant que la modale carte est en onglet nodal. */
+body.escape360-nodal-map-ro .btn-add-scene,
+body.escape360-nodal-map-ro .btn-add-hs,
+body.escape360-nodal-map-ro .scene-header-actions > button.btn-icon[onclick^="addHotspot"] {
+    pointer-events: none;
+    opacity: 0.42;
+    cursor: not-allowed;
 }

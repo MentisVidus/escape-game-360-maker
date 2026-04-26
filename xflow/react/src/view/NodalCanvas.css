@@ -160,3 +160,131 @@
 .react-flow__edge-interaction {
   stroke-width: 20;
 }
+
+/* Popups (objet / satellites / médias) — tokens thème carte (clair / sombre) */
+.nodal-canvas-layout .nodal-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nodal-canvas-layout .nodal-popup-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.nodal-canvas-layout .nodal-popup-panel {
+  position: relative;
+  z-index: 1;
+  width: min(460px, 92vw);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: var(--palette-bg);
+  color: var(--palette-heading);
+  border: 1px solid var(--palette-border);
+  box-shadow: var(--node-shadow);
+  font: 13px/1.35 Arial, sans-serif;
+}
+
+.nodal-canvas-layout .nodal-popup-panel h2 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: var(--node-text);
+}
+
+.nodal-canvas-layout .nodal-popup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.nodal-canvas-layout .nodal-popup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.nodal-canvas-layout .nodal-popup-field span {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--node-text);
+  opacity: 0.72;
+}
+
+.nodal-canvas-layout .nodal-popup-field input[type="text"],
+.nodal-canvas-layout .nodal-popup-field input[type="number"] {
+  padding: 6px 8px;
+  border: 1px solid var(--palette-button-border);
+  border-radius: 6px;
+  font: inherit;
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+}
+
+.nodal-canvas-layout .nodal-popup-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--node-selected-outline);
+}
+
+.nodal-canvas-layout .nodal-popup-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 10px;
+  color: var(--node-text);
+}
+
+.nodal-canvas-layout .nodal-popup-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--node-text);
+  opacity: 0.78;
+}
+
+.nodal-canvas-layout .nodal-popup-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.nodal-canvas-layout .nodal-popup-actions button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.nodal-canvas-layout .nodal-popup-actions button:hover {
+  background: var(--palette-button-hover);
+}
+
+.nodal-canvas-layout .nodal-popup-media-preview {
+  margin: 0 0 12px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--palette-border);
+  max-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--palette-button-bg);
+}
+
+.nodal-canvas-layout .nodal-popup-media-preview img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  display: block;
+}

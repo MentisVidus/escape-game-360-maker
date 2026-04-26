@@ -24,6 +24,8 @@ var openBundleLocalMediaPicker = EditorSharedBundleApi.openBundleLocalMediaPicke
 var onBundleLocalMediaSelected = EditorSharedBundleApi.onBundleLocalMediaSelected;
 var mapZipAssetsToEditorSession = EditorSharedBundleApi.mapZipAssetsToEditorSession;
 var rewriteLoadedProjectPathsToBlobUrls = EditorSharedBundleApi.rewriteLoadedProjectPathsToBlobUrls;
+var flushNodalStoreToEditorDom = EditorSharedBundleApi.flushNodalStoreToEditorDom;
+var detachNodalMapEditorAfterProjectLoad = EditorSharedBundleApi.detachNodalMapEditorAfterProjectLoad;
 window.collectPortableBundleEmbeds = EditorSharedBundleApi.collectPortableBundleEmbeds;
 
 async function saveProjectBundle() {
@@ -32,7 +34,16 @@ async function saveProjectBundle() {
         return;
     }
     try {
-        var project = JSON.parse(JSON.stringify(getCurrentProjectData()));
+        var pack =
+            window.Escape360EditorNodalMap &&
+            typeof window.Escape360EditorNodalMap.serializeForBundle === "function"
+                ? window.Escape360EditorNodalMap.serializeForBundle()
+                : null;
+        if (!pack || !pack.nodalProjectJson) {
+            alert("Nodal map is not initialized. Open the nodal map then retry.");
+            return;
+        }
+        var project = JSON.parse(JSON.stringify(pack.nodalProjectJson));
         var neededUrls = [];
         var seen = {};
         eachPortableMediaUrlInProject(project, function (u) {
@@ -63,6 +74,9 @@ async function saveProjectBundle() {
         });
         var zip = new JSZip();
         zip.file("project.json", JSON.stringify(project, null, 2));
+        if (pack.mapLayoutJson) {
+            zip.file("map-layout.json", JSON.stringify(pack.mapLayoutJson, null, 2));
+        }
         var folder = zip.folder("assets");
         neededUrls.forEach(function (u) {
             var rel = urlToRelPath[u.trim()];
@@ -159,6 +173,7 @@ var ProjectSerializer = EditorSharedProjectSerializationApi.createSerializer({
     readTimerSettings: readTimerSettingsFromDom
 });
 var getCurrentProjectData = ProjectSerializer.getCurrentProjectData;
+window.getCurrentProjectData = getCurrentProjectData;
 
 var EditorSharedLocalDraftApi = window.EditorSharedLocalDraft;
 if (!EditorSharedLocalDraftApi) {
@@ -1676,6 +1691,9 @@ function applyLoadedProject(project) {
     }
 
     updatePreview();
+    if (typeof detachNodalMapEditorAfterProjectLoad === "function") {
+        detachNodalMapEditorAfterProjectLoad();
+    }
 }
 
 function loadProject(event) {
@@ -1703,16 +1721,43 @@ function loadProject(event) {
                     .then(function (zip) {
                         var pj = zip.file("project.json");
                         if (!pj) throw new Error("project.json not found in the .escapegame archive.");
-                        return pj.async("string").then(function (text) {
-                            return { zip: zip, text: text };
-                        });
+                        var ml = zip.file("map-layout.json");
+                        return Promise.all([pj.async("string"), ml ? ml.async("string") : Promise.resolve(null)]).then(
+                            function (pair) {
+                                return { zip: zip, jsonText: pair[0], layoutText: pair[1] };
+                            }
+                        );
                     })
                     .then(function (o) {
-                        var project = EditorCore.parseProjectJSON(o.text);
+                        var rawProject = JSON.parse(o.jsonText);
                         revokeEditorBundleSession();
                         return mapZipAssetsToEditorSession(o.zip).then(function (pathMap) {
-                            rewriteLoadedProjectPathsToBlobUrls(project, pathMap);
-                            applyLoadedProject(project);
+                            rewriteLoadedProjectPathsToBlobUrls(rawProject, pathMap);
+                            var layoutObj = null;
+                            if (o.layoutText && typeof o.layoutText === "string" && o.layoutText.trim()) {
+                                try {
+                                    layoutObj = JSON.parse(o.layoutText);
+                                } catch (eL) {
+                                    console.warn("map-layout.json", eL);
+                                }
+                            }
+                            if (
+                                layoutObj &&
+                                window.Escape360EditorNodalMap &&
+                                typeof window.Escape360EditorNodalMap.hydrateFromBundle === "function"
+                            ) {
+                                try {
+                                    window.Escape360EditorNodalMap.hydrateFromBundle(rawProject, layoutObj);
+                                    if (typeof flushNodalStoreToEditorDom === "function") {
+                                        flushNodalStoreToEditorDom();
+                                    }
+                                } catch (eH) {
+                                    console.warn("nodal.hydrate.bundle", eH);
+                                }
+                            } else {
+                                var project = EditorCore.parseProjectJSON(JSON.stringify(rawProject));
+                                applyLoadedProject(project);
+                            }
                             localDraftManager.setSourceHint("bundle");
                             localDraftManager.captureSnapshot("force").catch(function (eCap) {
                                 console.error("draft.error", eCap);
@@ -1817,6 +1862,18 @@ function updatePreview() {
         initRichEditorsIn(root);
     }
 })();
+
+/** DOM API for C6.2 (`js/editor-shared-nodal-to-dom.js`). */
+window.__escape360EditorDomApi = {
+    addScene: addScene,
+    addHotspot: addHotspot,
+    actionV2ToLegacyHotspotData: actionV2ToLegacyHotspotData,
+    EditorCore: EditorCore,
+    refreshAllSceneTargetSelects:
+        typeof refreshAllSceneTargetSelects === "function" ? refreshAllSceneTargetSelects : undefined,
+    initAllSceneIdStableFields:
+        typeof initAllSceneIdStableFields === "function" ? initAllSceneIdStableFields : undefined
+};
 
 window.addEventListener("load", function () {
     setTimeout(function () {

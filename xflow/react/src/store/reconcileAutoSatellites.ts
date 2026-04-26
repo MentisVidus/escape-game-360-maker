@@ -104,6 +104,7 @@ function createAutoSatelliteNode(
         pitch: 0,
         yaw: 0,
         visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+        sfx: { url: "", volume: 1 },
       },
     };
   }
@@ -112,7 +113,10 @@ function createAutoSatelliteNode(
       id,
       nodeType: "satellite",
       satelliteType: "choice-options",
-      data: { visibility: { requiresItem: "", hiddenIfHasItem: "" } },
+      data: {
+        visibility: { requiresItem: "", hiddenIfHasItem: "" },
+        sfx: { url: "", volume: 1 },
+      },
     };
   }
   const oid = objectIdFromPickOrReq(state, actionId);

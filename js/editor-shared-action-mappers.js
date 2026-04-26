@@ -23,7 +23,10 @@
 
         function legacyActionToV2(type, source) {
             var src = source || {};
-            var action = EditorCore.createDefaultAction(type || "msg");
+            var kind = String(type || "msg").toLowerCase();
+            // Compat : la nodale manipule "goto", le legacy DOM reste en "scene".
+            if (kind === "goto") kind = "scene";
+            var action = EditorCore.createDefaultAction(kind || "msg");
             var p = action.payload;
 
             if (src.requiresItem) action.visibility.requiresItem = String(src.requiresItem).trim();
@@ -125,11 +128,12 @@
         function actionV2ToLegacyChoice(action, label, idx) {
             var a = action || EditorCore.createDefaultAction("msg");
             var p = a.payload || {};
-            var out = { label: label || ("Option " + (idx + 1)), actionType: a.type || "msg" };
+            var aType = a.type === "goto" ? "scene" : (a.type || "msg");
+            var out = { label: label || ("Option " + (idx + 1)), actionType: aType };
             var c = p.copy || {};
             if (a.type === "msg") {
                 out.txt = c.bodyHtml || "";
-            } else if (a.type === "scene") {
+            } else if (a.type === "scene" || a.type === "goto") {
                 out.target = p.target || "";
                 out.transTxt = c.bodyHtml || "";
                 out.transBtn = c.buttonLabel || defaultTransitionLabel;
@@ -216,12 +220,13 @@
             var src = hs || {};
             var a = src.action || EditorCore.createDefaultAction("msg");
             var p = a.payload || {};
+            var hsType = a.type === "goto" ? "scene" : (a.type || "msg");
             var out = {
                 hsTitle: src.title || "",
                 pitch: src.pitch != null ? src.pitch : 0,
                 yaw: src.yaw != null ? src.yaw : 0,
                 customCss: src.customCss || "",
-                type: a.type || "msg"
+                type: hsType
             };
             var app = src.appearance || {};
             if (app.ui_w !== undefined) {
@@ -238,7 +243,7 @@
             var pc = p.copy || {};
             if (a.type === "msg") {
                 out.f_txt = pc.bodyHtml || "";
-            } else if (a.type === "scene") {
+            } else if (a.type === "scene" || a.type === "goto") {
                 out.f_target = p.target || "";
                 out.f_trans_txt = pc.bodyHtml || "";
                 out.f_trans_btn = pc.buttonLabel || defaultTransitionLabel;

@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ObjectEntry } from "../../model/objects";
 import type { ObjectSatelliteNode } from "../../model/nodes";
-import "./ObjectEditorPopup.css";
 
 type Props = {
   satellite: ObjectSatelliteNode | null;
@@ -59,11 +58,11 @@ export function ObjectEditorPopup({
   const safeObjectIds = objectIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0);
 
   return (
-    <div className="object-editor-overlay" role="dialog" aria-modal="true" aria-labelledby="object-editor-title">
-      <div className="object-editor-backdrop" onClick={onClose} />
-      <div className="object-editor-panel">
+    <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="object-editor-title">
+      <div className="nodal-popup-backdrop" onClick={onClose} />
+      <div className="nodal-popup-panel">
         <h2 id="object-editor-title">Objet (inventaire)</h2>
-        <label className="object-editor-field">
+        <label className="nodal-popup-field">
           <span>objectId</span>
           <input
             list={listId}
@@ -93,7 +92,7 @@ export function ObjectEditorPopup({
             ))}
           </datalist>
         </label>
-        <label className="object-editor-field">
+        <label className="nodal-popup-field">
           <span>displayName</span>
           <input
             value={displayNameInput}
@@ -111,7 +110,7 @@ export function ObjectEditorPopup({
             }}
           />
         </label>
-        <label className="object-editor-field">
+        <label className="nodal-popup-field">
           <span>Icône (URL)</span>
           <input
             value={iconUrlInput}
@@ -129,7 +128,7 @@ export function ObjectEditorPopup({
             }}
           />
         </label>
-        <div className="object-editor-actions">
+        <div className="nodal-popup-actions">
           <button type="button" onClick={onClose}>
             Fermer
           </button>

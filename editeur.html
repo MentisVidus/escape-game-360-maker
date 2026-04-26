@@ -38,6 +38,7 @@
         <button type="button" class="btn-save" onclick="void saveProjectBundle()" title="Archive ZIP renommée : project.json + dossier assets/">💾 Sauvegarder le projet (.escapegame)</button>
         <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Charger Projet (.json / .escapegame)</button>
         <button type="button" class="btn-load" onclick="openProjectMap()" title="Vue graphe des scènes et transitions">🗺️ Afficher la carte</button>
+        <button type="button" class="btn-load" onclick="openNodalMapEditor()" title="Ouvre directement la carte React Flow">🧠 Éditeur Nodal</button>
         <!-- Imports : JSON classique ou bundle ZIP (.escapegame) ; médias locaux pour le bundle -->
         <input type="file" id="file-import" style="display:none;" accept=".json,.escapegame,application/json,application/zip" onchange="loadProject(event)">
         <input type="file" id="bundle-media-file" style="display:none;" onchange="onBundleLocalMediaSelected(event)">
@@ -471,6 +472,7 @@
                 <span id="project-map-side-title" class="project-map-side-title">Édition</span>
                 <button type="button" id="project-map-side-close" class="project-map-side-close">Fermer le panneau</button>
             </div>
+            <p id="project-map-nodal-ro-banner" class="project-map-nodal-ro-banner" hidden role="status">Formulaire en lecture seule — miroir de la carte nodale (bêta). Passez à l’onglet Drawflow pour éditer ou prévisualiser depuis ce panneau.</p>
             <div id="project-map-side-content" class="project-map-side-content"></div>
         </aside>
     </div>
@@ -502,6 +504,7 @@
     <script src="js/editor-shared-storage-core.js" defer></script>
     <script src="js/player-shared-save.js" defer></script>
     <script src="js/editeur-app.js" defer></script>
+    <script src="js/editor-shared-nodal-to-dom.js" defer></script>
     <script src="js/editeur-generate.js" defer></script>
     <script src="xflow/draw/project-graph.js" defer></script>
     <script src="xflow/react/dist/editor-map.js" defer></script>

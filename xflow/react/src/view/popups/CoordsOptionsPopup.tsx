@@ -1,0 +1,125 @@
+import { useEffect, useState } from "react";
+
+import type { ActionNode, CoordsOptionsSatelliteNode } from "../../model/nodes";
+
+type Props = {
+  satellite: CoordsOptionsSatelliteNode | null;
+  parentAction: ActionNode | null;
+  onChangeSatellite: (patch: CoordsOptionsSatelliteNode["data"]) => void;
+  onChangeActionOptions: (patch: {
+    visibility: { requiresItem: string; hiddenIfHasItem: string; clickWhenInvisible: boolean };
+  }) => void;
+  onClose: () => void;
+};
+
+export function CoordsOptionsPopup({
+  satellite,
+  parentAction,
+  onChangeSatellite,
+  onChangeActionOptions,
+  onClose,
+}: Props) {
+  const [pitch, setPitch] = useState("0");
+  const [yaw, setYaw] = useState("0");
+  const [requiresItem, setRequiresItem] = useState("");
+  const [hiddenIfHasItem, setHiddenIfHasItem] = useState("");
+  const [clickWhenInvisible, setClickWhenInvisible] = useState(true);
+
+  useEffect(() => {
+    if (!satellite) return;
+    const satVis = satellite.data.visibility;
+    const aVis = parentAction?.visibility;
+    setPitch(String(satellite.data.pitch ?? 0));
+    setYaw(String(satellite.data.yaw ?? 0));
+    setRequiresItem(String((aVis?.requiresItem ?? satVis.requiresItem) || ""));
+    setHiddenIfHasItem(String((aVis?.hiddenIfHasItem ?? satVis.hiddenIfHasItem) || ""));
+    setClickWhenInvisible((aVis?.clickWhenInvisible ?? satVis.clickWhenInvisible) !== false);
+  }, [satellite, parentAction]);
+
+  if (!satellite) return null;
+
+  const buildVisibility = (clickOverride?: boolean) => {
+    const cwi = clickOverride !== undefined ? clickOverride : clickWhenInvisible;
+    return {
+      requiresItem: requiresItem.trim(),
+      hiddenIfHasItem: hiddenIfHasItem.trim(),
+      clickWhenInvisible: !!cwi,
+    };
+  };
+
+  const pushCoords = (visibility: ReturnType<typeof buildVisibility>) => {
+    const pitchNum = Number(pitch);
+    const yawNum = Number(yaw);
+    onChangeSatellite({
+      ...satellite.data,
+      pitch: Number.isFinite(pitchNum) ? pitchNum : 0,
+      yaw: Number.isFinite(yawNum) ? yawNum : 0,
+      visibility,
+    });
+    onChangeActionOptions({ visibility });
+  };
+
+  const apply = () => {
+    pushCoords(buildVisibility());
+  };
+
+  const onClickWhenInvisibleChange = (next: boolean) => {
+    setClickWhenInvisible(next);
+    pushCoords(buildVisibility(next));
+  };
+
+  return (
+    <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="coords-options-title">
+      <div className="nodal-popup-backdrop" onClick={onClose} />
+      <div className="nodal-popup-panel">
+        <h2 id="coords-options-title">Options hotspot (coords)</h2>
+        <div className="nodal-popup-grid">
+          <label className="nodal-popup-field">
+            <span>Pitch</span>
+            <input
+              type="number"
+              value={pitch}
+              onChange={(e) => setPitch(e.target.value)}
+              onBlur={apply}
+              step="0.1"
+            />
+          </label>
+          <label className="nodal-popup-field">
+            <span>Yaw</span>
+            <input type="number" value={yaw} onChange={(e) => setYaw(e.target.value)} onBlur={apply} step="0.1" />
+          </label>
+        </div>
+        <label className="nodal-popup-field">
+          <span>requiresItem</span>
+          <input type="text" value={requiresItem} onChange={(e) => setRequiresItem(e.target.value)} onBlur={apply} />
+        </label>
+        <label className="nodal-popup-field">
+          <span>hiddenIfHasItem</span>
+          <input
+            type="text"
+            value={hiddenIfHasItem}
+            onChange={(e) => setHiddenIfHasItem(e.target.value)}
+            onBlur={apply}
+          />
+        </label>
+        <label className="nodal-popup-check">
+          <input
+            type="checkbox"
+            checked={clickWhenInvisible}
+            onChange={(e) => onClickWhenInvisibleChange(e.target.checked)}
+          />
+          clickWhenInvisible
+        </label>
+        <p className="nodal-popup-hint">
+          SFX : relier un nœud <strong>média audio</strong> à l’action (handle meta) et renseigner l’URL dans la
+          popup du nœud média.
+        </p>
+        <div className="nodal-popup-actions">
+          <button type="button" onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,13 +1,72 @@
 /**
- * C6.0 — Intégration de la carte nodale (React) dans la modale « Carte du projet ».
+ * C6.0–C6.3 — Carte nodale (React) dans la modale « Carte du projet ».
  * Requiert : `xflow/react/dist/editor-map.js` (global `Escape360EditorNodalMap`) chargé avant ce script.
  * Après premier `mount` : `window.__ESCAPE360_NODAL_STORE__` = store Zustand (API C6+).
+ * C6.1 : bandeau + masquage FAB + `escape360-nodal-map-ro`.
+ * C6.2 : synchro DOM par intervalle (8 s) + flush à la sortie de l’onglet nodal / fermeture modale
+ * (plus de `store.subscribe` + rAF à chaque tick du graphe).
  */
 (function () {
   "use strict";
 
   var ENGINE_DRAWFLOW = "drawflow";
   var ENGINE_NODAL = "nodal";
+  var BODY_RO_CLASS = "escape360-nodal-map-ro";
+  /** Synchro périodique DOM ← store pendant l’onglet nodal (évite rAF à chaque drag). */
+  var NODAL_DOM_SYNC_MS = 8000;
+  var nodalDomInterval = null;
+
+  function isNodalEngineActive() {
+    var wrap = document.getElementById("project-map-canvas-wrap");
+    return !!(wrap && wrap.classList.contains("project-map-engine-nodal"));
+  }
+
+  function flushNodalProjectionToDom() {
+    var st = window.__ESCAPE360_NODAL_STORE__;
+    var Ex = window.EditorSharedNodalToDom;
+    if (!st || !Ex || typeof Ex.applyFromStore !== "function") return;
+    Ex.applyFromStore(st);
+  }
+
+  function clearNodalDomInterval() {
+    if (nodalDomInterval != null) {
+      clearInterval(nodalDomInterval);
+      nodalDomInterval = null;
+    }
+  }
+
+  function startNodalDomInterval() {
+    clearNodalDomInterval();
+    if (!isNodalEngineActive()) return;
+    nodalDomInterval = setInterval(function () {
+      if (!isNodalEngineActive()) {
+        clearNodalDomInterval();
+        return;
+      }
+      flushNodalProjectionToDom();
+    }, NODAL_DOM_SYNC_MS);
+  }
+
+  function syncNodalReadOnlyChrome(engine) {
+    var isNodal = engine === ENGINE_NODAL;
+    var modal = document.getElementById("project-map-modal");
+    var banner = document.getElementById("project-map-nodal-ro-banner");
+    var body = document.body;
+
+    if (modal) {
+      modal.classList.toggle("project-map-nodal-engine-active", isNodal);
+    }
+    if (banner) {
+      if (isNodal) {
+        banner.removeAttribute("hidden");
+      } else {
+        banner.setAttribute("hidden", "");
+      }
+    }
+    if (body) {
+      body.classList.toggle(BODY_RO_CLASS, isNodal);
+    }
+  }
 
   /**
    * @param {"drawflow"|"nodal"} engine
@@ -16,6 +75,11 @@
     var wrap = document.getElementById("project-map-canvas-wrap");
     var modal = document.getElementById("project-map-modal");
     if (!wrap || !modal) return;
+
+    if (engine !== ENGINE_NODAL) {
+      flushNodalProjectionToDom();
+      clearNodalDomInterval();
+    }
 
     wrap.classList.remove("project-map-engine-drawflow", "project-map-engine-nodal");
     wrap.classList.add(engine === ENGINE_NODAL ? "project-map-engine-nodal" : "project-map-engine-drawflow");
@@ -30,11 +94,20 @@
     if (engine === ENGINE_NODAL) {
       var host = document.getElementById("nodal-map-root");
       var api = window.Escape360EditorNodalMap;
-      if (host && api && typeof api.mount === "function" && host.dataset.nodalMounted !== "1") {
-        api.mount(host);
-        host.dataset.nodalMounted = "1";
+      if (host && api) {
+        if (host.dataset.nodalMounted !== "1") {
+          /* Pas d’hydratation depuis le DOM : graphe = démo (mount) ou état issu du bundle (hydrateFromBundle). */
+          if (typeof api.mount === "function") {
+            api.mount(host);
+            host.dataset.nodalMounted = "1";
+          }
+        }
       }
+      flushNodalProjectionToDom();
+      startNodalDomInterval();
     }
+
+    syncNodalReadOnlyChrome(engine);
   }
 
   function onEngineTabClick(ev) {
@@ -55,17 +128,44 @@
     return true;
   }
 
+  function wrapCloseProjectMap() {
+    var orig = window.closeProjectMap;
+    if (typeof orig !== "function") return false;
+    window.closeProjectMap = function () {
+      flushNodalProjectionToDom();
+      clearNodalDomInterval();
+      setProjectMapEngine(ENGINE_DRAWFLOW);
+      orig.apply(this, arguments);
+    };
+    return true;
+  }
+
+  function openNodalMapEditor() {
+    if (typeof window.openProjectMap === "function") {
+      window.openProjectMap();
+      setProjectMapEngine(ENGINE_NODAL);
+    }
+  }
+
+  function pollUntil(fn, maxTries) {
+    if (fn()) return;
+    var n = 0;
+    var t = setInterval(function () {
+      n += 1;
+      if (fn() || n >= (maxTries || 100)) clearInterval(t);
+    }, 50);
+  }
+
   function init() {
     var modal = document.getElementById("project-map-modal");
     if (!modal) return;
     modal.addEventListener("click", onEngineTabClick);
 
     if (!wrapOpenProjectMap()) {
-      var n = 0;
-      var t = setInterval(function () {
-        n += 1;
-        if (wrapOpenProjectMap() || n > 100) clearInterval(t);
-      }, 50);
+      pollUntil(wrapOpenProjectMap);
+    }
+    if (!wrapCloseProjectMap()) {
+      pollUntil(wrapCloseProjectMap);
     }
   }
 
@@ -76,4 +176,5 @@
   }
 
   window.setProjectMapEngine = setProjectMapEngine;
+  window.openNodalMapEditor = openNodalMapEditor;
 })();
