@@ -1222,7 +1222,9 @@ le même hotspot. Pistes futures documentées en annexe produit : **A**
 
 - [x] Module **`js/editor-shared-nodal-to-dom.js`** : projection store nodal
   → DOM legacy (scènes, hotspots, selector, satellites, média-audio meta
-  pour SFX, etc.) ; **sans** logique FR/EN dupliquée.
+  pour SFX, etc.) ; **sans** logique FR/EN dupliquée. Après purge des
+  blocs scène, appel **`resyncSceneIdCounterFromDom`** sur l’API DOM
+  (coexistence bouton legacy « + scène » et `addScene` utilisé par la projection).
 - [x] Entrée **`applyNodalStateToLegacyDom`** (export `EditorSharedNodalToDom`) :
   parcours scènes / hotspots / actions V2 et remplit les champs attendus
   par la sérialisation (conventions alignées `hotspotDomToV2` / legacy).
