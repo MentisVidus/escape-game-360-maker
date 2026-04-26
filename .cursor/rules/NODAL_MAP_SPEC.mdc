@@ -2,12 +2,16 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.4 (26 avril 2026)
+> **Version** : 1.4.1 (26 avril 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+>
+> **Changelog v1.4.1** : ajout fin de document d’une **annexe de suivi
+> chantier C6** (workspace, branche de travail, plan — à retirer après
+> clôture C6). Aucun changement de règle métier §1–§6.
 >
 > **Changelog v1.4** : Annexe B complétée pour le chantier **C5**
 > (persistance `project.json` + `map-layout.json` dans le ZIP
@@ -1076,4 +1080,117 @@ ci-dessus si non encore câblé).
 
 ---
 
-*Fin de NODAL_MAP_SPEC v1.4.*
+## Chantier en cours — C6 (formulaire legacy en lecture seule)
+
+> **Usage** : suivi opérationnel pour l’agent et l’auteur jusqu’à clôture
+> du chantier **C6**. À **supprimer** (ou vider) une fois C6 livré : le
+> détail fichier sera reporté dans **Annexe B — C6** ; la roadmap §7
+> reste la référence produit.
+
+### Branche Git et intégration `main`
+
+- **Branche de travail** : `feat/c6-legacy-readonly` (créée depuis
+  `feat/nodal-map`).
+- **Fusion** : PR / merge **vers `feat/nodal-map` uniquement** ; **pas**
+  de PR vers `main` tant que le chantier carte nodale global n’est pas
+  terminé (décision auteur).
+- **État** : plan figé + spec à jour ; implémentation **à démarrer** sur
+  `feat/c6-legacy-readonly`.
+
+### Décisions produit (validées)
+
+| # | Sujet | Décision |
+|---|--------|----------|
+| Q1 | Boutons « ajouter scène / hotspot » côté legacy | **Oui**, désactivés jusqu’à **C7** (médias / texte riches depuis la nodale) ; objectif C6 : vérifier déjà la **cohérence visuelle** des scènes / structure pour un pas vers `generateGame`. |
+| Q2 | Fréquence sync store → DOM | **Sur mutation du store** (Zustand) : charge négligeable (pas d’édition à 10 mut/s). Optionnel plus tard : coalescence `requestAnimationFrame` si profilage réel. |
+| Q3 | Pipeline export joueur | **Oui** : `generateGame()` continue de lire le **DOM legacy** pour l’instant ; pas de lecture directe depuis le store nodal en C6. |
+| Q4 | Bandeau UX | **Oui** : message explicite du type *Formulaire en lecture seule — miroir de la carte nodale*. |
+
+### Objectif C6 (rappel §7)
+
+- Désactivation de tous les **inputs / selects / boutons** d’édition du
+  formulaire legacy (y compris ajout scène / hotspot).
+- **Projection** du modèle carte (`NodalProject` / JSON V2 équivalent)
+  vers le DOM pour que `getCurrentProjectData()` et **`generateGame()`**
+  restent alignés sur la carte.
+- Aucune écriture utilisateur dans le legacy (cf. §0.2 et §8.6).
+
+### Plan d’implémentation (ordre proposé)
+
+**C6.0 — Prérequis intégration** *(si pas déjà fait au moment du code)*
+
+- [ ] Carte React (`xflow/react`) montée dans `editeur.html` /
+  `editor_en.html` avec accès au **même** store que la projection (hors
+  seule démo Vite `dev-main`).
+- [ ] Point d’entrée unique : où vit le `StoreApi<NodalProjectStore>` côté
+  page éditeur (global contrôlé, pas d’instance orpheline).
+
+**C6.1 — Verrou lecture seule + bandeau**
+
+- [ ] Désactivation systématique des contrôles d’édition dans les blocs
+  scène / hotspot (attributs `disabled` / `readonly`, suppression ou
+  neutralisation des `onclick` d’édition — **sans** casser les previews
+  si elles sont encore nécessaires : trancher cas par cas).
+- [ ] Désactivation des actions **« Nouvelle scène »**, **« Ajouter hotspot »**
+  (et équivalents EN) sur le legacy.
+- [ ] Bandeau visible (FR + EN) : *Formulaire en lecture seule — miroir
+  de la carte nodale* (libellés dans `editeur-app.js` / `editor-en-app.js`,
+  structure HTML/CSS minimale partagée si pertinent).
+
+**C6.2 — Adaptateur « nodal → DOM legacy »** *(module partagé)*
+
+- [ ] Nouveau module **`js/editor-shared-nodal-to-dom.js`** (nom indicatif) :
+  fonctions pures ou presque, **sans** logique FR/EN dupliquée ; options
+  de locale pour chaînes si besoin.
+- [ ] Entrée principale du type `applyNodalProjectToLegacyDom(state,
+  deps)` : parcours scènes / hotspots / actions V2 et remplit les champs
+  attendus par la sérialisation actuelle (réutiliser les mêmes conventions
+  que `hotspotDomToV2` / `getCurrentProjectData()` en sens inverse —
+  auditer les sélecteurs `.sc-id`, `f-target`, champs selector, etc.).
+- [ ] Cas prioritaires pour le premier incrément : **scènes** (id, titre,
+  panorama URL de base), **hotspots** attachés (au moins structure + type
+  d’action visible) ; puis selector imbriqué, req/pwd, goto, médias au fil
+  des besoins de `generateGame()`.
+
+**C6.3 — Abonnement store → projection**
+
+- [ ] `store.subscribe` (ou équivalent) : à chaque changement de
+  `NodalProject`, ré-appeler l’adaptateur C6.2 (avec garde simple anti
+  re-entrancy si besoin).
+- [ ] Après **load** projet / hydrate ZIP : une passe de projection
+  explicite.
+- [ ] Ne pas introduire de `document.querySelector` dans **`xflow/react`**
+  (règle §8.6) : tout le DOM legacy reste côté **`js/*`**.
+
+**C6.4 — Validation manuelle ciblée**
+
+- [ ] Scénario : édition uniquement sur la carte → vérifier DOM legacy
+  (bandeau + champs reflétés).
+- [ ] `generateGame()` : smoke test sur jeu minimal (sachant que **C7**
+  débloquera texte riche / médias depuis la nodale pour des tests
+  complets).
+
+### Risques / points d’attention
+
+- **Quill** : les `.editor-rich-text` sont aujourd’hui vivants ; en RO,
+  soit Quill désactivé (`enable(false)`), soit pas d’init Quill sur
+  champs miroir — **à trancher** pour éviter double source + focus
+  fantômes.
+- **Selector** : ordre de cartes / `f_sel_choices` / `deferSelectorInit`
+  (cf. `SELECTOR_SPEC`) : la projection doit respecter le même ordre
+  que la sérialisation pour ne pas casser le load suivant.
+- **Perf** : si un jour la projection re-scan tout le document, prévoir
+  un diff par id de scène / hotspot ; hors scope initial si le subscribe
+  reste peu fréquent.
+
+### Checklist « prêt à supprimer cette section »
+
+- [ ] C6 mergé dans `feat/nodal-map` ; tests / build verts.
+- [ ] **Annexe B — C6** rédigée (fichiers créés / modifiés).
+- [ ] §7 C6 inchangé côté wording produit ou ajusté si écart constaté.
+- [ ] Supprimer ce bloc **Chantier en cours — C6** (ou le remplacer par
+  une ligne « C6 livré — voir Annexe B »).
+
+---
+
+*Fin de NODAL_MAP_SPEC v1.4.1.*
