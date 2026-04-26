@@ -5,10 +5,14 @@ import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 
 import {
+  applySceneMetaMediaLinks,
   buildNodalAutoSatelliteData,
   collectMetaMediaLinks,
+  collectSceneMetaMediaLinks,
+  forEachActionInExportWalkOrder,
   type NodalAutoSatellitePayload,
   type NodalMetaMediaLink,
+  type NodalSceneMetaMediaLink,
 } from "./nodalMapExtras";
 
 export type MapLayoutJson = {
@@ -19,9 +23,15 @@ export type MapLayoutJson = {
   viewport: { x: number; y: number; zoom: number };
   dimensions?: Record<string, { width: number; height: number }>;
   inventoryObjects?: Record<string, ObjectEntry>;
+  /** Layout stable des scènes indexé par scene.id V2 (métier) */
+  nodalSceneLayoutByExternalId?: Record<string, { x: number; y: number; collapsed: boolean; width?: number; height?: number }>;
+  /** Layout stable des actions indexé par path d'export (`scene:h:i[:r|:c:n...]`) */
+  nodalActionLayoutByPathKey?: Record<string, { x: number; y: number; collapsed: boolean; width?: number; height?: number }>;
   nodalAutoSatelliteData?: Record<string, NodalAutoSatellitePayload>;
   nodalMedia?: Record<string, MediaNode>;
   nodalMetaMediaLinks?: NodalMetaMediaLink[];
+  /** Arêtes meta scène→média (hors JSON V2). */
+  nodalSceneMetaMediaLinks?: NodalSceneMetaMediaLink[];
 };
 
 /** Clés de layout des satellites auto (recréés par `reconcileAutoSatellites`) — ne pas persister ni réappliquer telles quelles. */
@@ -50,11 +60,20 @@ export function stripAutoSatelliteLayoutFromMap(layout: MapLayoutJson): MapLayou
   if (layout.nodalAutoSatelliteData && Object.keys(layout.nodalAutoSatelliteData).length > 0) {
     out.nodalAutoSatelliteData = { ...layout.nodalAutoSatelliteData };
   }
+  if (layout.nodalSceneLayoutByExternalId && Object.keys(layout.nodalSceneLayoutByExternalId).length > 0) {
+    out.nodalSceneLayoutByExternalId = { ...layout.nodalSceneLayoutByExternalId };
+  }
+  if (layout.nodalActionLayoutByPathKey && Object.keys(layout.nodalActionLayoutByPathKey).length > 0) {
+    out.nodalActionLayoutByPathKey = { ...layout.nodalActionLayoutByPathKey };
+  }
   if (layout.nodalMedia && Object.keys(layout.nodalMedia).length > 0) {
     out.nodalMedia = { ...layout.nodalMedia };
   }
   if (layout.nodalMetaMediaLinks?.length) {
     out.nodalMetaMediaLinks = [...layout.nodalMetaMediaLinks];
+  }
+  if (layout.nodalSceneMetaMediaLinks?.length) {
+    out.nodalSceneMetaMediaLinks = [...layout.nodalSceneMetaMediaLinks];
   }
   return out;
 }
@@ -79,7 +98,61 @@ export function applyHydratedLayout(state: NodalProject, layout: MapLayoutJson):
     state.media = { ...layout.nodalMedia };
   }
   applyLayout(state, stripAutoSatelliteLayoutFromMap(layout));
+  applyStableSceneAndActionLayout(state, layout);
+  applySceneMetaMediaLinks(state, layout.nodalSceneMetaMediaLinks);
   ensureGraphNodeLayoutsAfterHydrate(state);
+}
+
+function deriveParentPathKey(pathKey: string): string | null {
+  if (pathKey.endsWith(":r")) return pathKey.slice(0, -2);
+  const m = pathKey.match(/^(.*):c:\d+$/);
+  return m?.[1] ?? null;
+}
+
+/** Applique le layout stable (indépendant des ids internes) pour scènes + actions. */
+function applyStableSceneAndActionLayout(state: NodalProject, layout: MapLayoutJson): void {
+  const sceneStable = layout.nodalSceneLayoutByExternalId;
+  if (sceneStable && Object.keys(sceneStable).length > 0) {
+    const sceneIdByExternal = new Map<string, AnyNodeId>();
+    for (const s of Object.values(state.scenes)) sceneIdByExternal.set(s.sceneId, s.id);
+    for (const [externalId, l] of Object.entries(sceneStable)) {
+      const sceneId = sceneIdByExternal.get(externalId);
+      if (!sceneId) continue;
+      const existing = state.layout[sceneId];
+      state.layout[sceneId] = {
+        ...existing,
+        x: l.x,
+        y: l.y,
+        parentId: null,
+        collapsed: l.collapsed,
+        ...(l.width != null && l.height != null ? { width: l.width, height: l.height } : {}),
+      };
+    }
+  }
+
+  const actionStable = layout.nodalActionLayoutByPathKey;
+  if (!actionStable || Object.keys(actionStable).length === 0) return;
+
+  const actionIdByPath = new Map<string, AnyNodeId>();
+  forEachActionInExportWalkOrder(state, (actionId, pathKey) => {
+    actionIdByPath.set(pathKey, actionId);
+  });
+
+  for (const [pathKey, l] of Object.entries(actionStable)) {
+    const actionId = actionIdByPath.get(pathKey);
+    if (!actionId) continue;
+    const existing = state.layout[actionId];
+    const parentPath = deriveParentPathKey(pathKey);
+    const parentId = parentPath ? actionIdByPath.get(parentPath) ?? null : null;
+    state.layout[actionId] = {
+      ...existing,
+      x: l.x,
+      y: l.y,
+      parentId,
+      collapsed: l.collapsed,
+      ...(l.width != null && l.height != null ? { width: l.width, height: l.height } : {}),
+    };
+  }
 }
 
 const isActionOrphan = (state: NodalProject, actionId: ActionNodeId): boolean => {
@@ -124,6 +197,33 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
     viewport: { ...state.meta.viewport },
     inventoryObjects: { ...state.meta.objects },
   };
+
+  const sceneStable: NonNullable<MapLayoutJson["nodalSceneLayoutByExternalId"]> = {};
+  for (const scene of Object.values(state.scenes)) {
+    const l = state.layout[scene.id];
+    if (!l) continue;
+    sceneStable[scene.sceneId] = {
+      x: l.x,
+      y: l.y,
+      collapsed: l.collapsed,
+      ...(l.width != null && l.height != null ? { width: l.width, height: l.height } : {}),
+    };
+  }
+  if (Object.keys(sceneStable).length > 0) out.nodalSceneLayoutByExternalId = sceneStable;
+
+  const actionStable: NonNullable<MapLayoutJson["nodalActionLayoutByPathKey"]> = {};
+  forEachActionInExportWalkOrder(state, (actionId, pathKey) => {
+    const l = state.layout[actionId];
+    if (!l) return;
+    actionStable[pathKey] = {
+      x: l.x,
+      y: l.y,
+      collapsed: l.collapsed,
+      ...(l.width != null && l.height != null ? { width: l.width, height: l.height } : {}),
+    };
+  });
+  if (Object.keys(actionStable).length > 0) out.nodalActionLayoutByPathKey = actionStable;
+
   if (Object.keys(dimensions).length > 0) {
     out.dimensions = dimensions;
   }
@@ -137,6 +237,10 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
   const metaLinks = collectMetaMediaLinks(state);
   if (metaLinks.length > 0) {
     out.nodalMetaMediaLinks = metaLinks;
+  }
+  const sceneMetaLinks = collectSceneMetaMediaLinks(state);
+  if (sceneMetaLinks.length > 0) {
+    out.nodalSceneMetaMediaLinks = sceneMetaLinks;
   }
   return out;
 };

@@ -1,5 +1,5 @@
 import type { Edge } from "../model/edges";
-import { asEdgeId, type ActionNodeId, type MediaNodeId, type SatelliteNodeId } from "../model/ids";
+import { asEdgeId, type ActionNodeId, type MediaNodeId, type SceneNodeId, type SatelliteNodeId } from "../model/ids";
 import type {
   ChoiceOptionsSatelliteNode,
   CoordsOptionsSatelliteNode,
@@ -107,6 +107,9 @@ export function applyNodalAutoSatelliteData(
 /** Lien meta action→média avec chemin d’action stable (les ids internes changent à l’import). */
 export type NodalMetaMediaLink = { pathKey: string; mediaId: string };
 
+/** Lien meta scène→média (hors JSON V2) : `scene.id` métier + id média interne. */
+export type NodalSceneMetaMediaLink = { externalSceneId: string; mediaId: string };
+
 export function collectMetaMediaLinks(state: NodalProject): NodalMetaMediaLink[] {
   const out: NodalMetaMediaLink[] = [];
   forEachActionInExportWalkOrder(state, (aid, pathKey) => {
@@ -116,6 +119,18 @@ export function collectMetaMediaLinks(state: NodalProject): NodalMetaMediaLink[]
       }
     }
   });
+  return out;
+}
+
+export function collectSceneMetaMediaLinks(state: NodalProject): NodalSceneMetaMediaLink[] {
+  const out: NodalSceneMetaMediaLink[] = [];
+  for (const scene of Object.values(state.scenes)) {
+    for (const e of state.edges) {
+      if (e.family === "meta" && e.sourceId === scene.id && e.targetId in state.media) {
+        out.push({ externalSceneId: scene.sceneId, mediaId: e.targetId as string });
+      }
+    }
+  }
   return out;
 }
 
@@ -132,6 +147,26 @@ export function applyMetaMediaLinks(state: NodalProject, links: NodalMetaMediaLi
       id: asEdgeId(`edge-meta-mm-${String(actionId)}-${String(mediaId)}`),
       family: "meta",
       sourceId: actionId,
+      targetId: mediaId as MediaNodeId,
+    };
+    state.edges.push(edge);
+  }
+}
+
+export function applySceneMetaMediaLinks(state: NodalProject, links: NodalSceneMetaMediaLink[] | undefined): void {
+  if (!links?.length) return;
+  const sceneIdByExternal = new Map<string, SceneNodeId>();
+  for (const s of Object.values(state.scenes)) {
+    sceneIdByExternal.set(s.sceneId, s.id);
+  }
+  for (const { externalSceneId, mediaId } of links) {
+    const sceneId = sceneIdByExternal.get(externalSceneId);
+    if (!sceneId || !Object.prototype.hasOwnProperty.call(state.media, mediaId)) continue;
+    if (state.edges.some((e) => e.family === "meta" && e.sourceId === sceneId && e.targetId === mediaId)) continue;
+    const edge: Edge = {
+      id: asEdgeId(`edge-meta-scene-${String(sceneId)}-${String(mediaId)}`),
+      family: "meta",
+      sourceId: sceneId,
       targetId: mediaId as MediaNodeId,
     };
     state.edges.push(edge);
