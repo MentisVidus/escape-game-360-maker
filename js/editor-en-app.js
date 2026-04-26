@@ -409,7 +409,10 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "", sceneTargetR
     return sId;
 }
 
-/** After removing `.scene-block` nodes: set `sceneIdCounter` to max existing `scene_N` id. */
+/**
+ * After nodal prune of `.scene-block` nodes: set `sceneIdCounter` to max remaining `scene_N` id.
+ * Needed while `addScene()` uses sequential numeric ids (legacy “+ scene” button, C6.2 projection).
+ */
 function resyncSceneIdCounterFromDom() {
     var container = document.getElementById("scenes-container");
     if (!container) return;

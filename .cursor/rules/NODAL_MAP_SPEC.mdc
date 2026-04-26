@@ -1168,39 +1168,23 @@ ci-dessus si non encore câblé).
 - [ ] Vérifier que la projection garde l’ordre des choix selector
   (éviter toute dérive entre rendu nodal et JSON final).
 
-### Plan — Enchaînements REQ→REQ, PWD→PWD ou mixtes *(à cadrer avant impl.)*
+### REQ / PWD — Chaînes multiples *(hors C6 — périmètre **C7**)*
 
-> **Constat** : le **DOM legacy** et le **runtime joueur** (`generateGame` /
-> `editeur-generate.js`) modélisent aujourd’hui **une seule** récompense
-> sous un hotspot `req` / `pwd` : `payload.rewardAction` (V2) ou champs
-> dérivés type `f_req_action` / `f_pwd_action` côté legacy / export. Il
-> n’existe pas de chaîne native « récompense puis nouvelle énigme » dans
-> le même hotspot.
+> **Décision actuelle : option C (limite produit).** Tant que **C7** n’étend
+> pas le schéma ni le runtime joueur, **un seul** palier `req` / `pwd` par
+> hotspot reste le contrat **export / `generateGame()`** ; le graphe nodal
+> peut montrer plus de nœuds, mais la **projection DOM** et le **ZIP joueur**
+> ne garantissent pas les enchaînements `req→req`, `pwd→pwd` ou mixtes.
 
-**Pistes (à trancher en spec produit + technique)** :
+**Rappel technique** (pour la phase C7) : une seule `rewardAction` (V2) /
+`f_req_action` / `f_pwd_action` côté legacy ; pas de chaîne native dans
+le même hotspot. Pistes futures documentées en annexe produit : **A**
+(aplatissement / `rewardChain[]`), **B** (runtime « séquence » interne),
+**C** (statu quo jusqu’à C7).
 
-1. **Graphe nodal** : plusieurs actions `req`/`pwd` enchaînées comme
-   nœuds **récompense** successifs (parent REQ/PWD) sont déjà possibles
-   visuellement ; la question est la **projection** vers le legacy et
-   l’**export joueur**.
-2. **Option A — Aplatissement** : à la projection / à l’export, fusionner
-   la chaîne en **une** action composite ou en **liste ordonnée** dans un
-   schéma V2 étendu (`rewardChain[]`) puis adapter `actionV2ToLegacyHotspotData`
-   et le template joueur pour exécuter séquentiellement (sans casser les
-   jeux existants à un seul palier).
-3. **Option B — Runtime uniquement** : garder un seul slot legacy mais
-   faire pointer `rewardAction` vers un type interne « séquence »
-   interprété par le JS joueur (plus de travail sur `generateGame` que
-   sur le DOM éditeur).
-4. **Option C — Limite produit** : documenter que **un seul** palier
-   req/pwd par hotspot reste supporté en export tant que C7 n’étend pas
-   le schéma ; chaînes réservées à la seule carte nodale + bundle nodal.
-
-**Étapes de préparation** : auditer `actionV2ToLegacyHotspotData` /
-`legacyActionToV2` ; lire les branches `req` / `pwd` dans
-`editeur-generate.js` (~1770+ et exécution hotspot) ; décider si la
-cible prioritaire est **miroir DOM** ou **ZIP joueur** ; ajouter tests
-Vitest / smoke sur un jeu minimal avant d’étendre le graphe.
+**Préparation C7** : auditer `actionV2ToLegacyHotspotData`,
+`legacyActionToV2`, branches `req` / `pwd` dans `editeur-generate.js` /
+`editor-en-generate.js` ; tests smoke sur jeu minimal à un palier.
 
 ### C6.3 — Points de stabilisation
 

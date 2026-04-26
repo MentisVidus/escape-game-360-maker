@@ -40,7 +40,7 @@
 
     global.defaultSceneTargetSelectValue = function () {
         var ids = global.getAllSceneIdsFromDom();
-        return ids.length ? ids[0] : "scene_2";
+        return ids.length ? ids[0] : "";
     };
 
     global.buildSceneTargetSelectOptionsHtml = function (selectedVal) {

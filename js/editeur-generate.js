@@ -2371,9 +2371,10 @@ async function exportGameWebZip() {
     }
 }
 
-// Au lancement de l'éditeur, on crée directement une première scène vide
-window.onload = function() { 
-    addScene();
-	updatePreview();
-};
+// Aperçu inventaire / popup au chargement (les scènes viennent du chargement JSON, du brouillon, ou de la projection nodale C6.2 — plus de scène vide imposée).
+window.addEventListener("load", function () {
+    if (typeof updatePreview === "function") {
+        updatePreview();
+    }
+});
 

@@ -414,7 +414,11 @@ function addScene(scIdVal = null, scImgVal = null, scTitleVal = "", sceneTargetR
     return sId;
 }
 
-/** Après suppression de blocs `.scene-block` hors graphe nodal : remet `sceneIdCounter` au max des `scene_N` restants (évite collision avec `addScene`). */
+/**
+ * Après purge nodale des blocs `.scene-block` : aligne `sceneIdCounter` sur le max des `scene_N` encore dans le DOM.
+ * Nécessaire tant que `addScene()` alloue des ids numériques séquentiels (bouton « + scène » legacy, projection C6.2).
+ * Une évolution future pourrait attribuer les ids côté nodal uniquement ; on gardera alors une seule voie d’injection DOM.
+ */
 function resyncSceneIdCounterFromDom() {
     var container = document.getElementById("scenes-container");
     if (!container) return;

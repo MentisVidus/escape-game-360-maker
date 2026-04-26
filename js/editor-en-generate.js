@@ -2354,9 +2354,10 @@ async function exportGameWebZip() {
     }
 }
 
-// Boot: one empty scene + preview refresh
-window.onload = function() { 
-    addScene();
-	updatePreview();
-};
+// Preview on load only (scenes come from JSON, draft, or C6.2 nodal projection — no forced empty scene).
+window.addEventListener("load", function () {
+    if (typeof updatePreview === "function") {
+        updatePreview();
+    }
+});
 
