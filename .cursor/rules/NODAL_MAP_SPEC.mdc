@@ -1314,15 +1314,15 @@ selon la priorité produit (édition texte d’abord *vs* schéma d’abord).
 
 **Todo détaillé — lot `c7-chain-reward` (avant ouverture de branche suivante)** :
 
-- [ ] **C7.1-00 Contrat figé** : flux unique `V2 -> DOM -> generateGame`,
+- [x] **C7.1-00 Contrat figé** : flux unique `V2 -> DOM -> generateGame`,
   aucune remontée `legacy -> V2`.
-- [ ] **C7.1-01 Core** : autoriser `req`/`pwd` comme `rewardAction` partout
+- [x] **C7.1-01 Core** : autoriser `req`/`pwd` comme `rewardAction` partout
   où la normalisation limite encore les types.
-- [ ] **C7.1-02 Projection DOM** : étendre les sélecteurs de récompense
+- [x] **C7.1-02 Projection DOM** : étendre les sélecteurs de récompense
   (`REQ`/`PWD`) et dérouler les champs en chaîne.
-- [ ] **C7.1-03 Runtime joueur** : exécution séquentielle des paliers
+- [x] **C7.1-03 Runtime joueur** : exécution séquentielle des paliers
   (`REQ -> ... -> PWD -> ...`) jusqu’à action terminale.
-- [ ] **C7.1-04 Garde-fous** : limite de profondeur C2 + warnings déjà existants
+- [x] **C7.1-04 Garde-fous** : limite de profondeur C2 + warnings déjà existants
   (reward manquant), sans surcharger en messages par défaut.
 - [ ] **C7.1-05 Smoke** : scénario nominal `REQ -> REQ -> PWD -> MSG` +
   cas mixte `REQ -> SELECTOR -> REQ`.
