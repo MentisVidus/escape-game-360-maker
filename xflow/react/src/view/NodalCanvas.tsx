@@ -62,6 +62,8 @@ import { CoordsOptionsPopup } from "./popups/CoordsOptionsPopup";
 import { ChoiceOptionsPopup } from "./popups/ChoiceOptionsPopup";
 import { MediaEditorPopup } from "./popups/MediaEditorPopup";
 import { MsgContentPopup } from "./popups/MsgContentPopup";
+import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
+import { PopupThemeCustomizationPopup } from "./popups/PopupThemeCustomizationPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
 import { toReactFlowEdges, toReactFlowNodes, type NodalRFData } from "./nodalReactFlowProjection";
 import "./NodalCanvas.css";
@@ -89,11 +91,15 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [choiceEditorSatelliteId, setChoiceEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
   const [mediaEditorMediaId, setMediaEditorMediaId] = useState<MediaNodeId | null>(null);
   const [msgEditorActionId, setMsgEditorActionId] = useState<ActionNodeId | null>(null);
+  const [globalSettingsHubOpen, setGlobalSettingsHubOpen] = useState(false);
+  const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
     setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(id);
   }, []);
   const state = useSyncExternalStore(
@@ -397,6 +403,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         msgEditorActionId,
         setMsgEditorActionId,
         openMsgContentEditor,
+        globalSettingsHubOpen,
+        setGlobalSettingsHubOpen,
+        popupThemeCustomizationOpen,
+        setPopupThemeCustomizationOpen,
       }}
     >
       <div className={layoutClassName} ref={canvasRef}>
@@ -513,6 +523,22 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             } as never);
           }}
           onClose={() => setMsgEditorActionId(null)}
+        />
+        <GlobalSettingsHubPopup
+          open={globalSettingsHubOpen}
+          onClose={() => setGlobalSettingsHubOpen(false)}
+          onOpenPopupTheme={() => {
+            setGlobalSettingsHubOpen(false);
+            setPopupThemeCustomizationOpen(true);
+          }}
+        />
+        <PopupThemeCustomizationPopup
+          open={popupThemeCustomizationOpen}
+          onClose={() => setPopupThemeCustomizationOpen(false)}
+          onBackToHub={() => {
+            setPopupThemeCustomizationOpen(false);
+            setGlobalSettingsHubOpen(true);
+          }}
         />
       </div>
     </div>

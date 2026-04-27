@@ -86,6 +86,12 @@
   position: relative;
 }
 
+.nodal-canvas-layout > .nodal-palette {
+  align-self: stretch;
+  flex-shrink: 0;
+  min-height: 0;
+}
+
 .nodal-canvas-theme-toggle {
   position: absolute;
   top: 10px;
@@ -455,4 +461,78 @@
 
 .nodal-canvas-layout .nodal-coords-appearance-btn:hover {
   background: var(--palette-button-hover);
+}
+
+/* Menu paramètres globaux (palette) */
+.nodal-canvas-layout .nodal-popup-panel--global-hub {
+  max-width: min(420px, 92vw);
+}
+
+.nodal-canvas-layout .nodal-global-hub-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0 14px;
+}
+
+.nodal-canvas-layout .nodal-global-hub-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nodal-canvas-layout .nodal-global-hub-btn:hover:not(:disabled) {
+  background: var(--palette-button-hover);
+}
+
+.nodal-canvas-layout .nodal-global-hub-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nodal-canvas-layout .nodal-global-hub-btn--primary {
+  font-weight: 700;
+  border-color: var(--node-selected-outline);
+  background: color-mix(in srgb, var(--node-selected-outline) 14%, var(--palette-button-bg));
+}
+
+/* Personnalisation popups (aligné visuel hotspot appearance) */
+.nodal-canvas-layout .nodal-popup-panel--popup-theme {
+  max-width: min(720px, 96vw);
+}
+
+.nodal-canvas-layout .nodal-pt-fields--disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.nodal-canvas-layout .nodal-pt-preview-wrap {
+  margin: 12px 0 4px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--palette-button-border);
+  background: color-mix(in srgb, var(--palette-bg) 88%, var(--palette-border));
+}
+
+.nodal-canvas-layout .nodal-pt-preview-label {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+
+.nodal-canvas-layout .nodal-pt-preview-box {
+  display: inline-block;
+  padding: 16px 20px;
+  border-radius: 8px;
+  border: 2px solid color-mix(in srgb, var(--node-text) 22%, transparent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  text-align: left;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }

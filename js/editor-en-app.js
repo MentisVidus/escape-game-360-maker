@@ -1885,6 +1885,32 @@ function updatePreview() {
     }
 }
 
+window.updatePreview = updatePreview;
+
+window.__escape360NodalChrome = {
+    saveEscapegameBundle: function () {
+        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
+        void saveProjectBundle();
+    },
+    flushThenSaveJson: function () {
+        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
+        saveProject();
+    },
+    flushThenLocalDraftSnapshot: async function () {
+        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
+        await localDraftManager.captureSnapshot("manual");
+        await refreshLocalDraftStatusUi();
+    },
+    triggerLoadEscapegame: function () {
+        var inp = document.getElementById("file-import");
+        if (inp) inp.click();
+    },
+    closeProjectMapModal: function () {
+        if (typeof closeProjectMap === "function") closeProjectMap();
+    },
+    updatePreview: updatePreview
+};
+
 (function initEndScreenRichEditors() {
     var root = document.getElementById("end-screens-form-container");
     if (root && typeof initRichEditorsIn === "function") {

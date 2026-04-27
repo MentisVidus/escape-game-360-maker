@@ -5,6 +5,13 @@
  */
 import Quill from "quill";
 
+/** Instance Quill 1.3.x (champs minimaux utilisés par la carte). */
+export type NodalQuillInstance = {
+  root: HTMLElement;
+  update: (source?: string) => void;
+  clipboard: { dangerouslyPasteHTML: (html: string) => void };
+};
+
 let formatsRegistered = false;
 
 export function registerNodalQuillFormats(): void {
@@ -41,7 +48,7 @@ function quillSourceApi(): string {
  * Aligné `loadHtmlIntoQuill` dans editor-quill-scenes.js : innerHTML + update(API)
  * pour ne pas perdre titres / tailles au chargement.
  */
-export function loadHtmlIntoNodalQuill(quill: Quill, html: string): void {
+export function loadHtmlIntoNodalQuill(quill: NodalQuillInstance, html: string): void {
   if (!quill) return;
   const h = String(html ?? "").trim();
   if (!h) return;

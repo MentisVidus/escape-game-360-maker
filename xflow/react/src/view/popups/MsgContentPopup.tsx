@@ -9,6 +9,7 @@ import {
   loadHtmlIntoNodalQuill,
   nodalQuillToolbar,
   registerNodalQuillFormats,
+  type NodalQuillInstance,
 } from "../quill/nodalQuillSetup";
 
 type Locale = "fr" | "en";
@@ -52,7 +53,7 @@ export function MsgContentPopup({ action, onSave, onClose }: Props) {
   const L = LABELS[locale];
   const [buttonLabel, setButtonLabel] = useState("");
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const quillRef = useRef<Quill | null>(null);
+  const quillRef = useRef<NodalQuillInstance | null>(null);
 
   useEffect(() => {
     if (!action) {
@@ -75,7 +76,7 @@ export function MsgContentPopup({ action, onSave, onClose }: Props) {
     const q = new Quill(el, {
       theme: "snow",
       modules: { toolbar: nodalQuillToolbar() },
-    });
+    }) as NodalQuillInstance;
     loadHtmlIntoNodalQuill(q, String(action.payload?.copy?.bodyHtml ?? ""));
     quillRef.current = q;
 
