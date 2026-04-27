@@ -56,11 +56,17 @@
         return o;
     }
 
+    function byteFromHexPair(hexNoHash, start) {
+        var n = parseInt(hexNoHash.slice(start, start + 2), 16);
+        if (isNaN(n)) return 0;
+        return Math.max(0, Math.min(255, n));
+    }
+
     function hexToRgbaLo(hex, alpha) {
         var h = String(hex || "#ff0000").replace(/^#/, "");
-        var r = parseInt(h.slice(0, 2), 16) || 255;
-        var g = parseInt(h.slice(2, 4), 16) || 0;
-        var b = parseInt(h.slice(4, 6), 16) || 0;
+        var r = byteFromHexPair(h, 0);
+        var g = byteFromHexPair(h, 2);
+        var b = byteFromHexPair(h, 4);
         var a = Number.isFinite(alpha) ? Math.max(0, Math.min(1, alpha)) : 1;
         return "rgba(" + r + ", " + g + ", " + b + ", " + a + ")";
     }
