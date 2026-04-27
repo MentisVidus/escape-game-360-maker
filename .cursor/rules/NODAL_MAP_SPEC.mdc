@@ -27,9 +27,15 @@
 > la nodale reste **source de vérité** sauvegarde / export. **REQ/PWD** :
 > contrat export / `generateGame()` = **un palier** de récompense par
 > hotspot ; enchaînements multi-palier → **C7** (cf. Annexe B — C6 et §7 C7).
-> **Détail fichiers** : **Annexe B — C6**. *(Les entrées intermédiaires
-> « Changelog v1.4.x » ont été fusionnées ici.)*
+> **Détail fichiers** : **Annexe B — C6**. *(Les entrées **v1.4.1 à v1.4.7**
+> (journal incrémental C6) sont regroupées dans **v1.5** ci-dessus ; **v1.4**
+> concerne uniquement **C5** et reste distincte sous ce bloc.)*
 >
+> **Changelog v1.4** : Annexe B complétée pour le chantier **C5**
+> (persistance `project.json` + `map-layout.json` dans le ZIP
+> `.escapegame`, hydrate du store, IndexedDB). Aucun changement de règle
+> métier §1–§6.
+
 > **Changelog v1.3** : le satellite `object` devient automatique comme
 > `coords-options` et `choice-options`. Retiré de la palette manuelle.
 > Modèle de données centralisé via `meta.objects[objectId]` (§3.6). Ajout
