@@ -1212,24 +1212,28 @@ debug chaîne ; garde-fou **profondeur** runtime ; pas de sens
 
 ### C7.2 — Popups contenu — socle **msg** *(en cours sur `feat/c7-2-msg-popup`)*
 
-**Périmètre livré (premier increment)** : clic sur nœud **`msg`** (hors handle /
-bouton détacher) → popup **HTML brut** `copy.bodyHtml` + `copy.buttonLabel` ;
-**Annuler** / **Enregistrer** ; fermeture si le nœud disparaît ; ouverture
-ferme les autres popups carte (médias, satellites…). Libellés **FR / EN**
-selon `document.documentElement.lang` (`editeur.html` / `editor_en.html`).
-**Quill** / parité WYSIWYG legacy : **pas** dans ce increment (cf. ordre C7
-**D.3** et §7).
+**Périmètre livré** : clic sur nœud **`msg`** (hors handle / bouton détacher) →
+popup **Quill 1.3.7** (`copy.bodyHtml` WYSIWYG + `copy.buttonLabel`) — même
+toolbar / formats whitelist que `js/editor-quill-scenes.js`, **sans** importer
+le legacy (bundle `quill` npm + `nodalQuillSetup.ts` + `nodalQuillRich.css`).
+**Annuler** / **Enregistrer** ; fermeture si le nœud disparaît ; ouverture ferme
+les autres popups carte. Libellés **FR / EN** via `document.documentElement.lang`.
+Projection RF extraite dans **`nodalReactFlowProjection.ts`** pour que les tests
+Vitest ne chargent pas Quill.
 
 **Fichiers** :
 
-- `xflow/react/src/view/popups/MsgContentPopup.tsx` — popup message.
+- `xflow/react/src/view/popups/MsgContentPopup.tsx` — popup message + Quill.
+- `xflow/react/src/view/quill/nodalQuillSetup.ts` — toolbar / formats / chargement HTML.
+- `xflow/react/src/view/quill/nodalQuillRich.css` — thème carte + pickers FR/EN.
+- `xflow/react/src/view/nodalReactFlowProjection.ts` — `toReactFlowNodes` / `toReactFlowEdges` (hors Quill).
+- `xflow/react/package.json` — dépendance **`quill@1.3.7`** (alignement CDN éditeur).
 - `xflow/react/src/view/nodalUiContext.tsx` — `msgEditorActionId`,
   `setMsgEditorActionId`, `openMsgContentEditor`.
 - `xflow/react/src/view/NodalCanvas.tsx` — montage, `onSave` →
   `updateNodeData` (payload `copy`).
 - `xflow/react/src/view/nodes/ActionNodeView.tsx` — interaction nœud `msg`.
-- `xflow/react/src/view/NodalCanvas.css`, `view/nodes/nodes.css` — textarea /
-  panneau élargi.
+- `xflow/react/src/view/NodalCanvas.css`, `view/nodes/nodes.css` — panneau élargi.
 
 ## Annexe C — Glossaire
 
@@ -1413,6 +1417,9 @@ de l’eau.)*
 - 2026-04-27 — **Lot C7.2 (increment 1)** : popup carte pour nœud **`msg`**
   (`MsgContentPopup`, HTML brut + `buttonLabel`, FR/EN via `lang`, pas de
   bump de version spec — validation auteur requise pour toute montée **v1.7+**).
+- 2026-04-27 — **Lot C7.2 (Quill nodal)** : WYSIWYG **Quill 1.3.7** dans la popup
+  (toolbar alignée `editor-quill-scenes.js`, aucun import legacy) ;
+  `nodalReactFlowProjection.ts` pour tests sans `document` au chargement de Quill.
 
 ---
 

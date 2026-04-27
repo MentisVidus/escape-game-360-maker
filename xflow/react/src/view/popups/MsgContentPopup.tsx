@@ -1,6 +1,15 @@
-import { useEffect, useState } from "react";
+import "quill/dist/quill.snow.css";
+import "../quill/nodalQuillRich.css";
+
+import { useEffect, useRef, useState } from "react";
 
 import type { CopyPayload, MsgActionNode } from "../../model/nodes";
+import {
+  Quill,
+  loadHtmlIntoNodalQuill,
+  nodalQuillToolbar,
+  registerNodalQuillFormats,
+} from "../quill/nodalQuillSetup";
 
 type Locale = "fr" | "en";
 
@@ -10,19 +19,19 @@ const LABELS: Record<
 > = {
   fr: {
     title: "Message — contenu",
-    body: "Corps (HTML)",
+    body: "Corps (texte riche)",
     btn: "Libellé du bouton",
     cancel: "Annuler",
     save: "Enregistrer",
-    hint: "Édition HTML brut sur la carte ; parité Quill / legacy prévue plus tard (chantier C7).",
+    hint: "Même barre d’outils Quill que le formulaire (polices, tailles, listes, couleurs…). Le rendu suit le thème clair / sombre de la carte.",
   },
   en: {
     title: "Message — content",
-    body: "Body (HTML)",
+    body: "Body (rich text)",
     btn: "Button label",
     cancel: "Cancel",
     save: "Save",
-    hint: "Raw HTML on the map; Quill / legacy WYSIWYG parity planned later (C7).",
+    hint: "Same Quill toolbar as the main form (fonts, sizes, lists, colors…). Styling follows the map light / dark theme.",
   },
 };
 
@@ -41,24 +50,47 @@ type Props = {
 export function MsgContentPopup({ action, onSave, onClose }: Props) {
   const [locale] = useState<Locale>(() => detectLocale());
   const L = LABELS[locale];
-  const [bodyHtml, setBodyHtml] = useState("");
   const [buttonLabel, setButtonLabel] = useState("");
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const quillRef = useRef<Quill | null>(null);
 
   useEffect(() => {
     if (!action) {
-      setBodyHtml("");
       setButtonLabel("");
       return;
     }
-    setBodyHtml(String(action.payload?.copy?.bodyHtml ?? ""));
     setButtonLabel(String(action.payload?.copy?.buttonLabel ?? ""));
   }, [action]);
+
+  useEffect(() => {
+    if (!action) {
+      quillRef.current = null;
+      return;
+    }
+    const el = hostRef.current;
+    if (!el) return;
+
+    registerNodalQuillFormats();
+    el.innerHTML = "";
+    const q = new Quill(el, {
+      theme: "snow",
+      modules: { toolbar: nodalQuillToolbar() },
+    });
+    loadHtmlIntoNodalQuill(q, String(action.payload?.copy?.bodyHtml ?? ""));
+    quillRef.current = q;
+
+    return () => {
+      quillRef.current = null;
+      el.innerHTML = "";
+    };
+  }, [action?.id]);
 
   if (!action) return null;
 
   const handleSave = () => {
+    const html = quillRef.current?.root.innerHTML ?? "";
     onSave({
-      bodyHtml,
+      bodyHtml: html,
       buttonLabel: buttonLabel.trim(),
     });
     onClose();
@@ -72,13 +104,9 @@ export function MsgContentPopup({ action, onSave, onClose }: Props) {
         <p className="nodal-popup-hint">{L.hint}</p>
         <label className="nodal-popup-field">
           <span>{L.body}</span>
-          <textarea
-            className="nodal-popup-textarea"
-            rows={14}
-            value={bodyHtml}
-            onChange={(e) => setBodyHtml(e.target.value)}
-            spellCheck={false}
-          />
+          <div className="nodal-popup-quill wysiwyg-wrap">
+            <div ref={hostRef} />
+          </div>
         </label>
         <label className="nodal-popup-field">
           <span>{L.btn}</span>

@@ -1,0 +1,160 @@
+/**
+ * Quill popup message — polices / tailles / pickers alignés sur `css/editor.css`
+ * (champs .wysiwyg-wrap legacy), scoping visuel sous .nodal-popup-quill.
+ */
+.ql-font-arial {
+  font-family: Arial, Helvetica, sans-serif;
+}
+.ql-font-courier {
+  font-family: "Courier New", Courier, monospace;
+}
+.ql-font-times {
+  font-family: "Times New Roman", Times, serif;
+}
+.ql-font-impact {
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", fantasy;
+}
+.ql-font-comic {
+  font-family: "Comic Sans MS", "Comic Sans", cursive, sans-serif;
+}
+
+.nodal-popup-quill.wysiwyg-wrap {
+  margin-bottom: 10px;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar.ql-snow {
+  border-radius: 6px 6px 0 0;
+  border-color: var(--palette-button-border);
+  background: #f5f5f5;
+}
+
+.nodal-canvas-layout.dark-mode .nodal-popup-quill.wysiwyg-wrap .ql-toolbar.ql-snow {
+  background: #1e293b;
+  border-color: var(--palette-button-border);
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-container.ql-snow {
+  border-radius: 0 0 6px 6px;
+  border-color: var(--palette-button-border);
+  font-size: 14px;
+  min-height: 200px;
+  background: var(--palette-button-bg);
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-editor {
+  min-height: 200px;
+  background: var(--palette-button-bg) !important;
+  color: var(--node-text) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-editor.ql-blank::before {
+  color: var(--node-text);
+  opacity: 0.5;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-editor .ql-size-small {
+  font-size: 0.85em;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-editor .ql-size-large {
+  font-size: 1.5em;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-editor .ql-size-huge {
+  font-size: 2em;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font {
+  width: 148px;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item::before {
+  content: none;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before {
+  content: "Arial";
+  font-family: Arial, Helvetica, sans-serif;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="courier"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="courier"]::before {
+  content: "Courier New";
+  font-family: "Courier New", Courier, monospace;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="times"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="times"]::before {
+  content: "Times New Roman";
+  font-family: "Times New Roman", Times, serif;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="impact"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="impact"]::before {
+  content: "Impact";
+  font-family: Impact, Haettenschweiler, fantasy;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="comic"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="comic"]::before {
+  content: "Comic Sans MS";
+  font-family: "Comic Sans MS", cursive, sans-serif;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="false"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="false"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value=""]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value=""]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label:not([data-value])::before {
+  content: "Défaut";
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="false"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="false"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value=""]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value=""]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label:not([data-value])::before {
+  content: "Default";
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size {
+  width: 92px;
+}
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item::before {
+  content: none;
+}
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="small"]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="small"]::before {
+  content: "Petit";
+}
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="large"]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="large"]::before {
+  content: "Grand";
+}
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="huge"]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="huge"]::before {
+  content: "Très grand";
+}
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="false"]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="false"]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value=""]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value=""]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label:not([data-value])::before {
+  content: "Normal";
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item::before {
+  content: none;
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="small"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="small"]::before {
+  content: "Small";
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="large"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="large"]::before {
+  content: "Large";
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="huge"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="huge"]::before {
+  content: "Huge";
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="false"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="false"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value=""]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value=""]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label:not([data-value])::before {
+  content: "Normal";
+}
