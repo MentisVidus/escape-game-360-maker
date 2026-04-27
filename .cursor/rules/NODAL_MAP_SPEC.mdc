@@ -2,13 +2,23 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.5.1 (26 avril 2026)
+> **Version** : 1.6 (27 avril 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
 >>
+> **Changelog v1.6** : clôture **lot C7.1** (`feat/c7-chain-reward` fusionné
+> dans `feat/nodal-map`) — chaînes **REQ/PWD** en **`rewardAction` récursif**
+> (V2) ; projection DOM legacy (blocs dynamiques + debug
+> `f-reward-chain-json`) ; runtime joueur FR/EN (`executeReward` séquentiel,
+> terminaux `msg`/`pick`, garde-fous profondeur) ; contrat **uniquement**
+> `V2 → DOM → generateGame` (hors périmètre : `legacy → V2`). **Annexe B — C7.1**
+> (fichiers) ; **§7 C7** mis à jour ; **Annexe D** : C7.1 / C7.1-05 / C7.1-06 /
+> périmètre chaînes (C7.4 partiel) cochés — l’annexe D reste ouverte jusqu’à
+> clôture **C7** entier (cf. **D.5**).
+>
 > **Changelog v1.5.1** : ajout **Annexe D — Chantier C7** — inventaire,
 > découpage **C7.1–C7.6**, points à trancher, journal / checklist vivante
 > jusqu’à clôture C7 (puis synthèse vers **Annexe B** et suppression de
@@ -797,13 +807,13 @@ Neuf chantiers numérotés pour référence dans les commits.
 - Idem pour `pick`, `selector`, `req`, `pwd`.
 - Ajout de `req`/`pwd` comme types autorisés de `rewardAction` dans
   `editor-core.js` (nécessaire pour la récursion §2.2).
-- **Chaînes REQ/PWD** (plusieurs paliers sur un même hotspot, export /
-  runtime) : **hors contrat** tant que le schéma legacy (`f_req_action` /
-  `f_pwd_action` unique) n’est pas étendu — voir **Annexe B — C6**
-  (décision option C) et génération joueur.
+- **Chaînes REQ/PWD** : **livré en C7.1** (v1.6) — `rewardAction` récursif
+  V2, miroir DOM + `f-reward-chain-json` (debug), `generateGame()` / runtime
+  alignés ; détail : **Annexe B — C7.1**. *(UI nodale Quill, bundle médias
+  nodaux, etc. : lots C7.2+ — **Annexe D**.)*
 - **Suivi détaillé** pendant le chantier : **Annexe D** (sous-chantiers
-  **C7.x**, inventaire, journal). À la clôture : synthèse en **Annexe B**
-  puis suppression de l’annexe D.
+  **C7.x**, inventaire, journal). À la **clôture C7 entière** : synthèse
+  **Annexe B — C7** puis suppression de l’annexe D.
 
 ### C8 — Ajustements UX
 
@@ -1125,13 +1135,12 @@ poursuit sur **`feat/nodal-map`** uniquement.
 2. **C6.1** (désactivation systématique des champs legacy + bandeau) :
    **optionnel**, non requis pour considérer C6 livré ; peut être ajouté
    plus tard pour éviter l’édition manuelle du formulaire en parallèle.
-3. **REQ / PWD — chaînes multiples** : **option C (limite produit)** —
-   tant que **C7** n’étend pas le schéma ni le runtime, **un seul** palier
-   `req` / `pwd` par hotspot est le contrat **export / `generateGame()`** ;
-   le graphe nodal peut montrer plus de nœuds, mais la projection DOM et
-   le ZIP joueur **ne garantissent pas** `req→req`, `pwd→pwd` ou mixtes.
-   Rappel technique : une seule `rewardAction` (V2) / `f_req_action` /
-   `f_pwd_action` côté legacy.
+3. **REQ / PWD — chaînes multiples** : l’**option C** (un palier garanti)
+   valait **avant C7.1**. Depuis **v1.6**, le **lot C7.1** étend schéma V2,
+   projection DOM et runtime pour **plusieurs paliers** sur un même hotspot
+   (récursion `rewardAction`, debug `f-reward-chain-json`) — voir **Annexe B
+   — C7.1**. Les lots **C7.2+** (popups carte, Quill, bundle médias…) restent
+   sur la roadmap §7 / **Annexe D**.
 
 **Fichiers et zones principales** *(liste indicative ; le détail exact suit
 `git log` sur la branche)* :
@@ -1174,6 +1183,32 @@ poursuit sur **`feat/nodal-map`** uniquement.
   **`xflow/react`** (§8.6) : projection et mutations DOM restent dans **`js/*`**.
 - Selector : conserver l’alignement ordre **layout Y** ↔ `f_sel_choices` /
   `deferSelectorInit` (cf. `SELECTOR_SPEC`).
+
+### C7.1 — Chaînes REQ/PWD (`rewardAction` récursif) *(clôture v1.6)*
+
+**Intégration Git** : développé sur **`feat/c7-chain-reward`**, **fusionné
+dans `feat/nodal-map`** (27 avril 2026). Branche de travail supprimable
+(locale / `origin`) selon politique dépôt.
+
+**Décisions** (rappel — détail **Annexe D — D.3**) : flux **unidirectionnel**
+`V2 → DOM → generateGame` uniquement ; récursion native **`rewardAction`**
+(pas de tableau aplati canonique) ; DOM legacy en **blocs répétés** + JSON
+debug chaîne ; garde-fou **profondeur** runtime ; pas de sens
+`legacy → V2` en C7.
+
+**Fichiers et zones principales** :
+
+- `js/editor-shared-action-mappers.js` — `actionV2ToLegacyNode` /
+  `actionV2ToLegacyHotspotData`, chaînes `req`/`pwd`, champ lisible
+  `f_reward_chain_json`, `legacyRewardToV2` / `legacyActionToV2` côté
+  chaîne si présent.
+- `js/editor-shared-hotspot-dom-mapper.js` — lecture `.f-reward-chain-json`.
+- `js/editeur-generate.js`, `js/editor-en-generate.js` —
+  `actionV2ToPlayerArgs`, `choiceRewardToArgs`, `parseRewardChainNode` /
+  `rewardNodeToArgs`, `executeReward` (fallback `type`), export chaîne,
+  `rewardActionV2ToLegacyNode` pour `choiceV2ToLegacy`.
+- `js/editeur-app.js`, `js/editor-en-app.js` — options récompense REQ/PWD,
+  restauration **`querySelectorAll`** des champs chaîne (req vs pwd).
 
 ## Annexe C — Glossaire
 
@@ -1222,10 +1257,9 @@ Issu de la roadmap §7 et des décisions **Annexe B — C6** :
    legacy comme source d’édition.
 2. **`editor-core.js`** : autoriser `req` / `pwd` dans `rewardAction` si
    récursion / chaînes (déjà mentionné §2.2 pour la récursion théorique).
-3. **Chaînes REQ/PWD** : aujourd’hui **option C** (un palier export garanti) ;
-   **C7** peut **étendre** schéma V2 + legacy + runtime pour multi-paliers,
-   ou **reporter** une partie si le périmètre est trop large (à trancher en
-   **D.3**).
+3. **Chaînes REQ/PWD** : **livré (C7.1 / v1.6)** — multi-paliers V2 + DOM +
+   `generateGame()` ; suites **C7.2+** : popups nodales, Quill, bundle médias
+   (cf. **D.2** / **D.3**).
 
 Références externes : **`docs/SELECTOR_SPEC.md`** (pièges selector,
 `deferSelectorInit`, `f_sel_choices`), **`docs/ARCHITECTURE.md`**, modules
@@ -1305,11 +1339,13 @@ selon la priorité produit (édition texte d’abord *vs* schéma d’abord).
   unidirectionnel `V2 -> DOM -> generateGame`, C6.1 hors périmètre immédiat).
 - [x] **D.3 (A/B/C/D/E)** : arbitrages techniques C7.1 figés
   (A1, B1, C2, D3, E1).
-- [ ] **C7.1** : périmètre figé dans la spec (§7 + éventuellement ce tableau).
+- [x] **C7.1** : périmètre figé + livré (spec §7, **Annexe B — C7.1**, merge
+  `feat/c7-chain-reward` → `feat/nodal-map`).
 - [ ] **C7.2** : socle popup + premier type d’action éditable depuis la carte.
 - [ ] **C7.3** : couverture étendue des types / selector.
-- [ ] **C7.4** : chaînes REQ/PWD *(ou explicitement « reporté » avec lien)*.
-- [ ] **C7.5** : smoke `generateGame()` / export aligné nouveau contrat.
+- [x] **C7.4** : chaînes REQ/PWD **(slice C7.1)** — schéma V2 + DOM + runtime ;
+  lots C7.2+ (popups nodales, etc.) restent ouverts.
+- [ ] **C7.5** : smoke / export **C7 complet** (hors smoke lot C7.1 déjà OK).
 - [ ] **C7.6** : durcissement + **Annexe B — C7** + suppression **Annexe D**.
 
 **Todo détaillé — lot `c7-chain-reward` (avant ouverture de branche suivante)** :
@@ -1324,10 +1360,10 @@ selon la priorité produit (édition texte d’abord *vs* schéma d’abord).
   (`REQ -> ... -> PWD -> ...`) jusqu’à action terminale.
 - [x] **C7.1-04 Garde-fous** : limite de profondeur C2 + warnings déjà existants
   (reward manquant), sans surcharger en messages par défaut.
-- [ ] **C7.1-05 Smoke** : scénario nominal `REQ -> REQ -> PWD -> MSG` +
-  cas mixte `REQ -> SELECTOR -> REQ`.
-- [ ] **C7.1-06 Git** : branche `feat/c7-chain-reward`, merge vers
-  `feat/nodal-map`, puis seulement ouverture du lot suivant.
+- [x] **C7.1-05 Smoke** : scénario nominal `REQ -> REQ -> PWD -> MSG` +
+  cas mixte `REQ -> SELECTOR -> REQ` *(validé auteur 2026-04-27)*.
+- [x] **C7.1-06 Git** : branche `feat/c7-chain-reward`, merge vers
+  `feat/nodal-map` *(2026-04-27)*, ouverture lot suivant autorisée.
 
 *(Dates / notes libres : utiliser des sous-listes `- YYYY-MM-DD : …` au fil
 de l’eau.)*
@@ -1350,6 +1386,8 @@ de l’eau.)*
 - 2026-04-27 — **C7.1 (fix debug form)** : correction remplissage
   `f-reward-chain-json` sur tous les blocs dynamiques req/pwd + JSON de chaîne
   rendu lisible (`next` imbriqué, plus de chaîne doublement échappée).
+- 2026-04-27 — **Clôture lot C7.1** : smoke OK ; spec **v1.6** (§7, **Annexe B
+  — C7.1**, journal D.4) ; merge `feat/c7-chain-reward` → `feat/nodal-map`.
 
 ---
 
