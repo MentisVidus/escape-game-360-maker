@@ -2,12 +2,23 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.4.6 (26 avril 2026)
+> **Version** : 1.4.7 (26 avril 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+>
+> **Changelog v1.4.7** : **C6.2** — personnalisation visuelle hotspot depuis
+> le satellite **`coords-options`** : seconde popup (jauges alignées sur
+> l’accordéon legacy « Éditeur de style visuel », zone CSS fond sombre,
+> toggle **mode expert**, aperçu sur fond neutre) ; champs
+> `appearance` / `customCss` / `hotspotCssExpert` dans le store ; projection
+> **`editor-shared-nodal-to-dom.js`** (`nodalActionToHotspotShape`) pour
+> `customCss` + `appearance` fusionnés (défauts = zone 120×120 rouge
+> semi-transparent). Smoke **REQ/PWD un palier**, **selector** (ordre
+> `layout.y`) et **`generateGame()`** validés côté auteur ; chaînes
+> **req→req / pwd→pwd** restent périmètre **C7** (inchangé).
 >
 > **Changelog v1.4.6** : **C6.3 partiel** — `store.subscribe` + rAF dans
 > `editor-nodal-map-bootstrap.js` : projection DOM pendant l’onglet nodal
@@ -246,7 +257,8 @@ nœuds éditables sont :
 - **Scène** : conteneur, image 360, avec son ambiance audio en loop.
 - **Média** : ressource externe (image, audio).
 - **Satellite** : donnée contextuelle attachée à un consommateur.
-  - `coords-options` : pitch/yaw + visibilité d'un hotspot.
+  - `coords-options` : pitch/yaw + visibilité d'un hotspot + style
+    visuel (`appearance`, `customCss`, `hotspotCssExpert`).
   - `choice-options` : visibilité d'un choix.
   - `object` : fiche d'objet d'inventaire (id, nom, icône optionnelle).
 
@@ -414,6 +426,18 @@ Contient :
 - `visibility.requiresItem` — objet requis pour être visible.
 - `visibility.hiddenIfHasItem` — objet qui masque le hotspot.
 - `visibility.clickWhenInvisible` — cliquable en opacité zéro.
+- **Style zone cliquable** (miroir de l’accordéon legacy « Éditeur de style
+  visuel ») :
+  - `appearance` — champs structurés (`ui_w`, `ui_h`, `ui_shape`, couleurs,
+    opacité, bordure, `ui_img`, etc.) ;
+  - `customCss` — chaîne CSS complète affichée / éditée (mode expert) ;
+  - `hotspotCssExpert` — dernier mode choisi dans la popup dédiée.
+
+**Édition** : la popup principale `coords-options` (pitch / visibilité) propose
+un bouton qui ouvre une **seconde popup** (z-index au-dessus) : formulaire
+visuel + aperçu + zone CSS ; enregistrement dans le satellite. La projection
+DOM (`editor-shared-nodal-to-dom.js`) dérive `customCss` depuis `appearance`
+si `customCss` est vide, sinon applique la chaîne stockée.
 
 Apparition automatique au passage en État 2, disparition au passage vers
 les autres états. Repliable (clic sur chevron, replié par défaut).
@@ -1134,39 +1158,42 @@ ci-dessus si non encore câblé).
 - **Fusion** : PR / merge **vers `feat/nodal-map` uniquement** ; **pas**
   de PR vers `main` tant que le chantier carte nodale global n’est pas
   terminé (décision auteur).
-- **État synthétique** : **C6.0** (carte + store) et surtout **C6.2**
-  (adaptateur nodal → DOM, popups satellites / médias, thème popups)
-  avancés en priorité. **C6.1** (verrou lecture seule + bandeau sur le
-  formulaire legacy) **n’a pas été traité** dans cette itération : le
-  legacy reste **éditable** en parallèle de la carte ; la nodale reste
-  la **source de vérité** pour le bundle / la projection. Reprise ou
-  abandon explicite de C6.1 à trancher plus tard.
+- **État synthétique** : **C6.0** et **C6.2** / **C6.3** sont **opérationnels**
+  pour un usage éditeur + export smoke (un palier REQ/PWD, selector ordonné,
+  `generateGame()`). **C6.1** (verrou lecture seule + bandeau legacy) **n’a
+  pas été traité** : le legacy reste **éditable** en parallèle ; la nodale
+  reste la **source de vérité** bundle / projection. Clôture « C6 livré »
+  = validation manuelle §C6.4 + décision C6.1 + **Annexe B** ; chaînes
+  REQ/PWD multiples = **C7** (déjà documenté).
 
 - **C6.0** : intégré (montage carte React + store partagé).
 - **C6.1** : **non livré / reporté** (désactivation UI legacy + bandeau
   « miroir nodal » — hors périmètre immédiat ; pas de régression attendue
   tant que l’équipe ne s’appuie pas sur le legacy comme source métier).
-- **C6.2** : en cours de durcissement (REQ/PWD, `generateGame()`, ordre
-  selector) ; projection DOM déjà riche (scène + média image meta,
-  hotspots, SFX via média audio meta, etc.).
+- **C6.2** : **livrable pour un palier** — projection hotspots (coords,
+  `appearance` / `customCss`), selector, médias meta, SFX audio meta ; popup
+  **apparence** coords (seconde modale). **Multi-palier** REQ/PWD → **C7**.
 - **C6.3** : abonnement store → projection et flush après load **déjà
   branchés** côté app ; stabilisation continue (garde ré-entrance,
   refresh carte).
 
-### C6.2 — Reste à finaliser
+### C6.2 — Nodal → DOM / satellites (état)
 
-- [ ] **REQ/PWD récompense** : garantir la projection complète dans le
-  DOM, y compris les enchaînements de récompenses.
-- [ ] **`generateGame()`** : valider que les chaînes REQ/PWD projetées
-  depuis la nodale sont bien relues sans perte.
+- [x] **REQ/PWD récompense (un palier)** : projection DOM + relance
+  `generateGame()` validées en smoke ; enchaînements **multi-palier** → **C7**
+  (encadré ci-dessous, pas de garantie export).
+- [x] **`generateGame()`** : smoke sur jeu nodal minimal REQ/PWD + selector.
 - [x] **Popup `coords-options`** : pitch/yaw + visibilité hotspot ; SFX
   exclusivement via **nœud média audio** relié en meta à l’action (plus
   de champs SFX dans la popup satellite).
+- [x] **Popup `coords-options` — style visuel** : seconde popup (jauges +
+  CSS + mode expert + aperçu) ; persistance `appearance` / `customCss` /
+  `hotspotCssExpert` ; projection dans `nodalActionToHotspotShape`.
 - [x] **Popup `choice-options`** : visibilité choix selector ; SFX via
   **média audio** meta sur l’action enfant (idem, pas de champs SFX dans
   la popup satellite).
-- [ ] Vérifier que la projection garde l’ordre des choix selector
-  (éviter toute dérive entre rendu nodal et JSON final).
+- [x] Ordre des choix **selector** : tri `layout.y` des actions enfants,
+  aligné sérialisation / projection (smoke auteur).
 
 ### REQ / PWD — Chaînes multiples *(hors C6 — périmètre **C7**)*
 
@@ -1234,7 +1261,8 @@ le même hotspot. Pistes futures documentées en annexe produit : **A**
   nodal + resynchronisation du compteur `scene_N`, hotspots,
   selector enfants, satellites coords/choice (sans SFX satellite dans
   la projection), **SFX** depuis nœud **media-audio** meta sur l’action ;
-  reste à durcir REQ/PWD / `generateGame()` (voir plan chaînes ci-dessus).
+  **coords** : `customCss` / `appearance` pour le legacy `actionV2ToLegacyHotspotData` ;
+  chaînes REQ/PWD **multi-palier** hors garantie → **C7** (encadré REQ/PWD).
 
 **C6.3 — Abonnement store → projection**
 
@@ -1248,10 +1276,10 @@ le même hotspot. Pistes futures documentées en annexe produit : **A**
 **C6.4 — Validation manuelle ciblée**
 
 - [ ] Scénario : édition uniquement sur la carte → vérifier DOM legacy
-  (bandeau + champs reflétés).
-- [ ] `generateGame()` : smoke test sur jeu minimal (sachant que **C7**
-  débloquera texte riche / médias depuis la nodale pour des tests
-  complets).
+  (bandeau + champs reflétés ; **C6.1** si verrou un jour).
+- [x] Smoke **`generateGame()`** sur jeu nodal minimal : REQ/PWD **un
+  palier**, selector ordonné, coords + style visuel (auteur avril 2026).
+  Reste : parcours exhaustifs + **C7** (texte riche / médias / chaînes).
 
 ### Risques / points d’attention
 
