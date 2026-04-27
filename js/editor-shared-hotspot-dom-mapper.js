@@ -54,6 +54,7 @@
                 legacy.itemId = val(hsDiv, ".f-item-id", "");
                 legacy.ko = val(hsDiv, ".f-ko", "");
                 legacy.f_req_action = val(hsDiv, ".f-req-action", "scene");
+                legacy.f_reward_chain_json = val(hsDiv, ".f-reward-chain-json", "");
                 if (legacy.f_req_action === "selector") {
                     legacy.f_reward_sel_title = val(hsDiv, ".f-reward-sel-title", "");
                     legacy.f_reward_sel_intro = val(hsDiv, ".f-reward-sel-intro", "");
@@ -72,6 +73,7 @@
                 legacy.enigmeTxt = val(hsDiv, ".f-enigme-txt", "");
                 legacy.pwd = val(hsDiv, ".f-pwd", "");
                 legacy.f_pwd_action = val(hsDiv, ".f-pwd-action", "scene");
+                legacy.f_reward_chain_json = val(hsDiv, ".f-reward-chain-json", "");
                 if (legacy.f_pwd_action === "selector") {
                     legacy.f_reward_sel_title = val(hsDiv, ".f-reward-sel-title", "");
                     legacy.f_reward_sel_intro = val(hsDiv, ".f-reward-sel-intro", "");

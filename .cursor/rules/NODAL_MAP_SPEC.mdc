@@ -1338,6 +1338,9 @@ de l’eau.)*
 - 2026-04-27 — **C7.1 (lot 1 en cours)** : base technique branchée pour
   chaînes req/pwd côté génération joueur (FR/EN) + sérialisation
   `f_reward_chain_json` V2 -> legacy pour récompenses req/pwd imbriquées.
+- 2026-04-27 — **C7.1 (lot 1 — projection/debug)** : `f-req-action` /
+  `f-pwd-action` autorisent `req` et `pwd` ; panneau debug JSON
+  `f-reward-chain-json` affiché dans le formulaire legacy pour les chaînes.
 
 ---
 

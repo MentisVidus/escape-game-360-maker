@@ -538,7 +538,7 @@ function addHotspot(sceneId, hsData = null) {
 
     // Restore field values when loading hsData from JSON
     if(hsData) {
-        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
+        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-reward-chain-json', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
         fields.forEach(f => {
             let el = hsDiv.querySelector('.' + f);
             if(el && hsData[f.replace(/-/g, '_')] !== undefined) {
@@ -1474,9 +1474,10 @@ function updateHsFields(hId, opts) {
         <select class="f-req-action" onchange="document.getElementById('req_res_${hId}').className = 'res-' + this.value">
             <option value="scene">Change scene</option><option value="msg">Show message</option><option value="pick">Give new item</option>
             <option value="selector">Open choice menu (selector)</option>
+            <option value="req">Require item (chain)</option><option value="pwd">Puzzle / password (chain)</option>
         </select>
         <div id="req_res_${hId}" class="res-scene" style="margin-top:10px;">
-            <style>#req_res_${hId} .s-scene, #req_res_${hId} .s-msg, #req_res_${hId} .s-pick, #req_res_${hId} .s-reward-selector { display: none; } #req_res_${hId}.res-scene .s-scene { display: block; } #req_res_${hId}.res-msg .s-msg { display: block; } #req_res_${hId}.res-pick .s-pick { display: block; } #req_res_${hId}.res-selector .s-reward-selector { display: block; }</style>
+            <style>#req_res_${hId} .s-scene, #req_res_${hId} .s-msg, #req_res_${hId} .s-pick, #req_res_${hId} .s-reward-selector, #req_res_${hId} .s-req, #req_res_${hId} .s-pwd { display: none; } #req_res_${hId}.res-scene .s-scene { display: block; } #req_res_${hId}.res-msg .s-msg { display: block; } #req_res_${hId}.res-pick .s-pick { display: block; } #req_res_${hId}.res-selector .s-reward-selector { display: block; } #req_res_${hId}.res-req .s-req { display: block; } #req_res_${hId}.res-pwd .s-pwd { display: block; }</style>
             <div class="s-scene"><label>Go to scene:</label>${sceneSel}<label>Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="" placeholder="Enter"></div>
             <div class="s-msg"><label>Message:</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2" placeholder="Unlocked!"></textarea></div></div>
             <div class="s-pick"><div class="row"><div class="col"><label>New item ID:</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>New name:</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Find message:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2" placeholder="Found!"></textarea></div></div>
@@ -1490,6 +1491,8 @@ function updateHsFields(hId, opts) {
                 <button type="button" class="btn-add-hs" onclick="hotspotRewardSelectorAddChoice(${hId})">+ Add choice</button>
                 <textarea class="f-reward-sel-choices css-editor" rows="4" readonly style="display:none;font-family:Consolas,monospace;font-size:11px;"></textarea>
             </div>
+            <div class="s-req"><label>Projected REQ/PWD chain (debug JSON):</label><textarea class="f-reward-chain-json css-editor" rows="6" readonly style="font-family:Consolas,monospace;font-size:11px;"></textarea></div>
+            <div class="s-pwd"><label>Projected REQ/PWD chain (debug JSON):</label><textarea class="f-reward-chain-json css-editor" rows="6" readonly style="font-family:Consolas,monospace;font-size:11px;"></textarea></div>
         </div>${hsAdvancedHtml}`;
     }
     else if(type === 'scene') {
@@ -1503,9 +1506,10 @@ function updateHsFields(hId, opts) {
         <select class="f-pwd-action" onchange="document.getElementById('pwd_res_${hId}').className = 'res-' + this.value">
             <option value="scene">Change scene</option><option value="msg">Show message</option><option value="pick">Give item</option>
             <option value="selector">Open choice menu (selector)</option>
+            <option value="req">Require item (chain)</option><option value="pwd">Puzzle / password (chain)</option>
         </select>
         <div id="pwd_res_${hId}" class="res-scene" style="margin-top:10px;">
-            <style>#pwd_res_${hId} .s-scene, #pwd_res_${hId} .s-msg, #pwd_res_${hId} .s-pick, #pwd_res_${hId} .s-reward-selector { display: none; } #pwd_res_${hId}.res-scene .s-scene { display: block; } #pwd_res_${hId}.res-msg .s-msg { display: block; } #pwd_res_${hId}.res-pick .s-pick { display: block; } #pwd_res_${hId}.res-selector .s-reward-selector { display: block; }</style>
+            <style>#pwd_res_${hId} .s-scene, #pwd_res_${hId} .s-msg, #pwd_res_${hId} .s-pick, #pwd_res_${hId} .s-reward-selector, #pwd_res_${hId} .s-req, #pwd_res_${hId} .s-pwd { display: none; } #pwd_res_${hId}.res-scene .s-scene { display: block; } #pwd_res_${hId}.res-msg .s-msg { display: block; } #pwd_res_${hId}.res-pick .s-pick { display: block; } #pwd_res_${hId}.res-selector .s-reward-selector { display: block; } #pwd_res_${hId}.res-req .s-req { display: block; } #pwd_res_${hId}.res-pwd .s-pwd { display: block; }</style>
             <div class="s-scene"><label>Go to scene:</label>${sceneSel}<label>Transition text:</label><div class="wysiwyg-wrap"><textarea class="f-trans-txt editor-rich-text" rows="2"></textarea></div><label>Button:</label><input type="text" class="f-trans-btn" value="" placeholder="Enter"></div>
             <div class="s-msg"><label>Message:</label><div class="wysiwyg-wrap"><textarea class="f-ok-msg editor-rich-text" rows="2" placeholder="Unlocked!"></textarea></div></div>
             <div class="s-pick"><div class="row"><div class="col"><label>Item ID:</label><input type="text" class="f-pick-id" value="doc"></div><div class="col"><label>Name:</label><input type="text" class="f-pick-name" value="Document"></div></div><label>Find message:</label><div class="wysiwyg-wrap"><textarea class="f-pick-msg editor-rich-text" rows="2" placeholder="Found."></textarea></div></div>
@@ -1519,6 +1523,8 @@ function updateHsFields(hId, opts) {
                 <button type="button" class="btn-add-hs" onclick="hotspotRewardSelectorAddChoice(${hId})">+ Add choice</button>
                 <textarea class="f-reward-sel-choices css-editor" rows="4" readonly style="display:none;font-family:Consolas,monospace;font-size:11px;"></textarea>
             </div>
+            <div class="s-req"><label>Projected REQ/PWD chain (debug JSON):</label><textarea class="f-reward-chain-json css-editor" rows="6" readonly style="font-family:Consolas,monospace;font-size:11px;"></textarea></div>
+            <div class="s-pwd"><label>Projected REQ/PWD chain (debug JSON):</label><textarea class="f-reward-chain-json css-editor" rows="6" readonly style="font-family:Consolas,monospace;font-size:11px;"></textarea></div>
         </div>${hsAdvancedHtml}`;
     }
     else if(type === 'selector') {
