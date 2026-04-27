@@ -196,6 +196,49 @@ function buildPlayerHtmlTemplate() {
     let globalHsCount = 0;
 	let sceneAmbianceClips = {};
     
+    function rewardActionV2ToLegacyNode(action) {
+        var a = action || {};
+        var p = a.payload || {};
+        var c = p.copy || {};
+        var out = { actionType: a.type || "msg" };
+        if(a.type === "msg") out.txt = c.bodyHtml || "";
+        else if(a.type === "scene") {
+            out.target = p.target || "";
+            out.transTxt = c.bodyHtml || "";
+            out.transBtn = c.buttonLabel || "Continue";
+        } else if(a.type === "pick") {
+            out.itemId = p.itemId || "";
+            out.itemName = p.itemName || "";
+            out.txt = c.bodyHtml || "";
+        } else if(a.type === "selector") {
+            var n = p.nested || {};
+            var nc = n.copy || {};
+            out.nested = {
+                title: n.title || "",
+                introHtml: nc.bodyHtml || "",
+                displayMode: n.displayMode === "dropdown" ? "dropdown" : "buttons",
+                choices: (Array.isArray(n.choices) ? n.choices : []).map(choiceV2ToLegacy)
+            };
+        } else if(a.type === "req") {
+            out.itemId = p.itemId || "";
+            out.ko = c.bodyHtml || "";
+            var rr = p.rewardAction || {};
+            out.f_req_action = rr.type || "scene";
+            if(rr.type === "req" || rr.type === "pwd") {
+                out.f_reward_chain_json = JSON.stringify(rewardActionV2ToLegacyNode(rr));
+            }
+        } else if(a.type === "pwd") {
+            out.enigmeTxt = c.bodyHtml || "";
+            out.pwd = (p.answer || "").toLowerCase().trim();
+            var rp = p.rewardAction || {};
+            out.f_pwd_action = rp.type || "scene";
+            if(rp.type === "req" || rp.type === "pwd") {
+                out.f_reward_chain_json = JSON.stringify(rewardActionV2ToLegacyNode(rp));
+            }
+        }
+        return out;
+    }
+
     function choiceV2ToLegacy(choice) {
         if(!choice || !choice.action) return { label: "Option", actionType: "msg", txt: "" };
         var a = choice.action;
@@ -236,6 +279,8 @@ function buildPlayerHtmlTemplate() {
                     displayMode: rrn && rrn.displayMode === "dropdown" ? "dropdown" : "buttons",
                     choices: (rrn && Array.isArray(rrn.choices) ? rrn.choices : []).map(choiceV2ToLegacy)
                 };
+            } else if(r.type === "req" || r.type === "pwd") {
+                out.f_reward_chain_json = JSON.stringify(rewardActionV2ToLegacyNode(r));
             }
         } else if(a.type === "pwd") {
             out.enigmeTxt = c.bodyHtml || "";
@@ -261,6 +306,8 @@ function buildPlayerHtmlTemplate() {
                     displayMode: rpn && rpn.displayMode === "dropdown" ? "dropdown" : "buttons",
                     choices: (rpn && Array.isArray(rpn.choices) ? rpn.choices : []).map(choiceV2ToLegacy)
                 };
+            } else if(rp.type === "req" || rp.type === "pwd") {
+                out.f_reward_chain_json = JSON.stringify(rewardActionV2ToLegacyNode(rp));
             }
         } else if(a.type === "selector") {
             var n = p.nested || {};
@@ -317,6 +364,14 @@ function buildPlayerHtmlTemplate() {
                     displayMode: rrn && rrn.displayMode === "dropdown" ? "dropdown" : "buttons",
                     choices: (rrn && Array.isArray(rrn.choices) ? rrn.choices : []).map(choiceV2ToLegacy)
                 };
+            } else if(args.action === "req") {
+                args.reqItemId = (r.payload && r.payload.itemId) || "";
+                args.reqKo = rc.bodyHtml || "";
+                args.reqNext = actionV2ToPlayerArgs((r.payload && r.payload.rewardAction) || {});
+            } else if(args.action === "pwd") {
+                args.pwdEnigmeTxt = rc.bodyHtml || "";
+                args.pwdValue = ((r.payload && r.payload.answer) || "").toLowerCase().trim();
+                args.pwdNext = actionV2ToPlayerArgs((r.payload && r.payload.rewardAction) || {});
             }
         } else if(args.type === "pwd") {
             args.enigmeTxt = pc.bodyHtml || "";
@@ -342,6 +397,14 @@ function buildPlayerHtmlTemplate() {
                     displayMode: rpn && rpn.displayMode === "dropdown" ? "dropdown" : "buttons",
                     choices: (rpn && Array.isArray(rpn.choices) ? rpn.choices : []).map(choiceV2ToLegacy)
                 };
+            } else if(args.action === "req") {
+                args.reqItemId = (rp.payload && rp.payload.itemId) || "";
+                args.reqKo = rpc.bodyHtml || "";
+                args.reqNext = actionV2ToPlayerArgs((rp.payload && rp.payload.rewardAction) || {});
+            } else if(args.action === "pwd") {
+                args.pwdEnigmeTxt = rpc.bodyHtml || "";
+                args.pwdValue = ((rp.payload && rp.payload.answer) || "").toLowerCase().trim();
+                args.pwdNext = actionV2ToPlayerArgs((rp.payload && rp.payload.rewardAction) || {});
             }
         } else if(args.type === "selector") {
             var n = p.nested || {};
@@ -1729,6 +1792,10 @@ function buildPlayerHtmlTemplate() {
 
     function choiceRewardToArgs(choice) {
         var act = choice.f_req_action != null && choice.f_req_action !== "" ? choice.f_req_action : (choice.f_pwd_action != null && choice.f_pwd_action !== "" ? choice.f_pwd_action : "scene");
+        if((act === "req" || act === "pwd") && choice.f_reward_chain_json) {
+            var parsed = parseRewardChainNode(choice.f_reward_chain_json);
+            if(parsed) return parsed;
+        }
         if(act === "selector" && choice.rewardNested) {
             var rn = choice.rewardNested;
             return {
@@ -1751,8 +1818,78 @@ function buildPlayerHtmlTemplate() {
             out.pickId = choice.f_pick_id || "";
             out.pickName = choice.f_pick_name || "";
             out.pickMsg = choice.f_pick_msg || "";
+        } else if(act === "req") {
+            out.reqItemId = choice.f_req_item_id || choice.itemId || "";
+            out.reqKo = choice.f_req_ko || choice.ko || "";
+        } else if(act === "pwd") {
+            out.pwdEnigmeTxt = choice.f_pwd_enigme_txt || choice.enigmeTxt || choice.f_enigme_txt || "";
+            out.pwdValue = ((choice.f_pwd_value || choice.pwd || choice.f_pwd || "") + "").toLowerCase().trim();
         }
         return out;
+    }
+
+    function parseRewardChainNode(raw) {
+        try {
+            var node = typeof raw === "string" ? JSON.parse(raw) : raw;
+            if(!node || typeof node !== "object") return null;
+            return rewardNodeToArgs(node, 0);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function rewardNodeToArgs(node, depth) {
+        if(!node || typeof node !== "object") return { action: "scene", target: "", transTxt: "", transBtn: "Continue" };
+        if(depth > 20) return { action: "msg", okMsg: "" };
+        var act = String(node.actionType || node.type || "scene").toLowerCase();
+        var out = { action: act };
+        if(act === "scene") {
+            out.target = node.target || node.f_target || "";
+            out.transTxt = node.transTxt || node.f_trans_txt || "";
+            out.transBtn = node.transBtn || node.f_trans_btn || "Continue";
+            return out;
+        }
+        if(act === "msg") {
+            out.okMsg = node.txt || node.f_ok_msg || "";
+            return out;
+        }
+        if(act === "pick") {
+            out.pickId = node.itemId || node.f_pick_id || "";
+            out.pickName = node.itemName || node.f_pick_name || "";
+            out.pickMsg = node.txt || node.f_pick_msg || "";
+            return out;
+        }
+        if(act === "selector") {
+            var rn = node.rewardNested || node.nested || {};
+            out.rewardSelector = {
+                title: rn.title || "",
+                introHtml: rn.introHtml || (rn.copy && rn.copy.bodyHtml) || "",
+                displayMode: rn.displayMode === "dropdown" ? "dropdown" : "buttons",
+                choices: Array.isArray(rn.choices) ? rn.choices : []
+            };
+            return out;
+        }
+        if(act === "req") {
+            out.reqItemId = node.itemId || node.f_req_item_id || "";
+            out.reqKo = node.ko || node.f_req_ko || "";
+            var rawReq = node.f_reward_chain_json || node.rewardChainJson || "";
+            if(typeof rawReq === "string" && rawReq.trim()) {
+                var parsedReq = parseRewardChainNode(rawReq);
+                if(parsedReq) out.reqNext = parsedReq;
+            }
+            return out;
+        }
+        if(act === "pwd") {
+            out.pwdEnigmeTxt = node.enigmeTxt || node.f_pwd_enigme_txt || node.f_enigme_txt || "";
+            out.pwdValue = ((node.pwd || node.f_pwd_value || node.f_pwd || "") + "").toLowerCase().trim();
+            var rawPwd = node.f_reward_chain_json || node.rewardChainJson || "";
+            if(typeof rawPwd === "string" && rawPwd.trim()) {
+                var parsedPwd = parseRewardChainNode(rawPwd);
+                if(parsedPwd) out.pwdNext = parsedPwd;
+            }
+            return out;
+        }
+        return { action: "scene", target: "", transTxt: "", transBtn: "Continue" };
     }
 
     // Reward after passcode or required item (internal scene / msg / pick / selector)
@@ -1767,6 +1904,65 @@ function buildPlayerHtmlTemplate() {
             executeAction({ type: "msg", txt: args.okMsg }, hsDiv);
         } else if(args.action === "pick") {
             executeAction({ type: "pick", itemId: args.pickId, itemName: args.pickName, txt: args.pickMsg }, hsDiv);
+        } else if(args.action === "req") {
+            var rid = args.reqItemId != null ? String(args.reqItemId).trim() : "";
+            if(!rid || !inventaire[rid]) {
+                afficherPopup("", args.reqKo || "");
+                return;
+            }
+            if(args.reqNext) executeReward(args.reqNext, hsDiv);
+        } else if(args.action === "pwd") {
+            var pwdBackdrop2 = document.createElement("div");
+            pwdBackdrop2.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;";
+            pwdBackdrop2.onclick = function (e) {
+                if(e.target === pwdBackdrop2) {
+                    audioSys.stopSFX();
+                    timerNotifyBlockingClose();
+                    document.body.removeChild(pwdBackdrop2);
+                }
+            };
+            var msg2 = document.createElement("div");
+            msg2.style.cssText = "background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;";
+            msg2.onclick = function (e) { e.stopPropagation(); };
+            msg2.innerHTML = "<div class='play-html-rich'>" + (args.pwdEnigmeTxt || "") + "</div><br><br>";
+            var inp2 = document.createElement("input");
+            inp2.type = "text";
+            inp2.style.cssText = "margin-top:15px;padding:10px;width:80%;font-size:16px;text-align:center;font-family:inherit;";
+            msg2.appendChild(inp2);
+            msg2.appendChild(document.createElement("br"));
+            var err2 = document.createElement("div");
+            err2.style.color = "red";
+            err2.style.marginTop = "10px";
+            msg2.appendChild(err2);
+            var btn2 = document.createElement("button");
+            btn2.innerHTML = "[ VALIDATE ]";
+            btn2.style.cssText = "margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;";
+            btn2.onclick = function () {
+                if(inp2.value.toLowerCase().trim() === (args.pwdValue || "")) {
+                    timerNotifyBlockingClose();
+                    document.body.removeChild(pwdBackdrop2);
+                    if(args.pwdNext) executeReward(args.pwdNext, hsDiv);
+                } else {
+                    err2.innerHTML = "INCORRECT ANSWER";
+                    inp2.value = "";
+                    inp2.focus();
+                }
+            };
+            msg2.appendChild(btn2);
+            var cls2 = document.createElement("button");
+            cls2.innerHTML = "X";
+            cls2.setAttribute("aria-label", "Close");
+            cls2.style.cssText = "position:absolute;top:8px;right:8px;background:transparent;border:none;color:inherit;cursor:pointer;font-size:20px;line-height:1;";
+            cls2.onclick = function () {
+                audioSys.stopSFX();
+                timerNotifyBlockingClose();
+                document.body.removeChild(pwdBackdrop2);
+            };
+            msg2.appendChild(cls2);
+            pwdBackdrop2.appendChild(msg2);
+            document.body.appendChild(pwdBackdrop2);
+            timerNotifyBlockingOpen();
+            setTimeout(function () { inp2.focus(); }, 100);
         }
     }
 

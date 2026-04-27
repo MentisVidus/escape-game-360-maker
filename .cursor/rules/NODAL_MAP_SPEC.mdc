@@ -1335,6 +1335,9 @@ de l’eau.)*
 - 2026-04-27 — **Ouverture lot C7.1 (`c7-chain-reward`)** : scope figé
   (A1/B1/C2/D3/E1), flux unidirectionnel `V2 -> DOM -> generateGame`,
   ordre global C7 validé (**REQ/PWD -> Quill -> bundle médias**).
+- 2026-04-27 — **C7.1 (lot 1 en cours)** : base technique branchée pour
+  chaînes req/pwd côté génération joueur (FR/EN) + sérialisation
+  `f_reward_chain_json` V2 -> legacy pour récompenses req/pwd imbriquées.
 
 ---
 

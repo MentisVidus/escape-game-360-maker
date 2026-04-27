@@ -84,6 +84,27 @@
 
         function legacyRewardToV2(kind, src) {
             var k = (kind && String(kind).trim().toLowerCase()) || "scene";
+            if (k === "req" || k === "pwd") {
+                var rawChain =
+                    src && src.f_reward_chain_json != null
+                        ? src.f_reward_chain_json
+                        : src && src.rewardChainJson != null
+                          ? src.rewardChainJson
+                          : "";
+                if (typeof rawChain === "string" && String(rawChain).trim()) {
+                    try {
+                        var parsed = JSON.parse(rawChain);
+                        if (parsed && typeof parsed === "object") {
+                            return legacyActionToV2(parsed.actionType || parsed.type || k, parsed);
+                        }
+                    } catch (e) {}
+                }
+                return legacyActionToV2("scene", {
+                    target: src.f_target || src.target || "",
+                    transTxt: src.f_trans_txt || src.transTxt || "",
+                    transBtn: src.f_trans_btn || src.transBtn || defaultTransitionLabel
+                });
+            }
             if (k === "msg") {
                 return legacyActionToV2("msg", { txt: src.f_ok_msg || src.okMsg || src.ok_msg || "" });
             }
@@ -123,6 +144,95 @@
                 transTxt: src.f_trans_txt || src.transTxt || "",
                 transBtn: src.f_trans_btn || src.transBtn || defaultTransitionLabel
             });
+        }
+
+        /** Sérialise une action V2 vers un nœud legacy autonome (pour JSON de chaîne reward req/pwd). */
+        function actionV2ToLegacyNode(action) {
+            var a = action || EditorCore.createDefaultAction("msg");
+            var p = a.payload || {};
+            var c = p.copy || {};
+            var out = { actionType: a.type === "goto" ? "scene" : (a.type || "msg") };
+            if (a.type === "msg") {
+                out.txt = c.bodyHtml || "";
+            } else if (a.type === "scene" || a.type === "goto") {
+                out.target = p.target || "";
+                out.transTxt = c.bodyHtml || "";
+                out.transBtn = c.buttonLabel || defaultTransitionLabel;
+            } else if (a.type === "pick") {
+                out.itemId = p.itemId || "";
+                out.itemName = p.itemName || "";
+                out.txt = c.bodyHtml || "";
+            } else if (a.type === "req") {
+                out.itemId = p.itemId || "";
+                out.ko = c.bodyHtml || "";
+                var rr = p.rewardAction || EditorCore.createDefaultAction("scene");
+                out.f_req_action = rr.type || "scene";
+                if (rr.type === "scene") {
+                    out.f_target = (rr.payload && rr.payload.target) || "";
+                    out.f_trans_txt = (rr.payload && rr.payload.copy && rr.payload.copy.bodyHtml) || "";
+                    out.f_trans_btn = (rr.payload && rr.payload.copy && rr.payload.copy.buttonLabel) || defaultTransitionLabel;
+                } else if (rr.type === "msg") {
+                    out.f_ok_msg = (rr.payload && rr.payload.copy && rr.payload.copy.bodyHtml) || "";
+                } else if (rr.type === "pick") {
+                    out.f_pick_id = (rr.payload && rr.payload.itemId) || "";
+                    out.f_pick_name = (rr.payload && rr.payload.itemName) || "";
+                    out.f_pick_msg = (rr.payload && rr.payload.copy && rr.payload.copy.bodyHtml) || "";
+                } else if (rr.type === "selector") {
+                    var rrn = rr.payload && rr.payload.nested;
+                    var rrnc = (rrn && rrn.copy) || {};
+                    out.rewardNested = {
+                        title: (rrn && rrn.title) || "",
+                        introHtml: rrnc.bodyHtml || "",
+                        displayMode: rrn && rrn.displayMode === "dropdown" ? "dropdown" : "buttons",
+                        choices: (rrn && Array.isArray(rrn.choices) ? rrn.choices : []).map(function (ch, i) {
+                            return actionV2ToLegacyChoice(ch.action, ch.label, i);
+                        })
+                    };
+                } else if (rr.type === "req" || rr.type === "pwd") {
+                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(rr));
+                }
+            } else if (a.type === "pwd") {
+                out.enigmeTxt = c.bodyHtml || "";
+                out.pwd = p.answer || "";
+                var rp = p.rewardAction || EditorCore.createDefaultAction("scene");
+                out.f_pwd_action = rp.type || "scene";
+                if (rp.type === "scene") {
+                    out.f_target = (rp.payload && rp.payload.target) || "";
+                    out.f_trans_txt = (rp.payload && rp.payload.copy && rp.payload.copy.bodyHtml) || "";
+                    out.f_trans_btn = (rp.payload && rp.payload.copy && rp.payload.copy.buttonLabel) || defaultTransitionLabel;
+                } else if (rp.type === "msg") {
+                    out.f_ok_msg = (rp.payload && rp.payload.copy && rp.payload.copy.bodyHtml) || "";
+                } else if (rp.type === "pick") {
+                    out.f_pick_id = (rp.payload && rp.payload.itemId) || "";
+                    out.f_pick_name = (rp.payload && rp.payload.itemName) || "";
+                    out.f_pick_msg = (rp.payload && rp.payload.copy && rp.payload.copy.bodyHtml) || "";
+                } else if (rp.type === "selector") {
+                    var rpn = rp.payload && rp.payload.nested;
+                    var rpnc = (rpn && rpn.copy) || {};
+                    out.rewardNested = {
+                        title: (rpn && rpn.title) || "",
+                        introHtml: rpnc.bodyHtml || "",
+                        displayMode: rpn && rpn.displayMode === "dropdown" ? "dropdown" : "buttons",
+                        choices: (rpn && Array.isArray(rpn.choices) ? rpn.choices : []).map(function (ch, i) {
+                            return actionV2ToLegacyChoice(ch.action, ch.label, i);
+                        })
+                    };
+                } else if (rp.type === "req" || rp.type === "pwd") {
+                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(rp));
+                }
+            } else if (a.type === "selector") {
+                var n = p.nested || {};
+                var nc = n.copy || {};
+                out.nested = {
+                    title: n.title || "",
+                    introHtml: nc.bodyHtml || "",
+                    displayMode: n.displayMode === "dropdown" ? "dropdown" : "buttons",
+                    choices: (Array.isArray(n.choices) ? n.choices : []).map(function (ch, i) {
+                        return actionV2ToLegacyChoice(ch.action, ch.label, i);
+                    })
+                };
+            }
+            return out;
         }
 
         function actionV2ToLegacyChoice(action, label, idx) {
@@ -168,6 +278,8 @@
                             return actionV2ToLegacyChoice(ch.action, ch.label, i);
                         })
                     };
+                } else if (r1.type === "req" || r1.type === "pwd") {
+                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(r1));
                 }
             } else if (a.type === "pwd") {
                 out.enigmeTxt = c.bodyHtml || "";
@@ -196,6 +308,8 @@
                             return actionV2ToLegacyChoice(ch.action, ch.label, i);
                         })
                     };
+                } else if (r2.type === "req" || r2.type === "pwd") {
+                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(r2));
                 }
             } else if (a.type === "selector") {
                 var n = p.nested || {};
@@ -280,6 +394,8 @@
                         null,
                         2
                     );
+                } else if (r.type === "req" || r.type === "pwd") {
+                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(r));
                 }
             } else if (a.type === "pwd") {
                 out.f_enigme_txt = pc.bodyHtml || "";
@@ -310,6 +426,8 @@
                         null,
                         2
                     );
+                } else if (rp.type === "req" || rp.type === "pwd") {
+                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(rp));
                 }
             } else if (a.type === "selector") {
                 var n = p.nested || {};
