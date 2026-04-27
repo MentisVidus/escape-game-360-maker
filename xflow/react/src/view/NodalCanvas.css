@@ -220,13 +220,31 @@
 }
 
 .nodal-canvas-layout .nodal-popup-field input[type="text"],
-.nodal-canvas-layout .nodal-popup-field input[type="number"] {
+.nodal-canvas-layout .nodal-popup-field input[type="number"],
+.nodal-canvas-layout .nodal-popup-field textarea,
+.nodal-canvas-layout .nodal-popup-textarea {
   padding: 6px 8px;
   border: 1px solid var(--palette-button-border);
   border-radius: 6px;
   font: inherit;
   background: var(--palette-button-bg);
   color: var(--node-text);
+}
+
+.nodal-canvas-layout .nodal-popup-textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 200px;
+  resize: vertical;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.nodal-canvas-layout .nodal-popup-panel--msg-content {
+  max-width: min(640px, 92vw);
+  width: 100%;
 }
 
 .nodal-canvas-layout .nodal-popup-field input[type="range"] {

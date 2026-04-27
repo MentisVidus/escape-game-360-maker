@@ -1,4 +1,5 @@
 import { Handle, NodeResizer, Position, type NodeProps } from "@xyflow/react";
+import type { KeyboardEvent, MouseEvent } from "react";
 
 import type { ActionNodeId, AnyNodeId } from "../../model/ids";
 import type { ActionNode } from "../../model/nodes";
@@ -39,10 +40,28 @@ export function ActionNodeView({ id, data }: NodeProps) {
   const cs = nodeData.contextualState;
   const stateClass =
     showDetach ? "" : cs === 1 ? " action-node--orphan" : cs === 3 ? " action-node--choice" : "";
+  const msgEditable = node.actionType === "msg";
+
+  const openMsgEditor = (e: MouseEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLElement;
+    if (t.closest(".nodal-handle") || t.closest(".nodal-detach-btn")) return;
+    ui.openMsgContentEditor(node.id as ActionNodeId);
+  };
+
+  const onMsgKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      ui.openMsgContentEditor(node.id as ActionNodeId);
+    }
+  };
 
   return (
     <div
-      className={`nodal-node action action-${node.actionType}${showDetach ? " action-child-reward" : ""}${stateClass}`}
+      className={`nodal-node action action-${node.actionType}${showDetach ? " action-child-reward" : ""}${stateClass}${msgEditable ? " action-msg--clickable" : ""}`}
+      onClick={msgEditable ? openMsgEditor : undefined}
+      onKeyDown={msgEditable ? onMsgKeyDown : undefined}
+      role={msgEditable ? "button" : undefined}
+      tabIndex={msgEditable ? 0 : undefined}
     >
       {node.actionType === "selector" ? (
         <NodeResizer

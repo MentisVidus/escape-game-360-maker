@@ -28,6 +28,10 @@
   border-color: var(--node-action-border);
 }
 
+.nodal-node.action.action-msg--clickable {
+  cursor: pointer;
+}
+
 .nodal-node.satellite {
   background: var(--node-satellite-bg);
   border-color: var(--node-satellite-border);

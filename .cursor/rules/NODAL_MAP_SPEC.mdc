@@ -1210,6 +1210,27 @@ debug chaîne ; garde-fou **profondeur** runtime ; pas de sens
 - `js/editeur-app.js`, `js/editor-en-app.js` — options récompense REQ/PWD,
   restauration **`querySelectorAll`** des champs chaîne (req vs pwd).
 
+### C7.2 — Popups contenu — socle **msg** *(en cours sur `feat/c7-2-msg-popup`)*
+
+**Périmètre livré (premier increment)** : clic sur nœud **`msg`** (hors handle /
+bouton détacher) → popup **HTML brut** `copy.bodyHtml` + `copy.buttonLabel` ;
+**Annuler** / **Enregistrer** ; fermeture si le nœud disparaît ; ouverture
+ferme les autres popups carte (médias, satellites…). Libellés **FR / EN**
+selon `document.documentElement.lang` (`editeur.html` / `editor_en.html`).
+**Quill** / parité WYSIWYG legacy : **pas** dans ce increment (cf. ordre C7
+**D.3** et §7).
+
+**Fichiers** :
+
+- `xflow/react/src/view/popups/MsgContentPopup.tsx` — popup message.
+- `xflow/react/src/view/nodalUiContext.tsx` — `msgEditorActionId`,
+  `setMsgEditorActionId`, `openMsgContentEditor`.
+- `xflow/react/src/view/NodalCanvas.tsx` — montage, `onSave` →
+  `updateNodeData` (payload `copy`).
+- `xflow/react/src/view/nodes/ActionNodeView.tsx` — interaction nœud `msg`.
+- `xflow/react/src/view/NodalCanvas.css`, `view/nodes/nodes.css` — textarea /
+  panneau élargi.
+
 ## Annexe C — Glossaire
 
 - **Action** : unité métier éditable. Types `msg`, `pick`, `goto`,
@@ -1341,7 +1362,8 @@ selon la priorité produit (édition texte d’abord *vs* schéma d’abord).
   (A1, B1, C2, D3, E1).
 - [x] **C7.1** : périmètre figé + livré (spec §7, **Annexe B — C7.1**, merge
   `feat/c7-chain-reward` → `feat/nodal-map`).
-- [ ] **C7.2** : socle popup + premier type d’action éditable depuis la carte.
+- [x] **C7.2** : socle popup + premier type **`msg`** éditable depuis la carte
+  (HTML brut + libellé bouton ; Quill / autres actions → lots suivants).
 - [ ] **C7.3** : couverture étendue des types / selector.
 - [x] **C7.4** : chaînes REQ/PWD **(slice C7.1)** — schéma V2 + DOM + runtime ;
   lots C7.2+ (popups nodales, etc.) restent ouverts.
@@ -1388,6 +1410,9 @@ de l’eau.)*
   rendu lisible (`next` imbriqué, plus de chaîne doublement échappée).
 - 2026-04-27 — **Clôture lot C7.1** : smoke OK ; spec **v1.6** (§7, **Annexe B
   — C7.1**, journal D.4) ; merge `feat/c7-chain-reward` → `feat/nodal-map`.
+- 2026-04-27 — **Lot C7.2 (increment 1)** : popup carte pour nœud **`msg`**
+  (`MsgContentPopup`, HTML brut + `buttonLabel`, FR/EN via `lang`, pas de
+  bump de version spec — validation auteur requise pour toute montée **v1.7+**).
 
 ---
 

@@ -34,6 +34,7 @@ import type {
   ChoiceOptionsSatelliteNode,
   CoordsOptionsSatelliteNode,
   MediaNode,
+  MsgActionNode,
   ObjectSatelliteNode,
 } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
@@ -61,6 +62,7 @@ import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
 import { CoordsOptionsPopup } from "./popups/CoordsOptionsPopup";
 import { ChoiceOptionsPopup } from "./popups/ChoiceOptionsPopup";
 import { MediaEditorPopup } from "./popups/MediaEditorPopup";
+import { MsgContentPopup } from "./popups/MsgContentPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
 import "./NodalCanvas.css";
 
@@ -231,12 +233,28 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [coordsEditorSatelliteId, setCoordsEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
   const [choiceEditorSatelliteId, setChoiceEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
   const [mediaEditorMediaId, setMediaEditorMediaId] = useState<MediaNodeId | null>(null);
+  const [msgEditorActionId, setMsgEditorActionId] = useState<ActionNodeId | null>(null);
+  const openMsgContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setMsgEditorActionId(id);
+  }, []);
   const state = useSyncExternalStore(
     store.subscribe,
     store.getState,
     store.getState
   );
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!msgEditorActionId) return;
+    const a = state.actions[msgEditorActionId];
+    if (!a || a.actionType !== "msg") {
+      setMsgEditorActionId(null);
+    }
+  }, [msgEditorActionId, state.actions]);
 
   // State React Flow pour nodes et edges (permet à RF de gérer drag, sélection, mesures)
   const [rfNodes, setRfNodes, onNodesChangeRF] = useNodesState<RFNode<NodalRFData>>([]);
@@ -502,6 +520,12 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const choiceParentAction = findParentAction(choiceEditorSatelliteId);
   const mediaToEdit: MediaNode | null =
     mediaEditorMediaId && state.media[mediaEditorMediaId] ? state.media[mediaEditorMediaId] : null;
+  const msgToEdit: MsgActionNode | null =
+    msgEditorActionId &&
+    state.actions[msgEditorActionId] &&
+    state.actions[msgEditorActionId].actionType === "msg"
+      ? (state.actions[msgEditorActionId] as MsgActionNode)
+      : null;
 
   return (
     <NodalUiContext.Provider
@@ -515,6 +539,9 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         setChoiceEditorSatelliteId,
         mediaEditorMediaId,
         setMediaEditorMediaId,
+        msgEditorActionId,
+        setMsgEditorActionId,
+        openMsgContentEditor,
       }}
     >
       <div className={layoutClassName} ref={canvasRef}>
@@ -621,6 +648,16 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             snap.updateNodeData(mediaEditorMediaId, { data: { ...cur.data, ...patch } } as never);
           }}
           onClose={() => setMediaEditorMediaId(null)}
+        />
+        <MsgContentPopup
+          action={msgToEdit}
+          onSave={(copy) => {
+            if (!msgEditorActionId) return;
+            store.getState().updateNodeData(msgEditorActionId, {
+              payload: { copy },
+            } as never);
+          }}
+          onClose={() => setMsgEditorActionId(null)}
         />
       </div>
     </div>
