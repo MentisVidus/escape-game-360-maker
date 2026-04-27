@@ -1347,6 +1347,9 @@ de l’eau.)*
 - 2026-04-27 — **C7.1 (fix runtime 2)** : terminaux chaîne (`msg`/`pick`)
   lisent maintenant aussi les clés `txt` / `itemId` / `itemName` quand les
   alias `okMsg` / `pickId` / `pickName` sont absents (plus d’`undefined` final).
+- 2026-04-27 — **C7.1 (fix debug form)** : correction remplissage
+  `f-reward-chain-json` sur tous les blocs dynamiques req/pwd + JSON de chaîne
+  rendu lisible (`next` imbriqué, plus de chaîne doublement échappée).
 
 ---
 

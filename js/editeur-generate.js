@@ -228,7 +228,7 @@ function buildPlayerHtmlTemplate() {
             var rr = p.rewardAction || {};
             out.f_req_action = rr.type || "scene";
             if(rr.type === "req" || rr.type === "pwd") {
-                out.f_reward_chain_json = JSON.stringify(rewardActionV2ToLegacyNode(rr));
+                out.next = rewardActionV2ToLegacyNode(rr);
             }
         } else if(a.type === "pwd") {
             out.enigmeTxt = c.bodyHtml || "";
@@ -236,7 +236,7 @@ function buildPlayerHtmlTemplate() {
             var rp = p.rewardAction || {};
             out.f_pwd_action = rp.type || "scene";
             if(rp.type === "req" || rp.type === "pwd") {
-                out.f_reward_chain_json = JSON.stringify(rewardActionV2ToLegacyNode(rp));
+                out.next = rewardActionV2ToLegacyNode(rp);
             }
         }
         return out;
@@ -283,7 +283,7 @@ function buildPlayerHtmlTemplate() {
                     choices: (rrn && Array.isArray(rrn.choices) ? rrn.choices : []).map(choiceV2ToLegacy)
                 };
             } else if(r.type === "req" || r.type === "pwd") {
-                out.f_reward_chain_json = JSON.stringify(rewardActionV2ToLegacyNode(r));
+                out.f_reward_chain_json = JSON.stringify(rewardActionV2ToLegacyNode(r), null, 2);
             }
         } else if(a.type === "pwd") {
             out.enigmeTxt = c.bodyHtml || "";
@@ -310,7 +310,7 @@ function buildPlayerHtmlTemplate() {
                     choices: (rpn && Array.isArray(rpn.choices) ? rpn.choices : []).map(choiceV2ToLegacy)
                 };
             } else if(rp.type === "req" || rp.type === "pwd") {
-                out.f_reward_chain_json = JSON.stringify(rewardActionV2ToLegacyNode(rp));
+                out.f_reward_chain_json = JSON.stringify(rewardActionV2ToLegacyNode(rp), null, 2);
             }
         } else if(a.type === "selector") {
             var n = p.nested || {};
@@ -1889,6 +1889,9 @@ function buildPlayerHtmlTemplate() {
                 var parsedReq = parseRewardChainNode(rawReq);
                 if(parsedReq) out.reqNext = parsedReq;
             }
+            if(!out.reqNext && node.next && typeof node.next === "object") {
+                out.reqNext = rewardNodeToArgs(node.next, depth + 1);
+            }
             return out;
         }
         if(act === "pwd") {
@@ -1898,6 +1901,9 @@ function buildPlayerHtmlTemplate() {
             if(typeof rawPwd === "string" && rawPwd.trim()) {
                 var parsedPwd = parseRewardChainNode(rawPwd);
                 if(parsedPwd) out.pwdNext = parsedPwd;
+            }
+            if(!out.pwdNext && node.next && typeof node.next === "object") {
+                out.pwdNext = rewardNodeToArgs(node.next, depth + 1);
             }
             return out;
         }

@@ -540,10 +540,12 @@ function addHotspot(sceneId, hsData = null) {
     if(hsData) {
         let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-reward-chain-json', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
         fields.forEach(f => {
-            let el = hsDiv.querySelector('.' + f);
-            if(el && hsData[f.replace(/-/g, '_')] !== undefined) {
-                el.value = hsData[f.replace(/-/g, '_')];
-                if(f === 'f-pwd-action' || f === 'f-req-action') el.dispatchEvent(new Event('change')); // Show nested reward fields
+            let all = hsDiv.querySelectorAll('.' + f);
+            if(all && all.length && hsData[f.replace(/-/g, '_')] !== undefined) {
+                all.forEach(el => { el.value = hsData[f.replace(/-/g, '_')]; });
+                if(f === 'f-pwd-action' || f === 'f-req-action') {
+                    all[0].dispatchEvent(new Event('change')); // Show nested reward fields
+                }
             }
         });
         if(hsData.type === 'selector') {

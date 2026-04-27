@@ -55,10 +55,16 @@
             } else if (action.type === "req") {
                 p.itemId = src.itemId || "";
                 p.copy.bodyHtml = src.ko || "";
+                if (!src.f_reward_chain_json && src.next && typeof src.next === "object") {
+                    src.f_reward_chain_json = JSON.stringify(src.next);
+                }
                 p.rewardAction = legacyRewardToV2(src.f_req_action || src.reqAction || "scene", src);
             } else if (action.type === "pwd") {
                 p.copy.bodyHtml = src.enigmeTxt || src.enigme_txt || src.f_enigme_txt || "";
                 p.answer = src.pwd || src.f_pwd || "";
+                if (!src.f_reward_chain_json && src.next && typeof src.next === "object") {
+                    src.f_reward_chain_json = JSON.stringify(src.next);
+                }
                 p.rewardAction = legacyRewardToV2(src.f_pwd_action || src.pwdAction || "scene", src);
             } else if (action.type === "selector") {
                 var nested = src.nested || {};
@@ -189,7 +195,7 @@
                         })
                     };
                 } else if (rr.type === "req" || rr.type === "pwd") {
-                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(rr));
+                    out.next = actionV2ToLegacyNode(rr);
                 }
             } else if (a.type === "pwd") {
                 out.enigmeTxt = c.bodyHtml || "";
@@ -218,7 +224,7 @@
                         })
                     };
                 } else if (rp.type === "req" || rp.type === "pwd") {
-                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(rp));
+                    out.next = actionV2ToLegacyNode(rp);
                 }
             } else if (a.type === "selector") {
                 var n = p.nested || {};
@@ -279,7 +285,7 @@
                         })
                     };
                 } else if (r1.type === "req" || r1.type === "pwd") {
-                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(r1));
+                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(r1), null, 2);
                 }
             } else if (a.type === "pwd") {
                 out.enigmeTxt = c.bodyHtml || "";
@@ -309,7 +315,7 @@
                         })
                     };
                 } else if (r2.type === "req" || r2.type === "pwd") {
-                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(r2));
+                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(r2), null, 2);
                 }
             } else if (a.type === "selector") {
                 var n = p.nested || {};
@@ -395,7 +401,7 @@
                         2
                     );
                 } else if (r.type === "req" || r.type === "pwd") {
-                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(r));
+                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(r), null, 2);
                 }
             } else if (a.type === "pwd") {
                 out.f_enigme_txt = pc.bodyHtml || "";
@@ -427,7 +433,7 @@
                         2
                     );
                 } else if (rp.type === "req" || rp.type === "pwd") {
-                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(rp));
+                    out.f_reward_chain_json = JSON.stringify(actionV2ToLegacyNode(rp), null, 2);
                 }
             } else if (a.type === "selector") {
                 var n = p.nested || {};
