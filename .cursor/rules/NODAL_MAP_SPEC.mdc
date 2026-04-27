@@ -1267,8 +1267,8 @@ Vitest ne chargent pas Quill.
 > ajuster §7 si besoin, puis **supprimer entièrement l’annexe D** — même
 > principe que l’ancien bloc « Chantier C6 » remplacé par l’Annexe B — C6.
 
-**Branche de travail** : `feat/nodal-map` (pas de branche satellite imposée ;
-une branche dédiée `feat/c7-…` reste possible si l’auteur le souhaite).
+**Branche de travail** : intégration sur **`feat/nodal-map`** ; lots **C7.x**
+sur branches dédiées (ex. **`feat/c7-2-msg-popup`** pour le socle popups **C7.2**).
 
 ---
 
@@ -1297,7 +1297,7 @@ Références externes : **`docs/SELECTOR_SPEC.md`** (pièges selector,
 
 | Thème | Contenu principal | Fichiers / zones typiques |
 |--------|-------------------|---------------------------|
-| **A. Popups React** | Édition `copy.bodyHtml`, labels, textes `req`/`pwd`, contenus selector (nested), preview éventuelle | `xflow/react/src/view/popups/*`, `NodalCanvas.tsx`, `nodalUiContext.tsx` ; pas de `querySelector` legacy dans React (§8.6) |
+| **A. Popups React** | Édition `copy.bodyHtml`, labels, textes `req`/`pwd`, contenus selector (nested), preview éventuelle | `xflow/react/src/view/popups/*`, `NodalCanvas.tsx`, `nodalUiContext.tsx` ; cible §8.6 : pas de `querySelector` dans l’UI React — **C7.2-bis phase A** : sync DOM → slice `playerPopupTheme` cantonnée (`syncPlayerPopupThemeFromDom`) en attendant la persistance JSON (**C7.2-bis phase B**) |
 | **B. Quill / riche** | Parité WYSIWYG avec legacy (`editor-quill-scenes.js`), thème, SRI si embarqué ; ou **phase 1** textarea + HTML brut | Décision **D.3** ; risque `file://` + CDN |
 | **C. Schéma V2 + Core** | `rewardAction` / chaîne ; normalisation `EditorCore` ; warnings §6 | `js/editor-core.js`, `xflow/react/src/model/*`, tests |
 | **D. Mappers + DOM** | Mapping **unidirectionnel** nodal → legacy (`actionV2ToLegacyHotspotData`) + projection `editor-shared-nodal-to-dom.js` | `js/editor-shared-action-mappers.js`, `js/editor-shared-nodal-to-dom.js` |
@@ -1313,14 +1313,30 @@ Références externes : **`docs/SELECTOR_SPEC.md`** (pièges selector,
 | Lot | Intitulé | Livrables indicatifs |
 |-----|----------|----------------------|
 | **C7.1** | **Périmètre & schéma** | Décisions **D.3** figées ; extension types TS / `EditorCore` pour chaînes ou périmètre « popups seule » ; liste de warnings à mettre à jour |
-| **C7.2** | **Popups contenu — socle** | Pattern popup partagé (titre, save, annuler, bind store) ; première action **msg** (ou autre pilote) FR+EN |
-| **C7.3** | **Popups — couverture actions** | `pick`, `req`, `pwd`, `goto` (copy transition), champs **selector** (nested, `displayMode`) ; réutiliser modules shared quand pas de texte UI |
+| **C7.2** | **Popups contenu — socle** | Pattern popups carte + **`msg`** (Quill, aperçu joueur) ; hub paramètres + thème popup en store (**§D.2.1**, **C7.2-bis**) ; layout **`nodal-general-*`** |
+| **C7.3** | **Popups — couverture actions** | Reprendre les patterns **§D.2.1** : `pick`, `req`, `pwd`, `goto` (copy transition), champs **selector** (nested, `displayMode`) ; réutiliser modules shared quand pas de texte UI |
 | **C7.4** | **Chaînes REQ/PWD** *(retenu en C7)* | Schéma V2 + legacy (`f_req_action` / répétition ou structure nouvelle) ; projection DOM ; tests **V2 → DOM → generateGame** (pas de `legacy → V2`) |
 | **C7.5** | **Export joueur + smoke** | `generateGame()` / ZIP ; scénarios minimal + selector + REQ/PWD (selon nouveau contrat) |
 | **C7.6** | **Durcissement** | SELECTOR_SPEC, médias portables bundle si dans périmètre, doc Annexe B, suppression **Annexe D** |
 
 Les lots **C7.2–C7.3** peuvent être **inversés** ou **parallélisés** partiellement
 selon la priorité produit (édition texte d’abord *vs* schéma d’abord).
+
+### D.2.1 — Synthèse **C7.2** livrée *(référence pour **C7.3**)*
+
+Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
+
+| Domaine | Rôle | Fichiers / entrées principales |
+|--------|------|----------------------------------|
+| **Édition `msg`** | Quill 1.3.7 (toolbar alignée `editor-quill-scenes.js`, sans import legacy), `CopyPayload` (`bodyHtml`, `buttonLabel`), FR/EN via `lang` | `MsgContentPopup.tsx`, `nodalQuillSetup.ts`, `nodalQuillRich.css` |
+| **Aperçu contenu message** | Colonne droite : HTML Quill dans faux panneau `afficherPopup`, styles dérivés du thème **store** | `MsgContentPopup.tsx`, `playerPopupPreviewFromTheme.ts`, `usePlayerPopupTheme.ts` |
+| **Thème popup joueur (phase A)** | Slice **`playerPopupTheme`** sur `NodalProjectStore` ; écriture legacy via `writeDomState` depuis la popup nodale ; `syncPlayerPopupThemeFromDom` au montage carte, après `hydrateFromProject`, à l’ouverture éditeur `msg` / popup thème | `nodalProjectStore.ts`, `playerPopupDomRead.ts`, `PopupThemeCustomizationPopup.tsx`, `NodalCanvas.tsx` |
+| **Chrome carte** | Palette : sauvegardes, hub paramètres, lien formulaire ; pont **`window.__escape360NodalChrome`** + **`updatePreview`** | `NodePalette.tsx`, `palette.css`, `GlobalSettingsHubPopup.tsx`, `editeur-app.js` / `editor-en-app.js`, `editor-nodal-map-bootstrap.js`, `escape360NodalChrome.d.ts` |
+| **Layout formulaire + aperçu** | Grille **`nodal-general-layout`** / **`nodal-general-main`** / **`nodal-general-preview`** (+ label, canvas, box) ; alias CSS **`nodal-ha-*`** conservés | `NodalCanvas.css`, `HotspotAppearancePopup.tsx`, popups ci-dessus |
+| **Tests / bundle React** | Projection RF sans charger Quill au top-level ; `NodalQuillInstance` avec `on`/`off` | `nodalReactFlowProjection.ts`, `nodalQuillSetup.ts`, `vite.editor-map.config.ts`, `quill-shim.d.ts` |
+| **Couleur hex → rgba** | Parser chaque octet hex sans « fallback » JS sur 0 (bug R=0 → 255) ; **`hexToRgbaLo`** aligné côté projection nodal → DOM | `hotspotAppearance.ts` (`hexToRgba`), `editor-shared-nodal-to-dom.js`, `hexToRgba.test.ts` |
+
+**Pour C7.3** : pour chaque nouvelle popup d’action, réutiliser **`nodal-general-*`**, brancher les champs sur **`updateNodeData`** / slices store si besoin, éviter la lecture DOM métier dans le JSX (hors sync cantonnée **C7.2-bis** en attendant la phase B JSON).
 
 ---
 
@@ -1367,7 +1383,8 @@ selon la priorité produit (édition texte d’abord *vs* schéma d’abord).
 - [x] **C7.1** : périmètre figé + livré (spec §7, **Annexe B — C7.1**, merge
   `feat/c7-chain-reward` → `feat/nodal-map`).
 - [x] **C7.2** : socle popup + premier type **`msg`** éditable depuis la carte
-  (HTML brut + libellé bouton ; Quill / autres actions → lots suivants).
+  (Quill + libellé bouton ; aperçu popup ; thème popup en slice store **C7.2-bis** ;
+  autres actions → **C7.3**).
 - [ ] **C7.3** : couverture étendue des types / selector.
 - [x] **C7.4** : chaînes REQ/PWD **(slice C7.1)** — schéma V2 + DOM + runtime ;
   lots C7.2+ (popups nodales, etc.) restent ouverts.
@@ -1390,6 +1407,22 @@ selon la priorité produit (édition texte d’abord *vs* schéma d’abord).
   cas mixte `REQ -> SELECTOR -> REQ` *(validé auteur 2026-04-27)*.
 - [x] **C7.1-06 Git** : branche `feat/c7-chain-reward`, merge vers
   `feat/nodal-map` *(2026-04-27)*, ouverture lot suivant autorisée.
+
+**Todo détaillé — lot C7.2-bis** (`nodal-popup-theme` : câblage UI puis persistance) :
+
+*Phase A — câblage / vérité UI nodale (aperçus + palette « Personnalisation des popups »)* :
+
+- [x] **C7.2-bis-00** : type `PlayerPopupTheme`, defaults, lecture DOM cantonnée (`playerPopupDomRead.ts`).
+- [x] **C7.2-bis-01** : slice `playerPopupTheme` sur `NodalProjectStore` (`setPlayerPopupTheme`, `syncPlayerPopupThemeFromDom`), sync au montage `NodalCanvas` + fin de `hydrateFromProject`.
+- [x] **C7.2-bis-02** : `PopupThemeCustomizationPopup` + aperçu `MsgContentPopup` alimentés par le store ; styles d’aperçu dérivés via `playerPopupPreviewFromTheme.ts` (aligné `generateGame` / sans perso).
+- [x] **C7.2-bis-03** : grille / colonne aperçu renommée **`nodal-general-*`** (CSS + `MsgContentPopup`, `PopupThemeCustomizationPopup`, `HotspotAppearancePopup`) ; alias CSS `nodal-ha-*` conservé pour compat.
+- [ ] **C7.2-bis-04** *(optionnel)* : pont explicite si le legacy appelle seulement `updatePreview()` sans événements `input` — garder le slice aligné sur le DOM dans ce cas.
+
+*Phase B — persistance bundle / `project.json` (lot ultérieur ; pas de champs racine V2 dédiés aujourd’hui)* :
+
+- [ ] **C7.2-bis-10** : étendre schéma export / import (JSON V2 racine ou extras `map-layout`) pour `useCustomPopup` + `pop*`.
+- [ ] **C7.2-bis-11** : round-trip `.escapegame` + `flushNodalStoreToEditorDom` : thème popup depuis le store nodal.
+- [ ] **C7.2-bis-12** : réduire voire supprimer `syncPlayerPopupThemeFromDom` côté runtime carte une fois **B** stabilisé (DOM = projection seulement).
 
 *(Dates / notes libres : utiliser des sous-listes `- YYYY-MM-DD : …` au fil
 de l’eau.)*
@@ -1415,11 +1448,18 @@ de l’eau.)*
 - 2026-04-27 — **Clôture lot C7.1** : smoke OK ; spec **v1.6** (§7, **Annexe B
   — C7.1**, journal D.4) ; merge `feat/c7-chain-reward` → `feat/nodal-map`.
 - 2026-04-27 — **Lot C7.2 (increment 1)** : popup carte pour nœud **`msg`**
-  (`MsgContentPopup`, HTML brut + `buttonLabel`, FR/EN via `lang`, pas de
+  (`MsgContentPopup`, corps riche + `buttonLabel`, FR/EN via `lang`, pas de
   bump de version spec — validation auteur requise pour toute montée **v1.7+**).
 - 2026-04-27 — **Lot C7.2 (Quill nodal)** : WYSIWYG **Quill 1.3.7** dans la popup
   (toolbar alignée `editor-quill-scenes.js`, aucun import legacy) ;
   `nodalReactFlowProjection.ts` pour tests sans `document` au chargement de Quill.
+- 2026-04-27 — **Lot C7.2-bis (phase A)** : slice `playerPopupTheme` dans
+  `nodalProjectStore` ; popups thème + message branchées sur le store ;
+  grille CSS **`nodal-general-layout`** ; persistance bundle = **phase B**
+  (todo **C7.2-bis-10+**).
+- 2026-04-27 — **Correctif `hexToRgba` / `hexToRgbaLo`** : le canal rouge à 0
+  n’est plus remplacé par 255 (éviter l’opérateur « ou » JS sur un octet nul) ;
+  tests Vitest `hexToRgba.test.ts` (aperçus cohérents avec `#000000`).
 
 ---
 

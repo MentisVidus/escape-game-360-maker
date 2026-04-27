@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
+import type { StoreApi } from "zustand/vanilla";
+
+import type { NodalProjectStore } from "../../store/nodalProjectStore";
+import type { PlayerPopupTheme } from "./playerPopupDomRead";
+import { playerPopupThemeToDemoBoxStyle, playerPopupThemeToDemoBtnStyle } from "./playerPopupPreviewFromTheme";
+import { usePlayerPopupTheme } from "./usePlayerPopupTheme";
 
 type Locale = "fr" | "en";
 
@@ -20,26 +26,7 @@ function el<T extends HTMLElement>(id: string): T | null {
   return document.getElementById(id) as T | null;
 }
 
-function readDomState() {
-  const useCustom = el<HTMLInputElement>("useCustomPopup");
-  const font = el<HTMLSelectElement>("pop-font");
-  const color = el<HTMLInputElement>("pop-color");
-  const bgc = el<HTMLInputElement>("pop-bgc");
-  const bga = el<HTMLInputElement>("pop-bga");
-  const btnBg = el<HTMLInputElement>("pop-btn-bg");
-  const btnCol = el<HTMLInputElement>("pop-btn-col");
-  return {
-    useCustomPopup: !!(useCustom && useCustom.checked),
-    popFont: font?.value ?? "Arial, sans-serif",
-    popColor: color?.value ?? "#ffffff",
-    popBgc: bgc?.value ?? "#000000",
-    popBga: Number(bga?.value ?? "0.9") || 0.9,
-    popBtnBg: btnBg?.value ?? "#27ae60",
-    popBtnCol: btnCol?.value ?? "#ffffff",
-  };
-}
-
-function writeDomState(s: ReturnType<typeof readDomState>) {
+function writeDomState(s: PlayerPopupTheme) {
   const useCustom = el<HTMLInputElement>("useCustomPopup");
   const container = el<HTMLElement>("popup-settings-container");
   if (useCustom) {
@@ -70,62 +57,30 @@ function writeDomState(s: ReturnType<typeof readDomState>) {
 
 type Props = {
   open: boolean;
+  store: StoreApi<NodalProjectStore>;
   onClose: () => void;
   /** Si défini, « Retour » rouvre le menu paramètres sans fermer la session. */
   onBackToHub?: () => void;
 };
 
-export function PopupThemeCustomizationPopup({ open, onClose, onBackToHub }: Props) {
+export function PopupThemeCustomizationPopup({ open, store, onClose, onBackToHub }: Props) {
   const L = loc();
-  const [useCustomPopup, setUseCustomPopup] = useState(false);
-  const [popFont, setPopFont] = useState("Arial, sans-serif");
-  const [popColor, setPopColor] = useState("#ffffff");
-  const [popBgc, setPopBgc] = useState("#000000");
-  const [popBga, setPopBga] = useState(0.9);
-  const [popBtnBg, setPopBtnBg] = useState("#27ae60");
-  const [popBtnCol, setPopBtnCol] = useState("#ffffff");
+  const theme = usePlayerPopupTheme(store);
 
   useEffect(() => {
     if (!open) return;
-    const s = readDomState();
-    setUseCustomPopup(s.useCustomPopup);
-    setPopFont(s.popFont);
-    setPopColor(s.popColor);
-    setPopBgc(s.popBgc);
-    setPopBga(s.popBga);
-    setPopBtnBg(s.popBtnBg);
-    setPopBtnCol(s.popBtnCol);
-  }, [open]);
+    store.getState().syncPlayerPopupThemeFromDom();
+  }, [open, store]);
 
-  const pushDom = useCallback(() => {
-    writeDomState({
-      useCustomPopup,
-      popFont,
-      popColor,
-      popBgc,
-      popBga,
-      popBtnBg,
-      popBtnCol,
-    });
-  }, [useCustomPopup, popFont, popColor, popBgc, popBga, popBtnBg, popBtnCol]);
+  const commit = (patch: Partial<PlayerPopupTheme>) => {
+    store.getState().setPlayerPopupTheme(patch);
+    queueMicrotask(() => writeDomState(store.getState().playerPopupTheme));
+  };
 
-  const previewBoxStyle = useMemo(() => {
-    const hex = popBgc.replace("#", "");
-    const rp = parseInt(hex.substring(0, 2), 16) || 0;
-    const gp = parseInt(hex.substring(2, 4), 16) || 0;
-    const bp = parseInt(hex.substring(4, 6), 16) || 0;
-    const bg = useCustomPopup ? `rgba(${rp},${gp},${bp},${popBga})` : "rgba(0,0,0,0.9)";
-    const fg = useCustomPopup ? popColor : "#ffffff";
-    const ff = useCustomPopup ? popFont : "sans-serif";
-    return { backgroundColor: bg, color: fg, fontFamily: ff } as const;
-  }, [useCustomPopup, popBgc, popBga, popColor, popFont]);
+  const pushDom = () => writeDomState(store.getState().playerPopupTheme);
 
-  const previewBtnStyle = useMemo(() => {
-    const bg = useCustomPopup ? popBtnBg : "#27ae60";
-    const fg = useCustomPopup ? popBtnCol : "#ffffff";
-    const ff = useCustomPopup ? popFont : "sans-serif";
-    return { backgroundColor: bg, color: fg, fontFamily: ff } as const;
-  }, [useCustomPopup, popBtnBg, popBtnCol, popFont]);
+  const previewBoxStyle = useMemo(() => playerPopupThemeToDemoBoxStyle(theme), [theme]);
+  const previewBtnStyle = useMemo(() => playerPopupThemeToDemoBtnStyle(theme), [theme]);
 
   if (!open) return null;
 
@@ -158,6 +113,8 @@ export function PopupThemeCustomizationPopup({ open, onClose, onBackToHub }: Pro
           back: "← Retour",
         };
 
+  const { useCustomPopup, popFont, popColor, popBgc, popBga, popBtnBg, popBtnCol } = theme;
+
   return (
     <div
       className="nodal-popup-overlay nodal-popup-overlay--nested"
@@ -170,137 +127,115 @@ export function PopupThemeCustomizationPopup({ open, onClose, onBackToHub }: Pro
         <h2 id="nodal-popup-theme-title">{t.title}</h2>
         <p className="nodal-popup-hint">{t.hint}</p>
 
-        <label className="nodal-popup-check">
-          <input
-            type="checkbox"
-            checked={useCustomPopup}
-            onChange={(e) => {
-              setUseCustomPopup(e.target.checked);
-              queueMicrotask(() =>
-                writeDomState({
-                  useCustomPopup: e.target.checked,
-                  popFont,
-                  popColor,
-                  popBgc,
-                  popBga,
-                  popBtnBg,
-                  popBtnCol,
-                })
-              );
-            }}
-          />
-          <span>{t.useCustom}</span>
-        </label>
+        <div className="nodal-general-layout">
+          <div className="nodal-general-main">
+            <label className="nodal-popup-check">
+              <input
+                type="checkbox"
+                checked={useCustomPopup}
+                onChange={(e) => {
+                  commit({ useCustomPopup: e.target.checked });
+                }}
+              />
+              <span>{t.useCustom}</span>
+            </label>
 
-        <div className={`nodal-pt-fields ${!useCustomPopup ? "nodal-pt-fields--disabled" : ""}`}>
-          <label className="nodal-popup-field">
-            <span>{t.font}</span>
-            <select
-              value={popFont}
-              disabled={!useCustomPopup}
-              onChange={(e) => {
-                setPopFont(e.target.value);
-                queueMicrotask(() => writeDomState({ useCustomPopup, popFont: e.target.value, popColor, popBgc, popBga, popBtnBg, popBtnCol }));
-              }}
-            >
-              {FONT_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {L === "en" ? o.en : o.fr}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="nodal-popup-grid">
-            <label className="nodal-popup-field">
-              <span>{t.textCol}</span>
-              <input
-                type="color"
-                value={popColor}
-                disabled={!useCustomPopup}
-                onChange={(e) => {
-                  setPopColor(e.target.value);
-                  queueMicrotask(() =>
-                    writeDomState({ useCustomPopup, popFont, popColor: e.target.value, popBgc, popBga, popBtnBg, popBtnCol })
-                  );
-                }}
-              />
-            </label>
-            <label className="nodal-popup-field">
-              <span>{t.bg}</span>
-              <input
-                type="color"
-                value={popBgc}
-                disabled={!useCustomPopup}
-                onChange={(e) => {
-                  setPopBgc(e.target.value);
-                  queueMicrotask(() =>
-                    writeDomState({ useCustomPopup, popFont, popColor, popBgc: e.target.value, popBga, popBtnBg, popBtnCol })
-                  );
-                }}
-              />
-            </label>
+            <div className={`nodal-pt-fields nodal-ha-visual ${!useCustomPopup ? "nodal-pt-fields--disabled" : ""}`}>
+              <label className="nodal-popup-field">
+                <span>{t.font}</span>
+                <select
+                  value={popFont}
+                  disabled={!useCustomPopup}
+                  onChange={(e) => {
+                    commit({ popFont: e.target.value });
+                  }}
+                >
+                  {FONT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {L === "en" ? o.en : o.fr}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="nodal-popup-grid">
+                <label className="nodal-popup-field">
+                  <span>{t.textCol}</span>
+                  <input
+                    type="color"
+                    value={popColor}
+                    disabled={!useCustomPopup}
+                    onChange={(e) => {
+                      commit({ popColor: e.target.value });
+                    }}
+                  />
+                </label>
+                <label className="nodal-popup-field">
+                  <span>{t.bg}</span>
+                  <input
+                    type="color"
+                    value={popBgc}
+                    disabled={!useCustomPopup}
+                    onChange={(e) => {
+                      commit({ popBgc: e.target.value });
+                    }}
+                  />
+                </label>
+              </div>
+              <label className="nodal-popup-field">
+                <span>
+                  {t.alpha} ({popBga})
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  value={popBga}
+                  disabled={!useCustomPopup}
+                  onChange={(e) => {
+                    commit({ popBga: Number(e.target.value) });
+                  }}
+                />
+              </label>
+              <div className="nodal-popup-grid">
+                <label className="nodal-popup-field">
+                  <span>{t.btnBg}</span>
+                  <input
+                    type="color"
+                    value={popBtnBg}
+                    disabled={!useCustomPopup}
+                    onChange={(e) => {
+                      commit({ popBtnBg: e.target.value });
+                    }}
+                  />
+                </label>
+                <label className="nodal-popup-field">
+                  <span>{t.btnCol}</span>
+                  <input
+                    type="color"
+                    value={popBtnCol}
+                    disabled={!useCustomPopup}
+                    onChange={(e) => {
+                      commit({ popBtnCol: e.target.value });
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
           </div>
-          <label className="nodal-popup-field">
-            <span>
-              {t.alpha} ({popBga})
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.1}
-              value={popBga}
-              disabled={!useCustomPopup}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setPopBga(v);
-                queueMicrotask(() =>
-                  writeDomState({ useCustomPopup, popFont, popColor, popBgc, popBga: v, popBtnBg, popBtnCol })
-                );
-              }}
-            />
-          </label>
-          <div className="nodal-popup-grid">
-            <label className="nodal-popup-field">
-              <span>{t.btnBg}</span>
-              <input
-                type="color"
-                value={popBtnBg}
-                disabled={!useCustomPopup}
-                onChange={(e) => {
-                  setPopBtnBg(e.target.value);
-                  queueMicrotask(() =>
-                    writeDomState({ useCustomPopup, popFont, popColor, popBgc, popBga, popBtnBg: e.target.value, popBtnCol })
-                  );
-                }}
-              />
-            </label>
-            <label className="nodal-popup-field">
-              <span>{t.btnCol}</span>
-              <input
-                type="color"
-                value={popBtnCol}
-                disabled={!useCustomPopup}
-                onChange={(e) => {
-                  setPopBtnCol(e.target.value);
-                  queueMicrotask(() =>
-                    writeDomState({ useCustomPopup, popFont, popColor, popBgc, popBga, popBtnBg, popBtnCol: e.target.value })
-                  );
-                }}
-              />
-            </label>
-          </div>
-        </div>
 
-        <div className="nodal-pt-preview-wrap">
-          <p className="nodal-popup-hint nodal-pt-preview-label">{t.preview}</p>
-          <div className="nodal-pt-preview-box" style={previewBoxStyle}>
-            <h3 style={{ marginTop: 0, opacity: 0.85 }}>{L === "en" ? "Well done!" : "Bravo !"}</h3>
-            <p style={{ marginBottom: 12, fontSize: 15 }}>{L === "en" ? "You found the solution." : "Vous avez trouvé la solution."}</p>
-            <button type="button" style={{ ...previewBtnStyle, padding: "8px 15px", border: "none", borderRadius: 5 }}>
-              {L === "en" ? "Continue" : "Continuer"}
-            </button>
-          </div>
+          <aside className="nodal-general-preview" aria-label={t.preview}>
+            <span className="nodal-general-preview-label">{t.preview}</span>
+            <div className="nodal-general-preview-canvas">
+              <div className="nodal-pt-preview-box" style={previewBoxStyle}>
+                <h3 style={{ marginTop: 0, opacity: 0.85 }}>{L === "en" ? "Well done!" : "Bravo !"}</h3>
+                <p style={{ marginBottom: 12, fontSize: 15 }}>{L === "en" ? "You found the solution." : "Vous avez trouvé la solution."}</p>
+                <button type="button" style={{ ...previewBtnStyle, padding: "8px 15px", border: "none", borderRadius: 5 }}>
+                  {L === "en" ? "Continue" : "Continuer"}
+                </button>
+              </div>
+            </div>
+          </aside>
         </div>
 
         <div className="nodal-popup-actions nodal-popup-actions--split">

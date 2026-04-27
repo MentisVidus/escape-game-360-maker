@@ -249,8 +249,37 @@
 }
 
 .nodal-canvas-layout .nodal-popup-panel--msg-content {
-  max-width: min(640px, 92vw);
+  max-width: min(920px, 96vw);
   width: 100%;
+}
+
+/* Aperçu message : même gabarit visuel que la popup joueur (contenu .play-html-rich) */
+.nodal-canvas-layout .nodal-msg-preview-chrome .play-html-rich {
+  text-align: left;
+}
+
+.nodal-canvas-layout .nodal-msg-preview-chrome .ql-align-center {
+  text-align: center !important;
+}
+
+.nodal-canvas-layout .nodal-msg-preview-chrome .ql-align-right {
+  text-align: right !important;
+}
+
+.nodal-canvas-layout .nodal-msg-preview-chrome .ql-align-justify {
+  text-align: justify !important;
+}
+
+.nodal-canvas-layout .nodal-msg-preview-chrome .ql-size-small {
+  font-size: 0.85em !important;
+}
+
+.nodal-canvas-layout .nodal-msg-preview-chrome .ql-size-large {
+  font-size: 1.5em !important;
+}
+
+.nodal-canvas-layout .nodal-msg-preview-chrome .ql-size-huge {
+  font-size: 2em !important;
 }
 
 .nodal-canvas-layout .nodal-popup-field input[type="range"] {
@@ -322,6 +351,8 @@
   max-height: 90vh;
 }
 
+/* Grille formulaire + colonne aperçu (popups nodales — nom neutre ; `nodal-ha-*` = alias historique). */
+.nodal-canvas-layout .nodal-general-layout,
 .nodal-canvas-layout .nodal-ha-layout {
   display: grid;
   grid-template-columns: 1fr minmax(200px, 260px);
@@ -330,11 +361,13 @@
 }
 
 @media (max-width: 720px) {
+  .nodal-canvas-layout .nodal-general-layout,
   .nodal-canvas-layout .nodal-ha-layout {
     grid-template-columns: 1fr;
   }
 }
 
+.nodal-canvas-layout .nodal-general-main,
 .nodal-canvas-layout .nodal-ha-main {
   display: flex;
   flex-direction: column;
@@ -402,6 +435,7 @@
   resize: vertical;
 }
 
+.nodal-canvas-layout .nodal-general-preview,
 .nodal-canvas-layout .nodal-ha-preview {
   display: flex;
   flex-direction: column;
@@ -413,6 +447,7 @@
   background: #e5e7eb;
 }
 
+.nodal-canvas-layout .nodal-general-preview-label,
 .nodal-canvas-layout .nodal-ha-preview-label {
   font-size: 11px;
   font-weight: 600;
@@ -420,6 +455,7 @@
   color: #475569;
 }
 
+.nodal-canvas-layout .nodal-general-preview-canvas,
 .nodal-canvas-layout .nodal-ha-preview-canvas {
   flex: 1;
   display: flex;
@@ -430,6 +466,7 @@
   background: repeating-conic-gradient(#f1f5f9 0% 25%, #e2e8f0 0% 50%) 50% / 16px 16px;
 }
 
+.nodal-canvas-layout .nodal-general-preview-box,
 .nodal-canvas-layout .nodal-ha-preview-box {
   box-sizing: border-box;
 }
@@ -510,21 +547,6 @@
 .nodal-canvas-layout .nodal-pt-fields--disabled {
   opacity: 0.45;
   pointer-events: none;
-}
-
-.nodal-canvas-layout .nodal-pt-preview-wrap {
-  margin: 12px 0 4px;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px dashed var(--palette-button-border);
-  background: color-mix(in srgb, var(--palette-bg) 88%, var(--palette-border));
-}
-
-.nodal-canvas-layout .nodal-pt-preview-label {
-  margin: 0 0 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-size: 11px;
 }
 
 .nodal-canvas-layout .nodal-pt-preview-box {

@@ -10,6 +10,8 @@ export type NodalQuillInstance = {
   root: HTMLElement;
   update: (source?: string) => void;
   clipboard: { dangerouslyPasteHTML: (html: string) => void };
+  on: (event: string, handler: (...args: unknown[]) => void) => void;
+  off: (event: string, handler: (...args: unknown[]) => void) => void;
 };
 
 let formatsRegistered = false;

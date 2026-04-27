@@ -110,6 +110,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    store.getState().syncPlayerPopupThemeFromDom();
+  }, [store]);
+
+  useEffect(() => {
     if (!msgEditorActionId) return;
     const a = state.actions[msgEditorActionId];
     if (!a || a.actionType !== "msg") {
@@ -515,6 +519,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           onClose={() => setMediaEditorMediaId(null)}
         />
         <MsgContentPopup
+          store={store}
           action={msgToEdit}
           onSave={(copy) => {
             if (!msgEditorActionId) return;
@@ -533,6 +538,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           }}
         />
         <PopupThemeCustomizationPopup
+          store={store}
           open={popupThemeCustomizationOpen}
           onClose={() => setPopupThemeCustomizationOpen(false)}
           onBackToHub={() => {

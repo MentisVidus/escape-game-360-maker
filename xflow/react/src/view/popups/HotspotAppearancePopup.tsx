@@ -101,8 +101,8 @@ export function HotspotAppearancePopup({
       />
       <div className="nodal-popup-panel nodal-popup-panel--hotspot-appearance">
         <h2 id="hotspot-appearance-title">Apparence du hotspot (zone cliquable)</h2>
-        <div className="nodal-ha-layout">
-          <div className="nodal-ha-main">
+        <div className="nodal-general-layout">
+          <div className="nodal-general-main">
             <div className={`nodal-ha-visual ${expert ? "nodal-ha-visual--dimmed" : ""}`}>
               <p className="nodal-popup-hint nodal-ha-visual-title">Éditeur de style visuel</p>
               <div className="nodal-popup-grid">
@@ -224,10 +224,10 @@ export function HotspotAppearancePopup({
             </div>
           </div>
 
-          <aside className="nodal-ha-preview" aria-label="Aperçu">
-            <span className="nodal-ha-preview-label">Aperçu</span>
-            <div className="nodal-ha-preview-canvas">
-              <div className="nodal-ha-preview-box" style={parsePreviewStyle(previewCss)} />
+          <aside className="nodal-general-preview" aria-label="Aperçu">
+            <span className="nodal-general-preview-label">Aperçu</span>
+            <div className="nodal-general-preview-canvas">
+              <div className="nodal-general-preview-box" style={parsePreviewStyle(previewCss)} />
             </div>
           </aside>
         </div>

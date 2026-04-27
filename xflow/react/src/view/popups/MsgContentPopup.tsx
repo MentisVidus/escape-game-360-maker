@@ -1,9 +1,11 @@
 import "quill/dist/quill.snow.css";
 import "../quill/nodalQuillRich.css";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { StoreApi } from "zustand/vanilla";
 
 import type { CopyPayload, MsgActionNode } from "../../model/nodes";
+import type { NodalProjectStore } from "../../store/nodalProjectStore";
 import {
   Quill,
   loadHtmlIntoNodalQuill,
@@ -11,17 +13,30 @@ import {
   registerNodalQuillFormats,
   type NodalQuillInstance,
 } from "../quill/nodalQuillSetup";
+import { playerPopupThemeToMsgPreviewChrome } from "./playerPopupPreviewFromTheme";
+import { usePlayerPopupTheme } from "./usePlayerPopupTheme";
 
 type Locale = "fr" | "en";
 
 const LABELS: Record<
   Locale,
-  { title: string; body: string; btn: string; cancel: string; save: string; hint: string }
+  {
+    title: string;
+    body: string;
+    btn: string;
+    preview: string;
+    defaultBtn: string;
+    cancel: string;
+    save: string;
+    hint: string;
+  }
 > = {
   fr: {
     title: "Message — contenu",
     body: "Corps (texte riche)",
     btn: "Libellé du bouton",
+    preview: "Aperçu (popup joueur)",
+    defaultBtn: "Fermer",
     cancel: "Annuler",
     save: "Enregistrer",
     hint: "Même barre d’outils Quill que le formulaire (polices, tailles, listes, couleurs…). Le rendu suit le thème clair / sombre de la carte.",
@@ -30,6 +45,8 @@ const LABELS: Record<
     title: "Message — content",
     body: "Body (rich text)",
     btn: "Button label",
+    preview: "Preview (player popup)",
+    defaultBtn: "Close",
     cancel: "Cancel",
     save: "Save",
     hint: "Same Quill toolbar as the main form (fonts, sizes, lists, colors…). Styling follows the map light / dark theme.",
@@ -43,15 +60,20 @@ function detectLocale(): Locale {
 }
 
 type Props = {
+  store: StoreApi<NodalProjectStore>;
   action: MsgActionNode | null;
   onSave: (copy: CopyPayload) => void;
   onClose: () => void;
 };
 
-export function MsgContentPopup({ action, onSave, onClose }: Props) {
+export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
   const [locale] = useState<Locale>(() => detectLocale());
   const L = LABELS[locale];
+  const popupTheme = usePlayerPopupTheme(store);
+  const previewStyles = useMemo(() => playerPopupThemeToMsgPreviewChrome(popupTheme), [popupTheme]);
+
   const [buttonLabel, setButtonLabel] = useState("");
+  const [previewHtml, setPreviewHtml] = useState("");
   const hostRef = useRef<HTMLDivElement | null>(null);
   const quillRef = useRef<NodalQuillInstance | null>(null);
 
@@ -61,7 +83,8 @@ export function MsgContentPopup({ action, onSave, onClose }: Props) {
       return;
     }
     setButtonLabel(String(action.payload?.copy?.buttonLabel ?? ""));
-  }, [action]);
+    store.getState().syncPlayerPopupThemeFromDom();
+  }, [action?.id, store]);
 
   useEffect(() => {
     if (!action) {
@@ -80,13 +103,22 @@ export function MsgContentPopup({ action, onSave, onClose }: Props) {
     loadHtmlIntoNodalQuill(q, String(action.payload?.copy?.bodyHtml ?? ""));
     quillRef.current = q;
 
+    const syncHtml = () => {
+      setPreviewHtml(q.root.innerHTML);
+    };
+    syncHtml();
+    q.on("text-change", syncHtml);
+
     return () => {
+      q.off("text-change", syncHtml);
       quillRef.current = null;
       el.innerHTML = "";
     };
   }, [action?.id]);
 
   if (!action) return null;
+
+  const previewBtnText = buttonLabel.trim() || L.defaultBtn;
 
   const handleSave = () => {
     const html = quillRef.current?.root.innerHTML ?? "";
@@ -100,19 +132,38 @@ export function MsgContentPopup({ action, onSave, onClose }: Props) {
   return (
     <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="msg-content-editor-title">
       <div className="nodal-popup-backdrop" onClick={onClose} />
-      <div className="nodal-popup-panel nodal-popup-panel--msg-content">
+      <div className="nodal-popup-panel nodal-popup-panel--msg-content nodal-popup-panel--hotspot-appearance">
         <h2 id="msg-content-editor-title">{L.title}</h2>
         <p className="nodal-popup-hint">{L.hint}</p>
-        <label className="nodal-popup-field">
-          <span>{L.body}</span>
-          <div className="nodal-popup-quill wysiwyg-wrap">
-            <div ref={hostRef} />
+
+        <div className="nodal-general-layout">
+          <div className="nodal-general-main">
+            <label className="nodal-popup-field">
+              <span>{L.body}</span>
+              <div className="nodal-popup-quill wysiwyg-wrap">
+                <div ref={hostRef} />
+              </div>
+            </label>
+            <label className="nodal-popup-field">
+              <span>{L.btn}</span>
+              <input type="text" value={buttonLabel} onChange={(e) => setButtonLabel(e.target.value)} />
+            </label>
           </div>
-        </label>
-        <label className="nodal-popup-field">
-          <span>{L.btn}</span>
-          <input type="text" value={buttonLabel} onChange={(e) => setButtonLabel(e.target.value)} />
-        </label>
+
+          <aside className="nodal-general-preview" aria-label={L.preview}>
+            <span className="nodal-general-preview-label">{L.preview}</span>
+            <div className="nodal-general-preview-canvas">
+              <div className="nodal-msg-preview-chrome" style={previewStyles.panel}>
+                <div className="play-html-rich" dangerouslySetInnerHTML={{ __html: previewHtml || "<p><br></p>" }} />
+                <br />
+                <button type="button" disabled style={previewStyles.btn}>
+                  {previewBtnText}
+                </button>
+              </div>
+            </div>
+          </aside>
+        </div>
+
         <div className="nodal-popup-actions nodal-popup-actions--split">
           <button type="button" className="nodal-ha-btn-secondary" onClick={onClose}>
             {L.cancel}
