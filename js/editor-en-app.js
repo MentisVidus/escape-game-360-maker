@@ -1,4 +1,4 @@
-﻿// --- Global state ---
+// --- Global state ---
 // Counters: unique numeric ids for scenes and hotspots
 let sceneIdCounter = 0; 
 let hsIdCounter = 0;

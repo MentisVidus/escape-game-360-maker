@@ -1,4 +1,5 @@
 import type { ActionNodeId, MediaNodeId, SatelliteNodeId } from "./ids";
+import type { HotspotAppearanceUi } from "./hotspotAppearance";
 
 export type CopyPayload = {
   bodyHtml: string;
@@ -65,6 +66,12 @@ export type CoordsOptionsSatelliteNode = {
     yaw: number;
     visibility: Pick<ActionVisibility, "requiresItem" | "hiddenIfHasItem" | "clickWhenInvisible">;
     sfx: ActionSfx;
+    /** Zone cliquable : mêmes champs que l’accordéon legacy « Éditeur de style visuel ». */
+    appearance?: HotspotAppearanceUi;
+    /** CSS complet ; si vide en projection, dérivé de `appearance`. */
+    customCss?: string;
+    /** Dernière session popup : mode expert = CSS libre (désactive la régénération depuis les jauges). */
+    hotspotCssExpert?: boolean;
   };
 };
 

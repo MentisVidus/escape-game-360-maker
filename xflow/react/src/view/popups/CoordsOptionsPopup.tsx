@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { ActionNode, CoordsOptionsSatelliteNode } from "../../model/nodes";
+import { HotspotAppearancePopup } from "./HotspotAppearancePopup";
 
 type Props = {
   satellite: CoordsOptionsSatelliteNode | null;
@@ -24,9 +25,13 @@ export function CoordsOptionsPopup({
   const [requiresItem, setRequiresItem] = useState("");
   const [hiddenIfHasItem, setHiddenIfHasItem] = useState("");
   const [clickWhenInvisible, setClickWhenInvisible] = useState(true);
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
 
   useEffect(() => {
-    if (!satellite) return;
+    if (!satellite) {
+      setAppearanceOpen(false);
+      return;
+    }
     const satVis = satellite.data.visibility;
     const aVis = parentAction?.visibility;
     setPitch(String(satellite.data.pitch ?? 0));
@@ -37,6 +42,8 @@ export function CoordsOptionsPopup({
   }, [satellite, parentAction]);
 
   if (!satellite) return null;
+
+  const openAppearance = () => setAppearanceOpen(true);
 
   const buildVisibility = (clickOverride?: boolean) => {
     const cwi = clickOverride !== undefined ? clickOverride : clickWhenInvisible;
@@ -69,6 +76,7 @@ export function CoordsOptionsPopup({
   };
 
   return (
+    <>
     <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="coords-options-title">
       <div className="nodal-popup-backdrop" onClick={onClose} />
       <div className="nodal-popup-panel">
@@ -114,6 +122,11 @@ export function CoordsOptionsPopup({
           SFX : relier un nœud <strong>média audio</strong> à l’action (handle meta) et renseigner l’URL dans la
           popup du nœud média.
         </p>
+        <div className="nodal-coords-appearance-row">
+          <button type="button" className="nodal-coords-appearance-btn" onClick={openAppearance}>
+            Apparence (style visuel)…
+          </button>
+        </div>
         <div className="nodal-popup-actions">
           <button type="button" onClick={onClose}>
             Fermer
@@ -121,5 +134,21 @@ export function CoordsOptionsPopup({
         </div>
       </div>
     </div>
+    <HotspotAppearancePopup
+      open={appearanceOpen}
+      initialAppearance={satellite.data.appearance ?? null}
+      initialCustomCss={satellite.data.customCss ?? null}
+      initialExpert={satellite.data.hotspotCssExpert ?? false}
+      onSave={(payload) => {
+        onChangeSatellite({
+          ...satellite.data,
+          appearance: payload.appearance,
+          customCss: payload.customCss,
+          hotspotCssExpert: payload.hotspotCssExpert,
+        });
+      }}
+      onClose={() => setAppearanceOpen(false)}
+    />
+    </>
   );
 }

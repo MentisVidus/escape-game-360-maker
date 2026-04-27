@@ -288,3 +288,153 @@
   object-fit: contain;
   display: block;
 }
+
+.nodal-canvas-layout .nodal-popup-overlay--nested {
+  z-index: 2200;
+}
+
+.nodal-canvas-layout .nodal-popup-panel--hotspot-appearance {
+  width: min(920px, 96vw);
+  max-height: 90vh;
+}
+
+.nodal-canvas-layout .nodal-ha-layout {
+  display: grid;
+  grid-template-columns: 1fr minmax(200px, 260px);
+  gap: 14px;
+  align-items: stretch;
+}
+
+@media (max-width: 720px) {
+  .nodal-canvas-layout .nodal-ha-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.nodal-canvas-layout .nodal-ha-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.nodal-canvas-layout .nodal-ha-visual--dimmed {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.nodal-canvas-layout .nodal-ha-visual-title {
+  margin-bottom: 6px !important;
+}
+
+.nodal-canvas-layout .nodal-ha-css-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nodal-canvas-layout .nodal-ha-css-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nodal-canvas-layout .nodal-ha-css-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--node-text);
+  opacity: 0.72;
+}
+
+.nodal-canvas-layout .nodal-ha-expert-btn {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.nodal-canvas-layout .nodal-ha-expert-btn--on {
+  border-color: var(--node-selected-outline);
+  background: var(--palette-button-hover);
+}
+
+.nodal-canvas-layout .nodal-ha-css-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 100px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e2e8f0;
+  font: 12px/1.45 ui-monospace, "Cascadia Code", Consolas, monospace;
+  resize: vertical;
+}
+
+.nodal-canvas-layout .nodal-ha-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 200px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--palette-border);
+  background: #e5e7eb;
+}
+
+.nodal-canvas-layout .nodal-ha-preview-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.nodal-canvas-layout .nodal-ha-preview-canvas {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  border-radius: 6px;
+  background: repeating-conic-gradient(#f1f5f9 0% 25%, #e2e8f0 0% 50%) 50% / 16px 16px;
+}
+
+.nodal-canvas-layout .nodal-ha-preview-box {
+  box-sizing: border-box;
+}
+
+.nodal-canvas-layout .nodal-popup-actions--split {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nodal-canvas-layout .nodal-ha-btn-secondary {
+  background: transparent;
+}
+
+.nodal-canvas-layout .nodal-coords-appearance-row {
+  margin: 10px 0 4px;
+}
+
+.nodal-canvas-layout .nodal-coords-appearance-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+}
+
+.nodal-canvas-layout .nodal-coords-appearance-btn:hover {
+  background: var(--palette-button-hover);
+}

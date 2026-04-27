@@ -1,4 +1,4 @@
-﻿// --- VARIABLES GLOBALES ---
+// --- VARIABLES GLOBALES ---
 // Compteurs pour donner un ID unique à chaque scène et hotspot ajouté
 let sceneIdCounter = 0; 
 let hsIdCounter = 0;

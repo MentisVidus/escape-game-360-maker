@@ -34,6 +34,71 @@
         return { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true };
     }
 
+    var DEFAULT_HOTSPOT_APP = {
+        ui_w: 120,
+        ui_h: 120,
+        ui_shape: "0px",
+        ui_bgc: "#ff0000",
+        ui_bga: 0.2,
+        ui_img: "",
+        ui_brd_style: "none",
+        ui_brd_w: 2,
+        ui_brd_c: "#ffffff"
+    };
+
+    function mergeHotspotAppLo(partial) {
+        var o = clone(DEFAULT_HOTSPOT_APP);
+        if (!partial || typeof partial !== "object") return o;
+        var k;
+        for (k in partial) {
+            if (Object.prototype.hasOwnProperty.call(partial, k)) o[k] = partial[k];
+        }
+        return o;
+    }
+
+    function hexToRgbaLo(hex, alpha) {
+        var h = String(hex || "#ff0000").replace(/^#/, "");
+        var r = parseInt(h.slice(0, 2), 16) || 255;
+        var g = parseInt(h.slice(2, 4), 16) || 0;
+        var b = parseInt(h.slice(4, 6), 16) || 0;
+        var a = Number.isFinite(alpha) ? Math.max(0, Math.min(1, alpha)) : 1;
+        return "rgba(" + r + ", " + g + ", " + b + ", " + a + ")";
+    }
+
+    /** Même logique que `hotspotAppearance.buildCustomCssFromAppearance` / `EditorSharedUi.buildCss`. */
+    function buildCssFromAppLo(app) {
+        var a = app || DEFAULT_HOTSPOT_APP;
+        var w = Number.isFinite(Number(a.ui_w)) ? Number(a.ui_w) : 120;
+        var h = Number.isFinite(Number(a.ui_h)) ? Number(a.ui_h) : 120;
+        var shape = a.ui_shape || "0px";
+        var bgc = a.ui_bgc || "#ff0000";
+        var bga = Number.isFinite(Number(a.ui_bga)) ? Number(a.ui_bga) : 0.2;
+        var brdStyle = a.ui_brd_style || "none";
+        var brdW = Number.isFinite(Number(a.ui_brd_w)) ? Number(a.ui_brd_w) : 2;
+        var brdC = a.ui_brd_c || "#ffffff";
+        var img = String(a.ui_img || "").trim();
+        var css =
+            "width: " +
+            w +
+            "px; height: " +
+            h +
+            "px; background: " +
+            hexToRgbaLo(bgc, bga) +
+            "; border-radius: " +
+            shape +
+            "; cursor: pointer; display: flex; align-items: center; justify-content: center;";
+        if (brdStyle !== "none") {
+            css += " border: " + brdW + "px " + brdStyle + " " + brdC + ";";
+        }
+        if (img) {
+            css +=
+                " background-image: url('" +
+                img.replace(/'/g, "\\'") +
+                "'); background-size: contain; background-repeat: no-repeat; background-position: center;";
+        }
+        return css;
+    }
+
     /** Satellites `meta` dont la source est `actionId`. */
     function metaSatellitesForAction(state, actionId) {
         var edges = state.edges || [];
@@ -67,15 +132,27 @@
         var j;
         for (j = 0; j < list.length; j++) {
             if (list[j].satelliteType === "coords-options" && list[j].data) {
+                var d = list[j].data;
                 return {
-                    pitch: Number(list[j].data.pitch) || 0,
-                    yaw: Number(list[j].data.yaw) || 0,
-                    visibility: clone(list[j].data.visibility) || null,
-                    sfx: clone(list[j].data.sfx) || null
+                    pitch: Number(d.pitch) || 0,
+                    yaw: Number(d.yaw) || 0,
+                    visibility: clone(d.visibility) || null,
+                    sfx: clone(d.sfx) || null,
+                    appearance: d.appearance && typeof d.appearance === "object" ? clone(d.appearance) : null,
+                    customCss: d.customCss != null ? String(d.customCss) : "",
+                    hotspotCssExpert: !!d.hotspotCssExpert
                 };
             }
         }
-        return { pitch: 0, yaw: 0, visibility: null, sfx: null };
+        return {
+            pitch: 0,
+            yaw: 0,
+            visibility: null,
+            sfx: null,
+            appearance: null,
+            customCss: "",
+            hotspotCssExpert: false
+        };
     }
 
     function choiceOptionsFromSatellites(state, actionId) {
@@ -249,15 +326,16 @@
     }
 
     function nodalActionToHotspotShape(state, actionNode, actionsById, EditorCore) {
-        var defaultCss =
-            "width: 120px; height: 120px; background: rgba(255,0,0,0.2); border-radius: 0px; cursor: pointer; display: flex; align-items: center; justify-content: center;";
         var c = coordsFromSatellites(state, actionNode.id);
+        var app = mergeHotspotAppLo(c.appearance);
+        var cssTrim = String(c.customCss || "").trim();
+        var customCss = cssTrim || buildCssFromAppLo(app);
         return {
             title: actionNode.label != null ? String(actionNode.label) : "",
             pitch: c.pitch,
             yaw: c.yaw,
-            customCss: defaultCss,
-            appearance: {},
+            customCss: customCss,
+            appearance: app,
             action: nodalActionToUnified(state, actionNode, actionsById, EditorCore)
         };
     }
