@@ -1894,24 +1894,25 @@ function buildPlayerHtmlTemplate() {
 
     // Reward after passcode or required item (internal scene / msg / pick / selector)
     function executeReward(args, hsDiv) {
-        if(args.action === "selector" && args.rewardSelector) {
+        var act = args && args.action ? args.action : (args && args.type ? args.type : "");
+        if(act === "selector" && args.rewardSelector) {
             openSelector(args.rewardSelector, hsDiv);
             return;
         }
-        if(args.action === "scene") {
+        if(act === "scene") {
             executeAction({ type: "scene", target: args.target, transTxt: args.transTxt, transBtn: args.transBtn }, hsDiv);
-        } else if(args.action === "msg") {
+        } else if(act === "msg") {
             executeAction({ type: "msg", txt: args.okMsg }, hsDiv);
-        } else if(args.action === "pick") {
+        } else if(act === "pick") {
             executeAction({ type: "pick", itemId: args.pickId, itemName: args.pickName, txt: args.pickMsg }, hsDiv);
-        } else if(args.action === "req") {
+        } else if(act === "req") {
             var rid = args.reqItemId != null ? String(args.reqItemId).trim() : "";
             if(!rid || !inventaire[rid]) {
                 afficherPopup("", args.reqKo || "");
                 return;
             }
             if(args.reqNext) executeReward(args.reqNext, hsDiv);
-        } else if(args.action === "pwd") {
+        } else if(act === "pwd") {
             var pwdBackdrop2 = document.createElement("div");
             pwdBackdrop2.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;";
             pwdBackdrop2.onclick = function (e) {

@@ -1341,6 +1341,9 @@ de l’eau.)*
 - 2026-04-27 — **C7.1 (lot 1 — projection/debug)** : `f-req-action` /
   `f-pwd-action` autorisent `req` et `pwd` ; panneau debug JSON
   `f-reward-chain-json` affiché dans le formulaire legacy pour les chaînes.
+- 2026-04-27 — **C7.1 (fix runtime)** : correction exécution chaîne reward :
+  `executeReward` accepte désormais les nœuds terminaux passés en `type`
+  (fallback si `action` absent), ce qui débloque `PWD -> PWD -> PICK`.
 
 ---
 
