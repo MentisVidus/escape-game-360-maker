@@ -1099,9 +1099,10 @@ démo Vite) est **livré en C6** — voir ci-dessous.
 
 ### C6 — Miroir DOM legacy + embarquement éditeur *(clôture v1.5)*
 
-**Branche de travail fusionnée** : `feat/c6-legacy-readonly` → `feat/nodal-map`
-(merge opéré à la clôture C6 ; poursuivre les chantiers carte sur
-`feat/nodal-map`).
+**Intégration Git** : le chantier C6 a été développé sur une branche dédiée
+puis **fusionné dans `feat/nodal-map`** ; la branche de travail C6 a été
+**supprimée** (locale + `origin`) après clôture. La suite (**C7**, etc.) se
+poursuit sur **`feat/nodal-map`** uniquement.
 
 **Décisions**
 
