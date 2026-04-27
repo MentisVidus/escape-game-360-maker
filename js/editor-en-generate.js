@@ -1902,9 +1902,14 @@ function buildPlayerHtmlTemplate() {
         if(act === "scene") {
             executeAction({ type: "scene", target: args.target, transTxt: args.transTxt, transBtn: args.transBtn }, hsDiv);
         } else if(act === "msg") {
-            executeAction({ type: "msg", txt: args.okMsg }, hsDiv);
+            executeAction({ type: "msg", txt: args.okMsg != null ? args.okMsg : (args.txt || "") }, hsDiv);
         } else if(act === "pick") {
-            executeAction({ type: "pick", itemId: args.pickId, itemName: args.pickName, txt: args.pickMsg }, hsDiv);
+            executeAction({
+                type: "pick",
+                itemId: args.pickId != null ? args.pickId : (args.itemId || ""),
+                itemName: args.pickName != null ? args.pickName : (args.itemName || ""),
+                txt: args.pickMsg != null ? args.pickMsg : (args.txt || "")
+            }, hsDiv);
         } else if(act === "req") {
             var rid = args.reqItemId != null ? String(args.reqItemId).trim() : "";
             if(!rid || !inventaire[rid]) {

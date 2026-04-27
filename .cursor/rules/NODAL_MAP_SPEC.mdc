@@ -1344,6 +1344,9 @@ de l’eau.)*
 - 2026-04-27 — **C7.1 (fix runtime)** : correction exécution chaîne reward :
   `executeReward` accepte désormais les nœuds terminaux passés en `type`
   (fallback si `action` absent), ce qui débloque `PWD -> PWD -> PICK`.
+- 2026-04-27 — **C7.1 (fix runtime 2)** : terminaux chaîne (`msg`/`pick`)
+  lisent maintenant aussi les clés `txt` / `itemId` / `itemName` quand les
+  alias `okMsg` / `pickId` / `pickName` sont absents (plus d’`undefined` final).
 
 ---
 
