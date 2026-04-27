@@ -29,9 +29,7 @@
 > hotspot ; enchaînements multi-palier → **C7** (cf. Annexe B — C6 et §7 C7).
 > **Détail fichiers** : **Annexe B — C6**. *(Les entrées intermédiaires
 > « Changelog v1.4.x » ont été fusionnées ici.)*
->Rédiger Annexe B — C6 (fichiers touchés, décisions).
-Mettre à jour la roadmap §7 si besoin.
-Retirer ou vider le bloc « Chantier en cours — C6 » dans la spec.
+>
 > **Changelog v1.3** : le satellite `object` devient automatique comme
 > `coords-options` et `choice-options`. Retiré de la palette manuelle.
 > Modèle de données centralisé via `meta.objects[objectId]` (§3.6). Ajout

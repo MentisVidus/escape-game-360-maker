@@ -3,7 +3,7 @@ description: Contexte projet Escape Game 360° — stack, JSON V2, Quill/SRI/COR
 alwaysApply: true
 ---
 > **⚠ Branche `feat/nodal-map` en cours** : pour toute modification dans
-> `xflow/react/src/`, la spec autoritative est `NODAL_MAP_SPEC.mdc` v1.2+.
+> `xflow/react/src/`, la spec autoritative est `NODAL_MAP_SPEC.mdc` v1.5+.
 > Le présent document décrit le reste du projet (éditeur vanilla, export
 > joueur, conventions FR/EN) et reste pleinement valable pour `js/*`,
 > `css/*`, `editeur.html`, `editor_en.html`, `xflow/draw/` et la doc.
