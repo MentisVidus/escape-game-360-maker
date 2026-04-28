@@ -37,6 +37,7 @@ import type {
   MediaNode,
   MsgActionNode,
   PickActionNode,
+  ReqActionNode,
   ObjectSatelliteNode,
 } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
@@ -66,6 +67,7 @@ import { MediaEditorPopup } from "./popups/MediaEditorPopup";
 import { MsgContentPopup } from "./popups/MsgContentPopup";
 import { PickContentPopup } from "./popups/PickContentPopup";
 import { GotoContentPopup } from "./popups/GotoContentPopup";
+import { ReqContentPopup } from "./popups/ReqContentPopup";
 import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
 import { PopupThemeCustomizationPopup } from "./popups/PopupThemeCustomizationPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
@@ -97,6 +99,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [msgEditorActionId, setMsgEditorActionId] = useState<ActionNodeId | null>(null);
   const [pickEditorActionId, setPickEditorActionId] = useState<ActionNodeId | null>(null);
   const [gotoEditorActionId, setGotoEditorActionId] = useState<ActionNodeId | null>(null);
+  const [reqEditorActionId, setReqEditorActionId] = useState<ActionNodeId | null>(null);
   const [globalSettingsHubOpen, setGlobalSettingsHubOpen] = useState(false);
   const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
@@ -108,6 +111,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setPopupThemeCustomizationOpen(false);
     setPickEditorActionId(null);
     setGotoEditorActionId(null);
+    setReqEditorActionId(null);
     setMsgEditorActionId(id);
   }, []);
   const openPickContentEditor = useCallback((id: ActionNodeId) => {
@@ -119,6 +123,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setGotoEditorActionId(null);
+    setReqEditorActionId(null);
     setPickEditorActionId(id);
   }, []);
   const openGotoContentEditor = useCallback((id: ActionNodeId) => {
@@ -130,7 +135,20 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
+    setReqEditorActionId(null);
     setGotoEditorActionId(id);
+  }, []);
+  const openReqContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(id);
   }, []);
   const state = useSyncExternalStore(
     store.subscribe,
@@ -164,6 +182,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       setGotoEditorActionId(null);
     }
   }, [gotoEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!reqEditorActionId) return;
+    const a = state.actions[reqEditorActionId];
+    if (!a || a.actionType !== "req") {
+      setReqEditorActionId(null);
+    }
+  }, [reqEditorActionId, state.actions]);
 
   // State React Flow pour nodes et edges (permet à RF de gérer drag, sélection, mesures)
   const [rfNodes, setRfNodes, onNodesChangeRF] = useNodesState<RFNode<NodalRFData>>([]);
@@ -447,6 +472,12 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     state.actions[gotoEditorActionId].actionType === "goto"
       ? (state.actions[gotoEditorActionId] as GotoActionNode)
       : null;
+  const reqToEdit: ReqActionNode | null =
+    reqEditorActionId &&
+    state.actions[reqEditorActionId] &&
+    state.actions[reqEditorActionId].actionType === "req"
+      ? (state.actions[reqEditorActionId] as ReqActionNode)
+      : null;
 
   return (
     <NodalUiContext.Provider
@@ -469,6 +500,9 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         gotoEditorActionId,
         setGotoEditorActionId,
         openGotoContentEditor,
+        reqEditorActionId,
+        setReqEditorActionId,
+        openReqContentEditor,
         globalSettingsHubOpen,
         setGlobalSettingsHubOpen,
         popupThemeCustomizationOpen,
@@ -618,6 +652,20 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             } as never);
           }}
           onClose={() => setGotoEditorActionId(null)}
+        />
+        <ReqContentPopup
+          store={store}
+          action={reqToEdit}
+          onSave={(copy) => {
+            if (!reqEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[reqEditorActionId];
+            if (!cur || cur.actionType !== "req") return;
+            snap.updateNodeData(reqEditorActionId, {
+              payload: { ...cur.payload, copy },
+            } as never);
+          }}
+          onClose={() => setReqEditorActionId(null)}
         />
         <GlobalSettingsHubPopup
           open={globalSettingsHubOpen}

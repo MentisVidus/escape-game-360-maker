@@ -26,6 +26,10 @@ export type NodalUiContextValue = {
   setGotoEditorActionId: (id: ActionNodeId | null) => void;
   /** Ouvre l’éditeur de contenu goto et ferme les autres popups carte. */
   openGotoContentEditor: (id: ActionNodeId) => void;
+  reqEditorActionId: ActionNodeId | null;
+  setReqEditorActionId: (id: ActionNodeId | null) => void;
+  /** Ouvre l’éditeur de contenu req et ferme les autres popups carte. */
+  openReqContentEditor: (id: ActionNodeId) => void;
   globalSettingsHubOpen: boolean;
   setGlobalSettingsHubOpen: (open: boolean) => void;
   popupThemeCustomizationOpen: boolean;
