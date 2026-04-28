@@ -1317,7 +1317,7 @@ Références externes : **`docs/SELECTOR_SPEC.md`** (pièges selector,
 | **C7.3** | **Popups — couverture actions** | Reprendre les patterns **§D.2.1** : `pick`, `req`, `pwd`, `goto` (copy transition), champs **selector** (nested, `displayMode`) ; réutiliser modules shared quand pas de texte UI |
 | **C7.4** | **Chaînes REQ/PWD** *(retenu en C7)* | Schéma V2 + legacy (`f_req_action` / répétition ou structure nouvelle) ; projection DOM ; tests **V2 → DOM → generateGame** (pas de `legacy → V2`) |
 | **C7.5** | **Export joueur + smoke** | `generateGame()` / ZIP ; scénarios minimal + selector + REQ/PWD (selon nouveau contrat) |
-| **C7.6** | **Durcissement** | SELECTOR_SPEC, médias portables bundle si dans périmètre, doc Annexe B, suppression **Annexe D** |
+| **C7.6** | **Durcissement** | SELECTOR_SPEC, durcissement UX/CSS (dont wrapper Quill), médias portables bundle si dans périmètre, doc Annexe B, suppression **Annexe D** |
 
 Les lots **C7.2–C7.3** peuvent être **inversés** ou **parallélisés** partiellement
 selon la priorité produit (édition texte d’abord *vs* schéma d’abord).
@@ -1391,7 +1391,7 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [x] **C7.2** : socle popup + premier type **`msg`** éditable depuis la carte
   (Quill + libellé bouton ; aperçu popup ; thème popup en slice store **C7.2-bis** ;
   autres actions → **C7.3**).
-- [ ] **C7.3** : couverture étendue des types / selector.
+- [ ] **C7.3** : couverture étendue des types / selector (**lot ouvert** ; C7.2 clôturé).
 - [x] **C7.4** : chaînes REQ/PWD **(slice C7.1)** — schéma V2 + DOM + runtime ;
   lots C7.2+ (popups nodales, etc.) restent ouverts.
 - [ ] **C7.5** : smoke / export **C7 complet** (hors smoke lot C7.1 déjà OK).
@@ -1423,11 +1423,11 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [x] **C7.2-bis-02** : `PopupThemeCustomizationPopup` + aperçu `MsgContentPopup` alimentés par le store ; styles d’aperçu dérivés via `playerPopupPreviewFromTheme.ts` (aligné `generateGame` / sans perso).
 - [x] **C7.2-bis-03** : grille / colonne aperçu renommée **`nodal-general-*`** (CSS + `MsgContentPopup`, `PopupThemeCustomizationPopup`, `HotspotAppearancePopup`) ; alias CSS `nodal-ha-*` conservé pour compat.
 - [ ] **C7.2-bis-04** *(optionnel)* : pont explicite si le legacy appelle seulement `updatePreview()` sans événements `input` — garder le slice aligné sur le DOM dans ce cas.
-- [ ] **C7.3-QUILL-UX-01** *(durcissement)* : créer un mini wrapper thème Quill
+- [ ] **C7.6-QUILL-UX-01** *(durcissement)* : créer un mini wrapper thème Quill
   (ex. `.nodal-quill-theme`) pour remplacer progressivement les surcharges
   ponctuelles (`!important`) en clair/sombre, avec règles explicites sur
   `ql-toolbar`, `ql-picker`, `ql-active`, `ql-expanded`, `ql-tooltip`.
-- [ ] **C7.3-QUILL-UX-02** *(durcissement)* : valider l’interaction des pickers
+- [ ] **C7.6-QUILL-UX-02** *(durcissement)* : valider l’interaction des pickers
   `header` / `font` / `size` (ouverture stable après mouseup, sélection au clic)
   + test manuel clair/sombre ; éviter toute régression sur le picker alignement.
 
@@ -1436,6 +1436,18 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [ ] **C7.2-bis-10** : étendre schéma export / import (JSON V2 racine ou extras `map-layout`) pour `useCustomPopup` + `pop*`.
 - [ ] **C7.2-bis-11** : round-trip `.escapegame` + `flushNodalStoreToEditorDom` : thème popup depuis le store nodal.
 - [ ] **C7.2-bis-12** : réduire voire supprimer `syncPlayerPopupThemeFromDom` côté runtime carte une fois **B** stabilisé (DOM = projection seulement).
+
+**Todo détaillé — lot C7.3** *(ouverture : couverture actiontypes texte/selector ; phase B sauvegarde reportée)* :
+
+- [ ] **C7.3-00** : figer le périmètre des popups à livrer (`pick`, `req`, `pwd`, `goto`, `selector`) et l’ordre de priorité.
+- [ ] **C7.3-01** : `pick` — popup contenu + aperçu runtime-like (titre/corps/bouton + cohérence bouton/objet).
+- [ ] **C7.3-02** : `req` / `pwd` — popup(s) texte + énigme/récompense avec aperçus compatibles chaîne C7.1.
+- [ ] **C7.3-03** : `goto` — popup copy transition (texte + libellé bouton) avec aperçu de dialogue.
+- [ ] **C7.3-04** : `selector` — édition des textes parent + remontée minimale des labels enfants en aperçu (sans dupliquer la logique runtime complète au premier jet).
+- [ ] **C7.3-05** : harmoniser les aperçus via helpers dédiés (pattern C7.2 `playerPopupPreviewFromTheme`) pour éviter les divergences CSS/JS.
+- [ ] **C7.3-06** : smoke manuel clair/sombre (menus Quill, scroll long, interaction pickers, régression layout/actions).
+
+*Report acté* : **C7.2-bis phase B** (persistance/sauvegarde du thème popup) est traitée après **C7.3** (couverture actions) et avant clôture **C7.6**.
 
 *(Dates / notes libres : utiliser des sous-listes `- YYYY-MM-DD : …` au fil
 de l’eau.)*
@@ -1475,7 +1487,7 @@ de l’eau.)*
   tests Vitest `hexToRgba.test.ts` (aperçus cohérents avec `#000000`).
 - 2026-04-28 — **C7.2 (fix UX popup msg)** : correction layout (chevauchement
   corps/libellé), clipping panneaux Quill, et lisibilité toolbar clair/sombre ;
-  durcissement restant planifié en **C7.3-QUILL-UX-01/02** (wrapper thème Quill).
+  durcissement restant planifié en **C7.6-QUILL-UX-01/02** (wrapper thème Quill).
 - 2026-04-28 — **C7.2 (fix interaction pickers Quill)** : cause racine trouvée
   sur le marquage popup (`Quill` imbriqué dans un `label`) + fuite CSS
   `.nodal-popup-field span` (opacité héritée par les spans internes Quill) ;
@@ -1492,6 +1504,10 @@ de l’eau.)*
   CSS placé **après** la grille générique pour éviter l’écrasement cascade
   (`.nodal-general-layout.nodal-msg-preview-layout`) ; objectif : zone preview
   plus large sans changer le contrat runtime de la popup joueur.
+- 2026-04-28 — **Clôture C7.2 / ouverture C7.3** : C7.2 considéré clos
+  (socle `msg` + aperçu runtime-like + thème popup phase A) ; C7.3 ouvert pour
+  la couverture des actiontypes textuels (`pick`/`req`/`pwd`/`goto`/`selector`) ;
+  phase B sauvegarde (`C7.2-bis-10+`) explicitement reportée après cette étape.
 
 ---
 
