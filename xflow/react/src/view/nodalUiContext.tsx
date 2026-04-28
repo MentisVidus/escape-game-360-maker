@@ -18,6 +18,10 @@ export type NodalUiContextValue = {
   setMsgEditorActionId: (id: ActionNodeId | null) => void;
   /** Ouvre l’éditeur de contenu message et ferme les autres popups carte. */
   openMsgContentEditor: (id: ActionNodeId) => void;
+  pickEditorActionId: ActionNodeId | null;
+  setPickEditorActionId: (id: ActionNodeId | null) => void;
+  /** Ouvre l’éditeur de contenu pick et ferme les autres popups carte. */
+  openPickContentEditor: (id: ActionNodeId) => void;
   globalSettingsHubOpen: boolean;
   setGlobalSettingsHubOpen: (open: boolean) => void;
   popupThemeCustomizationOpen: boolean;

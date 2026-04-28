@@ -1440,7 +1440,7 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 **Todo détaillé — lot C7.3** *(ouverture : couverture actiontypes texte/selector ; phase B sauvegarde reportée)* :
 
 - [x] **C7.3-00** : périmètre figé pour les popups à livrer (`pick`, `req`, `pwd`, `goto`, `selector`) ; source de vérité = store nodal uniquement (pas de fallback DOM pour l’édition).
-- [ ] **C7.3-01 `pick`** : popup `payload.copy.bodyHtml` uniquement (optionnel, vide autorisé) ; fallback runtime si vide = « vous trouvez quelque chose... » ; aperçu identique `msg` ; hors périmètre : `payload.itemId`/`payload.itemName` (satellite objet).
+- [x] **C7.3-01 `pick`** : popup `payload.copy.bodyHtml` uniquement (optionnel, vide autorisé) ; fallback runtime si vide = « vous trouvez quelque chose... » ; aperçu identique `msg` ; hors périmètre : `payload.itemId`/`payload.itemName` (satellite objet).
 - [ ] **C7.3-02 `goto`** : popup `payload.copy.bodyHtml` + `payload.copy.buttonLabel` (optionnels) ; fallback bouton si vide = « Continuer » ; hors périmètre : `payload.target` (handle `goto-out`).
 - [ ] **C7.3-03 `req`** : popup message KO `payload.copy.bodyHtml` (optionnel) ; fallback si vide = « Il vous manque quelque chose... » ; hors périmètre : `payload.rewardAction` (nœud enfant), `payload.itemId` (satellite objet).
 - [ ] **C7.3-04 `pwd`** : popup `payload.copy.bodyHtml` (énigme, optionnel ; fallback « Code : ») + `payload.answer` (obligatoire) ; aperçu = chrome popup joueur + champ réponse ; hors périmètre : `payload.rewardAction` (nœud enfant), `payload.itemId` (satellite objet).
@@ -1509,6 +1509,11 @@ de l’eau.)*
   (socle `msg` + aperçu runtime-like + thème popup phase A) ; C7.3 ouvert pour
   la couverture des actiontypes textuels (`pick`/`req`/`pwd`/`goto`/`selector`) ;
   phase B sauvegarde (`C7.2-bis-10+`) explicitement reportée après cette étape.
+- 2026-04-28 — **C7.3-01 `pick` (phase popup texte)** : ouverture depuis nœud
+  `pick` (clic/keyboard) vers popup dédiée `PickContentPopup`, édition Quill de
+  `payload.copy.bodyHtml` uniquement (sans toucher `itemId`/`itemName`), aperçu
+  runtime-like branché sur le thème popup store (`playerPopupTheme`) avec
+  fallback visuel si contenu vide (« Vous trouvez quelque chose… » / EN).
 
 ---
 
