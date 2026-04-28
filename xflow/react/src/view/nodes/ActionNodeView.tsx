@@ -40,28 +40,74 @@ export function ActionNodeView({ id, data }: NodeProps) {
   const cs = nodeData.contextualState;
   const stateClass =
     showDetach ? "" : cs === 1 ? " action-node--orphan" : cs === 3 ? " action-node--choice" : "";
-  const msgEditable = node.actionType === "msg";
+  const textEditable =
+    node.actionType === "msg" ||
+    node.actionType === "pick" ||
+    node.actionType === "goto" ||
+    node.actionType === "req" ||
+    node.actionType === "pwd" ||
+    node.actionType === "selector";
 
-  const openMsgEditor = (e: MouseEvent<HTMLDivElement>) => {
+  const openTextEditor = (e: MouseEvent<HTMLDivElement>) => {
     const t = e.target as HTMLElement;
     if (t.closest(".nodal-handle") || t.closest(".nodal-detach-btn")) return;
+    if (node.actionType === "pick") {
+      ui.openPickContentEditor(node.id as ActionNodeId);
+      return;
+    }
+    if (node.actionType === "goto") {
+      ui.openGotoContentEditor(node.id as ActionNodeId);
+      return;
+    }
+    if (node.actionType === "req") {
+      ui.openReqContentEditor(node.id as ActionNodeId);
+      return;
+    }
+    if (node.actionType === "pwd") {
+      ui.openPwdContentEditor(node.id as ActionNodeId);
+      return;
+    }
+    if (node.actionType === "selector") {
+      ui.openSelectorContentEditor(node.id as ActionNodeId);
+      return;
+    }
     ui.openMsgContentEditor(node.id as ActionNodeId);
   };
 
-  const onMsgKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+  const onTextKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
+      if (node.actionType === "pick") {
+        ui.openPickContentEditor(node.id as ActionNodeId);
+        return;
+      }
+      if (node.actionType === "goto") {
+        ui.openGotoContentEditor(node.id as ActionNodeId);
+        return;
+      }
+      if (node.actionType === "req") {
+        ui.openReqContentEditor(node.id as ActionNodeId);
+        return;
+      }
+      if (node.actionType === "pwd") {
+        ui.openPwdContentEditor(node.id as ActionNodeId);
+        return;
+      }
+      if (node.actionType === "selector") {
+        ui.openSelectorContentEditor(node.id as ActionNodeId);
+        return;
+      }
       ui.openMsgContentEditor(node.id as ActionNodeId);
     }
   };
 
   return (
     <div
-      className={`nodal-node action action-${node.actionType}${showDetach ? " action-child-reward" : ""}${stateClass}${msgEditable ? " action-msg--clickable" : ""}`}
-      onClick={msgEditable ? openMsgEditor : undefined}
-      onKeyDown={msgEditable ? onMsgKeyDown : undefined}
-      role={msgEditable ? "button" : undefined}
-      tabIndex={msgEditable ? 0 : undefined}
+      className={`nodal-node action action-${node.actionType}${showDetach ? " action-child-reward" : ""}${stateClass}${textEditable ? " action-msg--clickable" : ""}`}
+      onClick={textEditable ? openTextEditor : undefined}
+      onKeyDown={textEditable ? onTextKeyDown : undefined}
+      role={textEditable ? "button" : undefined}
+      tabIndex={textEditable ? 0 : undefined}
     >
       {node.actionType === "selector" ? (
         <NodeResizer

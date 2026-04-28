@@ -4,7 +4,7 @@ import "../quill/nodalQuillRich.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import type { CopyPayload, MsgActionNode } from "../../model/nodes";
+import type { PwdActionNode } from "../../model/nodes";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
 import {
   Quill,
@@ -25,35 +25,41 @@ const LABELS: Record<
     title: string;
     nodeLabel: string;
     body: string;
-    btn: string;
+    answer: string;
+    answerRequired: string;
     preview: string;
-    defaultBtn: string;
+    fallback: string;
+    submit: string;
     cancel: string;
     save: string;
     hint: string;
   }
 > = {
   fr: {
-    title: "Message — contenu",
+    title: "Pwd — contenu",
     nodeLabel: "Titre du node",
-    body: "Corps (texte riche)",
-    btn: "Libellé du bouton",
+    body: "Texte de l’énigme (riche)",
+    answer: "Réponse attendue",
+    answerRequired: "La réponse est obligatoire.",
     preview: "Aperçu (popup joueur)",
-    defaultBtn: "Fermer",
+    fallback: "Code :",
+    submit: "Valider",
     cancel: "Annuler",
     save: "Enregistrer",
-    hint: "Même barre d’outils Quill que le formulaire (polices, tailles, listes, couleurs…). Le rendu suit le thème clair / sombre de la carte.",
+    hint: "Renseigne l’énigme affichée au joueur et la réponse attendue. La chaîne reward et l’objet restent hors périmètre de cette popup.",
   },
   en: {
-    title: "Message — content",
+    title: "Pwd — content",
     nodeLabel: "Node title",
-    body: "Body (rich text)",
-    btn: "Button label",
+    body: "Riddle text (rich)",
+    answer: "Expected answer",
+    answerRequired: "Answer is required.",
     preview: "Preview (player popup)",
-    defaultBtn: "Close",
+    fallback: "Code:",
+    submit: "Submit",
     cancel: "Cancel",
     save: "Save",
-    hint: "Same Quill toolbar as the main form (fonts, sizes, lists, colors…). Styling follows the map light / dark theme.",
+    hint: "Set the text shown to the player and the expected answer. Reward chaining and item binding remain out of scope for this popup.",
   },
 };
 
@@ -63,20 +69,25 @@ function detectLocale(): Locale {
   return lang.startsWith("en") ? "en" : "fr";
 }
 
+function isQuillHtmlEmpty(html: string): boolean {
+  const t = String(html || "").trim().toLowerCase();
+  return t === "" || t === "<p><br></p>" || t === "<p></p>";
+}
+
 type Props = {
   store: StoreApi<NodalProjectStore>;
-  action: MsgActionNode | null;
-  onSave: (payload: { label: string; copy: CopyPayload }) => void;
+  action: PwdActionNode | null;
+  onSave: (payload: { label: string; bodyHtml: string; answer: string }) => void;
   onClose: () => void;
 };
 
-export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
+export function PwdContentPopup({ store, action, onSave, onClose }: Props) {
   const [locale] = useState<Locale>(() => detectLocale());
   const L = LABELS[locale];
   const popupTheme = usePlayerPopupTheme(store);
   const previewStyles = useMemo(() => playerPopupThemeToMsgPreviewChrome(popupTheme), [popupTheme]);
 
-  const [buttonLabel, setButtonLabel] = useState("");
+  const [answer, setAnswer] = useState("");
   const [nodeLabel, setNodeLabel] = useState("");
   const [previewHtml, setPreviewHtml] = useState("");
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -84,20 +95,17 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
 
   useEffect(() => {
     if (!action) {
-      setButtonLabel("");
+      setAnswer("");
       setNodeLabel("");
-      return;
-    }
-    setNodeLabel(String(action.label ?? ""));
-    setButtonLabel(String(action.payload?.copy?.buttonLabel ?? ""));
-    store.getState().syncPlayerPopupThemeFromDom();
-  }, [action?.id, store]);
-
-  useEffect(() => {
-    if (!action) {
       quillRef.current = null;
       return;
     }
+    setNodeLabel(String(action.label ?? ""));
+    setAnswer(String(action.payload?.answer ?? ""));
+  }, [action?.id]);
+
+  useEffect(() => {
+    if (!action) return;
     const el = hostRef.current;
     if (!el) return;
 
@@ -125,25 +133,25 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
 
   if (!action) return null;
 
-  const previewBtnText = buttonLabel.trim() || L.defaultBtn;
+  const answerTrimmed = answer.trim();
+  const canSave = answerTrimmed.length > 0;
+  const effectivePreviewHtml = isQuillHtmlEmpty(previewHtml) ? `<p>${L.fallback}</p>` : previewHtml;
 
   const handleSave = () => {
-    const html = quillRef.current?.root.innerHTML ?? "";
+    if (!canSave) return;
     onSave({
       label: nodeLabel.trim(),
-      copy: {
-        bodyHtml: html,
-        buttonLabel: buttonLabel.trim(),
-      },
+      bodyHtml: quillRef.current?.root.innerHTML ?? "",
+      answer: answerTrimmed,
     });
     onClose();
   };
 
   return (
-    <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="msg-content-editor-title">
+    <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="pwd-content-editor-title">
       <div className="nodal-popup-backdrop" onClick={onClose} />
       <div className="nodal-popup-panel nodal-popup-panel--msg-content nodal-popup-panel--hotspot-appearance">
-        <h2 id="msg-content-editor-title">{L.title}</h2>
+        <h2 id="pwd-content-editor-title">{L.title}</h2>
         <div className="nodal-popup-field nodal-msg-popup-btn-field">
           <span>{L.nodeLabel}</span>
           <input aria-label={L.nodeLabel} type="text" value={nodeLabel} onChange={(e) => setNodeLabel(e.target.value)} />
@@ -153,14 +161,15 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
         <div className="nodal-general-layout nodal-msg-preview-layout">
           <div className="nodal-general-main nodal-msg-popup-main">
             <div className="nodal-popup-field nodal-msg-popup-body-field">
-              <span id="msg-content-body-label">{L.body}</span>
+              <span>{L.body}</span>
               <div className="nodal-popup-quill nodal-quill-theme wysiwyg-wrap nodal-msg-quill-wrap">
                 <div ref={hostRef} />
               </div>
             </div>
             <div className="nodal-popup-field nodal-msg-popup-btn-field">
-              <span>{L.btn}</span>
-              <input aria-label={L.btn} type="text" value={buttonLabel} onChange={(e) => setButtonLabel(e.target.value)} />
+              <span>{L.answer}</span>
+              <input aria-label={L.answer} type="text" value={answer} onChange={(e) => setAnswer(e.target.value)} />
+              {!canSave ? <small>{L.answerRequired}</small> : null}
             </div>
           </div>
 
@@ -172,9 +181,9 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
                 panelStyle={previewStyles.panel}
                 closeBtnStyle={previewStyles.closeBtn}
                 buttonStyle={previewStyles.btn}
-                closeAriaLabel={L.defaultBtn}
-                html={previewHtml || "<p><br></p>"}
-                variant={{ kind: "button", label: previewBtnText }}
+                closeAriaLabel={L.submit}
+                html={effectivePreviewHtml}
+                variant={{ kind: "input", buttonLabel: L.submit }}
               />
             </div>
           </aside>
@@ -184,7 +193,7 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
           <button type="button" className="nodal-ha-btn-secondary" onClick={onClose}>
             {L.cancel}
           </button>
-          <button type="button" onClick={handleSave}>
+          <button type="button" onClick={handleSave} disabled={!canSave}>
             {L.save}
           </button>
         </div>

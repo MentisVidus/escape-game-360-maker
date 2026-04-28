@@ -37,7 +37,7 @@ export function MediaNodeView({ id, data }: NodeProps) {
       role="button"
       tabIndex={0}
     >
-      <div className="title">Media</div>
+      <div className="title">{node.label || "Media"}</div>
       <div className="subtitle">{getMediaSubtitle(node)}</div>
       <Handle id={HANDLE_META_IN} type="target" position={Position.Top} className="nodal-handle meta" />
     </div>

@@ -18,6 +18,26 @@ export type NodalUiContextValue = {
   setMsgEditorActionId: (id: ActionNodeId | null) => void;
   /** Ouvre l’éditeur de contenu message et ferme les autres popups carte. */
   openMsgContentEditor: (id: ActionNodeId) => void;
+  pickEditorActionId: ActionNodeId | null;
+  setPickEditorActionId: (id: ActionNodeId | null) => void;
+  /** Ouvre l’éditeur de contenu pick et ferme les autres popups carte. */
+  openPickContentEditor: (id: ActionNodeId) => void;
+  gotoEditorActionId: ActionNodeId | null;
+  setGotoEditorActionId: (id: ActionNodeId | null) => void;
+  /** Ouvre l’éditeur de contenu goto et ferme les autres popups carte. */
+  openGotoContentEditor: (id: ActionNodeId) => void;
+  reqEditorActionId: ActionNodeId | null;
+  setReqEditorActionId: (id: ActionNodeId | null) => void;
+  /** Ouvre l’éditeur de contenu req et ferme les autres popups carte. */
+  openReqContentEditor: (id: ActionNodeId) => void;
+  pwdEditorActionId: ActionNodeId | null;
+  setPwdEditorActionId: (id: ActionNodeId | null) => void;
+  /** Ouvre l’éditeur de contenu pwd et ferme les autres popups carte. */
+  openPwdContentEditor: (id: ActionNodeId) => void;
+  selectorEditorActionId: ActionNodeId | null;
+  setSelectorEditorActionId: (id: ActionNodeId | null) => void;
+  /** Ouvre l’éditeur de contenu selector et ferme les autres popups carte. */
+  openSelectorContentEditor: (id: ActionNodeId) => void;
   globalSettingsHubOpen: boolean;
   setGlobalSettingsHubOpen: (open: boolean) => void;
   popupThemeCustomizationOpen: boolean;

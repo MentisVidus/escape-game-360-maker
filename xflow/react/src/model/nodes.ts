@@ -100,6 +100,7 @@ export type MediaImageNode = {
   id: MediaNodeId;
   nodeType: "media";
   mediaType: "media-image";
+  label: string;
   data: {
     url: string;
   };
@@ -109,6 +110,7 @@ export type MediaAudioNode = {
   id: MediaNodeId;
   nodeType: "media";
   mediaType: "media-audio";
+  label: string;
   data: {
     url: string;
     volume: number;

@@ -33,8 +33,13 @@ import type {
   ActionNode,
   ChoiceOptionsSatelliteNode,
   CoordsOptionsSatelliteNode,
+  GotoActionNode,
   MediaNode,
   MsgActionNode,
+  PickActionNode,
+  PwdActionNode,
+  ReqActionNode,
+  SelectorActionNode,
   ObjectSatelliteNode,
 } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
@@ -62,6 +67,11 @@ import { CoordsOptionsPopup } from "./popups/CoordsOptionsPopup";
 import { ChoiceOptionsPopup } from "./popups/ChoiceOptionsPopup";
 import { MediaEditorPopup } from "./popups/MediaEditorPopup";
 import { MsgContentPopup } from "./popups/MsgContentPopup";
+import { PickContentPopup } from "./popups/PickContentPopup";
+import { GotoContentPopup } from "./popups/GotoContentPopup";
+import { ReqContentPopup } from "./popups/ReqContentPopup";
+import { PwdContentPopup } from "./popups/PwdContentPopup";
+import { SelectorContentPopup } from "./popups/SelectorContentPopup";
 import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
 import { PopupThemeCustomizationPopup } from "./popups/PopupThemeCustomizationPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
@@ -91,6 +101,11 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [choiceEditorSatelliteId, setChoiceEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
   const [mediaEditorMediaId, setMediaEditorMediaId] = useState<MediaNodeId | null>(null);
   const [msgEditorActionId, setMsgEditorActionId] = useState<ActionNodeId | null>(null);
+  const [pickEditorActionId, setPickEditorActionId] = useState<ActionNodeId | null>(null);
+  const [gotoEditorActionId, setGotoEditorActionId] = useState<ActionNodeId | null>(null);
+  const [reqEditorActionId, setReqEditorActionId] = useState<ActionNodeId | null>(null);
+  const [pwdEditorActionId, setPwdEditorActionId] = useState<ActionNodeId | null>(null);
+  const [selectorEditorActionId, setSelectorEditorActionId] = useState<ActionNodeId | null>(null);
   const [globalSettingsHubOpen, setGlobalSettingsHubOpen] = useState(false);
   const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
@@ -100,7 +115,82 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setMediaEditorMediaId(null);
     setGlobalSettingsHubOpen(false);
     setPopupThemeCustomizationOpen(false);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
     setMsgEditorActionId(id);
+  }, []);
+  const openPickContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setPickEditorActionId(id);
+  }, []);
+  const openGotoContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setPickEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setGotoEditorActionId(id);
+  }, []);
+  const openReqContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setReqEditorActionId(id);
+  }, []);
+  const openPwdContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setPwdEditorActionId(id);
+  }, []);
+  const openSelectorContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(id);
   }, []);
   const state = useSyncExternalStore(
     store.subscribe,
@@ -120,6 +210,41 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       setMsgEditorActionId(null);
     }
   }, [msgEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!pickEditorActionId) return;
+    const a = state.actions[pickEditorActionId];
+    if (!a || a.actionType !== "pick") {
+      setPickEditorActionId(null);
+    }
+  }, [pickEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!gotoEditorActionId) return;
+    const a = state.actions[gotoEditorActionId];
+    if (!a || a.actionType !== "goto") {
+      setGotoEditorActionId(null);
+    }
+  }, [gotoEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!reqEditorActionId) return;
+    const a = state.actions[reqEditorActionId];
+    if (!a || a.actionType !== "req") {
+      setReqEditorActionId(null);
+    }
+  }, [reqEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!pwdEditorActionId) return;
+    const a = state.actions[pwdEditorActionId];
+    if (!a || a.actionType !== "pwd") {
+      setPwdEditorActionId(null);
+    }
+  }, [pwdEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!selectorEditorActionId) return;
+    const a = state.actions[selectorEditorActionId];
+    if (!a || a.actionType !== "selector") {
+      setSelectorEditorActionId(null);
+    }
+  }, [selectorEditorActionId, state.actions]);
 
   // State React Flow pour nodes et edges (permet à RF de gérer drag, sélection, mesures)
   const [rfNodes, setRfNodes, onNodesChangeRF] = useNodesState<RFNode<NodalRFData>>([]);
@@ -391,6 +516,36 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     state.actions[msgEditorActionId].actionType === "msg"
       ? (state.actions[msgEditorActionId] as MsgActionNode)
       : null;
+  const pickToEdit: PickActionNode | null =
+    pickEditorActionId &&
+    state.actions[pickEditorActionId] &&
+    state.actions[pickEditorActionId].actionType === "pick"
+      ? (state.actions[pickEditorActionId] as PickActionNode)
+      : null;
+  const gotoToEdit: GotoActionNode | null =
+    gotoEditorActionId &&
+    state.actions[gotoEditorActionId] &&
+    state.actions[gotoEditorActionId].actionType === "goto"
+      ? (state.actions[gotoEditorActionId] as GotoActionNode)
+      : null;
+  const reqToEdit: ReqActionNode | null =
+    reqEditorActionId &&
+    state.actions[reqEditorActionId] &&
+    state.actions[reqEditorActionId].actionType === "req"
+      ? (state.actions[reqEditorActionId] as ReqActionNode)
+      : null;
+  const pwdToEdit: PwdActionNode | null =
+    pwdEditorActionId &&
+    state.actions[pwdEditorActionId] &&
+    state.actions[pwdEditorActionId].actionType === "pwd"
+      ? (state.actions[pwdEditorActionId] as PwdActionNode)
+      : null;
+  const selectorToEdit: SelectorActionNode | null =
+    selectorEditorActionId &&
+    state.actions[selectorEditorActionId] &&
+    state.actions[selectorEditorActionId].actionType === "selector"
+      ? (state.actions[selectorEditorActionId] as SelectorActionNode)
+      : null;
 
   return (
     <NodalUiContext.Provider
@@ -407,6 +562,21 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         msgEditorActionId,
         setMsgEditorActionId,
         openMsgContentEditor,
+        pickEditorActionId,
+        setPickEditorActionId,
+        openPickContentEditor,
+        gotoEditorActionId,
+        setGotoEditorActionId,
+        openGotoContentEditor,
+        reqEditorActionId,
+        setReqEditorActionId,
+        openReqContentEditor,
+        pwdEditorActionId,
+        setPwdEditorActionId,
+        openPwdContentEditor,
+        selectorEditorActionId,
+        setSelectorEditorActionId,
+        openSelectorContentEditor,
         globalSettingsHubOpen,
         setGlobalSettingsHubOpen,
         popupThemeCustomizationOpen,
@@ -514,20 +684,107 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             const snap = store.getState();
             const cur = snap.media[mediaEditorMediaId];
             if (!cur) return;
-            snap.updateNodeData(mediaEditorMediaId, { data: { ...cur.data, ...patch } } as never);
+            snap.updateNodeData(mediaEditorMediaId, {
+              ...(typeof patch.label === "string" ? { label: patch.label } : {}),
+              data: { ...cur.data, ...(patch.url !== undefined ? { url: patch.url } : {}), ...(patch.volume !== undefined ? { volume: patch.volume } : {}) },
+            } as never);
           }}
           onClose={() => setMediaEditorMediaId(null)}
         />
         <MsgContentPopup
           store={store}
           action={msgToEdit}
-          onSave={(copy) => {
+          onSave={({ label, copy }) => {
             if (!msgEditorActionId) return;
             store.getState().updateNodeData(msgEditorActionId, {
+              label,
               payload: { copy },
             } as never);
           }}
           onClose={() => setMsgEditorActionId(null)}
+        />
+        <PickContentPopup
+          store={store}
+          action={pickToEdit}
+          onSave={({ label, copy }) => {
+            if (!pickEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[pickEditorActionId];
+            if (!cur || cur.actionType !== "pick") return;
+            snap.updateNodeData(pickEditorActionId, {
+              label,
+              payload: { ...cur.payload, copy },
+            } as never);
+          }}
+          onClose={() => setPickEditorActionId(null)}
+        />
+        <GotoContentPopup
+          store={store}
+          action={gotoToEdit}
+          onSave={({ label, copy }) => {
+            if (!gotoEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[gotoEditorActionId];
+            if (!cur || cur.actionType !== "goto") return;
+            snap.updateNodeData(gotoEditorActionId, {
+              label,
+              payload: { ...cur.payload, copy },
+            } as never);
+          }}
+          onClose={() => setGotoEditorActionId(null)}
+        />
+        <ReqContentPopup
+          store={store}
+          action={reqToEdit}
+          onSave={({ label, copy }) => {
+            if (!reqEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[reqEditorActionId];
+            if (!cur || cur.actionType !== "req") return;
+            snap.updateNodeData(reqEditorActionId, {
+              label,
+              payload: { ...cur.payload, copy },
+            } as never);
+          }}
+          onClose={() => setReqEditorActionId(null)}
+        />
+        <PwdContentPopup
+          store={store}
+          action={pwdToEdit}
+          onSave={({ label, bodyHtml, answer }) => {
+            if (!pwdEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[pwdEditorActionId];
+            if (!cur || cur.actionType !== "pwd") return;
+            snap.updateNodeData(pwdEditorActionId, {
+              label,
+              payload: { ...cur.payload, copy: { ...cur.payload.copy, bodyHtml }, answer },
+            } as never);
+          }}
+          onClose={() => setPwdEditorActionId(null)}
+        />
+        <SelectorContentPopup
+          store={store}
+          action={selectorToEdit}
+          onSave={({ label, title, bodyHtml, displayMode }) => {
+            if (!selectorEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[selectorEditorActionId];
+            if (!cur || cur.actionType !== "selector") return;
+            snap.updateNodeData(selectorEditorActionId, {
+              label,
+              payload: {
+                ...cur.payload,
+                nested: {
+                  ...cur.payload.nested,
+                  title,
+                  displayMode,
+                  copy: { ...cur.payload.nested.copy, bodyHtml },
+                },
+              },
+            } as never);
+          }}
+          onClose={() => setSelectorEditorActionId(null)}
         />
         <GlobalSettingsHubPopup
           open={globalSettingsHubOpen}

@@ -4,7 +4,7 @@ import "../quill/nodalQuillRich.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import type { CopyPayload, MsgActionNode } from "../../model/nodes";
+import type { CopyPayload, GotoActionNode } from "../../model/nodes";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
 import {
   Quill,
@@ -34,26 +34,26 @@ const LABELS: Record<
   }
 > = {
   fr: {
-    title: "Message — contenu",
+    title: "Goto — contenu",
     nodeLabel: "Titre du node",
-    body: "Corps (texte riche)",
+    body: "Texte de transition (riche)",
     btn: "Libellé du bouton",
     preview: "Aperçu (popup joueur)",
-    defaultBtn: "Fermer",
+    defaultBtn: "Continuer",
     cancel: "Annuler",
     save: "Enregistrer",
-    hint: "Même barre d’outils Quill que le formulaire (polices, tailles, listes, couleurs…). Le rendu suit le thème clair / sombre de la carte.",
+    hint: "Texte et bouton optionnels pour la transition. Le ciblage de scène reste géré par la connexion goto.",
   },
   en: {
-    title: "Message — content",
+    title: "Goto — content",
     nodeLabel: "Node title",
-    body: "Body (rich text)",
+    body: "Transition text (rich)",
     btn: "Button label",
     preview: "Preview (player popup)",
-    defaultBtn: "Close",
+    defaultBtn: "Continue",
     cancel: "Cancel",
     save: "Save",
-    hint: "Same Quill toolbar as the main form (fonts, sizes, lists, colors…). Styling follows the map light / dark theme.",
+    hint: "Optional transition text and button label. Scene targeting remains handled by the goto connection.",
   },
 };
 
@@ -65,12 +65,12 @@ function detectLocale(): Locale {
 
 type Props = {
   store: StoreApi<NodalProjectStore>;
-  action: MsgActionNode | null;
+  action: GotoActionNode | null;
   onSave: (payload: { label: string; copy: CopyPayload }) => void;
   onClose: () => void;
 };
 
-export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
+export function GotoContentPopup({ store, action, onSave, onClose }: Props) {
   const [locale] = useState<Locale>(() => detectLocale());
   const L = LABELS[locale];
   const popupTheme = usePlayerPopupTheme(store);
@@ -86,18 +86,15 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
     if (!action) {
       setButtonLabel("");
       setNodeLabel("");
+      quillRef.current = null;
       return;
     }
     setNodeLabel(String(action.label ?? ""));
     setButtonLabel(String(action.payload?.copy?.buttonLabel ?? ""));
-    store.getState().syncPlayerPopupThemeFromDom();
-  }, [action?.id, store]);
+  }, [action?.id]);
 
   useEffect(() => {
-    if (!action) {
-      quillRef.current = null;
-      return;
-    }
+    if (!action) return;
     const el = hostRef.current;
     if (!el) return;
 
@@ -128,11 +125,10 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
   const previewBtnText = buttonLabel.trim() || L.defaultBtn;
 
   const handleSave = () => {
-    const html = quillRef.current?.root.innerHTML ?? "";
     onSave({
       label: nodeLabel.trim(),
       copy: {
-        bodyHtml: html,
+        bodyHtml: quillRef.current?.root.innerHTML ?? "",
         buttonLabel: buttonLabel.trim(),
       },
     });
@@ -140,10 +136,10 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
   };
 
   return (
-    <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="msg-content-editor-title">
+    <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="goto-content-editor-title">
       <div className="nodal-popup-backdrop" onClick={onClose} />
       <div className="nodal-popup-panel nodal-popup-panel--msg-content nodal-popup-panel--hotspot-appearance">
-        <h2 id="msg-content-editor-title">{L.title}</h2>
+        <h2 id="goto-content-editor-title">{L.title}</h2>
         <div className="nodal-popup-field nodal-msg-popup-btn-field">
           <span>{L.nodeLabel}</span>
           <input aria-label={L.nodeLabel} type="text" value={nodeLabel} onChange={(e) => setNodeLabel(e.target.value)} />
@@ -153,7 +149,7 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
         <div className="nodal-general-layout nodal-msg-preview-layout">
           <div className="nodal-general-main nodal-msg-popup-main">
             <div className="nodal-popup-field nodal-msg-popup-body-field">
-              <span id="msg-content-body-label">{L.body}</span>
+              <span>{L.body}</span>
               <div className="nodal-popup-quill nodal-quill-theme wysiwyg-wrap nodal-msg-quill-wrap">
                 <div ref={hostRef} />
               </div>

@@ -97,7 +97,12 @@ export function ensureGraphNodeLayoutsAfterHydrate(state: NodalProject): void {
 /** Applique le layout carte en ignorant les entrées satellites auto + complète les nœuds manquants. */
 export function applyHydratedLayout(state: NodalProject, layout: MapLayoutJson, projectJson: ProjectJsonV2): void {
   if (layout.nodalMedia && Object.keys(layout.nodalMedia).length > 0) {
-    state.media = { ...layout.nodalMedia };
+    state.media = Object.fromEntries(
+      Object.entries(layout.nodalMedia).map(([id, media]) => [
+        id,
+        { ...media, label: typeof media.label === "string" && media.label.trim() ? media.label : "Media" },
+      ])
+    ) as NodalProject["media"];
   }
   applyLayout(state, stripAutoSatelliteLayoutFromMap(layout));
   applyStableSceneAndActionLayout(state, layout, buildActionIdByPathKeyMapFromProjectJson(projectJson));

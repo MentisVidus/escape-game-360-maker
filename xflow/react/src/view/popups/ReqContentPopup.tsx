@@ -4,7 +4,7 @@ import "../quill/nodalQuillRich.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import type { CopyPayload, MsgActionNode } from "../../model/nodes";
+import type { CopyPayload, ReqActionNode } from "../../model/nodes";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
 import {
   Quill,
@@ -25,8 +25,8 @@ const LABELS: Record<
     title: string;
     nodeLabel: string;
     body: string;
-    btn: string;
     preview: string;
+    fallback: string;
     defaultBtn: string;
     cancel: string;
     save: string;
@@ -34,26 +34,26 @@ const LABELS: Record<
   }
 > = {
   fr: {
-    title: "Message — contenu",
+    title: "Req — contenu KO",
     nodeLabel: "Titre du node",
-    body: "Corps (texte riche)",
-    btn: "Libellé du bouton",
+    body: "Message si objet manquant",
     preview: "Aperçu (popup joueur)",
+    fallback: "Il vous manque quelque chose...",
     defaultBtn: "Fermer",
     cancel: "Annuler",
     save: "Enregistrer",
-    hint: "Même barre d’outils Quill que le formulaire (polices, tailles, listes, couleurs…). Le rendu suit le thème clair / sombre de la carte.",
+    hint: "Message affiché si l’objet requis est absent. La récompense chainée et l’objet requis restent hors périmètre de cette popup.",
   },
   en: {
-    title: "Message — content",
+    title: "Req — KO content",
     nodeLabel: "Node title",
-    body: "Body (rich text)",
-    btn: "Button label",
+    body: "Missing-item message",
     preview: "Preview (player popup)",
+    fallback: "You are missing something...",
     defaultBtn: "Close",
     cancel: "Cancel",
     save: "Save",
-    hint: "Same Quill toolbar as the main form (fonts, sizes, lists, colors…). Styling follows the map light / dark theme.",
+    hint: "Message shown when the required item is missing. Chained reward and required item remain out of scope for this popup.",
   },
 };
 
@@ -65,39 +65,34 @@ function detectLocale(): Locale {
 
 type Props = {
   store: StoreApi<NodalProjectStore>;
-  action: MsgActionNode | null;
+  action: ReqActionNode | null;
   onSave: (payload: { label: string; copy: CopyPayload }) => void;
   onClose: () => void;
 };
 
-export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
+function isQuillHtmlEmpty(html: string): boolean {
+  const t = String(html || "").trim().toLowerCase();
+  return t === "" || t === "<p><br></p>" || t === "<p></p>";
+}
+
+export function ReqContentPopup({ store, action, onSave, onClose }: Props) {
   const [locale] = useState<Locale>(() => detectLocale());
   const L = LABELS[locale];
   const popupTheme = usePlayerPopupTheme(store);
   const previewStyles = useMemo(() => playerPopupThemeToMsgPreviewChrome(popupTheme), [popupTheme]);
 
-  const [buttonLabel, setButtonLabel] = useState("");
-  const [nodeLabel, setNodeLabel] = useState("");
   const [previewHtml, setPreviewHtml] = useState("");
+  const [nodeLabel, setNodeLabel] = useState("");
   const hostRef = useRef<HTMLDivElement | null>(null);
   const quillRef = useRef<NodalQuillInstance | null>(null);
 
   useEffect(() => {
     if (!action) {
-      setButtonLabel("");
       setNodeLabel("");
-      return;
-    }
-    setNodeLabel(String(action.label ?? ""));
-    setButtonLabel(String(action.payload?.copy?.buttonLabel ?? ""));
-    store.getState().syncPlayerPopupThemeFromDom();
-  }, [action?.id, store]);
-
-  useEffect(() => {
-    if (!action) {
       quillRef.current = null;
       return;
     }
+    setNodeLabel(String(action.label ?? ""));
     const el = hostRef.current;
     if (!el) return;
 
@@ -125,25 +120,25 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
 
   if (!action) return null;
 
-  const previewBtnText = buttonLabel.trim() || L.defaultBtn;
-
   const handleSave = () => {
     const html = quillRef.current?.root.innerHTML ?? "";
     onSave({
       label: nodeLabel.trim(),
       copy: {
         bodyHtml: html,
-        buttonLabel: buttonLabel.trim(),
+        buttonLabel: action.payload.copy.buttonLabel ?? "",
       },
     });
     onClose();
   };
 
+  const effectivePreviewHtml = isQuillHtmlEmpty(previewHtml) ? `<p>${L.fallback}</p>` : previewHtml;
+
   return (
-    <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="msg-content-editor-title">
+    <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="req-content-editor-title">
       <div className="nodal-popup-backdrop" onClick={onClose} />
       <div className="nodal-popup-panel nodal-popup-panel--msg-content nodal-popup-panel--hotspot-appearance">
-        <h2 id="msg-content-editor-title">{L.title}</h2>
+        <h2 id="req-content-editor-title">{L.title}</h2>
         <div className="nodal-popup-field nodal-msg-popup-btn-field">
           <span>{L.nodeLabel}</span>
           <input aria-label={L.nodeLabel} type="text" value={nodeLabel} onChange={(e) => setNodeLabel(e.target.value)} />
@@ -153,14 +148,10 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
         <div className="nodal-general-layout nodal-msg-preview-layout">
           <div className="nodal-general-main nodal-msg-popup-main">
             <div className="nodal-popup-field nodal-msg-popup-body-field">
-              <span id="msg-content-body-label">{L.body}</span>
+              <span>{L.body}</span>
               <div className="nodal-popup-quill nodal-quill-theme wysiwyg-wrap nodal-msg-quill-wrap">
                 <div ref={hostRef} />
               </div>
-            </div>
-            <div className="nodal-popup-field nodal-msg-popup-btn-field">
-              <span>{L.btn}</span>
-              <input aria-label={L.btn} type="text" value={buttonLabel} onChange={(e) => setButtonLabel(e.target.value)} />
             </div>
           </div>
 
@@ -173,8 +164,8 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
                 closeBtnStyle={previewStyles.closeBtn}
                 buttonStyle={previewStyles.btn}
                 closeAriaLabel={L.defaultBtn}
-                html={previewHtml || "<p><br></p>"}
-                variant={{ kind: "button", label: previewBtnText }}
+                html={effectivePreviewHtml}
+                variant={{ kind: "button", label: L.defaultBtn }}
               />
             </div>
           </aside>
