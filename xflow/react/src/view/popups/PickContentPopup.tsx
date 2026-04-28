@@ -14,6 +14,7 @@ import {
   type NodalQuillInstance,
 } from "../quill/nodalQuillSetup";
 import { playerPopupThemeToMsgPreviewChrome } from "./playerPopupPreviewFromTheme";
+import { PlayerPopupPreview } from "./PlayerPopupPreview";
 import { usePlayerPopupTheme } from "./usePlayerPopupTheme";
 
 type Locale = "fr" | "en";
@@ -157,18 +158,15 @@ export function PickContentPopup({ store, action, onSave, onClose }: Props) {
           <aside className="nodal-general-preview" aria-label={L.preview}>
             <span className="nodal-general-preview-label">{L.preview}</span>
             <div className="nodal-general-preview-canvas">
-              <div style={previewStyles.viewport}>
-                <div className="nodal-msg-preview-chrome" style={previewStyles.panel}>
-                  <button type="button" aria-label={L.defaultBtn} disabled style={previewStyles.closeBtn}>
-                    ✕
-                  </button>
-                  <div className="play-html-rich" dangerouslySetInnerHTML={{ __html: effectivePreviewHtml }} />
-                  <br />
-                  <button type="button" disabled style={previewStyles.btn}>
-                    {L.defaultBtn}
-                  </button>
-                </div>
-              </div>
+              <PlayerPopupPreview
+                viewportStyle={previewStyles.viewport}
+                panelStyle={previewStyles.panel}
+                closeBtnStyle={previewStyles.closeBtn}
+                buttonStyle={previewStyles.btn}
+                closeAriaLabel={L.defaultBtn}
+                html={effectivePreviewHtml}
+                variant={{ kind: "button", label: L.defaultBtn }}
+              />
             </div>
           </aside>
         </div>

@@ -1446,8 +1446,16 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [x] **C7.3-04 `pwd`** : popup `payload.copy.bodyHtml` (énigme, optionnel ; fallback « Code : ») + `payload.answer` (obligatoire) ; aperçu = chrome popup joueur + champ réponse ; hors périmètre : `payload.rewardAction` (nœud enfant), `payload.itemId` (satellite objet).
 - [x] **C7.3-05 `selector`** : popup `payload.nested.title`, `payload.nested.copy.bodyHtml` (optionnels), `payload.nested.displayMode` (obligatoire, défaut `buttons`) ; aperçu joueur avec boutons/dropdown. Découpage : (A) placeholders **livré**, (B) remontée des labels des enfants directs dans l’ordre nodal **livrée**.
 - [x] **C7.3-05-C** : édition des labels nodaux : champ `label` dans les popups d’actions + édition inline du titre des scènes (`div.title`) pour améliorer le repérage et les libellés selector.
-- [ ] **C7.3-06** : harmoniser les aperçus via helpers dédiés (pattern C7.2 `playerPopupPreviewFromTheme`) + scroll interne runtime-like sur contenu long.
-- [ ] **C7.3-07** : validations UX à figer par action (erreurs bloquantes / warnings non bloquants), puis smoke clair/sombre (Quill, pickers, scroll, régression layout/actions).
+- [x] **C7.3-06** : harmoniser les aperçus via helpers dédiés (pattern C7.2 `playerPopupPreviewFromTheme`) + scroll interne runtime-like sur contenu long.
+- [x] **C7.3-06-A** : helper preview unifié (`PlayerPopupPreview`) avec variantes `button`, `input`, `selector-buttons`, `selector-dropdown`.
+- [x] **C7.3-06-B** : migration des popups `msg/pick/goto/req/pwd/selector` vers le helper commun sans changer les payloads.
+- [x] **C7.3-06-C** : validation scroll/contenus longs runtime-like (panneau preview borné, overflow interne conservé).
+- [x] **C7.3-06-D** : nettoyage duplication preview + passe build/lint avant lot C7.3-07.
+- [x] **C7.3-07** : validations UX figées par action (erreurs bloquantes / warnings non bloquants) + smoke clair/sombre (build/lints + recette manuelle Quill/pickers/scroll/régression).
+- [x] **C7.3-07-A** : contrat validation fixé — **aucune limite de longueur** (titres + contenus), utilisateur libre ; pas de `maxLength` imposé.
+- [x] **C7.3-07-B** : erreurs bloquantes minimales — `pwd.payload.answer` requis (save désactivé si vide) ; autres champs textuels optionnels selon contrat C7.3.
+- [x] **C7.3-07-C** : warnings non bloquants — aucun warning bloquant ajouté sur longueur/volume de texte ; liberté de volumétrie texte assumée côté produit.
+- [x] **C7.3-07-D** : smoke technique validé (build `editor-map` + lints) ; recette manuelle recommandée auteur pour Quill menus, scroll long, mode clair/sombre, labels selector.
 
 *Report acté* : **C7.2-bis phase B** (persistance/sauvegarde du thème popup) est traitée après **C7.3** (couverture actions) et avant clôture **C7.6**.
 
@@ -1545,6 +1553,14 @@ de l’eau.)*
   `label` dans les popups d’actions (`msg/pick/goto/req/pwd/selector`) pour
   renommer directement le titre en gras des nœuds ; côté scènes, clic sur node
   -> édition inline du titre (Enter/blur valide, Escape annule).
+- 2026-04-28 — **C7.3-06 (harmonisation previews)** : création d’un composant
+  partagé `PlayerPopupPreview` (variantes bouton, input, selector boutons /
+  dropdown), migration des 6 popups d’actions vers ce composant, suppression
+  des duplications JSX et conservation du scroll interne runtime-like.
+- 2026-04-28 — **C7.3-07 (validation & smoke)** : validation produit figée
+  sans limite de caractères (`label`, `bodyHtml`, titres), seule contrainte
+  bloquante maintenue sur `pwd.payload.answer` ; pas de warnings longueur ;
+  passe smoke technique build/lint réalisée avant clôture du lot C7.3.
 
 ---
 

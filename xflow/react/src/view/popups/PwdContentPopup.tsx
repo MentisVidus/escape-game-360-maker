@@ -14,6 +14,7 @@ import {
   type NodalQuillInstance,
 } from "../quill/nodalQuillSetup";
 import { playerPopupThemeToMsgPreviewChrome } from "./playerPopupPreviewFromTheme";
+import { PlayerPopupPreview } from "./PlayerPopupPreview";
 import { usePlayerPopupTheme } from "./usePlayerPopupTheme";
 
 type Locale = "fr" | "en";
@@ -175,19 +176,15 @@ export function PwdContentPopup({ store, action, onSave, onClose }: Props) {
           <aside className="nodal-general-preview" aria-label={L.preview}>
             <span className="nodal-general-preview-label">{L.preview}</span>
             <div className="nodal-general-preview-canvas">
-              <div style={previewStyles.viewport}>
-                <div className="nodal-msg-preview-chrome" style={previewStyles.panel}>
-                  <button type="button" aria-label={L.submit} disabled style={previewStyles.closeBtn}>
-                    ✕
-                  </button>
-                  <div className="play-html-rich" dangerouslySetInnerHTML={{ __html: effectivePreviewHtml }} />
-                  <br />
-                  <input type="text" value="" disabled style={{ width: "100%", marginTop: "8px", boxSizing: "border-box" }} />
-                  <button type="button" disabled style={previewStyles.btn}>
-                    {L.submit}
-                  </button>
-                </div>
-              </div>
+              <PlayerPopupPreview
+                viewportStyle={previewStyles.viewport}
+                panelStyle={previewStyles.panel}
+                closeBtnStyle={previewStyles.closeBtn}
+                buttonStyle={previewStyles.btn}
+                closeAriaLabel={L.submit}
+                html={effectivePreviewHtml}
+                variant={{ kind: "input", buttonLabel: L.submit }}
+              />
             </div>
           </aside>
         </div>

@@ -14,6 +14,7 @@ import {
   type NodalQuillInstance,
 } from "../quill/nodalQuillSetup";
 import { playerPopupThemeToMsgPreviewChrome } from "./playerPopupPreviewFromTheme";
+import { PlayerPopupPreview } from "./PlayerPopupPreview";
 import { usePlayerPopupTheme } from "./usePlayerPopupTheme";
 
 type Locale = "fr" | "en";
@@ -208,33 +209,20 @@ export function SelectorContentPopup({ store, action, onSave, onClose }: Props) 
           <aside className="nodal-general-preview" aria-label={L.preview}>
             <span className="nodal-general-preview-label">{L.preview}</span>
             <div className="nodal-general-preview-canvas">
-              <div style={previewStyles.viewport}>
-                <div className="nodal-msg-preview-chrome" style={previewStyles.panel}>
-                  <button type="button" disabled style={previewStyles.closeBtn} aria-label="Close">
-                    ✕
-                  </button>
-                  <p>
-                    <strong>{previewTitle}</strong>
-                  </p>
-                  <div className="play-html-rich" dangerouslySetInnerHTML={{ __html: previewHtml || "<p><br></p>" }} />
-                  <br />
-                  {displayMode === "buttons" ? (
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                      {selectorChildLabels.map((label, index) => (
-                        <button key={`${index}-${label}`} type="button" disabled style={previewStyles.btn}>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <select disabled style={{ width: "100%", padding: "6px 8px", boxSizing: "border-box" }}>
-                      {selectorChildLabels.map((label, index) => (
-                        <option key={`${index}-${label}`}>{label}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
+              <PlayerPopupPreview
+                viewportStyle={previewStyles.viewport}
+                panelStyle={previewStyles.panel}
+                closeBtnStyle={previewStyles.closeBtn}
+                buttonStyle={previewStyles.btn}
+                closeAriaLabel="Close"
+                titleText={previewTitle}
+                html={previewHtml || "<p><br></p>"}
+                variant={
+                  displayMode === "buttons"
+                    ? { kind: "selector-buttons", choices: selectorChildLabels }
+                    : { kind: "selector-dropdown", choices: selectorChildLabels }
+                }
+              />
             </div>
           </aside>
         </div>
