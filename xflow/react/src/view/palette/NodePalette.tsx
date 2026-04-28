@@ -119,8 +119,8 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
     const id = asMediaNodeId(nextId("media"));
     const node: MediaNode =
       mediaType === "media-image"
-        ? { id, nodeType: "media", mediaType, data: { url: "" } }
-        : { id, nodeType: "media", mediaType: "media-audio", data: { url: "", volume: 1 } };
+        ? { id, nodeType: "media", mediaType, label: "Media", data: { url: "" } }
+        : { id, nodeType: "media", mediaType: "media-audio", label: "Media", data: { url: "", volume: 1 } };
     const center = getCenterPosition();
     store.getState().addMedia(node, { x: center.x, y: center.y });
   };

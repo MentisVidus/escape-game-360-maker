@@ -684,7 +684,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             const snap = store.getState();
             const cur = snap.media[mediaEditorMediaId];
             if (!cur) return;
-            snap.updateNodeData(mediaEditorMediaId, { data: { ...cur.data, ...patch } } as never);
+            snap.updateNodeData(mediaEditorMediaId, {
+              ...(typeof patch.label === "string" ? { label: patch.label } : {}),
+              data: { ...cur.data, ...(patch.url !== undefined ? { url: patch.url } : {}), ...(patch.volume !== undefined ? { volume: patch.volume } : {}) },
+            } as never);
           }}
           onClose={() => setMediaEditorMediaId(null)}
         />

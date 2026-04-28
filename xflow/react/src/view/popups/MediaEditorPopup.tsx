@@ -4,20 +4,23 @@ import type { MediaAudioNode, MediaNode } from "../../model/nodes";
 
 type Props = {
   media: MediaNode | null;
-  onChange: (patch: { url?: string; volume?: number }) => void;
+  onChange: (patch: { label?: string; url?: string; volume?: number }) => void;
   onClose: () => void;
 };
 
 export function MediaEditorPopup({ media, onChange, onClose }: Props) {
+  const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
   const [volume, setVolume] = useState("1");
 
   useEffect(() => {
     if (!media) {
+      setLabel("");
       setUrl("");
       setVolume("1");
       return;
     }
+    setLabel(String(media.label ?? ""));
     setUrl(String(media.data.url ?? ""));
     setVolume(String(media.mediaType === "media-audio" ? (media.data as MediaAudioNode["data"]).volume ?? 1 : 1));
   }, [media]);
@@ -29,12 +32,13 @@ export function MediaEditorPopup({ media, onChange, onClose }: Props) {
 
   const flushUrl = () => {
     const trimmed = url.trim();
+    const nextLabel = label.trim();
     if (isAudio) {
       const v = Number(volume);
       const vol = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
-      onChange({ url: trimmed, volume: vol });
+      onChange({ label: nextLabel, url: trimmed, volume: vol });
     } else {
-      onChange({ url: trimmed });
+      onChange({ label: nextLabel, url: trimmed });
     }
   };
 
@@ -43,6 +47,10 @@ export function MediaEditorPopup({ media, onChange, onClose }: Props) {
       <div className="nodal-popup-backdrop" onClick={onClose} />
       <div className="nodal-popup-panel">
         <h2 id="media-editor-title">{title}</h2>
+        <label className="nodal-popup-field">
+          <span>Titre du node</span>
+          <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} onBlur={flushUrl} />
+        </label>
         <label className="nodal-popup-field">
           <span>URL</span>
           <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} onBlur={flushUrl} />
@@ -65,7 +73,7 @@ export function MediaEditorPopup({ media, onChange, onClose }: Props) {
                 setVolume(e.target.value);
                 const v = Number(e.target.value);
                 if (Number.isFinite(v)) {
-                  onChange({ url: url.trim(), volume: Math.max(0, Math.min(1, v)) });
+                  onChange({ label: label.trim(), url: url.trim(), volume: Math.max(0, Math.min(1, v)) });
                 }
               }}
             />
