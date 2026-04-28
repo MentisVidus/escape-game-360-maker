@@ -26,8 +26,8 @@
   border-radius: 6px 6px 0 0;
   border-color: var(--palette-button-border);
   /* Aligne la toolbar avec les tokens clair/sombre de la carte nodale. */
-  background: var(--palette-button-bg);
-  color: var(--node-text);
+  background: var(--palette-button-bg) !important;
+  color: var(--node-text) !important;
 }
 
 .nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-stroke {
@@ -42,7 +42,7 @@
 
 .nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-label,
 .nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-item {
-  color: var(--node-text);
+  color: var(--node-text) !important;
   opacity: 0.88;
 }
 
@@ -50,7 +50,7 @@
   background-color: var(--palette-bg);
   border: 1px solid var(--palette-border);
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
-  color: var(--node-text);
+  color: var(--node-text) !important;
   z-index: 30;
   max-height: 220px;
   overflow-y: auto;
@@ -62,6 +62,58 @@
 
 .nodal-popup-quill.wysiwyg-wrap .ql-tooltip {
   z-index: 50;
+}
+
+/* Etats Quill Snow (hover/active/focus) : garde un contraste lisible avec les tokens du thème. */
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:focus,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:focus,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button.ql-active,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button.ql-active,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label.ql-active,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label.ql-active,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-item:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-item:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-item.ql-selected,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-item.ql-selected {
+  color: var(--node-selected-outline) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:hover .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:hover .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:focus .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:focus .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button.ql-active .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button.ql-active .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label:hover .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label:hover .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label.ql-active .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label.ql-active .ql-stroke {
+  stroke: var(--node-selected-outline) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:hover .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:hover .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:focus .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:focus .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button.ql-active .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button.ql-active .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label:hover .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label:hover .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label.ql-active .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label.ql-active .ql-fill {
+  fill: var(--node-selected-outline) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-picker-options .ql-picker-item {
+  color: var(--node-text) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-picker.ql-expanded .ql-picker-label {
+  border-color: var(--palette-button-border) !important;
 }
 
 .nodal-popup-quill.wysiwyg-wrap .ql-container.ql-snow {
