@@ -1,7 +1,7 @@
 import "quill/dist/quill.snow.css";
 import "../quill/nodalQuillRich.css";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
 import type { SelectorActionNode } from "../../model/nodes";
@@ -31,6 +31,7 @@ const LABELS: Record<
     preview: string;
     previewTitleFallback: string;
     choicePlaceholder: string;
+    noChoicePlaceholder: string;
     cancel: string;
     save: string;
     hint: string;
@@ -46,9 +47,10 @@ const LABELS: Record<
     preview: "Aperçu (popup joueur)",
     previewTitleFallback: "Faites un choix",
     choicePlaceholder: "Choix",
+    noChoicePlaceholder: "Aucune option",
     cancel: "Annuler",
     save: "Enregistrer",
-    hint: "Phase A : aperçu placeholder (options génériques). Les libellés des enfants seront branchés en phase B.",
+    hint: "Phase B : aperçu branché sur les enfants directs du selector (ordre nodal).",
   },
   en: {
     title: "Selector — content",
@@ -60,9 +62,10 @@ const LABELS: Record<
     preview: "Preview (player popup)",
     previewTitleFallback: "Make a choice",
     choicePlaceholder: "Choice",
+    noChoicePlaceholder: "No option",
     cancel: "Cancel",
     save: "Save",
-    hint: "Phase A: placeholder preview (generic options). Child labels will be wired in phase B.",
+    hint: "Phase B: preview uses selector direct children labels (nodal order).",
   },
 };
 
@@ -80,6 +83,7 @@ type Props = {
 };
 
 export function SelectorContentPopup({ store, action, onSave, onClose }: Props) {
+  const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
   const [locale] = useState<Locale>(() => detectLocale());
   const L = LABELS[locale];
   const popupTheme = usePlayerPopupTheme(store);
@@ -130,6 +134,26 @@ export function SelectorContentPopup({ store, action, onSave, onClose }: Props) 
   }, [action?.id]);
 
   if (!action) return null;
+
+  const selectorChildIds = (() => {
+    const viaParentId = Object.keys(state.actions).filter((candidateId) => state.layout[candidateId]?.parentId === action.id);
+    const ordered = viaParentId.length
+      ? viaParentId
+      : state.edges
+          .filter((edge) => edge.family === "flow" && edge.sourceId === action.id && edge.targetId in state.actions)
+          .map((edge) => edge.targetId);
+    return [...ordered].sort((a, b) => {
+      const ya = state.layout[a]?.y ?? 0;
+      const yb = state.layout[b]?.y ?? 0;
+      if (ya !== yb) return ya - yb;
+      return String(a).localeCompare(String(b));
+    });
+  })();
+  const selectorChildLabels = selectorChildIds.map((id, index) => {
+    const label = String(state.actions[id]?.label ?? "").trim();
+    return label || `${L.choicePlaceholder} ${index + 1}`;
+  });
+  if (selectorChildLabels.length === 0) selectorChildLabels.push(`${L.noChoicePlaceholder} 1`);
 
   const handleSave = () => {
     onSave({
@@ -185,17 +209,17 @@ export function SelectorContentPopup({ store, action, onSave, onClose }: Props) 
                   <br />
                   {displayMode === "buttons" ? (
                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                      <button type="button" disabled style={previewStyles.btn}>
-                        {L.choicePlaceholder} 1
-                      </button>
-                      <button type="button" disabled style={previewStyles.btn}>
-                        {L.choicePlaceholder} 2
-                      </button>
+                      {selectorChildLabels.map((label, index) => (
+                        <button key={`${index}-${label}`} type="button" disabled style={previewStyles.btn}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
                   ) : (
                     <select disabled style={{ width: "100%", padding: "6px 8px", boxSizing: "border-box" }}>
-                      <option>{L.choicePlaceholder} 1</option>
-                      <option>{L.choicePlaceholder} 2</option>
+                      {selectorChildLabels.map((label, index) => (
+                        <option key={`${index}-${label}`}>{label}</option>
+                      ))}
                     </select>
                   )}
                 </div>
