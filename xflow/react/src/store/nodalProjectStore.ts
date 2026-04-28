@@ -91,6 +91,19 @@ const withWarnings = <T extends NodalProject>(state: T): T & { warnings: Warning
   warnings: computeWarnings(state),
 });
 
+const clamp01 = (value: unknown, fallback: number): number => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(1, n));
+};
+
+const normalizePlayerPopupTheme = (theme?: Partial<PlayerPopupTheme> | null): PlayerPopupTheme => ({
+  ...DEFAULT_PLAYER_POPUP_THEME,
+  ...(theme || {}),
+  useCustomPopup: !!theme?.useCustomPopup,
+  popBga: clamp01(theme?.popBga, DEFAULT_PLAYER_POPUP_THEME.popBga),
+});
+
 const hasIncomingMeta = (state: NodalProjectStore, nodeId: SatelliteNodeId): boolean =>
   state.edges.some((edge) => edge.family === "meta" && edge.targetId === nodeId);
 
@@ -511,7 +524,9 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       reconcileAutoSatellites(next, nextAutoId);
       applyNodalAutoSatelliteData(next, layoutJson.nodalAutoSatelliteData);
       applyMetaMediaLinks(next, layoutJson.nodalMetaMediaLinks);
-      const playerPopupTheme = readPlayerPopupFieldsFromDom();
+      const playerPopupTheme = normalizePlayerPopupTheme(
+        layoutJson.nodalPlayerPopupTheme ?? readPlayerPopupFieldsFromDom()
+      );
       set(withWarnings({ ...next, playerPopupTheme }));
     },
   }));

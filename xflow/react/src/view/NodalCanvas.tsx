@@ -200,10 +200,6 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    store.getState().syncPlayerPopupThemeFromDom();
-  }, [store]);
-
-  useEffect(() => {
     if (!msgEditorActionId) return;
     const a = state.actions[msgEditorActionId];
     if (!a || a.actionType !== "msg") {

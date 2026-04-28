@@ -3,6 +3,7 @@ import type { NodeLayout } from "../model/layout";
 import type { MediaNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
+import type { PlayerPopupTheme } from "../view/popups/playerPopupDomRead";
 import { buildActionIdByPathKeyMapFromProjectJson } from "./fromProjectJson";
 import type { ProjectJsonV2 } from "./toProjectJson";
 
@@ -29,11 +30,15 @@ export type MapLayoutJson = {
   nodalSceneLayoutByExternalId?: Record<string, { x: number; y: number; collapsed: boolean; width?: number; height?: number }>;
   /** Layout stable des actions indexé par path d'export (`scene:h:i[:r|:c:n...]`) */
   nodalActionLayoutByPathKey?: Record<string, { x: number; y: number; collapsed: boolean; width?: number; height?: number }>;
+  /** Labels des nœuds action indexés par path d'export (hors schéma JSON V2 métier). */
+  nodalActionLabelByPathKey?: Record<string, string>;
   nodalAutoSatelliteData?: Record<string, NodalAutoSatellitePayload>;
   nodalMedia?: Record<string, MediaNode>;
   nodalMetaMediaLinks?: NodalMetaMediaLink[];
   /** Arêtes meta scène→média (hors JSON V2). */
   nodalSceneMetaMediaLinks?: NodalSceneMetaMediaLink[];
+  /** Thème popup joueur stocké côté nodal (phase B C7.2-bis). */
+  nodalPlayerPopupTheme?: PlayerPopupTheme;
 };
 
 /** Clés de layout des satellites auto (recréés par `reconcileAutoSatellites`) — ne pas persister ni réappliquer telles quelles. */
@@ -68,6 +73,9 @@ export function stripAutoSatelliteLayoutFromMap(layout: MapLayoutJson): MapLayou
   if (layout.nodalActionLayoutByPathKey && Object.keys(layout.nodalActionLayoutByPathKey).length > 0) {
     out.nodalActionLayoutByPathKey = { ...layout.nodalActionLayoutByPathKey };
   }
+  if (layout.nodalActionLabelByPathKey && Object.keys(layout.nodalActionLabelByPathKey).length > 0) {
+    out.nodalActionLabelByPathKey = { ...layout.nodalActionLabelByPathKey };
+  }
   if (layout.nodalMedia && Object.keys(layout.nodalMedia).length > 0) {
     out.nodalMedia = { ...layout.nodalMedia };
   }
@@ -76,6 +84,9 @@ export function stripAutoSatelliteLayoutFromMap(layout: MapLayoutJson): MapLayou
   }
   if (layout.nodalSceneMetaMediaLinks?.length) {
     out.nodalSceneMetaMediaLinks = [...layout.nodalSceneMetaMediaLinks];
+  }
+  if (layout.nodalPlayerPopupTheme) {
+    out.nodalPlayerPopupTheme = { ...layout.nodalPlayerPopupTheme };
   }
   return out;
 }
@@ -162,6 +173,16 @@ function applyStableSceneAndActionLayout(
       ...(l.width != null && l.height != null ? { width: l.width, height: l.height } : {}),
     };
   }
+
+  const actionLabels = layout.nodalActionLabelByPathKey;
+  if (!actionLabels || Object.keys(actionLabels).length === 0) return;
+  for (const [pathKey, label] of Object.entries(actionLabels)) {
+    const actionId = actionIdByPathFromJson.get(pathKey);
+    if (!actionId) continue;
+    const action = state.actions[actionId as ActionNodeId];
+    if (!action) continue;
+    action.label = typeof label === "string" && label.trim() ? label : action.label;
+  }
 }
 
 /** C3: une fois `parentId` restauré, les edges legacy `selector -> choix` sont supprimées. */
@@ -231,8 +252,10 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
   if (Object.keys(sceneStable).length > 0) out.nodalSceneLayoutByExternalId = sceneStable;
 
   const actionStable: NonNullable<MapLayoutJson["nodalActionLayoutByPathKey"]> = {};
+  const actionLabels: NonNullable<MapLayoutJson["nodalActionLabelByPathKey"]> = {};
   forEachActionInExportWalkOrder(state, (actionId, pathKey) => {
     const l = state.layout[actionId];
+    const action = state.actions[actionId];
     if (!l) return;
     actionStable[pathKey] = {
       x: l.x,
@@ -240,8 +263,12 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
       collapsed: l.collapsed,
       ...(l.width != null && l.height != null ? { width: l.width, height: l.height } : {}),
     };
+    if (action?.label) {
+      actionLabels[pathKey] = String(action.label);
+    }
   });
   if (Object.keys(actionStable).length > 0) out.nodalActionLayoutByPathKey = actionStable;
+  if (Object.keys(actionLabels).length > 0) out.nodalActionLabelByPathKey = actionLabels;
 
   if (Object.keys(dimensions).length > 0) {
     out.dimensions = dimensions;
@@ -260,6 +287,10 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
   const sceneMetaLinks = collectSceneMetaMediaLinks(state);
   if (sceneMetaLinks.length > 0) {
     out.nodalSceneMetaMediaLinks = sceneMetaLinks;
+  }
+  const playerPopupTheme = (state as NodalProject & { playerPopupTheme?: PlayerPopupTheme }).playerPopupTheme;
+  if (playerPopupTheme) {
+    out.nodalPlayerPopupTheme = { ...playerPopupTheme };
   }
   return out;
 };

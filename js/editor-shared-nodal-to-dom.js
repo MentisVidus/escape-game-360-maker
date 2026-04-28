@@ -504,8 +504,33 @@
             satellites: raw.satellites,
             media: raw.media,
             edges: raw.edges,
-            layout: raw.layout
+            layout: raw.layout,
+            playerPopupTheme: raw.playerPopupTheme || null
         };
+    }
+
+    function projectPlayerPopupThemeToDom(theme) {
+        if (!theme || typeof document === "undefined") return;
+        var useCustom = document.getElementById("useCustomPopup");
+        var container = document.getElementById("popup-settings-container");
+        var popFont = document.getElementById("pop-font");
+        var popColor = document.getElementById("pop-color");
+        var popBgc = document.getElementById("pop-bgc");
+        var popBga = document.getElementById("pop-bga");
+        var popBtnBg = document.getElementById("pop-btn-bg");
+        var popBtnCol = document.getElementById("pop-btn-col");
+
+        if (useCustom) useCustom.checked = !!theme.useCustomPopup;
+        if (container && useCustom) container.style.display = useCustom.checked ? "flex" : "none";
+        if (popFont && theme.popFont != null) popFont.value = String(theme.popFont);
+        if (popColor && theme.popColor != null) popColor.value = String(theme.popColor);
+        if (popBgc && theme.popBgc != null) popBgc.value = String(theme.popBgc);
+        if (popBga && theme.popBga != null) popBga.value = String(theme.popBga);
+        if (popBtnBg && theme.popBtnBg != null) popBtnBg.value = String(theme.popBtnBg);
+        if (popBtnCol && theme.popBtnCol != null) popBtnCol.value = String(theme.popBtnCol);
+
+        if (typeof global.updatePreview === "function") global.updatePreview();
+        if (typeof global.updateQuillTheme === "function") global.updateQuillTheme();
     }
 
     function applyFromStore(storeApi) {
@@ -514,7 +539,9 @@
         }
         var st = snapProjectSlice(storeApi.getState());
         if (!st) return { ok: false, reason: "empty state" };
-        return applyNodalStateToLegacyDom(st);
+        var out = applyNodalStateToLegacyDom(st);
+        projectPlayerPopupThemeToDom(st.playerPopupTheme);
+        return out;
     }
 
     global.EditorSharedNodalToDom = {

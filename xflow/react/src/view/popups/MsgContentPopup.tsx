@@ -90,7 +90,6 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
     }
     setNodeLabel(String(action.label ?? ""));
     setButtonLabel(String(action.payload?.copy?.buttonLabel ?? ""));
-    store.getState().syncPlayerPopupThemeFromDom();
   }, [action?.id, store]);
 
   useEffect(() => {

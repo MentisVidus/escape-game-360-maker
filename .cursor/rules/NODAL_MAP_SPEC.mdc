@@ -1433,18 +1433,31 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 
 *Phase B — persistance bundle / `project.json` (intégrée au lot **C7.5** ; pas de champs racine V2 dédiés aujourd’hui)* :
 
-- [ ] **C7.2-bis-10** : étendre schéma export / import (JSON V2 racine ou extras `map-layout`) pour `useCustomPopup` + `pop*`.
-- [ ] **C7.2-bis-11** : round-trip `.escapegame` + `flushNodalStoreToEditorDom` : thème popup depuis le store nodal.
-- [ ] **C7.2-bis-12** : réduire voire supprimer `syncPlayerPopupThemeFromDom` côté runtime carte une fois **B** stabilisé (DOM = projection seulement).
+- [x] **C7.2-bis-10** : étendre schéma export / import (extras `map-layout`) pour `useCustomPopup` + `pop*` (`nodalPlayerPopupTheme`).
+- [x] **C7.2-bis-11** : round-trip `.escapegame` + `flushNodalStoreToEditorDom` : thème popup reprojeté depuis le store nodal.
+- [x] **C7.2-bis-12** : réduction `syncPlayerPopupThemeFromDom` côté runtime carte (suppression sync montage carte + ouverture popup `msg`).
 
-**Todo détaillé — lot C7.5** *(ouverture prévue après merge C7.3)* :
+**Todo détaillé — lot C7.5** *(lot en cours — smoke/export/persistance)* :
 
-- [ ] **C7.5-00** : ouvrir lot C7.5 (branche dédiée) et figer la recette smoke finale C7 (FR/EN).
-- [ ] **C7.5-01** : intégrer **C7.2-bis phase B** dans le lot (C7.2-bis-10/11/12) pour persistance thème popup hors DOM.
+- [x] **C7.5-00** : lot C7.5 ouvert (branche dédiée) + recette smoke finale C7 figée (FR/EN) ci-dessous.
+- [x] **C7.5-01** : intégrer **C7.2-bis phase B** dans le lot (C7.2-bis-10/11/12) pour persistance thème popup hors DOM.
 - [ ] **C7.5-02** : valider round-trip `.escapegame` complet (actions + labels nodaux + thème popup + media nodal).
 - [ ] **C7.5-03** : smoke export joueur (`generateGame` + ZIP web) sur scénarios `msg/pick/goto/req/pwd/selector` + chaînes REQ/PWD.
 - [ ] **C7.5-04** : smoke UX carte clair/sombre (Quill menus, scroll long, preview runtime-like, labels selector, labels scène/média/actions).
 - [ ] **C7.5-05** : journaliser résultats/écarts et préparer la transition vers C7.6 durcissement.
+
+*Recette smoke C7.5 (FR/EN) — référence exécution manuelle* :
+
+- [x] **SMK-01 Données FR/EN minimales** : 1 scène start + 1 hotspot par actiontype (`msg/pick/goto/req/pwd/selector`) ; labels nodaux explicites (actions/scènes/médias) ; vérifier ouverture popups et persistance des champs.
+- [ ] **SMK-02 Long contenu** : injecter >3000 caractères dans `bodyHtml` + titres/labels ; vérifier absence de blocage UI, scroll interne preview, sauvegarde/rechargement intacts.
+- [ ] **SMK-03 Selector** : tester `displayMode=buttons` et `dropdown`, vérifier reprise labels enfants directs (ordre nodal) en preview et en runtime.
+- [ ] **SMK-04 REQ/PWD chaîne** : scénario `REQ -> REQ -> PWD -> MSG` + cas mixte `REQ -> SELECTOR -> REQ` ; vérifier parcours nominal + blocages attendus.
+- [ ] **SMK-05 Export simple** : `generateGame()` (index seul) ; vérifier rendu popup joueur FR/EN et styles Quill (`align/font/size`) cohérents.
+- [ ] **SMK-06 Export ZIP web** : `exportGameWebZip()` ; vérifier `index.html`, `lib/`, `media/` et exécution hors-ligne (`jouer_hors_ligne`).
+- [x] **SMK-07 Bundle `.escapegame`** : save/load round-trip complet ; vérifier labels nodaux, layout, edges, satellites auto, médias, et thème popup.
+- [ ] **SMK-08 Clair/Sombre** : carte nodale en modes light/dark ; vérifier toolbar/pickers Quill, lisibilité, z-index menus, absence de clipping.
+- [x] **SMK-09 Non-régression DOM bridge** : `flushNodalStoreToEditorDom` après modifications nodales ; vérifier projection legacy sans perte de données.
+- [ ] **SMK-10 Critère GO C7.5** : aucun blocant sur save/load/export/runtime ; écarts restants documentés et orientés C7.6 si polish uniquement.
 
 **Todo détaillé — lot C7.3** *(ouverture : couverture actiontypes texte/selector ; phase B sauvegarde reportée)* :
 
@@ -1577,6 +1590,18 @@ de l’eau.)*
   et lot **C7.5** élargi à *smoke + export + persistance* en embarquant les
   tâches ex-**C7.2-bis phase B** (10/11/12) pour finaliser la sauvegarde sans
   dépendance DOM.
+- 2026-04-28 — **C7.5-00 (recette smoke figée)** : checklist manuelle FR/EN
+  formalisée (`SMK-01`…`SMK-10`) pour piloter smoke carte + export joueur + ZIP
+  web + bundle `.escapegame` avant durcissement C7.6.
+- 2026-04-28 — **C7.5-01 (persistance thème popup hors DOM)** : ajout
+  `nodalPlayerPopupTheme` dans `map-layout.json` (save/load), projection du
+  thème store vers le DOM via `flushNodalStoreToEditorDom`, et suppression des
+  resync DOM carte/msg qui écrasaient la valeur restaurée.
+- 2026-04-28 — **Smoke auteur (SMK-01/07/09)** : OK sur ouverture popups,
+  persistance bundle labels/thème/layout/médias et projection DOM ; correctif
+  appliqué pour les labels des nœuds action (`nodalActionLabelByPathKey`).
+  Limitation connue maintenue : positions des satellites non garanties après
+  cycle save/load (satellites auto reconstruits depuis les parents).
 
 ---
 
