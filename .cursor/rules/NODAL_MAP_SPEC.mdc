@@ -1338,6 +1338,12 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 
 **Pour C7.3** : pour chaque nouvelle popup d’action, réutiliser **`nodal-general-*`**, brancher les champs sur **`updateNodeData`** / slices store si besoin, éviter la lecture DOM métier dans le JSX (hors sync cantonnée **C7.2-bis** en attendant la phase B JSON).
 
+**Recette “aperçu ingame-like” (base C7.3)** :
+- Reprendre les constantes runtime de `afficherPopup` (`editeur-generate.js` / `editor-en-generate.js`) : overlay `rgba(0,0,0,0.82)`, panneau `padding:24`, `border-radius:8`, `border:2px solid #888`, `max-width:420px`, `max-height:85vh`, `overflow:auto`, bouton principal `margin-top:15`.
+- Conserver les styles via helper dédié (`playerPopupPreviewFromTheme.ts`) pour centraliser le mapping thème popup nodal -> preview runtime.
+- Garder une zone d’aperçu plus large que la popup elle-même (colonne `minmax(...)`) pour éviter l’effet “panneau trop étroit”, sans modifier la largeur runtime de la popup (toujours bornée à 420px).
+- Valider chaque actiontype avec un texte long : scroll interne dans le panneau d’aperçu, actions de la popup nodale toujours visibles (pas de régression UX éditeur).
+
 ---
 
 ### D.3 — Arbitrages actés / points restants
@@ -1476,6 +1482,16 @@ de l’eau.)*
   corrections : conteneur non-`label` pour Quill, scope CSS resserré
   `.nodal-popup-field > span`, classe wrapper **`.nodal-quill-theme`** ajoutée
   sur la popup message (base du durcissement C7.3).
+- 2026-04-28 — **C7.2 (aperçu runtime msg, itération largeur/scroll)** :
+  aperçu aligné sur `afficherPopup` (overlay + panneau + croix + bouton),
+  colonne preview élargie côté nodal, scroll interne conservé sur texte long ;
+  recette documentée pour réutilisation C7.3.
+- 2026-04-28 — **C7.2 (ajustement final largeur preview msg)** :
+  largeur ingame confirmée sur `max-width: 420px` (runtime `afficherPopup`) ;
+  côté nodal, agrandissement du panneau popup (`max-width` supérieur) + override
+  CSS placé **après** la grille générique pour éviter l’écrasement cascade
+  (`.nodal-general-layout.nodal-msg-preview-layout`) ; objectif : zone preview
+  plus large sans changer le contrat runtime de la popup joueur.
 
 ---
 

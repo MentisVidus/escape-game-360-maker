@@ -26,11 +26,28 @@ export function playerPopupThemeToDemoBtnStyle(s: PlayerPopupTheme): Pick<CSSPro
   return { backgroundColor: s.popBtnBg, color: s.popBtnCol, fontFamily: "inherit" };
 }
 
-/** Panneau type `afficherPopup` joueur + bouton (aperçu message nodal). */
-export function playerPopupThemeToMsgPreviewChrome(s: PlayerPopupTheme): { panel: CSSProperties; btn: CSSProperties } {
+/** Aperçu runtime `afficherPopup` joueur (viewport sombre + panneau + boutons). */
+export function playerPopupThemeToMsgPreviewChrome(s: PlayerPopupTheme): {
+  viewport: CSSProperties;
+  panel: CSSProperties;
+  closeBtn: CSSProperties;
+  btn: CSSProperties;
+} {
   const box = playerPopupThemeToDemoBoxStyle(s);
   const bs = playerPopupThemeToDemoBtnStyle(s);
   return {
+    viewport: {
+      position: "relative",
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 12,
+      boxSizing: "border-box",
+      background: "rgba(0,0,0,0.82)",
+      borderRadius: 6,
+    },
     panel: {
       background: box.backgroundColor,
       color: box.color,
@@ -38,14 +55,26 @@ export function playerPopupThemeToMsgPreviewChrome(s: PlayerPopupTheme): { panel
       padding: 24,
       borderRadius: 8,
       border: "2px solid #888",
-      maxWidth: "100%",
+      maxWidth: 420,
       width: "100%",
       boxSizing: "border-box",
-      maxHeight: "min(320px, 42vh)",
+      maxHeight: "85%",
       overflow: "auto",
       textAlign: "center",
-      boxShadow: "0 8px 24px rgba(0, 0, 0, 0.35)",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
       position: "relative",
+    },
+    closeBtn: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+      background: "transparent",
+      border: "none",
+      color: "inherit",
+      cursor: "default",
+      fontSize: 20,
+      lineHeight: 1,
+      opacity: 0.9,
     },
     btn: {
       marginTop: 15,

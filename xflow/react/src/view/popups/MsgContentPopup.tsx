@@ -136,7 +136,7 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
         <h2 id="msg-content-editor-title">{L.title}</h2>
         <p className="nodal-popup-hint">{L.hint}</p>
 
-        <div className="nodal-general-layout">
+        <div className="nodal-general-layout nodal-msg-preview-layout">
           <div className="nodal-general-main nodal-msg-popup-main">
             <div className="nodal-popup-field nodal-msg-popup-body-field">
               <span id="msg-content-body-label">{L.body}</span>
@@ -153,12 +153,17 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
           <aside className="nodal-general-preview" aria-label={L.preview}>
             <span className="nodal-general-preview-label">{L.preview}</span>
             <div className="nodal-general-preview-canvas">
-              <div className="nodal-msg-preview-chrome" style={previewStyles.panel}>
-                <div className="play-html-rich" dangerouslySetInnerHTML={{ __html: previewHtml || "<p><br></p>" }} />
-                <br />
-                <button type="button" disabled style={previewStyles.btn}>
-                  {previewBtnText}
-                </button>
+              <div style={previewStyles.viewport}>
+                <div className="nodal-msg-preview-chrome" style={previewStyles.panel}>
+                  <button type="button" aria-label={L.defaultBtn} disabled style={previewStyles.closeBtn}>
+                    ✕
+                  </button>
+                  <div className="play-html-rich" dangerouslySetInnerHTML={{ __html: previewHtml || "<p><br></p>" }} />
+                  <br />
+                  <button type="button" disabled style={previewStyles.btn}>
+                    {previewBtnText}
+                  </button>
+                </div>
               </div>
             </div>
           </aside>

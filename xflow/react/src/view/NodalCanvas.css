@@ -249,14 +249,26 @@
 }
 
 .nodal-canvas-layout .nodal-popup-panel--msg-content {
-  max-width: min(920px, 96vw);
+  max-width: min(1280px, 98vw);
   width: 100%;
 }
 
 /* Spécificité > seul --hotspot-appearance : menus Quill non clipés, hauteur confortable */
 .nodal-canvas-layout .nodal-popup-panel--msg-content.nodal-popup-panel--hotspot-appearance {
-  overflow: visible;
-  max-height: min(94vh, 960px);
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  max-height: 90vh;
+}
+
+.nodal-canvas-layout .nodal-msg-preview-layout {
+  grid-template-columns: 1fr minmax(420px, 560px);
+  min-height: 0;
+}
+
+.nodal-canvas-layout .nodal-msg-preview-layout .nodal-general-preview-canvas {
+  height: clamp(300px, 58vh, 560px);
+  min-height: 300px;
 }
 
 /* Colonne gauche : Quill occupe l’espace vertical, libellé bouton en dessous sans chevauchement */
@@ -412,9 +424,18 @@
   align-items: stretch;
 }
 
+/* Override dédié popup msg (déclaré après la grille générique pour ne pas être écrasé). */
+.nodal-canvas-layout .nodal-general-layout.nodal-msg-preview-layout {
+  grid-template-columns: 1fr minmax(420px, 560px);
+}
+
 @media (max-width: 720px) {
   .nodal-canvas-layout .nodal-general-layout,
   .nodal-canvas-layout .nodal-ha-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nodal-canvas-layout .nodal-general-layout.nodal-msg-preview-layout {
     grid-template-columns: 1fr;
   }
 }
