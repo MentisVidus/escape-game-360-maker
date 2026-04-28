@@ -40,13 +40,17 @@ export function ActionNodeView({ id, data }: NodeProps) {
   const cs = nodeData.contextualState;
   const stateClass =
     showDetach ? "" : cs === 1 ? " action-node--orphan" : cs === 3 ? " action-node--choice" : "";
-  const textEditable = node.actionType === "msg" || node.actionType === "pick";
+  const textEditable = node.actionType === "msg" || node.actionType === "pick" || node.actionType === "goto";
 
   const openTextEditor = (e: MouseEvent<HTMLDivElement>) => {
     const t = e.target as HTMLElement;
     if (t.closest(".nodal-handle") || t.closest(".nodal-detach-btn")) return;
     if (node.actionType === "pick") {
       ui.openPickContentEditor(node.id as ActionNodeId);
+      return;
+    }
+    if (node.actionType === "goto") {
+      ui.openGotoContentEditor(node.id as ActionNodeId);
       return;
     }
     ui.openMsgContentEditor(node.id as ActionNodeId);
@@ -57,6 +61,10 @@ export function ActionNodeView({ id, data }: NodeProps) {
       e.preventDefault();
       if (node.actionType === "pick") {
         ui.openPickContentEditor(node.id as ActionNodeId);
+        return;
+      }
+      if (node.actionType === "goto") {
+        ui.openGotoContentEditor(node.id as ActionNodeId);
         return;
       }
       ui.openMsgContentEditor(node.id as ActionNodeId);
