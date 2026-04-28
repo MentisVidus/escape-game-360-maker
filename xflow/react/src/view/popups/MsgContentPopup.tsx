@@ -138,16 +138,16 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
 
         <div className="nodal-general-layout">
           <div className="nodal-general-main nodal-msg-popup-main">
-            <label className="nodal-popup-field nodal-msg-popup-body-field">
-              <span>{L.body}</span>
-              <div className="nodal-popup-quill wysiwyg-wrap nodal-msg-quill-wrap">
+            <div className="nodal-popup-field nodal-msg-popup-body-field">
+              <span id="msg-content-body-label">{L.body}</span>
+              <div className="nodal-popup-quill nodal-quill-theme wysiwyg-wrap nodal-msg-quill-wrap">
                 <div ref={hostRef} />
               </div>
-            </label>
-            <label className="nodal-popup-field nodal-msg-popup-btn-field">
+            </div>
+            <div className="nodal-popup-field nodal-msg-popup-btn-field">
               <span>{L.btn}</span>
-              <input type="text" value={buttonLabel} onChange={(e) => setButtonLabel(e.target.value)} />
-            </label>
+              <input aria-label={L.btn} type="text" value={buttonLabel} onChange={(e) => setButtonLabel(e.target.value)} />
+            </div>
           </div>
 
           <aside className="nodal-general-preview" aria-label={L.preview}>

@@ -20,6 +20,8 @@
 
 .nodal-popup-quill.wysiwyg-wrap {
   margin-bottom: 10px;
+  position: relative;
+  isolation: isolate;
 }
 
 .nodal-popup-quill.wysiwyg-wrap .ql-toolbar.ql-snow {
@@ -32,25 +34,26 @@
 
 .nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-stroke {
   stroke: var(--node-text);
-  opacity: 0.82;
+  opacity: 1;
 }
 
 .nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-fill {
   fill: var(--node-text);
-  opacity: 0.82;
+  opacity: 1;
 }
 
 .nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-label,
 .nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-item {
   color: var(--node-text) !important;
-  opacity: 0.88;
+  opacity: 1 !important;
 }
 
 .nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-options {
-  background-color: var(--palette-bg);
+  background-color: var(--palette-bg) !important;
   border: 1px solid var(--palette-border);
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
   color: var(--node-text) !important;
+  display: none !important;
   z-index: 30;
   max-height: 220px;
   overflow-y: auto;
@@ -62,6 +65,33 @@
 
 .nodal-popup-quill.wysiwyg-wrap .ql-tooltip {
   z-index: 50;
+}
+
+/* Empilement robuste : menus Quill au-dessus de la zone d'édition (header/font/size). */
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar.ql-snow {
+  overflow: visible;
+  position: relative;
+  z-index: 120;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker {
+  position: relative;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-options {
+  z-index: 140;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker.ql-expanded .ql-picker-options {
+  display: block !important;
+  top: 100%;
+}
+
+/* Quill Snow applique ses propres opacités sur le texte des menus via ::before. */
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-picker-label::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-picker-item::before {
+  opacity: 1 !important;
+  color: var(--node-text) !important;
 }
 
 /* Etats Quill Snow (hover/active/focus) : garde un contraste lisible avec les tokens du thème. */

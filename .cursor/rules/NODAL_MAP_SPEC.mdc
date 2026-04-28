@@ -1417,6 +1417,13 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [x] **C7.2-bis-02** : `PopupThemeCustomizationPopup` + aperçu `MsgContentPopup` alimentés par le store ; styles d’aperçu dérivés via `playerPopupPreviewFromTheme.ts` (aligné `generateGame` / sans perso).
 - [x] **C7.2-bis-03** : grille / colonne aperçu renommée **`nodal-general-*`** (CSS + `MsgContentPopup`, `PopupThemeCustomizationPopup`, `HotspotAppearancePopup`) ; alias CSS `nodal-ha-*` conservé pour compat.
 - [ ] **C7.2-bis-04** *(optionnel)* : pont explicite si le legacy appelle seulement `updatePreview()` sans événements `input` — garder le slice aligné sur le DOM dans ce cas.
+- [ ] **C7.3-QUILL-UX-01** *(durcissement)* : créer un mini wrapper thème Quill
+  (ex. `.nodal-quill-theme`) pour remplacer progressivement les surcharges
+  ponctuelles (`!important`) en clair/sombre, avec règles explicites sur
+  `ql-toolbar`, `ql-picker`, `ql-active`, `ql-expanded`, `ql-tooltip`.
+- [ ] **C7.3-QUILL-UX-02** *(durcissement)* : valider l’interaction des pickers
+  `header` / `font` / `size` (ouverture stable après mouseup, sélection au clic)
+  + test manuel clair/sombre ; éviter toute régression sur le picker alignement.
 
 *Phase B — persistance bundle / `project.json` (lot ultérieur ; pas de champs racine V2 dédiés aujourd’hui)* :
 
@@ -1460,6 +1467,15 @@ de l’eau.)*
 - 2026-04-27 — **Correctif `hexToRgba` / `hexToRgbaLo`** : le canal rouge à 0
   n’est plus remplacé par 255 (éviter l’opérateur « ou » JS sur un octet nul) ;
   tests Vitest `hexToRgba.test.ts` (aperçus cohérents avec `#000000`).
+- 2026-04-28 — **C7.2 (fix UX popup msg)** : correction layout (chevauchement
+  corps/libellé), clipping panneaux Quill, et lisibilité toolbar clair/sombre ;
+  durcissement restant planifié en **C7.3-QUILL-UX-01/02** (wrapper thème Quill).
+- 2026-04-28 — **C7.2 (fix interaction pickers Quill)** : cause racine trouvée
+  sur le marquage popup (`Quill` imbriqué dans un `label`) + fuite CSS
+  `.nodal-popup-field span` (opacité héritée par les spans internes Quill) ;
+  corrections : conteneur non-`label` pour Quill, scope CSS resserré
+  `.nodal-popup-field > span`, classe wrapper **`.nodal-quill-theme`** ajoutée
+  sur la popup message (base du durcissement C7.3).
 
 ---
 

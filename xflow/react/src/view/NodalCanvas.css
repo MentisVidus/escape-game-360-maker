@@ -217,7 +217,7 @@
   margin-bottom: 10px;
 }
 
-.nodal-canvas-layout .nodal-popup-field span {
+.nodal-canvas-layout .nodal-popup-field > span {
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
