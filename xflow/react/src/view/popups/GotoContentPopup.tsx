@@ -22,6 +22,7 @@ const LABELS: Record<
   Locale,
   {
     title: string;
+    nodeLabel: string;
     body: string;
     btn: string;
     preview: string;
@@ -33,6 +34,7 @@ const LABELS: Record<
 > = {
   fr: {
     title: "Goto — contenu",
+    nodeLabel: "Titre du node",
     body: "Texte de transition (riche)",
     btn: "Libellé du bouton",
     preview: "Aperçu (popup joueur)",
@@ -43,6 +45,7 @@ const LABELS: Record<
   },
   en: {
     title: "Goto — content",
+    nodeLabel: "Node title",
     body: "Transition text (rich)",
     btn: "Button label",
     preview: "Preview (player popup)",
@@ -62,7 +65,7 @@ function detectLocale(): Locale {
 type Props = {
   store: StoreApi<NodalProjectStore>;
   action: GotoActionNode | null;
-  onSave: (copy: CopyPayload) => void;
+  onSave: (payload: { label: string; copy: CopyPayload }) => void;
   onClose: () => void;
 };
 
@@ -73,6 +76,7 @@ export function GotoContentPopup({ store, action, onSave, onClose }: Props) {
   const previewStyles = useMemo(() => playerPopupThemeToMsgPreviewChrome(popupTheme), [popupTheme]);
 
   const [buttonLabel, setButtonLabel] = useState("");
+  const [nodeLabel, setNodeLabel] = useState("");
   const [previewHtml, setPreviewHtml] = useState("");
   const hostRef = useRef<HTMLDivElement | null>(null);
   const quillRef = useRef<NodalQuillInstance | null>(null);
@@ -80,9 +84,11 @@ export function GotoContentPopup({ store, action, onSave, onClose }: Props) {
   useEffect(() => {
     if (!action) {
       setButtonLabel("");
+      setNodeLabel("");
       quillRef.current = null;
       return;
     }
+    setNodeLabel(String(action.label ?? ""));
     setButtonLabel(String(action.payload?.copy?.buttonLabel ?? ""));
   }, [action?.id]);
 
@@ -119,8 +125,11 @@ export function GotoContentPopup({ store, action, onSave, onClose }: Props) {
 
   const handleSave = () => {
     onSave({
-      bodyHtml: quillRef.current?.root.innerHTML ?? "",
-      buttonLabel: buttonLabel.trim(),
+      label: nodeLabel.trim(),
+      copy: {
+        bodyHtml: quillRef.current?.root.innerHTML ?? "",
+        buttonLabel: buttonLabel.trim(),
+      },
     });
     onClose();
   };
@@ -130,6 +139,10 @@ export function GotoContentPopup({ store, action, onSave, onClose }: Props) {
       <div className="nodal-popup-backdrop" onClick={onClose} />
       <div className="nodal-popup-panel nodal-popup-panel--msg-content nodal-popup-panel--hotspot-appearance">
         <h2 id="goto-content-editor-title">{L.title}</h2>
+        <div className="nodal-popup-field nodal-msg-popup-btn-field">
+          <span>{L.nodeLabel}</span>
+          <input aria-label={L.nodeLabel} type="text" value={nodeLabel} onChange={(e) => setNodeLabel(e.target.value)} />
+        </div>
         <p className="nodal-popup-hint">{L.hint}</p>
 
         <div className="nodal-general-layout nodal-msg-preview-layout">

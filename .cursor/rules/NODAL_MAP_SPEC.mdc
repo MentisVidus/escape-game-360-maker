@@ -1445,6 +1445,7 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [x] **C7.3-03 `req`** : popup message KO `payload.copy.bodyHtml` (optionnel) ; fallback si vide = « Il vous manque quelque chose... » ; hors périmètre : `payload.rewardAction` (nœud enfant), `payload.itemId` (satellite objet).
 - [x] **C7.3-04 `pwd`** : popup `payload.copy.bodyHtml` (énigme, optionnel ; fallback « Code : ») + `payload.answer` (obligatoire) ; aperçu = chrome popup joueur + champ réponse ; hors périmètre : `payload.rewardAction` (nœud enfant), `payload.itemId` (satellite objet).
 - [x] **C7.3-05 `selector`** : popup `payload.nested.title`, `payload.nested.copy.bodyHtml` (optionnels), `payload.nested.displayMode` (obligatoire, défaut `buttons`) ; aperçu joueur avec boutons/dropdown. Découpage : (A) placeholders **livré**, (B) remontée des labels des enfants directs dans l’ordre nodal **livrée**.
+- [x] **C7.3-05-C** : édition des labels nodaux : champ `label` dans les popups d’actions + édition inline du titre des scènes (`div.title`) pour améliorer le repérage et les libellés selector.
 - [ ] **C7.3-06** : harmoniser les aperçus via helpers dédiés (pattern C7.2 `playerPopupPreviewFromTheme`) + scroll interne runtime-like sur contenu long.
 - [ ] **C7.3-07** : validations UX à figer par action (erreurs bloquantes / warnings non bloquants), puis smoke clair/sombre (Quill, pickers, scroll, régression layout/actions).
 
@@ -1540,6 +1541,10 @@ de l’eau.)*
   l’aperçu lit désormais les enfants directs du nœud `selector` depuis le store
   (priorité `layout.parentId`, fallback edges `flow` legacy), triés par ordre
   nodal (Y puis id), et affiche leurs labels réels en mode boutons/dropdown.
+- 2026-04-28 — **C7.3-05-C (édition labels nodaux)** : ajout d’un champ
+  `label` dans les popups d’actions (`msg/pick/goto/req/pwd/selector`) pour
+  renommer directement le titre en gras des nœuds ; côté scènes, clic sur node
+  -> édition inline du titre (Enter/blur valide, Escape annule).
 
 ---
 

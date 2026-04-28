@@ -22,6 +22,7 @@ const LABELS: Record<
   Locale,
   {
     title: string;
+    nodeLabel: string;
     body: string;
     preview: string;
     fallback: string;
@@ -33,6 +34,7 @@ const LABELS: Record<
 > = {
   fr: {
     title: "Pick — contenu",
+    nodeLabel: "Titre du node",
     body: "Texte narratif",
     preview: "Aperçu (popup joueur)",
     fallback: "Vous trouvez quelque chose...",
@@ -43,6 +45,7 @@ const LABELS: Record<
   },
   en: {
     title: "Pick — content",
+    nodeLabel: "Node title",
     body: "Narrative text",
     preview: "Preview (player popup)",
     fallback: "You find something...",
@@ -62,7 +65,7 @@ function detectLocale(): Locale {
 type Props = {
   store: StoreApi<NodalProjectStore>;
   action: PickActionNode | null;
-  onSave: (copy: CopyPayload) => void;
+  onSave: (payload: { label: string; copy: CopyPayload }) => void;
   onClose: () => void;
 };
 
@@ -78,14 +81,17 @@ export function PickContentPopup({ store, action, onSave, onClose }: Props) {
   const previewStyles = useMemo(() => playerPopupThemeToMsgPreviewChrome(popupTheme), [popupTheme]);
 
   const [previewHtml, setPreviewHtml] = useState("");
+  const [nodeLabel, setNodeLabel] = useState("");
   const hostRef = useRef<HTMLDivElement | null>(null);
   const quillRef = useRef<NodalQuillInstance | null>(null);
 
   useEffect(() => {
     if (!action) {
+      setNodeLabel("");
       quillRef.current = null;
       return;
     }
+    setNodeLabel(String(action.label ?? ""));
     const el = hostRef.current;
     if (!el) return;
 
@@ -116,8 +122,11 @@ export function PickContentPopup({ store, action, onSave, onClose }: Props) {
   const handleSave = () => {
     const html = quillRef.current?.root.innerHTML ?? "";
     onSave({
-      bodyHtml: html,
-      buttonLabel: action.payload.copy.buttonLabel ?? "",
+      label: nodeLabel.trim(),
+      copy: {
+        bodyHtml: html,
+        buttonLabel: action.payload.copy.buttonLabel ?? "",
+      },
     });
     onClose();
   };
@@ -129,6 +138,10 @@ export function PickContentPopup({ store, action, onSave, onClose }: Props) {
       <div className="nodal-popup-backdrop" onClick={onClose} />
       <div className="nodal-popup-panel nodal-popup-panel--msg-content nodal-popup-panel--hotspot-appearance">
         <h2 id="pick-content-editor-title">{L.title}</h2>
+        <div className="nodal-popup-field nodal-msg-popup-btn-field">
+          <span>{L.nodeLabel}</span>
+          <input aria-label={L.nodeLabel} type="text" value={nodeLabel} onChange={(e) => setNodeLabel(e.target.value)} />
+        </div>
         <p className="nodal-popup-hint">{L.hint}</p>
 
         <div className="nodal-general-layout nodal-msg-preview-layout">

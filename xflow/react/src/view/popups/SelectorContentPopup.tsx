@@ -23,6 +23,7 @@ const LABELS: Record<
   Locale,
   {
     title: string;
+    nodeLabel: string;
     nestedTitle: string;
     body: string;
     displayMode: string;
@@ -39,6 +40,7 @@ const LABELS: Record<
 > = {
   fr: {
     title: "Selector — contenu",
+    nodeLabel: "Titre du node",
     nestedTitle: "Titre du menu",
     body: "Texte introductif (riche)",
     displayMode: "Mode d'affichage",
@@ -54,6 +56,7 @@ const LABELS: Record<
   },
   en: {
     title: "Selector — content",
+    nodeLabel: "Node title",
     nestedTitle: "Menu title",
     body: "Intro text (rich)",
     displayMode: "Display mode",
@@ -78,7 +81,7 @@ function detectLocale(): Locale {
 type Props = {
   store: StoreApi<NodalProjectStore>;
   action: SelectorActionNode | null;
-  onSave: (patch: { title: string; bodyHtml: string; displayMode: DisplayMode }) => void;
+  onSave: (patch: { label: string; title: string; bodyHtml: string; displayMode: DisplayMode }) => void;
   onClose: () => void;
 };
 
@@ -90,6 +93,7 @@ export function SelectorContentPopup({ store, action, onSave, onClose }: Props) 
   const previewStyles = useMemo(() => playerPopupThemeToMsgPreviewChrome(popupTheme), [popupTheme]);
 
   const [title, setTitle] = useState("");
+  const [nodeLabel, setNodeLabel] = useState("");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("buttons");
   const [previewHtml, setPreviewHtml] = useState("");
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -97,11 +101,13 @@ export function SelectorContentPopup({ store, action, onSave, onClose }: Props) 
 
   useEffect(() => {
     if (!action) {
+      setNodeLabel("");
       setTitle("");
       setDisplayMode("buttons");
       quillRef.current = null;
       return;
     }
+    setNodeLabel(String(action.label ?? ""));
     setTitle(String(action.payload?.nested?.title ?? ""));
     setDisplayMode(action.payload?.nested?.displayMode === "dropdown" ? "dropdown" : "buttons");
   }, [action?.id]);
@@ -157,6 +163,7 @@ export function SelectorContentPopup({ store, action, onSave, onClose }: Props) 
 
   const handleSave = () => {
     onSave({
+      label: nodeLabel.trim(),
       title: title.trim(),
       bodyHtml: quillRef.current?.root.innerHTML ?? "",
       displayMode,
@@ -171,6 +178,10 @@ export function SelectorContentPopup({ store, action, onSave, onClose }: Props) 
       <div className="nodal-popup-backdrop" onClick={onClose} />
       <div className="nodal-popup-panel nodal-popup-panel--msg-content nodal-popup-panel--hotspot-appearance">
         <h2 id="selector-content-editor-title">{L.title}</h2>
+        <div className="nodal-popup-field nodal-msg-popup-btn-field">
+          <span>{L.nodeLabel}</span>
+          <input aria-label={L.nodeLabel} type="text" value={nodeLabel} onChange={(e) => setNodeLabel(e.target.value)} />
+        </div>
         <p className="nodal-popup-hint">{L.hint}</p>
 
         <div className="nodal-general-layout nodal-msg-preview-layout">

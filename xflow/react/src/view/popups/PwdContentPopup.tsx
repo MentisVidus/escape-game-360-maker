@@ -22,6 +22,7 @@ const LABELS: Record<
   Locale,
   {
     title: string;
+    nodeLabel: string;
     body: string;
     answer: string;
     answerRequired: string;
@@ -35,6 +36,7 @@ const LABELS: Record<
 > = {
   fr: {
     title: "Pwd — contenu",
+    nodeLabel: "Titre du node",
     body: "Texte de l’énigme (riche)",
     answer: "Réponse attendue",
     answerRequired: "La réponse est obligatoire.",
@@ -47,6 +49,7 @@ const LABELS: Record<
   },
   en: {
     title: "Pwd — content",
+    nodeLabel: "Node title",
     body: "Riddle text (rich)",
     answer: "Expected answer",
     answerRequired: "Answer is required.",
@@ -73,7 +76,7 @@ function isQuillHtmlEmpty(html: string): boolean {
 type Props = {
   store: StoreApi<NodalProjectStore>;
   action: PwdActionNode | null;
-  onSave: (payload: { bodyHtml: string; answer: string }) => void;
+  onSave: (payload: { label: string; bodyHtml: string; answer: string }) => void;
   onClose: () => void;
 };
 
@@ -84,6 +87,7 @@ export function PwdContentPopup({ store, action, onSave, onClose }: Props) {
   const previewStyles = useMemo(() => playerPopupThemeToMsgPreviewChrome(popupTheme), [popupTheme]);
 
   const [answer, setAnswer] = useState("");
+  const [nodeLabel, setNodeLabel] = useState("");
   const [previewHtml, setPreviewHtml] = useState("");
   const hostRef = useRef<HTMLDivElement | null>(null);
   const quillRef = useRef<NodalQuillInstance | null>(null);
@@ -91,9 +95,11 @@ export function PwdContentPopup({ store, action, onSave, onClose }: Props) {
   useEffect(() => {
     if (!action) {
       setAnswer("");
+      setNodeLabel("");
       quillRef.current = null;
       return;
     }
+    setNodeLabel(String(action.label ?? ""));
     setAnswer(String(action.payload?.answer ?? ""));
   }, [action?.id]);
 
@@ -133,6 +139,7 @@ export function PwdContentPopup({ store, action, onSave, onClose }: Props) {
   const handleSave = () => {
     if (!canSave) return;
     onSave({
+      label: nodeLabel.trim(),
       bodyHtml: quillRef.current?.root.innerHTML ?? "",
       answer: answerTrimmed,
     });
@@ -144,6 +151,10 @@ export function PwdContentPopup({ store, action, onSave, onClose }: Props) {
       <div className="nodal-popup-backdrop" onClick={onClose} />
       <div className="nodal-popup-panel nodal-popup-panel--msg-content nodal-popup-panel--hotspot-appearance">
         <h2 id="pwd-content-editor-title">{L.title}</h2>
+        <div className="nodal-popup-field nodal-msg-popup-btn-field">
+          <span>{L.nodeLabel}</span>
+          <input aria-label={L.nodeLabel} type="text" value={nodeLabel} onChange={(e) => setNodeLabel(e.target.value)} />
+        </div>
         <p className="nodal-popup-hint">{L.hint}</p>
 
         <div className="nodal-general-layout nodal-msg-preview-layout">

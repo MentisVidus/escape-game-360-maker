@@ -691,9 +691,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <MsgContentPopup
           store={store}
           action={msgToEdit}
-          onSave={(copy) => {
+          onSave={({ label, copy }) => {
             if (!msgEditorActionId) return;
             store.getState().updateNodeData(msgEditorActionId, {
+              label,
               payload: { copy },
             } as never);
           }}
@@ -702,12 +703,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <PickContentPopup
           store={store}
           action={pickToEdit}
-          onSave={(copy) => {
+          onSave={({ label, copy }) => {
             if (!pickEditorActionId) return;
             const snap = store.getState();
             const cur = snap.actions[pickEditorActionId];
             if (!cur || cur.actionType !== "pick") return;
             snap.updateNodeData(pickEditorActionId, {
+              label,
               payload: { ...cur.payload, copy },
             } as never);
           }}
@@ -716,12 +718,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <GotoContentPopup
           store={store}
           action={gotoToEdit}
-          onSave={(copy) => {
+          onSave={({ label, copy }) => {
             if (!gotoEditorActionId) return;
             const snap = store.getState();
             const cur = snap.actions[gotoEditorActionId];
             if (!cur || cur.actionType !== "goto") return;
             snap.updateNodeData(gotoEditorActionId, {
+              label,
               payload: { ...cur.payload, copy },
             } as never);
           }}
@@ -730,12 +733,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <ReqContentPopup
           store={store}
           action={reqToEdit}
-          onSave={(copy) => {
+          onSave={({ label, copy }) => {
             if (!reqEditorActionId) return;
             const snap = store.getState();
             const cur = snap.actions[reqEditorActionId];
             if (!cur || cur.actionType !== "req") return;
             snap.updateNodeData(reqEditorActionId, {
+              label,
               payload: { ...cur.payload, copy },
             } as never);
           }}
@@ -744,12 +748,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <PwdContentPopup
           store={store}
           action={pwdToEdit}
-          onSave={({ bodyHtml, answer }) => {
+          onSave={({ label, bodyHtml, answer }) => {
             if (!pwdEditorActionId) return;
             const snap = store.getState();
             const cur = snap.actions[pwdEditorActionId];
             if (!cur || cur.actionType !== "pwd") return;
             snap.updateNodeData(pwdEditorActionId, {
+              label,
               payload: { ...cur.payload, copy: { ...cur.payload.copy, bodyHtml }, answer },
             } as never);
           }}
@@ -758,12 +763,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <SelectorContentPopup
           store={store}
           action={selectorToEdit}
-          onSave={({ title, bodyHtml, displayMode }) => {
+          onSave={({ label, title, bodyHtml, displayMode }) => {
             if (!selectorEditorActionId) return;
             const snap = store.getState();
             const cur = snap.actions[selectorEditorActionId];
             if (!cur || cur.actionType !== "selector") return;
             snap.updateNodeData(selectorEditorActionId, {
+              label,
               payload: {
                 ...cur.payload,
                 nested: {
