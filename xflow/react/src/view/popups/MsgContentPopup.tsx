@@ -137,14 +137,14 @@ export function MsgContentPopup({ store, action, onSave, onClose }: Props) {
         <p className="nodal-popup-hint">{L.hint}</p>
 
         <div className="nodal-general-layout">
-          <div className="nodal-general-main">
-            <label className="nodal-popup-field">
+          <div className="nodal-general-main nodal-msg-popup-main">
+            <label className="nodal-popup-field nodal-msg-popup-body-field">
               <span>{L.body}</span>
-              <div className="nodal-popup-quill wysiwyg-wrap">
+              <div className="nodal-popup-quill wysiwyg-wrap nodal-msg-quill-wrap">
                 <div ref={hostRef} />
               </div>
             </label>
-            <label className="nodal-popup-field">
+            <label className="nodal-popup-field nodal-msg-popup-btn-field">
               <span>{L.btn}</span>
               <input type="text" value={buttonLabel} onChange={(e) => setButtonLabel(e.target.value)} />
             </label>

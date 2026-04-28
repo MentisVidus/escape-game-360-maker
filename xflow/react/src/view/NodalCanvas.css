@@ -253,6 +253,58 @@
   width: 100%;
 }
 
+/* Spécificité > seul --hotspot-appearance : menus Quill non clipés, hauteur confortable */
+.nodal-canvas-layout .nodal-popup-panel--msg-content.nodal-popup-panel--hotspot-appearance {
+  overflow: visible;
+  max-height: min(94vh, 960px);
+}
+
+/* Colonne gauche : Quill occupe l’espace vertical, libellé bouton en dessous sans chevauchement */
+.nodal-canvas-layout .nodal-msg-popup-main {
+  min-height: 0;
+  gap: 14px;
+}
+
+.nodal-canvas-layout .nodal-msg-popup-body-field {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.nodal-canvas-layout .nodal-msg-popup-btn-field {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  margin-top: 2px;
+}
+
+/* Zone Quill : flex pour hauteur bornée + scroll dans l’éditeur uniquement */
+.nodal-canvas-layout .nodal-msg-quill-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(52vh, 520px);
+  position: relative;
+  z-index: 2;
+}
+
+.nodal-canvas-layout .nodal-msg-quill-wrap .ql-toolbar.ql-snow {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+}
+
+.nodal-canvas-layout .nodal-msg-quill-wrap .ql-container.ql-snow {
+  flex: 1 1 auto;
+  min-height: 140px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  z-index: 1;
+}
+
 /* Aperçu message : même gabarit visuel que la popup joueur (contenu .play-html-rich) */
 .nodal-canvas-layout .nodal-msg-preview-chrome .play-html-rich {
   text-align: left;

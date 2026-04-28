@@ -25,12 +25,43 @@
 .nodal-popup-quill.wysiwyg-wrap .ql-toolbar.ql-snow {
   border-radius: 6px 6px 0 0;
   border-color: var(--palette-button-border);
-  background: #f5f5f5;
+  /* Aligne la toolbar avec les tokens clair/sombre de la carte nodale. */
+  background: var(--palette-button-bg);
+  color: var(--node-text);
 }
 
-.nodal-canvas-layout.dark-mode .nodal-popup-quill.wysiwyg-wrap .ql-toolbar.ql-snow {
-  background: #1e293b;
-  border-color: var(--palette-button-border);
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-stroke {
+  stroke: var(--node-text);
+  opacity: 0.82;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-fill {
+  fill: var(--node-text);
+  opacity: 0.82;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-label,
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-item {
+  color: var(--node-text);
+  opacity: 0.88;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-options {
+  background-color: var(--palette-bg);
+  border: 1px solid var(--palette-border);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+  color: var(--node-text);
+  z-index: 30;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker.ql-expanded {
+  z-index: 35;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-tooltip {
+  z-index: 50;
 }
 
 .nodal-popup-quill.wysiwyg-wrap .ql-container.ql-snow {
@@ -45,6 +76,11 @@
   min-height: 200px;
   background: var(--palette-button-bg) !important;
   color: var(--node-text) !important;
+}
+
+/* Popup message : hauteur gérée par le flex parent (scroll dans .ql-container) */
+.nodal-msg-quill-wrap .ql-editor {
+  min-height: 120px !important;
 }
 
 .nodal-popup-quill.wysiwyg-wrap .ql-editor.ql-blank::before {
