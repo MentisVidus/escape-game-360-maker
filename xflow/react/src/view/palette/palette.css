@@ -1,9 +1,77 @@
 .nodal-palette {
+  display: flex;
+  flex-direction: column;
   width: 220px;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
   border-right: 1px solid var(--palette-border);
   background: var(--palette-bg);
   padding: 10px;
   overflow: auto;
+  box-sizing: border-box;
+}
+
+.nodal-palette-gear {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px 10px;
+  border: 1px solid var(--palette-button-border);
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--palette-button-bg) 0%, color-mix(in srgb, var(--palette-button-hover) 70%, var(--palette-button-bg)) 100%);
+  font-weight: 700;
+  text-align: left;
+}
+
+.nodal-palette-gear-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.nodal-palette-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--palette-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nodal-palette-btn-primary {
+  font-weight: 700 !important;
+  border-color: var(--node-selected-outline) !important;
+  background: color-mix(in srgb, var(--node-selected-outline) 18%, var(--palette-button-bg)) !important;
+}
+
+.nodal-palette-btn-secondary {
+  opacity: 0.95;
+  font-size: 11px !important;
+}
+
+.nodal-palette-advanced {
+  margin: 0;
+  padding: 4px 0 2px;
+  font-size: 11px;
+  color: var(--palette-heading);
+  opacity: 0.85;
+}
+
+.nodal-palette-advanced summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.nodal-palette-advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.nodal-palette-advanced[open] summary {
+  margin-bottom: 4px;
 }
 
 .nodal-palette h3 {

@@ -71,7 +71,8 @@
                 "#local-draft-dock .dock-map-view-btn{background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer}" +
                 "#local-draft-dock .dock-map-view-btn.is-active{background:#2563eb}" +
                 "#local-draft-dock .dock-map-close-btn{background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer}" +
-                "#local-draft-dock .dock-map-close-btn.is-open{background:#dc2626}";
+                "#local-draft-dock .dock-map-close-btn.is-open{background:#dc2626}" +
+                "body.escape360-nodal-map-ro #local-draft-dock{display:none!important}";
             doc.head.appendChild(st);
         }
 

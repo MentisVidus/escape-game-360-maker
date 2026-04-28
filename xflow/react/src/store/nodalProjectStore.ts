@@ -17,12 +17,22 @@ import { applyHydratedLayout, type MapLayoutJson } from "../serialize/mapLayoutJ
 import { applyMetaMediaLinks, applyNodalAutoSatelliteData } from "../serialize/nodalMapExtras";
 import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
 import type { ProjectJsonV2 } from "../serialize/toProjectJson";
+import {
+  DEFAULT_PLAYER_POPUP_THEME,
+  readPlayerPopupFieldsFromDom,
+  type PlayerPopupTheme,
+} from "../view/popups/playerPopupDomRead";
 import { computeWarnings, type Warning } from "./computeWarnings";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 
 type NodePatch = Partial<ActionNode | SceneNode | SatelliteNode | MediaNode>;
 
 export type NodalProjectStore = NodalProject & {
+  /** Thème des popups joueur — vérité UI nodale (C7.2-bis) ; persistance bundle = lot ultérieur. */
+  playerPopupTheme: PlayerPopupTheme;
+  setPlayerPopupTheme: (patch: Partial<PlayerPopupTheme>) => void;
+  /** Réaligne depuis le formulaire vanilla (après chargement projet / édition legacy). */
+  syncPlayerPopupThemeFromDom: () => void;
   warnings: Warning[];
   addScene: (node: SceneNode, layout?: Partial<NodeLayout>) => void;
   addAction: (node: ActionNode, layout?: Partial<NodeLayout>) => void;
@@ -174,7 +184,26 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
 
     return createStore<NodalProjectStore>((set, get) => ({
     ...createEmptyProject(),
+    playerPopupTheme: { ...DEFAULT_PLAYER_POPUP_THEME },
     warnings: [],
+
+    setPlayerPopupTheme: (patch) => {
+      set((state) =>
+        withWarnings({
+          ...state,
+          playerPopupTheme: { ...state.playerPopupTheme, ...patch },
+        })
+      );
+    },
+
+    syncPlayerPopupThemeFromDom: () => {
+      set((state) =>
+        withWarnings({
+          ...state,
+          playerPopupTheme: readPlayerPopupFieldsFromDom(),
+        })
+      );
+    },
 
     addScene: (node, layout) => {
       const state = get();
@@ -482,7 +511,8 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       reconcileAutoSatellites(next, nextAutoId);
       applyNodalAutoSatelliteData(next, layoutJson.nodalAutoSatelliteData);
       applyMetaMediaLinks(next, layoutJson.nodalMetaMediaLinks);
-      set(withWarnings(next));
+      const playerPopupTheme = readPlayerPopupFieldsFromDom();
+      set(withWarnings({ ...next, playerPopupTheme }));
     },
   }));
   };

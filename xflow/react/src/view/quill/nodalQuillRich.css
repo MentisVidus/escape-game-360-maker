@@ -1,0 +1,278 @@
+/**
+ * Quill popup message — polices / tailles / pickers alignés sur `css/editor.css`
+ * (champs .wysiwyg-wrap legacy), scoping visuel sous .nodal-popup-quill.
+ */
+.ql-font-arial {
+  font-family: Arial, Helvetica, sans-serif;
+}
+.ql-font-courier {
+  font-family: "Courier New", Courier, monospace;
+}
+.ql-font-times {
+  font-family: "Times New Roman", Times, serif;
+}
+.ql-font-impact {
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", fantasy;
+}
+.ql-font-comic {
+  font-family: "Comic Sans MS", "Comic Sans", cursive, sans-serif;
+}
+
+.nodal-popup-quill.wysiwyg-wrap {
+  margin-bottom: 10px;
+  position: relative;
+  isolation: isolate;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar.ql-snow {
+  border-radius: 6px 6px 0 0;
+  border-color: var(--palette-button-border);
+  /* Aligne la toolbar avec les tokens clair/sombre de la carte nodale. */
+  background: var(--palette-button-bg) !important;
+  color: var(--node-text) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-stroke {
+  stroke: var(--node-text);
+  opacity: 1;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-fill {
+  fill: var(--node-text);
+  opacity: 1;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-label,
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-item {
+  color: var(--node-text) !important;
+  opacity: 1 !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-options {
+  background-color: var(--palette-bg) !important;
+  border: 1px solid var(--palette-border);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+  color: var(--node-text) !important;
+  display: none !important;
+  z-index: 30;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker.ql-expanded {
+  z-index: 35;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-tooltip {
+  z-index: 50;
+}
+
+/* Empilement robuste : menus Quill au-dessus de la zone d'édition (header/font/size). */
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar.ql-snow {
+  overflow: visible;
+  position: relative;
+  z-index: 120;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker {
+  position: relative;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker-options {
+  z-index: 140;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-toolbar .ql-picker.ql-expanded .ql-picker-options {
+  display: block !important;
+  top: 100%;
+}
+
+/* Quill Snow applique ses propres opacités sur le texte des menus via ::before. */
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-picker-label::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-picker-item::before {
+  opacity: 1 !important;
+  color: var(--node-text) !important;
+}
+
+/* Etats Quill Snow (hover/active/focus) : garde un contraste lisible avec les tokens du thème. */
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:focus,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:focus,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button.ql-active,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button.ql-active,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label.ql-active,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label.ql-active,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-item:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-item:hover,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-item.ql-selected,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-item.ql-selected {
+  color: var(--node-selected-outline) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:hover .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:hover .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:focus .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:focus .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button.ql-active .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button.ql-active .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label:hover .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label:hover .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label.ql-active .ql-stroke,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label.ql-active .ql-stroke {
+  stroke: var(--node-selected-outline) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:hover .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:hover .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button:focus .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button:focus .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar button.ql-active .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar button.ql-active .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label:hover .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label:hover .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow.ql-toolbar .ql-picker-label.ql-active .ql-fill,
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-toolbar .ql-picker-label.ql-active .ql-fill {
+  fill: var(--node-selected-outline) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-picker-options .ql-picker-item {
+  color: var(--node-text) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-snow .ql-picker.ql-expanded .ql-picker-label {
+  border-color: var(--palette-button-border) !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-container.ql-snow {
+  border-radius: 0 0 6px 6px;
+  border-color: var(--palette-button-border);
+  font-size: 14px;
+  min-height: 200px;
+  background: var(--palette-button-bg);
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-editor {
+  min-height: 200px;
+  background: var(--palette-button-bg) !important;
+  color: var(--node-text) !important;
+}
+
+/* Popup message : hauteur gérée par le flex parent (scroll dans .ql-container) */
+.nodal-msg-quill-wrap .ql-editor {
+  min-height: 120px !important;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-editor.ql-blank::before {
+  color: var(--node-text);
+  opacity: 0.5;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-editor .ql-size-small {
+  font-size: 0.85em;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-editor .ql-size-large {
+  font-size: 1.5em;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-editor .ql-size-huge {
+  font-size: 2em;
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font {
+  width: 148px;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item::before {
+  content: none;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before {
+  content: "Arial";
+  font-family: Arial, Helvetica, sans-serif;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="courier"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="courier"]::before {
+  content: "Courier New";
+  font-family: "Courier New", Courier, monospace;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="times"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="times"]::before {
+  content: "Times New Roman";
+  font-family: "Times New Roman", Times, serif;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="impact"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="impact"]::before {
+  content: "Impact";
+  font-family: Impact, Haettenschweiler, fantasy;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="comic"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="comic"]::before {
+  content: "Comic Sans MS";
+  font-family: "Comic Sans MS", cursive, sans-serif;
+}
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="false"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="false"]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value=""]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value=""]::before,
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label:not([data-value])::before {
+  content: "Défaut";
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value="false"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value="false"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label[data-value=""]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-item[data-value=""]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-font .ql-picker-label:not([data-value])::before {
+  content: "Default";
+}
+
+.nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size {
+  width: 92px;
+}
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item::before {
+  content: none;
+}
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="small"]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="small"]::before {
+  content: "Petit";
+}
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="large"]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="large"]::before {
+  content: "Grand";
+}
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="huge"]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="huge"]::before {
+  content: "Très grand";
+}
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="false"]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="false"]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value=""]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value=""]::before,
+html[lang="fr"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label:not([data-value])::before {
+  content: "Normal";
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item::before {
+  content: none;
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="small"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="small"]::before {
+  content: "Small";
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="large"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="large"]::before {
+  content: "Large";
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="huge"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="huge"]::before {
+  content: "Huge";
+}
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value="false"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value="false"]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label[data-value=""]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-item[data-value=""]::before,
+html[lang="en"] .nodal-popup-quill.wysiwyg-wrap .ql-picker.ql-size .ql-picker-label:not([data-value])::before {
+  content: "Normal";
+}

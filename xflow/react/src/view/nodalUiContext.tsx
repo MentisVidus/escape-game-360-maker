@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import type { MediaNodeId, SatelliteNodeId } from "../model/ids";
+import type { ActionNodeId, MediaNodeId, SatelliteNodeId } from "../model/ids";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
 
 export type NodalUiContextValue = {
@@ -14,6 +14,14 @@ export type NodalUiContextValue = {
   setChoiceEditorSatelliteId: (id: SatelliteNodeId | null) => void;
   mediaEditorMediaId: MediaNodeId | null;
   setMediaEditorMediaId: (id: MediaNodeId | null) => void;
+  msgEditorActionId: ActionNodeId | null;
+  setMsgEditorActionId: (id: ActionNodeId | null) => void;
+  /** Ouvre l’éditeur de contenu message et ferme les autres popups carte. */
+  openMsgContentEditor: (id: ActionNodeId) => void;
+  globalSettingsHubOpen: boolean;
+  setGlobalSettingsHubOpen: (open: boolean) => void;
+  popupThemeCustomizationOpen: boolean;
+  setPopupThemeCustomizationOpen: (open: boolean) => void;
 };
 
 export const NodalUiContext = createContext<NodalUiContextValue | null>(null);
