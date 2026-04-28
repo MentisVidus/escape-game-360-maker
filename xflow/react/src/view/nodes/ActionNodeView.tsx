@@ -45,7 +45,8 @@ export function ActionNodeView({ id, data }: NodeProps) {
     node.actionType === "pick" ||
     node.actionType === "goto" ||
     node.actionType === "req" ||
-    node.actionType === "pwd";
+    node.actionType === "pwd" ||
+    node.actionType === "selector";
 
   const openTextEditor = (e: MouseEvent<HTMLDivElement>) => {
     const t = e.target as HTMLElement;
@@ -64,6 +65,10 @@ export function ActionNodeView({ id, data }: NodeProps) {
     }
     if (node.actionType === "pwd") {
       ui.openPwdContentEditor(node.id as ActionNodeId);
+      return;
+    }
+    if (node.actionType === "selector") {
+      ui.openSelectorContentEditor(node.id as ActionNodeId);
       return;
     }
     ui.openMsgContentEditor(node.id as ActionNodeId);
@@ -86,6 +91,10 @@ export function ActionNodeView({ id, data }: NodeProps) {
       }
       if (node.actionType === "pwd") {
         ui.openPwdContentEditor(node.id as ActionNodeId);
+        return;
+      }
+      if (node.actionType === "selector") {
+        ui.openSelectorContentEditor(node.id as ActionNodeId);
         return;
       }
       ui.openMsgContentEditor(node.id as ActionNodeId);

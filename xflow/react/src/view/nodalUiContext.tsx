@@ -34,6 +34,10 @@ export type NodalUiContextValue = {
   setPwdEditorActionId: (id: ActionNodeId | null) => void;
   /** Ouvre l’éditeur de contenu pwd et ferme les autres popups carte. */
   openPwdContentEditor: (id: ActionNodeId) => void;
+  selectorEditorActionId: ActionNodeId | null;
+  setSelectorEditorActionId: (id: ActionNodeId | null) => void;
+  /** Ouvre l’éditeur de contenu selector et ferme les autres popups carte. */
+  openSelectorContentEditor: (id: ActionNodeId) => void;
   globalSettingsHubOpen: boolean;
   setGlobalSettingsHubOpen: (open: boolean) => void;
   popupThemeCustomizationOpen: boolean;

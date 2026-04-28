@@ -39,6 +39,7 @@ import type {
   PickActionNode,
   PwdActionNode,
   ReqActionNode,
+  SelectorActionNode,
   ObjectSatelliteNode,
 } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
@@ -70,6 +71,7 @@ import { PickContentPopup } from "./popups/PickContentPopup";
 import { GotoContentPopup } from "./popups/GotoContentPopup";
 import { ReqContentPopup } from "./popups/ReqContentPopup";
 import { PwdContentPopup } from "./popups/PwdContentPopup";
+import { SelectorContentPopup } from "./popups/SelectorContentPopup";
 import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
 import { PopupThemeCustomizationPopup } from "./popups/PopupThemeCustomizationPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
@@ -103,6 +105,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [gotoEditorActionId, setGotoEditorActionId] = useState<ActionNodeId | null>(null);
   const [reqEditorActionId, setReqEditorActionId] = useState<ActionNodeId | null>(null);
   const [pwdEditorActionId, setPwdEditorActionId] = useState<ActionNodeId | null>(null);
+  const [selectorEditorActionId, setSelectorEditorActionId] = useState<ActionNodeId | null>(null);
   const [globalSettingsHubOpen, setGlobalSettingsHubOpen] = useState(false);
   const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
@@ -116,6 +119,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setGotoEditorActionId(null);
     setReqEditorActionId(null);
     setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
     setMsgEditorActionId(id);
   }, []);
   const openPickContentEditor = useCallback((id: ActionNodeId) => {
@@ -129,6 +133,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setGotoEditorActionId(null);
     setReqEditorActionId(null);
     setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
     setPickEditorActionId(id);
   }, []);
   const openGotoContentEditor = useCallback((id: ActionNodeId) => {
@@ -142,6 +147,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setPickEditorActionId(null);
     setReqEditorActionId(null);
     setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
     setGotoEditorActionId(id);
   }, []);
   const openReqContentEditor = useCallback((id: ActionNodeId) => {
@@ -155,6 +161,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setPickEditorActionId(null);
     setGotoEditorActionId(null);
     setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
     setReqEditorActionId(id);
   }, []);
   const openPwdContentEditor = useCallback((id: ActionNodeId) => {
@@ -168,7 +175,22 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setPickEditorActionId(null);
     setGotoEditorActionId(null);
     setReqEditorActionId(null);
+    setSelectorEditorActionId(null);
     setPwdEditorActionId(id);
+  }, []);
+  const openSelectorContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(id);
   }, []);
   const state = useSyncExternalStore(
     store.subscribe,
@@ -216,6 +238,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       setPwdEditorActionId(null);
     }
   }, [pwdEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!selectorEditorActionId) return;
+    const a = state.actions[selectorEditorActionId];
+    if (!a || a.actionType !== "selector") {
+      setSelectorEditorActionId(null);
+    }
+  }, [selectorEditorActionId, state.actions]);
 
   // State React Flow pour nodes et edges (permet à RF de gérer drag, sélection, mesures)
   const [rfNodes, setRfNodes, onNodesChangeRF] = useNodesState<RFNode<NodalRFData>>([]);
@@ -511,6 +540,12 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     state.actions[pwdEditorActionId].actionType === "pwd"
       ? (state.actions[pwdEditorActionId] as PwdActionNode)
       : null;
+  const selectorToEdit: SelectorActionNode | null =
+    selectorEditorActionId &&
+    state.actions[selectorEditorActionId] &&
+    state.actions[selectorEditorActionId].actionType === "selector"
+      ? (state.actions[selectorEditorActionId] as SelectorActionNode)
+      : null;
 
   return (
     <NodalUiContext.Provider
@@ -539,6 +574,9 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         pwdEditorActionId,
         setPwdEditorActionId,
         openPwdContentEditor,
+        selectorEditorActionId,
+        setSelectorEditorActionId,
+        openSelectorContentEditor,
         globalSettingsHubOpen,
         setGlobalSettingsHubOpen,
         popupThemeCustomizationOpen,
@@ -716,6 +754,28 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             } as never);
           }}
           onClose={() => setPwdEditorActionId(null)}
+        />
+        <SelectorContentPopup
+          store={store}
+          action={selectorToEdit}
+          onSave={({ title, bodyHtml, displayMode }) => {
+            if (!selectorEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[selectorEditorActionId];
+            if (!cur || cur.actionType !== "selector") return;
+            snap.updateNodeData(selectorEditorActionId, {
+              payload: {
+                ...cur.payload,
+                nested: {
+                  ...cur.payload.nested,
+                  title,
+                  displayMode,
+                  copy: { ...cur.payload.nested.copy, bodyHtml },
+                },
+              },
+            } as never);
+          }}
+          onClose={() => setSelectorEditorActionId(null)}
         />
         <GlobalSettingsHubPopup
           open={globalSettingsHubOpen}

@@ -144,6 +144,11 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
     ui.setChoiceEditorSatelliteId(null);
     ui.setMediaEditorMediaId(null);
     ui.setMsgEditorActionId(null);
+    ui.setPickEditorActionId(null);
+    ui.setGotoEditorActionId(null);
+    ui.setReqEditorActionId(null);
+    ui.setPwdEditorActionId(null);
+    ui.setSelectorEditorActionId(null);
     ui.setGlobalSettingsHubOpen(true);
   };
 
