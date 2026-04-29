@@ -1965,7 +1965,7 @@ function buildPlayerHtmlTemplate() {
             var msg2 = document.createElement("div");
             msg2.style.cssText = "background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;";
             msg2.onclick = function (e) { e.stopPropagation(); };
-            msg2.innerHTML = "<div class='play-html-rich'>" + (args.pwdEnigmeTxt || "") + "</div><br><br>";
+            msg2.innerHTML = "<div class='play-html-rich'>" + (args.pwdEnigmeTxt || args.enigmeTxt || "") + "</div><br><br>";
             var inp2 = document.createElement("input");
             inp2.type = "text";
             inp2.style.cssText = "margin-top:15px;padding:10px;width:80%;font-size:16px;text-align:center;font-family:inherit;";
@@ -1979,10 +1979,20 @@ function buildPlayerHtmlTemplate() {
             btn2.innerHTML = "[ VALIDER ]";
             btn2.style.cssText = "margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;";
             btn2.onclick = function () {
-                if(inp2.value.toLowerCase().trim() === (args.pwdValue || "")) {
+                var pwdExpected = String(args.pwdValue != null && args.pwdValue !== "" ? args.pwdValue : (args.pwd || "")).toLowerCase().trim();
+                if(inp2.value.toLowerCase().trim() === pwdExpected) {
                     timerNotifyBlockingClose();
                     document.body.removeChild(pwdBackdrop2);
-                    if(args.pwdNext) executeReward(args.pwdNext, hsDiv);
+                    if(args.pwdNext) {
+                        executeReward(args.pwdNext, hsDiv);
+                    } else {
+                        var ra = args.action;
+                        if(ra === "msg") executeReward({ action: "msg", okMsg: args.okMsg }, hsDiv);
+                        else if(ra === "scene") executeReward({ action: "scene", target: args.target, transTxt: args.transTxt, transBtn: args.transBtn }, hsDiv);
+                        else if(ra === "pick") executeReward({ action: "pick", pickId: args.pickId, pickName: args.pickName, pickMsg: args.pickMsg }, hsDiv);
+                        else if(ra === "selector") executeReward({ action: "selector", rewardSelector: args.rewardSelector }, hsDiv);
+                        else if(ra === "req") executeReward({ action: "req", reqItemId: args.reqItemId, reqKo: args.reqKo, reqNext: args.reqNext }, hsDiv);
+                    }
                 } else {
                     err2.innerHTML = "RÉPONSE INCORRECTE";
                     inp2.value = "";

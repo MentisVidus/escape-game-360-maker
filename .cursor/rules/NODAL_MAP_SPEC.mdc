@@ -2,13 +2,23 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.6 (27 avril 2026)
+> **Version** : 1.6.1 (29 avril 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
->>
+>
+> **Changelog v1.6.1** : **SMK-04** validé auteur — chaîne
+> `REQ → REQ → PWD → MSG` en export joueur. **Correctifs runtime** dans
+> `executeReward` / modale PWD (`js/editeur-generate.js`, `js/editor-en-generate.js`) :
+> priorité **`type === "pwd"`** sur `args.action` pour ne pas traiter un objet
+> fusionné `{ type: "pwd", action: "msg", … }` comme un **msg** ; comparaison
+> réponse attendue sur **`pwdValue` sinon `pwd`** (alignement `actionV2ToPlayerArgs`) ;
+> après succès sans `pwdNext`, enchaînement selon **`args.action`** (`msg`, `scene`,
+> `pick`, `selector`, `req`) ; texte d’énigme **`pwdEnigmeTxt || enigmeTxt`**.
+> Journal **Annexe D — D.4** mis à jour (SMK-04 coché).
+>
 > **Changelog v1.6** : clôture **lot C7.1** (`feat/c7-chain-reward` fusionné
 > dans `feat/nodal-map`) — chaînes **REQ/PWD** en **`rewardAction` récursif**
 > (V2) ; projection DOM legacy (blocs dynamiques + debug
@@ -17,7 +27,8 @@
 > `V2 → DOM → generateGame` (hors périmètre : `legacy → V2`). **Annexe B — C7.1**
 > (fichiers) ; **§7 C7** mis à jour ; **Annexe D** : C7.1 / C7.1-05 / C7.1-06 /
 > périmètre chaînes (C7.4 partiel) cochés — l’annexe D reste ouverte jusqu’à
-> clôture **C7** entier (cf. **D.5**).
+> clôture **C7** entier (cf. **D.5**). **v1.6.1** : hotfix joueur PWD + SMK-04
+> (cf. changelog v1.6.1).
 >
 > **Changelog v1.5.1** : ajout **Annexe D — Chantier C7** — inventaire,
 > découpage **C7.1–C7.6**, points à trancher, journal / checklist vivante
@@ -1210,6 +1221,15 @@ debug chaîne ; garde-fou **profondeur** runtime ; pas de sens
 - `js/editeur-app.js`, `js/editor-en-app.js` — options récompense REQ/PWD,
   restauration **`querySelectorAll`** des champs chaîne (req vs pwd).
 
+**Correctifs post-merge (smoke C7.5 — SMK-04, avril 2026)** : dans le template
+joueur embarqué, la branche modale **PWD** doit (1) résoudre **`act`** en
+privilégiant **`type === "pwd"`** lorsque présent, pour ne pas court-circuiter
+l’énigme lorsque **`action`** porte déjà la récompense suivante (`msg`, etc.) ;
+(2) comparer la saisie à **`pwdValue` si renseigné, sinon `pwd`** (contrat
+`actionV2ToPlayerArgs` nodal/V2) ; (3) après validation réussie, appeler
+**`pwdNext`** si défini, sinon **`executeReward`** sur un objet minimal dérivé
+de **`args.action`** pour terminer la chaîne (ex. **`msg`** avec **`okMsg`**).
+
 ### C7.2 — Popups contenu — socle **msg** *(en cours sur `feat/c7-2-msg-popup`)*
 
 **Périmètre livré** : clic sur nœud **`msg`** (hors handle / bouton détacher) →
@@ -1451,7 +1471,7 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [x] **SMK-01 Données FR/EN minimales** : 1 scène start + 1 hotspot par actiontype (`msg/pick/goto/req/pwd/selector`) ; labels nodaux explicites (actions/scènes/médias) ; vérifier ouverture popups et persistance des champs.
 - [ ] **SMK-02 Long contenu** : injecter >3000 caractères dans `bodyHtml` + titres/labels ; vérifier absence de blocage UI, scroll interne preview, sauvegarde/rechargement intacts.
 - [x] **SMK-03 Selector** : tester `displayMode=buttons` et `dropdown`, vérifier reprise labels enfants directs (ordre nodal) en preview et en runtime.
-- [ ] **SMK-04 REQ/PWD chaîne** : scénario `REQ -> REQ -> PWD -> MSG` + cas mixte `REQ -> SELECTOR -> REQ` ; vérifier parcours nominal + blocages attendus.
+- [x] **SMK-04 REQ/PWD chaîne** : scénario `REQ -> REQ -> PWD -> MSG` + cas mixte `REQ -> SELECTOR -> REQ` ; parcours nominal + blocages attendus *(validé auteur 2026-04-29 ; correctifs runtime PWD — voir changelog v1.6.1 et **Annexe B — C7.1**)*.
 - [ ] **SMK-05 Export simple** : `generateGame()` (index seul) ; vérifier rendu popup joueur FR/EN et styles Quill (`align/font/size`) cohérents.
 - [ ] **SMK-06 Export ZIP web** : `exportGameWebZip()` ; vérifier `index.html`, `lib/`, `media/` et exécution hors-ligne (`jouer_hors_ligne`).
 - [x] **SMK-07 Bundle `.escapegame`** : save/load round-trip complet ; vérifier labels nodaux, layout, edges, satellites auto, médias, et thème popup.
@@ -1610,10 +1630,21 @@ de l’eau.)*
   `generateGame`). Flag `rememberSuccess` sur `pwd` livré (défaut `false`). Cas
   frange `PWD → PWD → MSG` (mémorisation seulement sur le 2ᵉ PWD) noté, hors
   périmètre court terme.
+- 2026-04-29 — **SMK-04 clôture** : chaîne `REQ → REQ → PWD → MSG` validée en
+  génération joueur. **Second correctif** : la modale PWD comparait uniquement
+  à `pwdValue` alors que `actionV2ToPlayerArgs` fournit la réponse dans **`pwd`**
+  quand `pwdValue` est vide — comparaison unifiée + enchaînement **`msg`** (et
+  autres **`action`**) lorsque **`pwdNext`** est absent sur l’objet fusionné ;
+  énigme affichée via **`pwdEnigmeTxt || enigmeTxt`**. Spec **v1.6.1**, journal
+  et **Annexe B — C7.1** mis à jour.
 
 ---
 
 ### D.5 — Checklist « prêt à supprimer l’annexe D »
+
+> *Note 2026-04-29* : les items ci-dessous restent la **porte de sortie** de
+> l’annexe D au terme du chantier **C7** entier (C7.5 / C7.6). La validation
+> **SMK-04** et la doc **v1.6.1** ne suppriment pas encore ce bloc.
 
 - [ ] Tous les lots C7.x prévus sont livrés ou **explicitement** reportés
   (avec cible).
