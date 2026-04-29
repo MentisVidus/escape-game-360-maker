@@ -1,0 +1,4 @@
+[build]
+  base    = "xflow/react"
+  command = "npm run build:editor-map"
+  publish = "dist"
