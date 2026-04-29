@@ -1921,7 +1921,7 @@ function buildPlayerHtmlTemplate() {
 
     // Récompense après énigme mot de passe ou objet requis (branches internes scene / msg / pick / selector)
     function executeReward(args, hsDiv) {
-        // `actionV2ToPlayerArgs` met `type: "pwd"` + `action: <récompense>` ; priorité à `type` pour ne pas sauter l’énigme.
+        // actionV2ToPlayerArgs produit type pwd + action = récompense ; prioriser type pwd sinon l’énigme est sautée.
         var act =
             args && args.type === "pwd"
                 ? "pwd"
