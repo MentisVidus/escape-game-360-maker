@@ -110,7 +110,12 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
                 }
               : actionType === "req"
                 ? { ...base, actionType, payload: { itemId: "", copy: { bodyHtml: "", buttonLabel: "" } }, rewardActionId: null }
-                : { ...base, actionType: "pwd", payload: { answer: "", copy: { bodyHtml: "", buttonLabel: "" } }, rewardActionId: null };
+                : {
+                    ...base,
+                    actionType: "pwd",
+                    payload: { answer: "", rememberSuccess: false, copy: { bodyHtml: "", buttonLabel: "" } },
+                    rewardActionId: null,
+                  };
     const center = getCenterPosition();
     store.getState().addAction(node, { x: center.x, y: center.y });
   };

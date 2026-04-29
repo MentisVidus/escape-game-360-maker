@@ -747,14 +747,14 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <PwdContentPopup
           store={store}
           action={pwdToEdit}
-          onSave={({ label, bodyHtml, answer }) => {
+          onSave={({ label, bodyHtml, answer, rememberSuccess }) => {
             if (!pwdEditorActionId) return;
             const snap = store.getState();
             const cur = snap.actions[pwdEditorActionId];
             if (!cur || cur.actionType !== "pwd") return;
             snap.updateNodeData(pwdEditorActionId, {
               label,
-              payload: { ...cur.payload, copy: { ...cur.payload.copy, bodyHtml }, answer },
+              payload: { ...cur.payload, copy: { ...cur.payload.copy, bodyHtml }, answer, rememberSuccess },
             } as never);
           }}
           onClose={() => setPwdEditorActionId(null)}

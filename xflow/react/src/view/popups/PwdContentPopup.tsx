@@ -26,6 +26,7 @@ const LABELS: Record<
     nodeLabel: string;
     body: string;
     answer: string;
+    remember: string;
     answerRequired: string;
     preview: string;
     fallback: string;
@@ -40,6 +41,7 @@ const LABELS: Record<
     nodeLabel: "Titre du node",
     body: "Texte de l’énigme (riche)",
     answer: "Réponse attendue",
+    remember: "Mémoriser la réussite",
     answerRequired: "La réponse est obligatoire.",
     preview: "Aperçu (popup joueur)",
     fallback: "Code :",
@@ -53,6 +55,7 @@ const LABELS: Record<
     nodeLabel: "Node title",
     body: "Riddle text (rich)",
     answer: "Expected answer",
+    remember: "Remember success",
     answerRequired: "Answer is required.",
     preview: "Preview (player popup)",
     fallback: "Code:",
@@ -77,7 +80,7 @@ function isQuillHtmlEmpty(html: string): boolean {
 type Props = {
   store: StoreApi<NodalProjectStore>;
   action: PwdActionNode | null;
-  onSave: (payload: { label: string; bodyHtml: string; answer: string }) => void;
+  onSave: (payload: { label: string; bodyHtml: string; answer: string; rememberSuccess: boolean }) => void;
   onClose: () => void;
 };
 
@@ -88,6 +91,7 @@ export function PwdContentPopup({ store, action, onSave, onClose }: Props) {
   const previewStyles = useMemo(() => playerPopupThemeToMsgPreviewChrome(popupTheme), [popupTheme]);
 
   const [answer, setAnswer] = useState("");
+  const [rememberSuccess, setRememberSuccess] = useState(false);
   const [nodeLabel, setNodeLabel] = useState("");
   const [previewHtml, setPreviewHtml] = useState("");
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -96,12 +100,14 @@ export function PwdContentPopup({ store, action, onSave, onClose }: Props) {
   useEffect(() => {
     if (!action) {
       setAnswer("");
+      setRememberSuccess(false);
       setNodeLabel("");
       quillRef.current = null;
       return;
     }
     setNodeLabel(String(action.label ?? ""));
     setAnswer(String(action.payload?.answer ?? ""));
+    setRememberSuccess(action.payload?.rememberSuccess === true);
   }, [action?.id]);
 
   useEffect(() => {
@@ -143,6 +149,7 @@ export function PwdContentPopup({ store, action, onSave, onClose }: Props) {
       label: nodeLabel.trim(),
       bodyHtml: quillRef.current?.root.innerHTML ?? "",
       answer: answerTrimmed,
+      rememberSuccess,
     });
     onClose();
   };
@@ -171,6 +178,14 @@ export function PwdContentPopup({ store, action, onSave, onClose }: Props) {
               <input aria-label={L.answer} type="text" value={answer} onChange={(e) => setAnswer(e.target.value)} />
               {!canSave ? <small>{L.answerRequired}</small> : null}
             </div>
+            <label className="nodal-popup-checkline">
+              <input
+                type="checkbox"
+                checked={rememberSuccess}
+                onChange={(e) => setRememberSuccess(e.target.checked)}
+              />
+              <span>{L.remember}</span>
+            </label>
           </div>
 
           <aside className="nodal-general-preview" aria-label={L.preview}>

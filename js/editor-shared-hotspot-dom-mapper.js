@@ -72,6 +72,7 @@
             } else if (type === "pwd") {
                 legacy.enigmeTxt = val(hsDiv, ".f-enigme-txt", "");
                 legacy.pwd = val(hsDiv, ".f-pwd", "");
+                legacy.f_pwd_remember = val(hsDiv, ".f-pwd-remember", "no");
                 legacy.f_pwd_action = val(hsDiv, ".f-pwd-action", "scene");
                 legacy.f_reward_chain_json = val(hsDiv, ".f-reward-chain-json", "");
                 if (legacy.f_pwd_action === "selector") {

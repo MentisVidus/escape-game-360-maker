@@ -92,6 +92,7 @@ Le reward legacy dépend du type enfant :
 | `type: "pwd"` | `type: "pwd"` | `actionType: "pwd"` |
 | `payload.copy.bodyHtml` (énigme) | `f_enigme_txt` | `enigmeTxt` |
 | `payload.answer` | `f_pwd` | `pwd` |
+| `payload.rememberSuccess` (`true`/`false`, défaut implicite `false`) | `f_pwd_remember` (`yes`/`no`) | `f_pwd_remember` |
 | `payload.rewardAction` | `f_pwd_action` + champs associés | `f_pwd_action` + payload reward |
 
 > Les mappings reward sont les mêmes que pour `req` (bloc ci-dessus).

@@ -1450,7 +1450,7 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 
 - [x] **SMK-01 Données FR/EN minimales** : 1 scène start + 1 hotspot par actiontype (`msg/pick/goto/req/pwd/selector`) ; labels nodaux explicites (actions/scènes/médias) ; vérifier ouverture popups et persistance des champs.
 - [ ] **SMK-02 Long contenu** : injecter >3000 caractères dans `bodyHtml` + titres/labels ; vérifier absence de blocage UI, scroll interne preview, sauvegarde/rechargement intacts.
-- [ ] **SMK-03 Selector** : tester `displayMode=buttons` et `dropdown`, vérifier reprise labels enfants directs (ordre nodal) en preview et en runtime.
+- [x] **SMK-03 Selector** : tester `displayMode=buttons` et `dropdown`, vérifier reprise labels enfants directs (ordre nodal) en preview et en runtime.
 - [ ] **SMK-04 REQ/PWD chaîne** : scénario `REQ -> REQ -> PWD -> MSG` + cas mixte `REQ -> SELECTOR -> REQ` ; vérifier parcours nominal + blocages attendus.
 - [ ] **SMK-05 Export simple** : `generateGame()` (index seul) ; vérifier rendu popup joueur FR/EN et styles Quill (`align/font/size`) cohérents.
 - [ ] **SMK-06 Export ZIP web** : `exportGameWebZip()` ; vérifier `index.html`, `lib/`, `media/` et exécution hors-ligne (`jouer_hors_ligne`).
@@ -1602,6 +1602,14 @@ de l’eau.)*
   appliqué pour les labels des nœuds action (`nodalActionLabelByPathKey`).
   Limitation connue maintenue : positions des satellites non garanties après
   cycle save/load (satellites auto reconstruits depuis les parents).
+- 2026-04-28 — **Smoke auteur (SMK-03/04)** : `SMK-03` validé (selector
+  preview/runtime, y compris sous-selector). `SMK-04` : scénario B OK ; chaîne
+  `REQ → REQ → PWD → MSG` KO puis **cause identifiée** : `executeReward`
+  lisait `args.action` (récompense après PWD) avant `args.type`, donc un objet
+  `{ type: "pwd", action: "msg", … }` sautait l’énigme — **corrigé** (FR/EN
+  `generateGame`). Flag `rememberSuccess` sur `pwd` livré (défaut `false`). Cas
+  frange `PWD → PWD → MSG` (mémorisation seulement sur le 2ᵉ PWD) noté, hors
+  périmètre court terme.
 
 ---
 

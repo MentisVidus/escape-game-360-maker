@@ -1,4 +1,4 @@
-﻿// --- GÉNÉRATION DU JEU (index.html seul ou ZIP Web) ---
+// --- GÉNÉRATION DU JEU (index.html seul ou ZIP Web) ---
 // Fabrique le HTML du joueur ; `generateGame` télécharge seul l'HTML ; `exportGameWebZip` (ZIP hébergement).
 
 /** URLs CDN Pannellum (identiques aux balises du template joueur). */
@@ -233,6 +233,7 @@ function buildPlayerHtmlTemplate() {
         } else if(a.type === "pwd") {
             out.enigmeTxt = c.bodyHtml || "";
             out.pwd = (p.answer || "").toLowerCase().trim();
+            out.f_pwd_remember = p.rememberSuccess === true ? "yes" : "no";
             var rp = p.rewardAction || {};
             out.f_pwd_action = rp.type || "scene";
             if(rp.type === "req" || rp.type === "pwd") {
@@ -288,6 +289,7 @@ function buildPlayerHtmlTemplate() {
         } else if(a.type === "pwd") {
             out.enigmeTxt = c.bodyHtml || "";
             out.pwd = (p.answer || "").toLowerCase().trim();
+            out.f_pwd_remember = p.rememberSuccess === true ? "yes" : "no";
             var rp = p.rewardAction || {};
             var rpc = (rp.payload && rp.payload.copy) || {};
             out.f_pwd_action = rp.type || "scene";
@@ -374,11 +376,13 @@ function buildPlayerHtmlTemplate() {
             } else if(args.action === "pwd") {
                 args.pwdEnigmeTxt = rc.bodyHtml || "";
                 args.pwdValue = ((r.payload && r.payload.answer) || "").toLowerCase().trim();
+                args.pwdRememberSuccess = !!(r.payload && r.payload.rememberSuccess);
                 args.pwdNext = actionV2ToPlayerArgs((r.payload && r.payload.rewardAction) || {});
             }
         } else if(args.type === "pwd") {
             args.enigmeTxt = pc.bodyHtml || "";
             args.pwd = (p.answer || "").toLowerCase().trim();
+            args.rememberSuccess = p.rememberSuccess === true;
             var rp = p.rewardAction || {};
             var rpc = (rp.payload && rp.payload.copy) || {};
             args.action = rp.type || "scene";
@@ -407,6 +411,7 @@ function buildPlayerHtmlTemplate() {
             } else if(args.action === "pwd") {
                 args.pwdEnigmeTxt = rpc.bodyHtml || "";
                 args.pwdValue = ((rp.payload && rp.payload.answer) || "").toLowerCase().trim();
+                args.pwdRememberSuccess = !!(rp.payload && rp.payload.rememberSuccess);
                 args.pwdNext = actionV2ToPlayerArgs((rp.payload && rp.payload.rewardAction) || {});
             }
         } else if(args.type === "selector") {
@@ -1836,6 +1841,8 @@ function buildPlayerHtmlTemplate() {
         } else if(act === "pwd") {
             out.pwdEnigmeTxt = choice.f_pwd_enigme_txt || choice.enigmeTxt || choice.f_enigme_txt || "";
             out.pwdValue = ((choice.f_pwd_value || choice.pwd || choice.f_pwd || "") + "").toLowerCase().trim();
+            out.pwdRememberSuccess =
+                choice.f_pwd_remember === true || String(choice.f_pwd_remember || "").toLowerCase() === "yes";
         }
         return out;
     }
@@ -1897,6 +1904,8 @@ function buildPlayerHtmlTemplate() {
         if(act === "pwd") {
             out.pwdEnigmeTxt = node.enigmeTxt || node.f_pwd_enigme_txt || node.f_enigme_txt || "";
             out.pwdValue = ((node.pwd || node.f_pwd_value || node.f_pwd || "") + "").toLowerCase().trim();
+            out.pwdRememberSuccess =
+                node.f_pwd_remember === true || String(node.f_pwd_remember || "").toLowerCase() === "yes";
             var rawPwd = node.f_reward_chain_json || node.rewardChainJson || "";
             if(typeof rawPwd === "string" && rawPwd.trim()) {
                 var parsedPwd = parseRewardChainNode(rawPwd);
@@ -1912,7 +1921,15 @@ function buildPlayerHtmlTemplate() {
 
     // Récompense après énigme mot de passe ou objet requis (branches internes scene / msg / pick / selector)
     function executeReward(args, hsDiv) {
-        var act = args && args.action ? args.action : (args && args.type ? args.type : "");
+        // `actionV2ToPlayerArgs` met `type: "pwd"` + `action: <récompense>` ; priorité à `type` pour ne pas sauter l’énigme.
+        var act =
+            args && args.type === "pwd"
+                ? "pwd"
+                : args && args.action
+                  ? args.action
+                  : args && args.type
+                    ? args.type
+                    : "";
         if(act === "selector" && args.rewardSelector) {
             openSelector(args.rewardSelector, hsDiv);
             return;
@@ -2115,7 +2132,9 @@ function buildPlayerHtmlTemplate() {
                 audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
             }
             var pwdKey = "selpwd_" + String(choice.id || "choice");
-            if(unlockedHotspots[pwdKey]) {
+            var shouldRememberSelectorPwd =
+                choice.f_pwd_remember === true || String(choice.f_pwd_remember || "").toLowerCase() === "yes";
+            if(shouldRememberSelectorPwd && unlockedHotspots[pwdKey]) {
                 var hPwd = selectorHsDiv;
                 closeSelectorOverlay(false);
                 executeReward(choiceRewardToArgs(choice), hPwd);
@@ -2152,11 +2171,11 @@ function buildPlayerHtmlTemplate() {
                 if(inp.value.toLowerCase().trim() === (choice.pwd || "")) {
                     timerNotifyBlockingClose();
                     document.body.removeChild(pwdBackdrop);
-                    unlockedHotspots[pwdKey] = true;
+                    if(shouldRememberSelectorPwd) unlockedHotspots[pwdKey] = true;
                     var hPwd2 = selectorHsDiv;
                     closeSelectorOverlay(false);
                     executeReward(choiceRewardToArgs(choice), hPwd2);
-                    queuePlayerProgressSave("unlock");
+                    if(shouldRememberSelectorPwd) queuePlayerProgressSave("unlock");
                 } else {
                     err.innerHTML = "RÉPONSE INCORRECTE";
                     inp.value = "";
@@ -2362,7 +2381,8 @@ function buildPlayerHtmlTemplate() {
                 if(args.sfxUrl != null && String(args.sfxUrl).trim() !== '') {
                     audioSys.playSFX(String(args.sfxUrl).trim(), args.sfxVolume);
                 }
-                if(unlockedHotspots[args.id]) { executeReward(args, hsDiv); return; }
+                var rememberPwd = args.rememberSuccess === true;
+                if(rememberPwd && args.id && unlockedHotspots[args.id]) { executeReward(args, hsDiv); return; }
                 
                 var pwdBackdrop = document.createElement('div');
                 pwdBackdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
@@ -2388,9 +2408,9 @@ function buildPlayerHtmlTemplate() {
                     if(inp.value.toLowerCase().trim() === args.pwd) { 
                         timerNotifyBlockingClose();
                         document.body.removeChild(pwdBackdrop); 
-                        unlockedHotspots[args.id] = true; 
+                        if(rememberPwd && args.id) unlockedHotspots[args.id] = true; 
                         executeReward(args, hsDiv); 
-                        queuePlayerProgressSave("unlock");
+                        if(rememberPwd) queuePlayerProgressSave("unlock");
                     } else { 
                         err.innerHTML = "RÉPONSE INCORRECTE"; 
                         inp.value = ""; 

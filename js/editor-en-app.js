@@ -538,7 +538,7 @@ function addHotspot(sceneId, hsData = null) {
 
     // Restore field values when loading hsData from JSON
     if(hsData) {
-        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-reward-chain-json', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
+        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-remember', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-reward-chain-json', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
         fields.forEach(f => {
             let all = hsDiv.querySelectorAll('.' + f);
             if(all && all.length && hsData[f.replace(/-/g, '_')] !== undefined) {
@@ -1504,6 +1504,7 @@ function updateHsFields(hId, opts) {
         container.innerHTML = `
         <label>Puzzle / question:</label><div class="wysiwyg-wrap"><textarea class="f-enigme-txt editor-rich-text" rows="2" placeholder="Code:"></textarea></div>
         <label>Expected answer:</label><input type="text" class="f-pwd" value="1234">
+        <label>Remember success:</label><input type="text" class="f-pwd-remember" value="no" readonly>
         <label style="margin-top:10px;"><b>When solved:</b></label>
         <select class="f-pwd-action" onchange="document.getElementById('pwd_res_${hId}').className = 'res-' + this.value">
             <option value="scene">Change scene</option><option value="msg">Show message</option><option value="pick">Give item</option>

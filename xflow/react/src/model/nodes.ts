@@ -37,7 +37,7 @@ export type SelectorActionNode = BaseActionNode<
 export type ReqActionNode = BaseActionNode<"req", { itemId: string; copy: CopyPayload }> & {
   rewardActionId: ActionNodeId | null;
 };
-export type PwdActionNode = BaseActionNode<"pwd", { answer: string; copy: CopyPayload }> & {
+export type PwdActionNode = BaseActionNode<"pwd", { answer: string; rememberSuccess?: boolean; copy: CopyPayload }> & {
   rewardActionId: ActionNodeId | null;
 };
 

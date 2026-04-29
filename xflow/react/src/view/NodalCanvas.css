@@ -248,6 +248,13 @@
   line-height: 1.4;
 }
 
+.nodal-canvas-layout .nodal-popup-checkline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .nodal-canvas-layout .nodal-popup-panel--msg-content {
   max-width: min(1280px, 98vw);
   width: 100%;
