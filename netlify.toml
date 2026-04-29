@@ -1,4 +1,8 @@
 [build]
-  base    = "xflow/react"
-  command = "npm run build:editor-map"
-  publish = "dist"
+  publish = "."
+  command = "cd xflow/react && npm install && npm run build:editor-map"
+
+[[redirects]]
+  from = "/"
+  to = "/editeur.html"
+  status = 302
