@@ -275,6 +275,21 @@
                 await refreshStatusUi();
             });
             doc.getElementById("local-draft-save-now").addEventListener("click", async function () {
+                if (!manager.isEnabled()) {
+                    var ask = confirm(
+                        t(
+                            "confirmEnableForSnapshot",
+                            "Local draft is disabled. Enable persistence and take a snapshot?"
+                        )
+                    );
+                    if (!ask) {
+                        closePanel();
+                        return;
+                    }
+                    manager.setEnabled(true);
+                    var enEl = doc.getElementById("local-draft-enable");
+                    if (enEl) enEl.checked = true;
+                }
                 try {
                     await manager.captureSnapshot("manual");
                 } catch (e) {

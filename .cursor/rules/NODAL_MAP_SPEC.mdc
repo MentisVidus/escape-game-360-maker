@@ -2,38 +2,80 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.6.1 (29 avril 2026)
+> **Version** : 1.6 (1ᵉʳ mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
 >
-> **Changelog v1.6.1** : **SMK-04** validé auteur — chaîne
-> `REQ → REQ → PWD → MSG` en export joueur. **Correctifs runtime** dans
-> `executeReward` / modale PWD (`js/editeur-generate.js`, `js/editor-en-generate.js`) :
-> priorité **`type === "pwd"`** sur `args.action` pour ne pas traiter un objet
-> fusionné `{ type: "pwd", action: "msg", … }` comme un **msg** ; comparaison
-> réponse attendue sur **`pwdValue` sinon `pwd`** (alignement `actionV2ToPlayerArgs`) ;
-> après succès sans `pwdNext`, enchaînement selon **`args.action`** (`msg`, `scene`,
-> `pick`, `selector`, `req`) ; texte d’énigme **`pwdEnigmeTxt || enigmeTxt`**.
-> Journal **Annexe D — D.4** mis à jour (SMK-04 coché).
+> **Changelog v1.6** : clôture **chantier C7** — popups d’édition de contenu
+> sur la carte nodale + chaînes REQ/PWD multi-paliers + persistance étendue,
+> avec contrat **unidirectionnel** `V2 → DOM → generateGame` (le sens
+> `legacy → V2` reste hors périmètre).
 >
-> **Changelog v1.6** : clôture **lot C7.1** (`feat/c7-chain-reward` fusionné
-> dans `feat/nodal-map`) — chaînes **REQ/PWD** en **`rewardAction` récursif**
-> (V2) ; projection DOM legacy (blocs dynamiques + debug
-> `f-reward-chain-json`) ; runtime joueur FR/EN (`executeReward` séquentiel,
-> terminaux `msg`/`pick`, garde-fous profondeur) ; contrat **uniquement**
-> `V2 → DOM → generateGame` (hors périmètre : `legacy → V2`). **Annexe B — C7.1**
-> (fichiers) ; **§7 C7** mis à jour ; **Annexe D** : C7.1 / C7.1-05 / C7.1-06 /
-> périmètre chaînes (C7.4 partiel) cochés — l’annexe D reste ouverte jusqu’à
-> clôture **C7** entier (cf. **D.5**). **v1.6.1** : hotfix joueur PWD + SMK-04
-> (cf. changelog v1.6.1).
+> - **C7.1 — Chaînes REQ/PWD (`rewardAction` récursif)** : extension du
+>   schéma V2 pour autoriser `req`/`pwd` en récompense (récursion native, pas
+>   de tableau aplati) ; projection DOM legacy en blocs répétés palier par
+>   palier + champ debug `f-reward-chain-json` (FR/EN) ; runtime joueur FR/EN
+>   (`executeReward` séquentiel, terminaux `msg`/`pick`, garde-fou de
+>   profondeur) ; smoke nominal `REQ → REQ → PWD → MSG` + cas mixte
+>   `REQ → SELECTOR → REQ`. Hotfix runtime PWD (modale joueur) :
+>   priorité **`type === "pwd"`** sur `args.action` lorsqu’un objet fusionné
+>   `{ type: "pwd", action: "msg", … }` arrive (sinon l’énigme est sautée) ;
+>   comparaison réponse attendue sur **`pwdValue` sinon `pwd`** (alignement
+>   `actionV2ToPlayerArgs`) ; après succès sans `pwdNext`, enchaînement selon
+>   **`args.action`** (`msg`, `scene`, `pick`, `selector`, `req`) ; texte
+>   d’énigme **`pwdEnigmeTxt || enigmeTxt`**.
+> - **C7.2 — Popup `msg` + thème popup joueur (incluant C7.2-bis)** : popup
+>   carte dédiée pour `msg` (Quill 1.3.7 aligné `editor-quill-scenes.js`,
+>   sans import legacy) avec aperçu runtime-like ; slice **`playerPopupTheme`**
+>   sur `NodalProjectStore`, popup « Personnalisation des popups » alimentée
+>   par le store, écriture legacy via `writeDomState` ; **persistance hors
+>   DOM** via `nodalPlayerPopupTheme` dans `map-layout.json` (extras),
+>   réprojection au load par `flushNodalStoreToEditorDom`. Grille CSS
+>   **`nodal-general-*`** (alias `nodal-ha-*` conservés) ; correctif
+>   `hexToRgba` / `hexToRgbaLo` (canal R nul ne tombe plus à 255).
+> - **C7.3 — Couverture des actiontypes texte/selector** : popups dédiées
+>   `pick`, `goto`, `req`, `pwd`, `selector` sur `payload.copy` /
+>   `payload.nested` selon le type ; validations bloquantes minimales
+>   (`pwd.payload.answer` requis), pas de limite de longueur ; helper preview
+>   commun `PlayerPopupPreview` (variantes bouton, input, selector
+>   boutons/dropdown) ; édition des labels nodaux dans les popups d’actions
+>   et inline pour scènes/médias ; aperçu selector reprend les enfants
+>   directs (ordre nodal Y/id).
+> - **C7.4 — Couvert par C7.1** (slice unique : schéma V2 + DOM + runtime
+>   + smoke).
+> - **C7.5 — Smoke / export / persistance** : recette `SMK-01…SMK-10`
+>   formalisée FR/EN ; round-trip `.escapegame` complet (actions, labels
+>   nodaux, thème popup, médias) ; export joueur `generateGame()` + ZIP web
+>   `exportGameWebZip()` validés sur `msg/pick/goto/req/pwd/selector` +
+>   chaînes REQ/PWD ; smoke clair/sombre OK ; non-régression
+>   `flushNodalStoreToEditorDom`. Persistance thème popup hors DOM intégrée
+>   ici (ex-`C7.2-bis` phase B).
+> - **C7.6 — Durcissement** : wrapper `.nodal-quill-theme` créé et appliqué
+>   sur les 6 popups d’actions ; pickers Quill `header / font / size`
+>   stables clair/sombre (validation par SMK-08) ; **UX bouton « Snapshot »
+>   du dock brouillon local** (`js/editor-shared-local-draft-ui.js`) — au
+>   clic avec « Activer » décoché, `confirm` invitant à activer la
+>   persistance puis prise du snapshot (FR/EN, clé
+>   `confirmEnableForSnapshot` dans `editeur-app.js` / `editor-en-app.js`).
+> - **Annexe B — C7** : synthèse fichiers + décisions consolidée (en lieu
+>   et place de l’ancienne **Annexe D** vivante).
 >
-> **Changelog v1.5.1** : ajout **Annexe D — Chantier C7** — inventaire,
-> découpage **C7.1–C7.6**, points à trancher, journal / checklist vivante
-> jusqu’à clôture C7 (puis synthèse vers **Annexe B** et suppression de
-> l’annexe D, sur le modèle du chantier C6).
+> **Reports explicites post-C7 (non bloquants)** : médias portables nodaux
+> dans le bundle (point Q4 D.3 — `nodalDraftAdapter.ts` callbacks
+> `eachPortableMediaUrlInProject` / `rewritePortableUrlsInProjectClone` /
+> `getBlobOrFileForPortableUrl` restent no-op pour les snapshots IndexedDB
+> nodaux ; le bundle `.escapegame` reste fonctionnel via la projection DOM
+> legacy) ; ménage progressif des `!important` Quill/CSS (`nodalQuillRich.css`,
+> `palette.css`, `NodalCanvas.css`) ; pont `updatePreview()` legacy
+> `C7.2-bis-04` (jamais observé en pratique) ; durcissement
+> `SELECTOR_SPEC` (aucun écart identifié en SMK-03/04).
+>
+> *(Cette entrée v1.6 regroupe les changelogs intermédiaires v1.5.1, v1.6
+> et v1.6.1 publiés pendant le chantier C7. Le bump v1.7+ n’interviendra
+> qu’après autorisation explicite, conformément à la consigne projet.)*
 
 > **Changelog v1.5** : clôture chantier **C6** — embarquement carte nodale
 > dans l’éditeur (`editeur.html` / `editor_en.html`, bundle
@@ -105,8 +147,9 @@ valider l'intention produit. Il décrit :
 - Les règles de cohérence et warnings (§6).
 - La roadmap d'implémentation (§7).
 - Les règles de collaboration avec l'agent (§8).
-- Les annexes A–D (suivi chantier **C7** actif dans **Annexe D** jusqu’à
-  clôture).
+- Les annexes A–C (chantier **C7** **livré v1.6** ; voir **Annexe B — C7**).
+  L’**Annexe D** (suivi vivant pendant C7) reste temporairement en place
+  pour relecture avant suppression.
 
 ### 0.2 Règles transversales produit
 
@@ -812,19 +855,24 @@ Neuf chantiers numérotés pour référence dans les commits.
   des contrôles legacy + bandeau « miroir nodal » — voir **Changelog v1.5**
   et §0.2.
 
-### C7 — Popups d'édition de contenu *(et extensions associées)*
+### C7 — Popups d'édition de contenu *(et extensions associées) — livré v1.6*
 
-- Clic sur nœud `msg` → popup Quill pour `bodyHtml`.
-- Idem pour `pick`, `selector`, `req`, `pwd`.
-- Ajout de `req`/`pwd` comme types autorisés de `rewardAction` dans
-  `editor-core.js` (nécessaire pour la récursion §2.2).
-- **Chaînes REQ/PWD** : **livré en C7.1** (v1.6) — `rewardAction` récursif
-  V2, miroir DOM + `f-reward-chain-json` (debug), `generateGame()` / runtime
-  alignés ; détail : **Annexe B — C7.1**. *(UI nodale Quill, bundle médias
-  nodaux, etc. : lots C7.2+ — **Annexe D**.)*
-- **Suivi détaillé** pendant le chantier : **Annexe D** (sous-chantiers
-  **C7.x**, inventaire, journal). À la **clôture C7 entière** : synthèse
-  **Annexe B — C7** puis suppression de l’annexe D.
+- **Popups Quill nodales** (`msg`, `pick`, `selector`, `req`, `pwd`, `goto`)
+  avec aperçu runtime-like + thème popup joueur édité depuis la carte +
+  édition des labels nodaux (actions, scènes inline, médias) — détail
+  **Annexe B — C7**.
+- **Chaînes REQ/PWD** : `rewardAction` récursif V2 (autorisé sur `req` /
+  `pwd` dans `editor-core.js`, §2.2), miroir DOM legacy en blocs répétés +
+  champ debug `f-reward-chain-json`, `generateGame()` / runtime joueur FR/EN
+  alignés.
+- **Persistance hors DOM** du thème popup joueur via `nodalPlayerPopupTheme`
+  dans `map-layout.json` (extras), réprojection au load par
+  `flushNodalStoreToEditorDom`.
+- **Smoke `SMK-01…SMK-10`** validé (FR/EN), incluant export joueur simple +
+  ZIP web et clair/sombre.
+- **Reports explicites** (post-C7, non bloquants) : médias portables nodaux
+  (Q4 D.3), ménage `!important` Quill/CSS, pont `updatePreview()` legacy
+  (`C7.2-bis-04`), durcissement `SELECTOR_SPEC`.
 
 ### C8 — Ajustements UX
 
@@ -862,8 +910,8 @@ partiel avec préfixe `partial:` et liste de ce qui reste.
 ### 8.4 Documenter les fichiers ajoutés
 
 Tout nouveau fichier source listé dans l'**Annexe B** au fil des chantiers.
-Pendant **C7**, le fil journalier / périmètre par sous-lot peut tenir dans
-l’**Annexe D** jusqu’à clôture (puis report dans l’Annexe B).
+*(L’ancienne **Annexe D — Chantier C7** vivante a été refondue dans
+**Annexe B — C7** à la clôture du chantier C7, v1.6.)*
 
 ### 8.5 Ne pas réécrire la spec unilatéralement
 
@@ -1150,8 +1198,8 @@ poursuit sur **`feat/nodal-map`** uniquement.
    valait **avant C7.1**. Depuis **v1.6**, le **lot C7.1** étend schéma V2,
    projection DOM et runtime pour **plusieurs paliers** sur un même hotspot
    (récursion `rewardAction`, debug `f-reward-chain-json`) — voir **Annexe B
-   — C7.1**. Les lots **C7.2+** (popups carte, Quill, bundle médias…) restent
-   sur la roadmap §7 / **Annexe D**.
+   — C7.1**. Les lots **C7.2 → C7.6** sont également **livrés v1.6** —
+   voir **Annexe B — C7** (sous-sections par lot).
 
 **Fichiers et zones principales** *(liste indicative ; le détail exact suit
 `git log` sur la branche)* :
@@ -1195,17 +1243,16 @@ poursuit sur **`feat/nodal-map`** uniquement.
 - Selector : conserver l’alignement ordre **layout Y** ↔ `f_sel_choices` /
   `deferSelectorInit` (cf. `SELECTOR_SPEC`).
 
-### C7.1 — Chaînes REQ/PWD (`rewardAction` récursif) *(clôture v1.6)*
+### C7.1 — Chaînes REQ/PWD (`rewardAction` récursif) *(livré v1.6)*
 
 **Intégration Git** : développé sur **`feat/c7-chain-reward`**, **fusionné
 dans `feat/nodal-map`** (27 avril 2026). Branche de travail supprimable
 (locale / `origin`) selon politique dépôt.
 
-**Décisions** (rappel — détail **Annexe D — D.3**) : flux **unidirectionnel**
-`V2 → DOM → generateGame` uniquement ; récursion native **`rewardAction`**
-(pas de tableau aplati canonique) ; DOM legacy en **blocs répétés** + JSON
-debug chaîne ; garde-fou **profondeur** runtime ; pas de sens
-`legacy → V2` en C7.
+**Décisions** : flux **unidirectionnel** `V2 → DOM → generateGame`
+uniquement ; récursion native **`rewardAction`** (pas de tableau aplati
+canonique) ; DOM legacy en **blocs répétés** + JSON debug chaîne ;
+garde-fou **profondeur** runtime ; pas de sens `legacy → V2` en C7.
 
 **Fichiers et zones principales** :
 
@@ -1230,7 +1277,9 @@ l’énigme lorsque **`action`** porte déjà la récompense suivante (`msg`, et
 **`pwdNext`** si défini, sinon **`executeReward`** sur un objet minimal dérivé
 de **`args.action`** pour terminer la chaîne (ex. **`msg`** avec **`okMsg`**).
 
-### C7.2 — Popups contenu — socle **msg** *(en cours sur `feat/c7-2-msg-popup`)*
+### C7.2 — Popup `msg` + thème popup joueur *(livré v1.6 ; inclut C7.2-bis)*
+
+**Branche de lot** : `feat/c7-2-msg-popup` (mergée vers `feat/nodal-map`).
 
 **Périmètre livré** : clic sur nœud **`msg`** (hors handle / bouton détacher) →
 popup **Quill 1.3.7** (`copy.bodyHtml` WYSIWYG + `copy.buttonLabel`) — même
@@ -1239,21 +1288,168 @@ le legacy (bundle `quill` npm + `nodalQuillSetup.ts` + `nodalQuillRich.css`).
 **Annuler** / **Enregistrer** ; fermeture si le nœud disparaît ; ouverture ferme
 les autres popups carte. Libellés **FR / EN** via `document.documentElement.lang`.
 Projection RF extraite dans **`nodalReactFlowProjection.ts`** pour que les tests
-Vitest ne chargent pas Quill.
+Vitest ne chargent pas Quill. Aperçu colonne droite type popup joueur
+(`afficherPopup`), styles dérivés du thème **store** via
+`playerPopupPreviewFromTheme.ts`. Grille CSS **`nodal-general-*`** (avec
+alias `nodal-ha-*` conservés pour compat). Correctif **`hexToRgba` /
+`hexToRgbaLo`** : R nul ne tombe plus à 255 (test Vitest).
+
+**C7.2-bis (thème popup joueur)** :
+- Phase A : slice **`playerPopupTheme`** sur `NodalProjectStore`
+  (`setPlayerPopupTheme`, `syncPlayerPopupThemeFromDom`), popups thème +
+  `MsgContentPopup` alimentées par le store, écriture legacy via
+  `writeDomState` ; lecture DOM cantonnée (`playerPopupDomRead.ts`).
+- Phase B (intégrée à **C7.5**) : extras `nodalPlayerPopupTheme` dans
+  `map-layout.json` ; reprojection au load via `flushNodalStoreToEditorDom` ;
+  suppression des `syncPlayerPopupThemeFromDom` au montage / ouverture popup
+  `msg` (le store devient source de vérité au-delà du DOM).
+- Phase A-04 (pont legacy `updatePreview()` sans `input`) : **non observé en
+  pratique** ; reporté en backlog.
 
 **Fichiers** :
 
-- `xflow/react/src/view/popups/MsgContentPopup.tsx` — popup message + Quill.
-- `xflow/react/src/view/quill/nodalQuillSetup.ts` — toolbar / formats / chargement HTML.
-- `xflow/react/src/view/quill/nodalQuillRich.css` — thème carte + pickers FR/EN.
-- `xflow/react/src/view/nodalReactFlowProjection.ts` — `toReactFlowNodes` / `toReactFlowEdges` (hors Quill).
-- `xflow/react/package.json` — dépendance **`quill@1.3.7`** (alignement CDN éditeur).
+- `xflow/react/src/view/popups/MsgContentPopup.tsx` — popup message + Quill +
+  aperçu runtime-like.
+- `xflow/react/src/view/popups/PopupThemeCustomizationPopup.tsx` — popup
+  « Personnalisation des popups » (alimentée par le store).
+- `xflow/react/src/view/quill/nodalQuillSetup.ts`,
+  `xflow/react/src/view/quill/nodalQuillRich.css`,
+  `xflow/react/src/view/quill/quill-shim.d.ts` — toolbar / formats / thème.
+- `xflow/react/src/view/playerPopupPreviewFromTheme.ts` — mapping thème
+  store → styles d’aperçu (`afficherPopup`-like).
+- `xflow/react/src/view/usePlayerPopupTheme.ts` — hook lecture store.
+- `xflow/react/src/store/nodalProjectStore.ts` — slice `playerPopupTheme`,
+  `setPlayerPopupTheme`, `syncPlayerPopupThemeFromDom`.
+- `xflow/react/src/view/playerPopupDomRead.ts` — lecture DOM cantonnée.
+- `xflow/react/src/view/nodalReactFlowProjection.ts` — `toReactFlowNodes` /
+  `toReactFlowEdges` hors Quill (pour Vitest).
 - `xflow/react/src/view/nodalUiContext.tsx` — `msgEditorActionId`,
-  `setMsgEditorActionId`, `openMsgContentEditor`.
-- `xflow/react/src/view/NodalCanvas.tsx` — montage, `onSave` →
-  `updateNodeData` (payload `copy`).
+  `openMsgContentEditor`, accès popup thème.
+- `xflow/react/src/view/NodalCanvas.tsx`, `NodalCanvas.css`,
+  `view/nodes/nodes.css` — montage popups + grille `nodal-general-*` +
+  layout panneau élargi.
 - `xflow/react/src/view/nodes/ActionNodeView.tsx` — interaction nœud `msg`.
-- `xflow/react/src/view/NodalCanvas.css`, `view/nodes/nodes.css` — panneau élargi.
+- `xflow/react/src/view/palette/NodePalette.tsx`, `palette/palette.css` —
+  hub paramètres (palette : sauvegardes, lien formulaire, popup thème).
+- `xflow/react/src/view/popups/GlobalSettingsHubPopup.tsx` — hub paramètres.
+- `js/editor-nodal-map-bootstrap.js`, `js/editeur-app.js`,
+  `js/editor-en-app.js` — pont chrome carte
+  `window.__escape360NodalChrome` + `updatePreview`.
+- `xflow/react/src/escape360NodalChrome.d.ts` — typage du pont.
+- `xflow/react/src/serialize/mapLayoutJson.ts` — extras
+  `nodalPlayerPopupTheme` (phase B).
+- `xflow/react/package.json` — dépendance **`quill@1.3.7`**.
+- `xflow/react/vite.editor-map.config.ts` — bundle React ne précharge pas
+  Quill au top-level.
+- `xflow/react/src/__tests__/hexToRgba.test.ts` — non-régression conversion
+  hex → rgba (R=0).
+
+### C7.3 — Couverture des actiontypes texte/selector *(livré v1.6)*
+
+**Branche de lot** : `feat/c7-3-action-popups` (mergée vers `feat/nodal-map`).
+
+**Périmètre livré** : popups dédiées pour **chaque actiontype** restant
+(`pick`, `goto`, `req`, `pwd`, `selector`) sur `payload.copy` /
+`payload.nested` selon le type ; source de vérité **store nodal**
+uniquement (pas de fallback DOM pour l’édition). Validation produit
+**sans limite de longueur** sur `label` / `bodyHtml` / titres ; seule
+contrainte bloquante : **`pwd.payload.answer` requis** (save désactivé si
+vide). Aperçus runtime-like via composant partagé **`PlayerPopupPreview`**
+(variantes `button`, `input`, `selector-buttons`, `selector-dropdown`).
+Édition des **labels nodaux** dans les popups d’actions ; édition inline
+du titre des scènes (Enter/blur valide, Escape annule) ; renommage des
+nœuds média via popup média. Aperçu selector reprend les enfants directs
+du nœud (priorité `layout.parentId`, fallback edges `flow` legacy ; tri
+ordre nodal Y puis id).
+
+**Fichiers** :
+
+- `xflow/react/src/view/popups/PickContentPopup.tsx`,
+  `GotoContentPopup.tsx`, `ReqContentPopup.tsx`, `PwdContentPopup.tsx`,
+  `SelectorContentPopup.tsx` — popups par actiontype.
+- `xflow/react/src/view/popups/PlayerPopupPreview.tsx` — composant aperçu
+  partagé (variantes bouton, input, selector boutons / dropdown).
+- `xflow/react/src/view/popups/MsgContentPopup.tsx` — migration vers
+  `PlayerPopupPreview`.
+- `xflow/react/src/view/nodalUiContext.tsx` — états ouverture popups
+  `pick / goto / req / pwd / selector`.
+- `xflow/react/src/view/NodalCanvas.tsx`, `NodalCanvas.css` — montage des
+  popups + ajustements grille / scroll.
+- `xflow/react/src/view/nodes/ActionNodeView.tsx`, `MediaNodeView.tsx`,
+  `nodes.css` — interactions clic / clavier, édition inline scène, label
+  média visible.
+- `xflow/react/src/store/nodalProjectStore.ts` — `updateNodeData` couvre
+  `payload.copy.bodyHtml`, `payload.copy.buttonLabel`, `payload.answer`,
+  `payload.nested.title / copy.bodyHtml / displayMode`, `label` action,
+  titre scène, label média.
+
+### C7.5 — Smoke / export / persistance *(livré v1.6)*
+
+**Branche de lot** : `feat/c7-5-smoke-persistence` (à merger vers
+`feat/nodal-map` à la clôture C7).
+
+**Périmètre livré** :
+
+- Recette manuelle FR/EN **`SMK-01 → SMK-10`** validée (auteur 2026-04-27 →
+  2026-05-01) couvrant données minimales, long contenu, selector, chaînes
+  REQ/PWD, export simple `generateGame()`, ZIP web `exportGameWebZip()`,
+  bundle `.escapegame`, clair/sombre, non-régression bridge DOM.
+- **Persistance hors DOM** du thème popup (ex-`C7.2-bis` phase B) intégrée
+  ici : extras `nodalPlayerPopupTheme` dans `map-layout.json` ; round-trip
+  `.escapegame` reprojette le thème depuis le store (plus de resync DOM
+  systématique au montage).
+- Hotfix runtime PWD identifié et corrigé pendant la campagne smoke (voir
+  **C7.1** ci-dessus, paragraphe « Correctifs post-merge »).
+
+**Fichiers** :
+
+- `xflow/react/src/serialize/mapLayoutJson.ts` — extras
+  `nodalPlayerPopupTheme` (read/write).
+- `xflow/react/src/store/nodalProjectStore.ts` — réduction des
+  `syncPlayerPopupThemeFromDom` (montage + ouverture popup `msg`).
+- `js/editor-shared-nodal-to-dom.js` — projection thème popup vers DOM
+  legacy à partir du store.
+- `js/editeur-generate.js`, `js/editor-en-generate.js` — hotfix runtime PWD
+  (cf. C7.1).
+
+### C7.6 — Durcissement *(livré v1.6)*
+
+**Branche de lot** : `feat/c7-5-smoke-persistence` (suite directe du smoke
+C7.5 ; merge groupé à la clôture C7).
+
+**Périmètre livré** :
+
+- **Wrapper `.nodal-quill-theme`** créé et appliqué sur les **6 popups
+  d’actions** (`msg / pick / goto / req / pwd / selector`) — base d’une
+  reprise progressive des `!important` dans `nodalQuillRich.css`,
+  `palette.css`, `NodalCanvas.css` (ménage explicitement reporté
+  post-C7).
+- **Pickers Quill** `header / font / size` — interaction clair/sombre
+  validée par **SMK-08**.
+- **UX bouton « Snapshot » du dock brouillon local**
+  (`js/editor-shared-local-draft-ui.js`) — au clic alors que la case
+  « Activer » est décochée, **`confirm`** invitant à activer la
+  persistance puis prise immédiate du snapshot ; texte localisable via la
+  clé **`confirmEnableForSnapshot`** dans `js/editeur-app.js` (FR) et
+  `js/editor-en-app.js` (EN).
+
+**Fichiers** :
+
+- `js/editor-shared-local-draft-ui.js` — handler `local-draft-save-now`
+  (`confirm` → `setEnabled(true)` → `captureSnapshot("manual")`).
+- `js/editeur-app.js`, `js/editor-en-app.js` — strings
+  `confirmEnableForSnapshot`.
+- `xflow/react/src/view/popups/*ContentPopup.tsx` — application du wrapper
+  `.nodal-quill-theme` (déjà en place via C7.2 / C7.3).
+- `xflow/react/src/view/quill/nodalQuillRich.css` — surcharges scopées au
+  wrapper (ménage `!important` reporté post-C7).
+
+**Reports explicites post-C7 (consignés dans changelog v1.6)** : médias
+portables nodaux dans le bundle (`nodalDraftAdapter.ts` callbacks no-op
+pour les snapshots IndexedDB nodaux ; le bundle `.escapegame` reste
+fonctionnel via la projection DOM legacy) ; ménage progressif des
+`!important` Quill / CSS ; pont `updatePreview()` legacy `C7.2-bis-04` ;
+durcissement `SELECTOR_SPEC`.
 
 ## Annexe C — Glossaire
 
@@ -1414,8 +1610,12 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [x] **C7.3** : couverture étendue des types / selector (**lot clôturé** ; merge vers `feat/nodal-map` à faire).
 - [x] **C7.4** : chaînes REQ/PWD **(slice C7.1)** — schéma V2 + DOM + runtime ;
   lots C7.2+ (popups nodales, etc.) restent ouverts.
-- [ ] **C7.5** : smoke / export **C7 complet** (hors smoke lot C7.1 déjà OK).
-- [ ] **C7.6** : durcissement + **Annexe B — C7** + suppression **Annexe D**.
+- [x] **C7.5** : smoke / export **C7 complet** *(SMK-01 → SMK-10 validés ;
+  voir D.4 entrées 2026-05-01 et **Annexe B — C7.5**)*.
+- [x] **C7.6** : durcissement *(wrapper Quill en place, UX bouton Snapshot
+  livrée — `confirmEnableForSnapshot`, voir D.4 entrée 2026-05-01 #2)* +
+  **Annexe B — C7** *(consolidée v1.6)* + suppression **Annexe D** *(en
+  attente du feu vert auteur — voir D.5)*.
 
 **Todo détaillé — lot `c7-chain-reward` (avant ouverture de branche suivante)** :
 
@@ -1443,22 +1643,21 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [x] **C7.2-bis-02** : `PopupThemeCustomizationPopup` + aperçu `MsgContentPopup` alimentés par le store ; styles d’aperçu dérivés via `playerPopupPreviewFromTheme.ts` (aligné `generateGame` / sans perso).
 - [x] **C7.2-bis-03** : grille / colonne aperçu renommée **`nodal-general-*`** (CSS + `MsgContentPopup`, `PopupThemeCustomizationPopup`, `HotspotAppearancePopup`) ; alias CSS `nodal-ha-*` conservé pour compat.
 - [ ] **C7.2-bis-04** *(optionnel)* : pont explicite si le legacy appelle seulement `updatePreview()` sans événements `input` — garder le slice aligné sur le DOM dans ce cas.
-- [ ] **C7.6-QUILL-UX-01** *(durcissement)* : créer un mini wrapper thème Quill
-  (ex. `.nodal-quill-theme`) pour remplacer progressivement les surcharges
-  ponctuelles (`!important`) en clair/sombre, avec règles explicites sur
-  `ql-toolbar`, `ql-picker`, `ql-active`, `ql-expanded`, `ql-tooltip`.
-- [ ] **C7.6-QUILL-UX-02** *(durcissement)* : valider l’interaction des pickers
-  `header` / `font` / `size` (ouverture stable après mouseup, sélection au clic)
-  + test manuel clair/sombre ; éviter toute régression sur le picker alignement.
-- [ ] **C7.6-DRAFT-UX-01** *(durcissement — issu du smoke C7.5 / SMK-10)* :
-  brouillon local **`editor-shared-local-draft*.js`** — le clic « Snapshot »
-  appelle `captureSnapshot("manual")` qui sort silencieusement sur
-  `isEnabled() === false`. La case « Activer » du dock pilote **simultanément**
-  l’autosave, le snapshot manuel et la restauration au démarrage. Cible C7.6 :
-  soit (a) afficher un message clair (« activez la persistance pour utiliser
-  ce bouton ») au clic Snapshot quand la persistance est désactivée, soit
-  (b) séparer dans le dock une case « Activer la persistance » et une case
-  « Autosave périodique » — choix produit à acter avant code.
+- [x] **C7.6-QUILL-UX-01** *(durcissement)* : wrapper `.nodal-quill-theme`
+  **créé et appliqué** sur les 6 popups (`msg / pick / goto / req / pwd /
+  selector`) — base de la reprise progressive des surcharges `!important`
+  en clair/sombre. **Ménage `!important`** : reporté post-C7 (non bloquant).
+- [x] **C7.6-QUILL-UX-02** *(durcissement)* : pickers Quill `header / font /
+  size` validés clair/sombre via **SMK-08** (auteur 2026-05-01).
+- [x] **C7.6-DRAFT-UX-01** *(durcissement — issu du smoke C7.5 / SMK-10)* :
+  livré 2026-05-01. Au clic « Snapshot » avec « Activer » décoché, le dock
+  brouillon affiche un **`confirm`** invitant à activer la persistance puis
+  exécute `captureSnapshot("manual")` (option **C** retenue par l’auteur).
+  Strings localisées : **`confirmEnableForSnapshot`** dans
+  `js/editeur-app.js` (FR) et `js/editor-en-app.js` (EN). Logique commune
+  dans `js/editor-shared-local-draft-ui.js`. **Choix produit acté** :
+  garder une case « Activer » unique (pas de séparation autosave /
+  persistance — couvert par la confirmation interactive).
 
 *Phase B — persistance bundle / `project.json` (intégrée au lot **C7.5** ; pas de champs racine V2 dédiés aujourd’hui)* :
 
@@ -1480,7 +1679,7 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [x] **SMK-01 Données FR/EN minimales** : 1 scène start + 1 hotspot par actiontype (`msg/pick/goto/req/pwd/selector`) ; labels nodaux explicites (actions/scènes/médias) ; vérifier ouverture popups et persistance des champs.
 - [x] **SMK-02 Long contenu** : >3000 caractères injectés dans `bodyHtml` + titres/labels (≈3500 octets) ; cycles `generateGame()` + save/load OK (auteur 2026-05-01).
 - [x] **SMK-03 Selector** : tester `displayMode=buttons` et `dropdown`, vérifier reprise labels enfants directs (ordre nodal) en preview et en runtime.
-- [x] **SMK-04 REQ/PWD chaîne** : scénario `REQ -> REQ -> PWD -> MSG` + cas mixte `REQ -> SELECTOR -> REQ` ; parcours nominal + blocages attendus *(validé auteur 2026-04-29 ; correctifs runtime PWD — voir changelog v1.6.1 et **Annexe B — C7.1**)*.
+- [x] **SMK-04 REQ/PWD chaîne** : scénario `REQ -> REQ -> PWD -> MSG` + cas mixte `REQ -> SELECTOR -> REQ` ; parcours nominal + blocages attendus *(validé auteur 2026-04-29 ; correctifs runtime PWD — voir **Annexe B — C7.1**, paragraphe « Correctifs post-merge »)*.
 - [x] **SMK-05 Export simple** : `generateGame()` (index seul) ; rendu popup joueur FR/EN et styles Quill (`align/font/size`) cohérents (auteur 2026-05-01).
 - [x] **SMK-06 Export ZIP web** : `exportGameWebZip()` ; `index.html`, `lib/`, `media/` et exécution hors-ligne (`jouer_hors_ligne`) OK (auteur 2026-05-01).
 - [x] **SMK-07 Bundle `.escapegame`** : save/load round-trip complet ; vérifier labels nodaux, layout, edges, satellites auto, médias, et thème popup.
@@ -1654,22 +1853,36 @@ de l’eau.)*
   cochées. **Écart unique identifié** : bouton « Snapshot » du dock brouillon
   local inopérant si la case « Activer » est décochée (cause :
   `captureSnapshot()` court-circuite sur `isEnabled() === false`, pas de
-  feedback). Reporté en **C7.6-DRAFT-UX-01** (choix produit avant code :
-  message clair vs séparation autosave / persistance). **Pas de bump de
-  version** : la doc reste **v1.6.1** ; bump consolidé prévu à la clôture
-  C7 entier (cf. **D.5**).
+  feedback). Reporté en **C7.6-DRAFT-UX-01**.
+- 2026-05-01 #2 — **C7.6 — clôture chantier C7** : option **C** retenue pour
+  DRAFT-UX-01 (`confirm` au clic Snapshot avec « Activer » décoché → active
+  la persistance puis prend le snapshot ; clé `confirmEnableForSnapshot`
+  FR/EN). Wrapper `.nodal-quill-theme` acté en place (ménage `!important`
+  reporté post-C7). Pickers Quill clair/sombre (`C7.6-QUILL-UX-02`) couverts
+  par SMK-08. **Reports explicites post-C7** : médias portables nodaux
+  (`nodalDraftAdapter.ts` callbacks no-op pour les snapshots IndexedDB
+  nodaux ; bundle `.escapegame` reste fonctionnel via projection DOM
+  legacy), ménage `!important` Quill / CSS, pont `updatePreview()` legacy
+  (`C7.2-bis-04`), durcissement `SELECTOR_SPEC`. **Doc** : changelogs
+  v1.5.1 / v1.6 / v1.6.1 fusionnés en **changelog v1.6** consolidé sur le
+  modèle de v1.5 (chantier C7 entier) ; **Annexe B — C7** (re)structurée
+  avec sous-sections C7.1 / C7.2 / C7.3 / C7.5 / C7.6 ; §7 C7 mis à jour.
+  **Annexe D** : conservée en l’état le temps de la relecture finale
+  auteur ; suppression au feu vert (cf. **D.5**).
 
 ---
 
 ### D.5 — Checklist « prêt à supprimer l’annexe D »
 
-> *Note 2026-04-29* : les items ci-dessous restent la **porte de sortie** de
-> l’annexe D au terme du chantier **C7** entier (C7.5 / C7.6). La validation
-> **SMK-04** et la doc **v1.6.1** ne suppriment pas encore ce bloc.
+> *Note 2026-05-01* : les 4 prérequis ci-dessous sont **remplis** côté doc.
+> Le bloc reste en place pour une dernière relecture auteur ; suppression
+> dans un commit dédié au feu vert.
 
-- [ ] Tous les lots C7.x prévus sont livrés ou **explicitement** reportés
-  (avec cible).
-- [ ] **Annexe B** contient une sous-section **C7** (fichiers + décisions).
-- [ ] **Changelog** document principal mis à jour (ex. **v1.6**).
-- [ ] §7 **C7** reflète l’état livré (sans renvoi obligatoire à l’annexe D).
-- [ ] Supprimer ce bloc **Annexe D** en entier.
+- [x] Tous les lots C7.x prévus sont livrés ou **explicitement** reportés
+  (avec cible) — voir Annexe B — C7 et reports post-C7.
+- [x] **Annexe B** contient une sous-section **C7** (fichiers + décisions)
+  — sous-sections C7.1 / C7.2 / C7.3 / C7.5 / C7.6.
+- [x] **Changelog** document principal mis à jour : **v1.6** consolidé
+  (regroupe v1.5.1 / v1.6 / v1.6.1 + tout le chantier C7).
+- [x] §7 **C7** reflète l’état livré (sans renvoi obligatoire à l’annexe D).
+- [ ] Supprimer ce bloc **Annexe D** en entier *(au feu vert auteur)*.

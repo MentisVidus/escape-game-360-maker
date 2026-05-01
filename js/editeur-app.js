@@ -235,6 +235,8 @@ var localDraftUi = EditorSharedLocalDraftUiApi.createLocalDraftUi({
         statusWarnHigh: "Alerte forte (>=90%): pensez au mode leger.",
         statusWarnLow: "Alerte (>=80%).",
         alertSnapshotFailPrefix: "Echec du snapshot local : ",
+        confirmEnableForSnapshot:
+            "Le brouillon local est désactivé. Activer la persistance et faire un snapshot maintenant ?",
         confirmClearDrafts: "Effacer les brouillons locaux de cet onglet ?",
         confirmIncompatiblePurge:
             "Des brouillons locaux d'une ancienne version ont ete detectes ({count}). Les ignorer et les supprimer ?",

@@ -231,6 +231,8 @@ var localDraftUi = EditorSharedLocalDraftUiApi.createLocalDraftUi({
         statusWarnHigh: "High warning (>=90%): consider light mode.",
         statusWarnLow: "Warning (>=80%).",
         alertSnapshotFailPrefix: "Local snapshot failed: ",
+        confirmEnableForSnapshot:
+            "Local draft is disabled. Enable persistence and take a snapshot now?",
         confirmClearDrafts: "Clear local drafts for this tab?",
         confirmIncompatiblePurge:
             "Incompatible local drafts from an older version were found ({count}). Ignore and delete them?",
