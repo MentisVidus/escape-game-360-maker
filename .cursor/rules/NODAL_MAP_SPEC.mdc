@@ -1450,6 +1450,15 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 - [ ] **C7.6-QUILL-UX-02** *(durcissement)* : valider l’interaction des pickers
   `header` / `font` / `size` (ouverture stable après mouseup, sélection au clic)
   + test manuel clair/sombre ; éviter toute régression sur le picker alignement.
+- [ ] **C7.6-DRAFT-UX-01** *(durcissement — issu du smoke C7.5 / SMK-10)* :
+  brouillon local **`editor-shared-local-draft*.js`** — le clic « Snapshot »
+  appelle `captureSnapshot("manual")` qui sort silencieusement sur
+  `isEnabled() === false`. La case « Activer » du dock pilote **simultanément**
+  l’autosave, le snapshot manuel et la restauration au démarrage. Cible C7.6 :
+  soit (a) afficher un message clair (« activez la persistance pour utiliser
+  ce bouton ») au clic Snapshot quand la persistance est désactivée, soit
+  (b) séparer dans le dock une case « Activer la persistance » et une case
+  « Autosave périodique » — choix produit à acter avant code.
 
 *Phase B — persistance bundle / `project.json` (intégrée au lot **C7.5** ; pas de champs racine V2 dédiés aujourd’hui)* :
 
@@ -1461,23 +1470,23 @@ Branche de lot : **`feat/c7-2-msg-popup`** (PR / merge vers `feat/nodal-map`).
 
 - [x] **C7.5-00** : lot C7.5 ouvert (branche dédiée) + recette smoke finale C7 figée (FR/EN) ci-dessous.
 - [x] **C7.5-01** : intégrer **C7.2-bis phase B** dans le lot (C7.2-bis-10/11/12) pour persistance thème popup hors DOM.
-- [ ] **C7.5-02** : valider round-trip `.escapegame` complet (actions + labels nodaux + thème popup + media nodal).
-- [ ] **C7.5-03** : smoke export joueur (`generateGame` + ZIP web) sur scénarios `msg/pick/goto/req/pwd/selector` + chaînes REQ/PWD.
-- [ ] **C7.5-04** : smoke UX carte clair/sombre (Quill menus, scroll long, preview runtime-like, labels selector, labels scène/média/actions).
-- [ ] **C7.5-05** : journaliser résultats/écarts et préparer la transition vers C7.6 durcissement.
+- [x] **C7.5-02** : round-trip `.escapegame` complet (actions + labels nodaux + thème popup + media nodal) — couvert par SMK-07 + SMK-02 (long contenu).
+- [x] **C7.5-03** : smoke export joueur (`generateGame` + ZIP web) sur scénarios `msg/pick/goto/req/pwd/selector` + chaînes REQ/PWD — couvert par SMK-05 / SMK-06 (auteur 2026-05-01).
+- [x] **C7.5-04** : smoke UX carte clair/sombre (Quill menus, scroll long, preview runtime-like, labels selector, labels scène/média/actions) — couvert par SMK-08 (auteur 2026-05-01).
+- [x] **C7.5-05** : journaliser résultats/écarts et préparer la transition vers C7.6 durcissement *(2026-05-01 ; un écart « brouillon local » identifié — voir C7.6-DRAFT-UX-01)*.
 
 *Recette smoke C7.5 (FR/EN) — référence exécution manuelle* :
 
 - [x] **SMK-01 Données FR/EN minimales** : 1 scène start + 1 hotspot par actiontype (`msg/pick/goto/req/pwd/selector`) ; labels nodaux explicites (actions/scènes/médias) ; vérifier ouverture popups et persistance des champs.
-- [ ] **SMK-02 Long contenu** : injecter >3000 caractères dans `bodyHtml` + titres/labels ; vérifier absence de blocage UI, scroll interne preview, sauvegarde/rechargement intacts.
+- [x] **SMK-02 Long contenu** : >3000 caractères injectés dans `bodyHtml` + titres/labels (≈3500 octets) ; cycles `generateGame()` + save/load OK (auteur 2026-05-01).
 - [x] **SMK-03 Selector** : tester `displayMode=buttons` et `dropdown`, vérifier reprise labels enfants directs (ordre nodal) en preview et en runtime.
 - [x] **SMK-04 REQ/PWD chaîne** : scénario `REQ -> REQ -> PWD -> MSG` + cas mixte `REQ -> SELECTOR -> REQ` ; parcours nominal + blocages attendus *(validé auteur 2026-04-29 ; correctifs runtime PWD — voir changelog v1.6.1 et **Annexe B — C7.1**)*.
-- [ ] **SMK-05 Export simple** : `generateGame()` (index seul) ; vérifier rendu popup joueur FR/EN et styles Quill (`align/font/size`) cohérents.
-- [ ] **SMK-06 Export ZIP web** : `exportGameWebZip()` ; vérifier `index.html`, `lib/`, `media/` et exécution hors-ligne (`jouer_hors_ligne`).
+- [x] **SMK-05 Export simple** : `generateGame()` (index seul) ; rendu popup joueur FR/EN et styles Quill (`align/font/size`) cohérents (auteur 2026-05-01).
+- [x] **SMK-06 Export ZIP web** : `exportGameWebZip()` ; `index.html`, `lib/`, `media/` et exécution hors-ligne (`jouer_hors_ligne`) OK (auteur 2026-05-01).
 - [x] **SMK-07 Bundle `.escapegame`** : save/load round-trip complet ; vérifier labels nodaux, layout, edges, satellites auto, médias, et thème popup.
-- [ ] **SMK-08 Clair/Sombre** : carte nodale en modes light/dark ; vérifier toolbar/pickers Quill, lisibilité, z-index menus, absence de clipping.
+- [x] **SMK-08 Clair/Sombre** : carte nodale en modes light/dark, toolbar/pickers Quill, lisibilité, z-index menus, pas de clipping (auteur 2026-05-01).
 - [x] **SMK-09 Non-régression DOM bridge** : `flushNodalStoreToEditorDom` après modifications nodales ; vérifier projection legacy sans perte de données.
-- [ ] **SMK-10 Critère GO C7.5** : aucun blocant sur save/load/export/runtime ; écarts restants documentés et orientés C7.6 si polish uniquement.
+- [x] **SMK-10 Critère GO C7.5** *(avec réserve)* : save / load / export / runtime sans blocant (auteur 2026-05-01). **Écart documenté et orienté C7.6** : bouton « Snapshot » du dock brouillon local inopérant lorsque la case « Activer » est décochée — `captureSnapshot()` sort sur `isEnabled() === false` sans feedback ; voir **C7.6-DRAFT-UX-01** ci-dessous.
 
 **Todo détaillé — lot C7.3** *(ouverture : couverture actiontypes texte/selector ; phase B sauvegarde reportée)* :
 
@@ -1637,6 +1646,18 @@ de l’eau.)*
   autres **`action`**) lorsque **`pwdNext`** est absent sur l’objet fusionné ;
   énigme affichée via **`pwdEnigmeTxt || enigmeTxt`**. Spec **v1.6.1**, journal
   et **Annexe B — C7.1** mis à jour.
+- 2026-05-01 — **Smoke C7.5 — clôture côté tests** : auteur valide
+  **SMK-02** (long contenu ≈3500 octets, cycles `generateGame` + save/load),
+  **SMK-05** (`generateGame()` simple, rendu popup joueur FR/EN), **SMK-06**
+  (`exportGameWebZip()` + jouer hors-ligne), **SMK-08** (clair/sombre),
+  **SMK-10** (critère GO global, avec une réserve). Sous-tâches `C7.5-02 → 05`
+  cochées. **Écart unique identifié** : bouton « Snapshot » du dock brouillon
+  local inopérant si la case « Activer » est décochée (cause :
+  `captureSnapshot()` court-circuite sur `isEnabled() === false`, pas de
+  feedback). Reporté en **C7.6-DRAFT-UX-01** (choix produit avant code :
+  message clair vs séparation autosave / persistance). **Pas de bump de
+  version** : la doc reste **v1.6.1** ; bump consolidé prévu à la clôture
+  C7 entier (cf. **D.5**).
 
 ---
 
