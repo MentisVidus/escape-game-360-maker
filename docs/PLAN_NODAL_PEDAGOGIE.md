@@ -1,5 +1,7 @@
 # Plan — Éditeur nodal : pédagogie & intention produit
 
+> **Note printemps 2026** : la branche `feat/nodal-map` a livré une **première carte nodale React éditable** (chantier C7 — popups d’édition par nœud, palette latérale, chaînes `REQ → PWD → MSG`). Ce plan reste la **référence d’intention pédagogique** (publics, lisibilité, anti-spaghetti) ; les retours terrain manquent encore — les sections ci-dessous restent à réviser au fil des ateliers.
+
 Document **complémentaire** à [PLAN_EDITEUR_NODAL.md](./PLAN_EDITEUR_NODAL.md) (architecture, V2, jalons techniques). Ici : **pour qui**, **pourquoi** le nodal, **comment** limiter la complexité visuelle — sans prétendre à une expertise académique en sciences de l’éducation : objectif = **cadrage partagé** entre conception et développement, **révisable** au fil des retours terrain (EPN, ateliers).
 
 ---

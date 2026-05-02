@@ -1,5 +1,8 @@
 # Plan — sauvegarde locale (brouillon éditeur)
 
+> **Statut : ✅ Implémenté** (printemps 2026). Voir [`js/editor-shared-local-draft.js`](../js/editor-shared-local-draft.js) (cœur IndexedDB), [`js/editor-shared-local-draft-ui.js`](../js/editor-shared-local-draft-ui.js) (dock + restaurations + `captureSnapshotInteractive`), et le bouton **Snapshot** dans la palette de la carte nodale (bridgé via `window.__escape360NodalChrome`).
+> Ce document reste la **référence d’intention** (risques, options, phases) et n’est plus un plan actif.
+
 Document de planification pour le chantier **« brouillon / récupération après F5 accidentel »** (voir `docs/todo.md`).  
 **Périmètre :** uniquement l’**éditeur** (FR/EN) et la **persistance locale du travail en cours** — pas la sauvegarde de **progression joueur** dans le HTML exporté (chantier distinct dans le même `todo.md`).
 

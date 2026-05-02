@@ -1,5 +1,8 @@
 # Plan — sauvegarde locale de progression joueur
 
+> **Statut : ✅ Implémenté** (printemps 2026, phases B → D). Réglage projet **`playerSaveMode`** (`none` / `manual` / `auto`), implémenté dans [`js/player-shared-save.js`](../js/player-shared-save.js) et embarqué par `editeur-generate.js` / `editor-en-generate.js`.
+> Ce document reste la **référence d’intention** (contrat, phases) et n’est plus un plan actif.
+
 Document de planification pour le chantier **« sauvegarde/reprise de partie côté joueur »**.  
 Ce plan complète `docs/PLAN_SAUVEGARDE_LOCALE_EDITEUR.md` (brouillon éditeur) et se concentre sur l'état de jeu runtime (inventaire, scène, flags, timer, etc.).
 

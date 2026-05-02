@@ -3,6 +3,8 @@
 Document pour le hotspot **`selector`** (menu de choix, sous-menus, options conditionnelles, SFX par choix).  
 **La plupart du comportement décrit ci-dessous est implémenté** (éditeur FR/EN + jeu généré) ; les paragraphes marqués *roadmap* ou *à trancher* restent des pistes.
 
+> **Carte nodale (`feat/nodal-map`)** : le selector est aussi éditable depuis la carte nodale via le **`SelectorContentPopup`** (palette nodale, popup d’édition par nœud) ; la sérialisation V2 (`payload.nested`) reste le contrat partagé. Voir [NODAL_MAP_SPEC.mdc](../.cursor/rules/NODAL_MAP_SPEC.mdc) et [ACTION_FIELDS_MAPPING.md](./ACTION_FIELDS_MAPPING.md) (section `selector`).
+
 Pour le contexte général du projet et le **flux sauvegarde / chargement** (avec diagramme), voir [ARCHITECTURE.md](./ARCHITECTURE.md) (section *Hotspot `selector` in the project file* et *Selector : flux sauvegarde / chargement*). Pour les **médias locaux** (fichiers attachés au projet), le **bundle `.escapegame`** et l’**export ZIP Web**, voir les sections *Portable project bundle* et *Web ZIP export* dans le même fichier.
 
 ---
