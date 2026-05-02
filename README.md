@@ -12,34 +12,46 @@ L’outil produit un jeu jouable sous la forme d’un fichier **`index.html`** a
 
 L’éditeur repose sur une **couche headless** ([`js/editor-core.js`](js/editor-core.js)) : un **modèle JSON universel** (`schemaVersion: 2`) **découplé du HTML**. Les formulaires, la carte interactive et la génération du joueur sont des **adaptateurs** qui lisent et écrivent ce modèle.
 
+Selon la branche utilisée, l’éditeur propose **une ou deux surfaces d’édition** :
+
+- **Formulaire classique + carte Drawflow** (sur `main`) : liste linéaire des scènes et de leurs hotspots ; la carte Drawflow visualise le parcours pour aider à se repérer.
+- **Carte nodale React** (sur `feat/nodal-map`) : graphe **éditable** où chaque scène, hotspot et action est un **nœud**. Double-clic sur un nœud → **popup d’édition** dédiée à sa nature (message, transition, ramassage, énigme `REQ`, mot de passe `PWD`, menu `selector`). Les chaînes `REQ → PWD → MSG` se lisent et se modifient directement dans le graphe.
+
+Les deux surfaces écrivent et relisent **le même JSON V2** ; sur `feat/nodal-map`, c’est la **carte nodale qui devient la source de vérité d’édition**. La génération du joueur reste identique (`index.html` autonome ou archive `.escapegame`).
+
 - **Textes enrichis** : contenus HTML dans **`payload.copy`** (champs `bodyHtml`, `buttonLabel` selon le type d’action).
 - **Audio** : forme normalisée **`{ url, volume }`** pour la musique globale, l’ambiance par scène et les effets sonores des actions.
 
-Pour le détail technique (carte Drawflow, panneau latéral, Quill, flux selector) : **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** et **[docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md)**. Intention **pédagogique** du nodal (publics, repères Scratch / LEGO) : **[docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md)**.
+Pour le détail technique (carte Drawflow, panneau latéral, Quill, flux selector) : **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** et **[docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md)**. Spec autoritative de la carte nodale React : **[.cursor/rules/NODAL_MAP_SPEC.mdc](.cursor/rules/NODAL_MAP_SPEC.mdc)**. Intention **pédagogique** du nodal (publics EPN, repères Scratch / LEGO) : **[docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md)**.
 
 ---
 
 ## 🌐 Versions disponibles
 
-Plusieurs miroirs de l'éditeur cohabitent : tous servent le **même dépôt**, mais depuis des **branches** différentes. Pour un atelier ou un projet « sérieux », utilisez la version **GitHub Pages** ou la **Production Netlify** (toutes deux basées sur `main`). Les deux autres URL servent à tester en avant-première les chantiers en cours sur la **carte nodale React**.
+Plusieurs miroirs de l’éditeur cohabitent : tous servent le **même dépôt**, mais depuis des **branches** différentes.
+
+- **Pour un atelier ou un projet « sérieux »** : versions **GitHub Pages** ou **Production Netlify** (toutes deux basées sur `main`) — formulaire classique + carte Drawflow.
+- **Pour découvrir l’édition par carte nodale** : miroir **`feat/nodal-map`** (carte nodale React livrée). Reste qualifiée de bêta jusqu’à un futur merge sur `main`.
 
 | Version | Lien | Branche / source | Statut |
 |---------|------|------------------|--------|
 | **GitHub Pages** (FR) | [MentisVidus.github.io/…/editeur.html](https://MentisVidus.github.io/escape-game-360-maker/editeur.html) | `main` (GitHub Pages) | ✅ Stable — référence |
 | **GitHub Pages** (EN) | [MentisVidus.github.io/…/editor_en.html](https://MentisVidus.github.io/escape-game-360-maker/editor_en.html) | `main` (GitHub Pages) | ✅ Stable — référence |
 | **Production Netlify** | [eg360.netlify.app](https://eg360.netlify.app/) | `main` (Netlify) | ✅ Stable — miroir de la version GitHub Pages (formulaire + carte Drawflow) |
-| **Nodal map** (carte React) | [feat-nodal-map--eg360.netlify.app](https://feat-nodal-map--eg360.netlify.app/) | `feat/nodal-map` | 🟡 Branche de travail, **utilisable** — pas de chantier en cours, ce qui est livré est censé fonctionner |
-| **C7.5** (chantier actuel) | [feat-c7-5-smoke-persistence--eg360.netlify.app](https://feat-c7-5-smoke-persistence--eg360.netlify.app/) | `feat/c7-5-smoke-persistence` | ⚠️ **Instable** — branche de développement active, peut casser à tout moment |
+| **Carte nodale** (React) | [feat-nodal-map--eg360.netlify.app](https://feat-nodal-map--eg360.netlify.app/) | `feat/nodal-map` | 🟢 Bêta utilisable — Chantier C7 livré (popups d’édition par nœud, chaînes `REQ → PWD → MSG`, persistance brouillon). Pas de chantier en cours sur la branche. |
 
 ---
 
 ## 🛠️ Comment ça marche ?
 
-1. Ouvrez l’éditeur : **[LANCER L'ÉDITEUR FR](https://MentisVidus.github.io/escape-game-360-maker/editeur.html)**
-2. Ajoutez des scènes et renseignez vos images 360° (format équirectangulaire).
-3. Ajoutez des **points d’interaction** (hotspots) : messages, objets, énigmes, changements de scène, **menus à choix (selector)**.
-4. (Optionnel) Ouvrez la **carte du projet** pour visualiser le parcours et éditer depuis le **panneau latéral**.
-5. Cliquez sur **« Générer mon jeu »** pour **`index.html`**, ou sur **« Exporter le jeu (.ZIP pour Hébergement Web) »** pour une archive complète (voir ci-dessous).
+1. **Ouvrez l’éditeur** : **[Version stable (formulaire + Drawflow)](https://MentisVidus.github.io/escape-game-360-maker/editeur.html)** ou **[Bêta carte nodale](https://feat-nodal-map--eg360.netlify.app/)**.
+2. **Ajoutez vos scènes** et renseignez les **images 360°** (format équirectangulaire).
+3. **Posez vos hotspots** (points d’interaction). Chaque hotspot porte une **action** : afficher un message (`MSG`), changer de scène (`GOTO`), ramasser un objet (`PICK`), exiger un objet (`REQ`), demander un mot de passe (`PWD`), ouvrir un **menu à choix** (`SELECTOR`). Les actions `REQ` et `PWD` peuvent **enchaîner** une récompense (ex. `REQ → PWD → MSG`).
+4. **Selon la version** :
+   - **Formulaire classique** : tout se renseigne dans la liste des scènes (sections repliables) ; ouvrez la **carte du projet** (Drawflow) pour visualiser le parcours.
+   - **Carte nodale** (`feat/nodal-map`) : tout se construit dans le **graphe**. Utilisez la **palette latérale** pour ajouter scènes / hotspots / actions, **double-cliquez** un nœud pour ouvrir sa **popup d’édition** (texte riche Quill, médias, conditions, SFX), et **reliez** les nœuds pour exprimer les transitions et les récompenses.
+5. **Sauvegardez** régulièrement : **`.json`** pour un projet 100 % en URLs distantes, **`.escapegame`** (ZIP) si vous embarquez des **médias locaux** (panoramas, audio, icônes).
+6. **Cliquez sur « Générer mon jeu »** pour télécharger un **`index.html`** autonome, ou **« Exporter le jeu (.ZIP) »** pour une archive complète **Pannellum + médias** (voir ci-dessous).
 
 ### 💡 Conseils importants
 
@@ -60,11 +72,12 @@ Plusieurs miroirs de l'éditeur cohabitent : tous servent le **même dépôt**, 
 
 ---
 
-## ✨ Fonctionnalités actuelles (bêta — avril 2026)
+## ✨ Fonctionnalités actuelles (bêta — printemps 2026)
 
+* **Carte nodale React** *(branche `feat/nodal-map`, livrée chantier C7)* — graphe **éditable** comme interface principale : palette latérale (ajout / duplication / suppression), **popups d’édition par nœud** selon le type d’action, chaînes `REQ → PWD → MSG` récursives, snapshot manuel, dark/light mode.
 * **Schéma projet JSON V2** — sauvegarde structurée, actions unifiées (hotspot ou choix de menu), normalisation **legacy V1** à l’import.
-* **Carte interactive (Drawflow)** — vues **Focus**, **Complète** et **Acyclique** ; option **mode narration** (transitions) ; double-clic pour recentrer une scène.
-* **Panneau latéral** — édition des scènes et hotspots **depuis la carte** en **réutilisant les mêmes blocs formulaire** (déplacement dynamique dans le DOM, pas de duplication des champs).
+* **Carte interactive (Drawflow)** *(branche `main`)* — vues **Focus**, **Complète** et **Acyclique** ; option **mode narration** (transitions) ; double-clic pour recentrer une scène.
+* **Panneau latéral** *(carte Drawflow)* — édition des scènes et hotspots **depuis la carte** en **réutilisant les mêmes blocs formulaire** (déplacement dynamique dans le DOM, pas de duplication des champs).
 * **Éditeur de texte enrichi (Quill.js)** — titres, styles, listes, alignement, couleur, **polices et tailles** système (sans images/vidéos embarquées, JSON léger).
 * **WYSIWYG & thème des popups** — les zones d’édition reflètent en direct les **couleurs** et la **police** définies dans les paramètres globaux des boîtes de dialogue.
 * **Musique globale & ambiance par scène** — `{ url, volume }` ; silence si l’URL est vide.
@@ -88,6 +101,19 @@ Plusieurs miroirs de l'éditeur cohabitent : tous servent le **même dépôt**, 
 | **Export Web** | **`exportGameWebZip()`** : fetch Pannellum, réécriture des URLs médias, alertes **`blob:`** résiduelles. |
 | **Joueur** | **`#player-hud`**, modale volumes, persistance **`escape360_player_audio_v1`**. |
 | **Éditeur** | Placeholder scène jsDelivr ; confirm si sauvegarde `.json` avec embeds bundle. |
+
+### Récent (carte nodale React — printemps 2026, branche `feat/nodal-map`)
+
+Chantier **C7 livré** : la **carte nodale** devient l’interface d’édition principale sur cette branche.
+
+| Thème | Contenu |
+|--------|---------|
+| **Édition par popups** | Double-clic sur un nœud → popup dédiée à son type (`MSG`, `GOTO`, `PICK`, `REQ`, `PWD`, `SELECTOR`), texte riche Quill, médias, conditions de visibilité, SFX. |
+| **Chaînes REQ/PWD** | Récompenses imbriquées **récursives** (ex. `REQ → REQ → PWD → MSG`), runtime joueur aligné FR + EN. |
+| **Persistance** | Brouillon **IndexedDB** (snapshots manuels et auto, dock latéral + bouton dans la palette nodale), bundle `.escapegame` (graphe `map-layout.json` + projet V2). |
+| **Smoke** | Suite SMK-01 → SMK-10 validée (long contenu, selector, exports, dark/light, persistance). |
+
+Spec autoritative : **[`.cursor/rules/NODAL_MAP_SPEC.mdc`](.cursor/rules/NODAL_MAP_SPEC.mdc)** (Annexe B — Chantier C7).
 
 ---
 
@@ -147,34 +173,46 @@ The tool outputs a standalone **`index.html`** playable in a modern browser, or 
 
 A **headless** layer ([`js/editor-core.js`](js/editor-core.js)) defines a **universal project model** (`schemaVersion: 2`) **decoupled from HTML**. Forms, the interactive map, and the player generator are **adapters** on top of that model.
 
+Depending on the branch, the editor offers **one or two editing surfaces**:
+
+- **Classic form + Drawflow map** (on `main`): linear list of scenes and hotspots; the Drawflow map gives a bird’s-eye view of the flow.
+- **React nodal map** (on `feat/nodal-map`): an **editable graph** where each scene, hotspot and action is a **node**. Double-clicking a node opens a **dedicated edit popup** matching its nature (message, transition, pick, `REQ` riddle, password `PWD`, choice `selector`). `REQ → PWD → MSG` chains are read and edited directly in the graph.
+
+Both surfaces serialize **the same V2 JSON**; on `feat/nodal-map`, the **nodal map becomes the editing source of truth**. Player generation is unchanged (standalone `index.html` or `.escapegame` bundle).
+
 - **Rich text** lives under **`payload.copy`** (e.g. `bodyHtml`, `buttonLabel` depending on action type).
 - **Audio** uses **`{ url, volume }`** for global music, per-scene ambiance, and action SFX.
 
-See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md)** for technical depth. Nodal **pedagogy & product intent**: **[docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md)**.
+See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md)** for technical depth. Authoritative spec of the React nodal map: **[.cursor/rules/NODAL_MAP_SPEC.mdc](.cursor/rules/NODAL_MAP_SPEC.mdc)**. Nodal **pedagogy & product intent**: **[docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md)**.
 
 ---
 
 ## 🌐 Available versions
 
-Several editor mirrors run in parallel — they all serve the **same repository** but from different **branches**. For workshops or serious projects, use **GitHub Pages** or the **Netlify production** mirror (both based on `main`). The other two URLs are for previewing in-progress work on the **React nodal map**.
+Several editor mirrors run in parallel — they all serve the **same repository** but from different **branches**.
+
+- **For workshops or serious projects** — use **GitHub Pages** or the **Netlify production** mirror (both based on `main`): classic form + Drawflow map.
+- **To try the nodal-map editor** — use the **`feat/nodal-map`** mirror (React nodal map shipped). Still considered beta until a future merge into `main`.
 
 | Version | Link | Branch / source | Status |
 |---------|------|-----------------|--------|
 | **GitHub Pages** (FR) | [MentisVidus.github.io/…/editeur.html](https://MentisVidus.github.io/escape-game-360-maker/editeur.html) | `main` (GitHub Pages) | ✅ Stable — reference |
 | **GitHub Pages** (EN) | [MentisVidus.github.io/…/editor_en.html](https://MentisVidus.github.io/escape-game-360-maker/editor_en.html) | `main` (GitHub Pages) | ✅ Stable — reference |
 | **Netlify production** | [eg360.netlify.app](https://eg360.netlify.app/) | `main` (Netlify) | ✅ Stable — mirror of the GitHub Pages build (form + Drawflow map) |
-| **Nodal map** (React graph) | [feat-nodal-map--eg360.netlify.app](https://feat-nodal-map--eg360.netlify.app/) | `feat/nodal-map` | 🟡 Working branch, **usable** — no active work in progress, what is shipped is expected to work |
-| **C7.5** (current dev) | [feat-c7-5-smoke-persistence--eg360.netlify.app](https://feat-c7-5-smoke-persistence--eg360.netlify.app/) | `feat/c7-5-smoke-persistence` | ⚠️ **Unstable** — active development branch, may break at any time |
+| **Nodal map** (React) | [feat-nodal-map--eg360.netlify.app](https://feat-nodal-map--eg360.netlify.app/) | `feat/nodal-map` | 🟢 Usable beta — Chantier C7 shipped (per-node edit popups, `REQ → PWD → MSG` chains, local draft persistence). No active work on the branch. |
 
 ---
 
 ## 🛠️ How it works
 
-1. Open the editor: **[LAUNCH EN EDITOR](https://MentisVidus.github.io/escape-game-360-maker/editor_en.html)**
-2. Add scenes and your 360° equirectangular image URLs.
-3. Add **hotspots** — messages, items, puzzles, scene jumps, **choice menus (selector)**.
-4. (Optional) Open the **project map** to explore flow and edit from the **side panel**.
-5. Click **GENERATE MY GAME** for **`index.html`**, or **Export game (.ZIP for Web hosting)** for a full archive (see below).
+1. **Open the editor**: **[Stable build (form + Drawflow)](https://MentisVidus.github.io/escape-game-360-maker/editor_en.html)** or **[Nodal-map beta](https://feat-nodal-map--eg360.netlify.app/)**.
+2. **Add your scenes** with their **360° equirectangular** image URLs.
+3. **Place your hotspots** (interaction points). Each hotspot triggers an **action**: show a message (`MSG`), jump to a scene (`GOTO`), pick up an item (`PICK`), require an item (`REQ`), ask for a password (`PWD`), or open a **choice menu** (`SELECTOR`). `REQ` and `PWD` actions can **chain** a reward (e.g. `REQ → PWD → MSG`).
+4. **Depending on the build**:
+   - **Classic form**: fill everything in the scene list (collapsible sections); open the **project map** (Drawflow) to visualize the flow.
+   - **Nodal map** (`feat/nodal-map`): build everything in the **graph**. Use the **side palette** to add scenes / hotspots / actions, **double-click** a node to open its dedicated **edit popup** (Quill rich text, media, conditions, SFX), and **connect** nodes to express transitions and rewards.
+5. **Save regularly**: **`.json`** when everything is remote; **`.escapegame`** (ZIP) when you bundle **local media** (panoramas, audio, icons).
+6. **Click GENERATE MY GAME** to download a standalone **`index.html`**, or **Export game (.ZIP for Web hosting)** for a full archive with **Pannellum + media** (see below).
 
 ### Tips
 
@@ -196,11 +234,12 @@ Several editor mirrors run in parallel — they all serve the **same repository*
 
 ---
 
-## ✨ Features (beta — April 2026)
+## ✨ Features (beta — Spring 2026)
 
+* **React nodal map** *(`feat/nodal-map` branch, shipped in Chantier C7)* — **editable graph** as primary editing surface: side palette (add / duplicate / delete), **per-node edit popups** matching the action type, recursive `REQ → PWD → MSG` chains, manual snapshot, dark/light mode.
 * **V2 project JSON** — unified actions, **`payload.copy`**, normalized **`{ url, volume }` audio**, legacy V1 load path.
-* **Interactive map (Drawflow)** — **Focus**, **Full**, and **Tree** (acyclic) views; optional **narration** filter; double-click to refocus a scene.
-* **Side panel** — edit scenes and hotspots from the map by **reusing the same DOM blocks** as the list view (dynamic move, no duplicate forms).
+* **Interactive map (Drawflow)** *(`main` branch)* — **Focus**, **Full**, and **Tree** (acyclic) views; optional **narration** filter; double-click to refocus a scene.
+* **Side panel** *(Drawflow map)* — edit scenes and hotspots from the map by **reusing the same DOM blocks** as the list view (dynamic move, no duplicate forms).
 * **Quill.js rich text** — headings, styles, lists, alignment, color, **system fonts & sizes** (no embedded images/videos — keeps JSON small).
 * **WYSIWYG vs dialog theme** — editor surface tracks **popup colors** and **font** from global settings in real time.
 * **Global music & per-scene ambiance**, **live scene preview**, **visual CSS editor** for hit areas, **360° picker**, **inventory**, **logic & riddles**, **selector** menus with nesting and per-choice SFX.
@@ -217,6 +256,19 @@ Several editor mirrors run in parallel — they all serve the **same repository*
 | **Web export** | **`exportGameWebZip()`** — fetch Pannellum, rewrite media URLs, warn on stray **`blob:`**. |
 | **Player** | **`#player-hud`**, volume modal, **`escape360_player_audio_v1`** key. |
 | **Editor** | jsDelivr placeholder; **`.json`** save confirm when bundle embeds remain. |
+
+### Recent (React nodal map — Spring 2026, `feat/nodal-map` branch)
+
+**C7 shipped**: the **nodal map** becomes the primary editing surface on this branch.
+
+| Area | Notes |
+|------|--------|
+| **Per-node edit popups** | Double-click a node → dedicated popup matching its type (`MSG`, `GOTO`, `PICK`, `REQ`, `PWD`, `SELECTOR`), Quill rich text, media, visibility conditions, SFX. |
+| **REQ/PWD chains** | **Recursive** nested rewards (e.g. `REQ → REQ → PWD → MSG`), aligned FR + EN player runtime. |
+| **Persistence** | **IndexedDB** local draft (manual + auto snapshots, dock + button in the nodal palette), `.escapegame` bundle (graph `map-layout.json` + V2 project). |
+| **Smoke** | SMK-01 → SMK-10 suite validated (long content, selector, exports, dark/light, persistence). |
+
+Authoritative spec: **[`.cursor/rules/NODAL_MAP_SPEC.mdc`](.cursor/rules/NODAL_MAP_SPEC.mdc)** (Annexe B — Chantier C7).
 
 ---
 
