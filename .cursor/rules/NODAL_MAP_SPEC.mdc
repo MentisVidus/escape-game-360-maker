@@ -1496,3 +1496,25 @@ déplier, raccourcis, recherche, copier/coller, drag selector parenté).
 questions ouvertes, captures pertinentes.)
 
 - 2026-05-02 — Cadrage initial (présent document).
+- 2026-05-02 — **C8.1 implémenté**.
+  - Décision Q1 ajustée : repliement réservé aux **selectors uniquement**.
+    Pour REQ/PWD, la récompense reste visible donc replier l'en-tête
+    n'apporte rien (chevron retiré pour ces types).
+  - Q2 : enfants d'un selector replié (sous-selectors, choix, satellites
+    auto, REQ/PWD imbriqués…) marqués `hidden: true` côté React Flow ;
+    edges associées également `hidden`. Calcul transitif via
+    `collectHiddenIdsFromCollapsedSelectors()`.
+  - Q3 : chevron `▾` / `▸` en haut-droite de l'en-tête, branché sur
+    `toggleNodeCollapsed(nodeId)`. Pas de double-clic (conflit avec
+    l'ouverture des popups).
+  - Q4 : tous les handles restent visibles en mode replié (Annexe D).
+  - Persistance : `collapsed` déjà présent dans `serializeLayout` /
+    `applyLayout` ; aucun changement nécessaire côté `map-layout.json`.
+  - Compteur : `selectorChildCount` exposé via la projection (label
+    « N choix masqué(s) » sous le titre quand replié).
+  - `NodeResizer` désactivé en mode replié + reset des `width/height`
+    appliqués via `style` pour laisser le contenu se dimensionner.
+  - Tests : `selectorCollapsed.test.ts` (2 cas — projection & round-trip
+    serialize/applyLayout). Suite complète : 48 passed, 1 skipped.
+  - Build editor-map OK (691.77 kB / gzip 201.23 kB — pas de variation
+    notable).

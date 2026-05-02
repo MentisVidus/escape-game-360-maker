@@ -44,6 +44,8 @@ export type NodalProjectStore = NodalProject & {
   detachChild: (childId: AnyNodeId, absolutePosition?: { x: number; y: number }) => void;
   updateNodeData: (nodeId: AnyNodeId, patch: NodePatch) => void;
   updateNodeLayout: (nodeId: AnyNodeId, patch: Partial<NodeLayout>) => void;
+  /** Bascule `layout[nodeId].collapsed` (C8.1 — pliage des selectors). */
+  toggleNodeCollapsed: (nodeId: AnyNodeId) => void;
   setStartScene: (sceneId: SceneNodeId) => void;
   setViewport: (viewport: Viewport) => void;
   upsertObject: (entry: ObjectEntry) => void;
@@ -448,6 +450,17 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
             [nodeId]: { ...current, ...patch },
           },
         }),
+      });
+    },
+
+    toggleNodeCollapsed: (nodeId) => {
+      const state = get();
+      const current = state.layout[nodeId];
+      if (!current) return;
+      const next = { ...current, collapsed: !current.collapsed };
+      set({
+        ...state,
+        layout: { ...state.layout, [nodeId]: next },
       });
     },
 

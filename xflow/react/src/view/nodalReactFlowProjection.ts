@@ -4,7 +4,7 @@
  */
 import type { Edge as RFEdge, Node as RFNode } from "@xyflow/react";
 
-import type { ActionNodeId } from "../model/ids";
+import type { ActionNodeId, AnyNodeId } from "../model/ids";
 import type { NodalProject } from "../model/project";
 import { getActionContextualState } from "../store/reconcileAutoSatellites";
 import {
@@ -22,7 +22,61 @@ export type NodalRFData = {
   isRewardChild?: boolean;
   rewardParentType?: "req" | "pwd" | null;
   contextualState?: 1 | 2 | 3 | 4;
+  /** État replié du nœud (C8.1) — actuellement utilisé pour les selectors. */
+  collapsed?: boolean;
+  /** Nombre de choix imbriqués (selector replié) — pour affichage compteur. */
+  selectorChildCount?: number;
 };
+
+/**
+ * C8.1 — Calcule l'ensemble des nœuds à masquer parce qu'ils sont descendants
+ * (transitif) d'un selector replié. Les selectors eux-mêmes restent visibles.
+ */
+function collectHiddenIdsFromCollapsedSelectors(state: NodalProject): Set<AnyNodeId> {
+  const hidden = new Set<AnyNodeId>();
+  const collapsedSelectorIds = new Set<AnyNodeId>();
+
+  for (const action of Object.values(state.actions)) {
+    const layout = state.layout[action.id];
+    if (!layout) continue;
+    if (action.actionType === "selector" && layout.collapsed) {
+      collapsedSelectorIds.add(action.id);
+    }
+  }
+  if (collapsedSelectorIds.size === 0) return hidden;
+
+  const childrenByParent = new Map<AnyNodeId, AnyNodeId[]>();
+  for (const [nodeId, layout] of Object.entries(state.layout) as Array<
+    [AnyNodeId, NodalProject["layout"][AnyNodeId]]
+  >) {
+    if (!layout?.parentId) continue;
+    const list = childrenByParent.get(layout.parentId) || [];
+    list.push(nodeId);
+    childrenByParent.set(layout.parentId, list);
+  }
+
+  const stack: AnyNodeId[] = [];
+  for (const id of collapsedSelectorIds) stack.push(id);
+  while (stack.length > 0) {
+    const parent = stack.pop()!;
+    const children = childrenByParent.get(parent);
+    if (!children) continue;
+    for (const child of children) {
+      if (hidden.has(child)) continue;
+      hidden.add(child);
+      stack.push(child);
+    }
+  }
+  return hidden;
+}
+
+function countSelectorChoices(state: NodalProject, selectorId: AnyNodeId): number {
+  let count = 0;
+  for (const layout of Object.values(state.layout)) {
+    if (layout.parentId === selectorId) count += 1;
+  }
+  return count;
+}
 
 function sortNodesParentFirst(nodes: RFNode<NodalRFData>[]): RFNode<NodalRFData>[] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -59,6 +113,7 @@ function sortNodesParentFirst(nodes: RFNode<NodalRFData>[]): RFNode<NodalRFData>
 
 export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
   const nodes: RFNode<NodalRFData>[] = [];
+  const hiddenIds = collectHiddenIdsFromCollapsedSelectors(state);
 
   for (const scene of Object.values(state.scenes)) {
     const layout = state.layout[scene.id];
@@ -87,13 +142,20 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
             ? (parentAction.actionType as "req" | "pwd")
             : null,
         contextualState: getActionContextualState(state, action.id as ActionNodeId),
+        collapsed: !!layout.collapsed,
+        ...(action.actionType === "selector"
+          ? { selectorChildCount: countSelectorChoices(state, action.id) }
+          : {}),
       },
     };
-    if (action.actionType === "selector" && layout.width && layout.height) {
+    if (action.actionType === "selector" && layout.width && layout.height && !layout.collapsed) {
       actionNode.style = { width: layout.width, height: layout.height };
     }
     if (layout.parentId) {
       actionNode.parentId = layout.parentId;
+    }
+    if (hiddenIds.has(action.id)) {
+      actionNode.hidden = true;
     }
     nodes.push(actionNode);
   }
@@ -109,24 +171,33 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
     if (layout.parentId) {
       satelliteNode.parentId = layout.parentId;
     }
+    if (hiddenIds.has(satellite.id)) {
+      satelliteNode.hidden = true;
+    }
     nodes.push(satelliteNode);
   }
   for (const media of Object.values(state.media)) {
     const layout = state.layout[media.id];
     if (!layout) continue;
-    nodes.push({
+    const mediaNode: RFNode<NodalRFData> = {
       id: media.id,
       type: "mediaNode",
       position: { x: layout.x, y: layout.y },
       data: { nodeType: "media", node: media },
-    });
+    };
+    if (hiddenIds.has(media.id)) {
+      mediaNode.hidden = true;
+    }
+    nodes.push(mediaNode);
   }
 
   return sortNodesParentFirst(nodes);
 }
 
 export function toReactFlowEdges(state: NodalProject): RFEdge[] {
+  const hiddenIds = collectHiddenIdsFromCollapsedSelectors(state);
   return state.edges.map((edge) => {
+    const hidden = hiddenIds.has(edge.sourceId) || hiddenIds.has(edge.targetId);
     if (edge.family === "transition") {
       return {
         id: edge.id,
@@ -136,6 +207,7 @@ export function toReactFlowEdges(state: NodalProject): RFEdge[] {
         targetHandle: HANDLE_GOTO_IN,
         animated: true,
         className: "nodal-edge nodal-edge--transition",
+        ...(hidden ? { hidden: true } : {}),
       };
     }
     if (edge.family === "meta") {
@@ -146,6 +218,7 @@ export function toReactFlowEdges(state: NodalProject): RFEdge[] {
         sourceHandle: HANDLE_META_OUT,
         targetHandle: HANDLE_META_IN,
         className: "nodal-edge nodal-edge--meta",
+        ...(hidden ? { hidden: true } : {}),
       };
     }
     return {
@@ -155,6 +228,7 @@ export function toReactFlowEdges(state: NodalProject): RFEdge[] {
       sourceHandle: HANDLE_FLOW_OUT,
       targetHandle: HANDLE_FLOW_IN,
       className: "nodal-edge nodal-edge--flow",
+      ...(hidden ? { hidden: true } : {}),
     };
   });
 }

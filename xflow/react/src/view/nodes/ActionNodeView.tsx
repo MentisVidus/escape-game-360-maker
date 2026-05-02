@@ -30,6 +30,8 @@ type ActionNodeViewData = {
   isRewardChild: boolean;
   rewardParentType: "req" | "pwd" | null;
   contextualState?: 1 | 2 | 3 | 4;
+  collapsed?: boolean;
+  selectorChildCount?: number;
 };
 
 export function ActionNodeView({ id, data }: NodeProps) {
@@ -38,6 +40,9 @@ export function ActionNodeView({ id, data }: NodeProps) {
   const ui = useNodalUi();
   const showDetach = nodeData.isRewardChild;
   const cs = nodeData.contextualState;
+  const isSelector = node.actionType === "selector";
+  const isCollapsed = isSelector && !!nodeData.collapsed;
+  const collapsedClass = isCollapsed ? " nodal-node--collapsed" : "";
   const stateClass =
     showDetach ? "" : cs === 1 ? " action-node--orphan" : cs === 3 ? " action-node--choice" : "";
   const textEditable =
@@ -48,9 +53,19 @@ export function ActionNodeView({ id, data }: NodeProps) {
     node.actionType === "pwd" ||
     node.actionType === "selector";
 
+  const toggleCollapsed = (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    ui.store.getState().toggleNodeCollapsed(id as ActionNodeId);
+  };
+
   const openTextEditor = (e: MouseEvent<HTMLDivElement>) => {
     const t = e.target as HTMLElement;
-    if (t.closest(".nodal-handle") || t.closest(".nodal-detach-btn")) return;
+    if (
+      t.closest(".nodal-handle") ||
+      t.closest(".nodal-detach-btn") ||
+      t.closest(".nodal-node-collapse-toggle")
+    )
+      return;
     if (node.actionType === "pick") {
       ui.openPickContentEditor(node.id as ActionNodeId);
       return;
@@ -101,15 +116,17 @@ export function ActionNodeView({ id, data }: NodeProps) {
     }
   };
 
+  const childCount = nodeData.selectorChildCount ?? 0;
+
   return (
     <div
-      className={`nodal-node action action-${node.actionType}${showDetach ? " action-child-reward" : ""}${stateClass}${textEditable ? " action-msg--clickable" : ""}`}
+      className={`nodal-node action action-${node.actionType}${showDetach ? " action-child-reward" : ""}${stateClass}${textEditable ? " action-msg--clickable" : ""}${collapsedClass}`}
       onClick={textEditable ? openTextEditor : undefined}
       onKeyDown={textEditable ? onTextKeyDown : undefined}
       role={textEditable ? "button" : undefined}
       tabIndex={textEditable ? 0 : undefined}
     >
-      {node.actionType === "selector" ? (
+      {isSelector && !isCollapsed ? (
         <NodeResizer
           minWidth={160}
           minHeight={80}
@@ -119,7 +136,25 @@ export function ActionNodeView({ id, data }: NodeProps) {
         />
       ) : null}
       <div className="title">{node.label}</div>
-      <div className="subtitle">{getActionSubtitle(node)}</div>
+      {isCollapsed ? (
+        <div className="subtitle nodal-selector-collapsed-count">
+          Selector — {childCount} {childCount > 1 ? "choix masqués" : "choix masqué"}
+        </div>
+      ) : (
+        <div className="subtitle">{getActionSubtitle(node)}</div>
+      )}
+      {isSelector ? (
+        <button
+          type="button"
+          className="nodal-node-collapse-toggle"
+          onClick={toggleCollapsed}
+          aria-expanded={!isCollapsed}
+          aria-label={isCollapsed ? "Déplier le selector" : "Replier le selector"}
+          title={isCollapsed ? "Déplier" : "Replier"}
+        >
+          {isCollapsed ? "▸" : "▾"}
+        </button>
+      ) : null}
       <Handle id={HANDLE_FLOW_IN} type="target" position={Position.Left} className="nodal-handle flow" />
       {node.actionType === "goto" ? (
         <Handle id={HANDLE_GOTO_OUT} type="source" position={Position.Right} className="nodal-handle transition" />
