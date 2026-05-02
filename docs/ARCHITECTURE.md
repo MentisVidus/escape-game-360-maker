@@ -30,6 +30,9 @@ This document is for **developers** and **AI assistants** working on the reposit
 | [js/editor-en-app.js](../js/editor-en-app.js) | English editor — mirrors `editeur-app.js` (including bundle save/load). |
 | [js/editor-en-generate.js](../js/editor-en-generate.js) | English: `generateGame()` + **`exportGameWebZip()`** + boot; mirrors `editeur-generate.js`. |
 | [xflow/draw/project-graph.js](../xflow/draw/project-graph.js) | **Drawflow** map: build graph from project, views (focus / full / tree), narration filter, side panel **DOM mount**. |
+| [xflow/react/src/](../xflow/react/src/) | **React nodal map** (Vite + React + React Flow) — carte nodale **éditable** sur `feat/nodal-map`. Store [`nodalProjectStore.ts`](../xflow/react/src/store/nodalProjectStore.ts), popups d’édition par type (`view/popups/`), serialize FR/EN dans `serialize/`. Build local : `npm run build:editor-map` → `dist/editor-map.{js,css}` (non versionnés). Spec autoritative : [`.cursor/rules/NODAL_MAP_SPEC.mdc`](../.cursor/rules/NODAL_MAP_SPEC.mdc). |
+| [js/editor-nodal-map-bootstrap.js](../js/editor-nodal-map-bootstrap.js) | Boot du bundle React nodal côté éditeur : monte `Escape360EditorNodalMap` sur `#nodal-map-root`, expose `window.__ESCAPE360_NODAL_STORE__`, gère le pont `window.__escape360NodalChrome` (save/load/snapshot bridgés vers `*-app.js`). |
+| [js/editor-shared-nodal-to-dom.js](../js/editor-shared-nodal-to-dom.js) | Projection **unidirectionnelle nodal → DOM** : recopie le projet sérialisé par le store nodal vers les blocs `.scene-block` / hotspot pour réutiliser `generateGame()`, sans flux DOM → nodal hors cas explicites. |
 | [README.md](../README.md) | User-facing documentation (FR + EN). |
 
 There is **no build step**. Open either HTML file from disk or host statically (e.g. GitHub Pages). HTML files live at the repo root; assets use relative paths (`css/`, `js/`). Typical load order: **Drawflow** → **editor-core.js** → **Quill** → **editor-quill-scenes.js** → **`*-app.js`** → **`*-generate.js`** (see each HTML file for exact `defer` order).
@@ -48,28 +51,42 @@ The editor is **decoupled** from any single UI surface: the **canonical model** 
 - **Audio clips** — normalized to **`{ url: string, volume: number }`** (0–1) for global music, per-scene ambiance, and **`action.sfx`**.
 - **Legacy saves** without `schemaVersion` are treated as **V1** and normalized when loaded; new saves are **V2**.
 
-High-level flow:
+High-level flow (covers `main` and `feat/nodal-map`):
 
 ```mermaid
 flowchart LR
   subgraph adapters [UI adapters]
     F[Form DOM]
     M[Drawflow map + side panel]
+    N[React nodal map - feat/nodal-map]
   end
   EC[EditorCore normalize / SCHEMA_VERSION 2]
   F <--> EC
   M <--> F
+  N --> F
+
+  subgraph drafts [Local draft - IndexedDB]
+    DR[editor-shared-local-draft.js]
+  end
+  F <--> DR
+  N -. snapshot bridge .-> DR
 
   F --> SJ[saveProject .json]
   F --> SB[saveProjectBundle .escapegame]
   LJ[loadProject .json] --> F
   LB[loadProject .escapegame] --> F
+  LB -. blob URLs .-> F
 
   F --> GH[generateGame index.html]
   F --> GZ[exportGameWebZip hosting ZIP]
   GH --> P1[Standalone player HTML]
   GZ --> P2[index.html + lib/pannellum + media]
 ```
+
+- **`main`** : the form DOM (`F`) and the Drawflow map (`M`) share the same DOM blocks; serialization goes through `EditorCore`.
+- **`feat/nodal-map`** : the nodal store (`N`) is the editing source of truth; a unidirectional **nodal → DOM** projection ([`js/editor-shared-nodal-to-dom.js`](../js/editor-shared-nodal-to-dom.js)) keeps the form DOM in sync so `generateGame()` / `exportGameWebZip()` work unchanged.
+- **Local draft (IndexedDB)** : autosave + manual snapshots + restore dock, FR/EN; the nodal palette also exposes a snapshot button bridged via `window.__escape360NodalChrome`.
+- **`.escapegame` load** : assets are mapped to `blob:` URLs for the session (no `fetch` on `file://`).
 
 ---
 
@@ -83,7 +100,25 @@ The **project map** is a fullscreen modal using [Drawflow](https://github.com/je
 
 The graph reads the current project via **`getCurrentProjectData()`** (same object as save). Renaming scene IDs is kept consistent with target `<select>`s (delegated listeners on `document.body` for `.sc-id` in `editor-quill-scenes.js`).
 
-Strategic note: **React Flow** (or similar) is a **long-term** alternative to Drawflow if the stack gains a bundler + React; **`EditorCore` + V2 JSON** would remain the logical source of truth. See [PLAN_EDITEUR_NODAL.md](./PLAN_EDITEUR_NODAL.md).
+Note: this Drawflow surface remains the carte par défaut on `main`. On the `feat/nodal-map` branch, an **editable React nodal map** has shipped (chantier C7) and is the **editing source of truth**; see the next section.
+
+---
+
+## React nodal map (`feat/nodal-map`)
+
+On the **`feat/nodal-map`** branch, the editor ships a **React + React Flow** nodal map (Vite project under [`xflow/react/`](../xflow/react/)) that **replaces** the Drawflow modal as the **primary editing surface**:
+
+- **Store** ([`xflow/react/src/store/nodalProjectStore.ts`](../xflow/react/src/store/nodalProjectStore.ts)) — pure TypeScript store (no DOM) holding scenes, hotspots, actions, selectors, satellites; serialize/deserialize from V2 JSON via `xflow/react/src/serialize/`.
+- **Per-node edit popups** (`xflow/react/src/view/popups/`) — double-clicking a node opens a popup matching its action type (`MSG`, `GOTO`, `PICK`, `REQ`, `PWD`, `SELECTOR`), with embedded **Quill** rich-text editor, audio/SFX fields, visibility conditions. Recursive nested rewards (`REQ → PWD → MSG`) are edited inline.
+- **Side palette** ([`xflow/react/src/view/palette/NodePalette.tsx`](../xflow/react/src/view/palette/NodePalette.tsx)) — add / duplicate / delete nodes, manual local-draft snapshot button.
+- **Build** — `cd xflow/react && npm install && npm run build:editor-map` produces `xflow/react/dist/editor-map.{js,css}` (gitignored). The editor HTML loads them when present.
+- **Boot** — [`js/editor-nodal-map-bootstrap.js`](../js/editor-nodal-map-bootstrap.js) mounts the IIFE bundle on `#nodal-map-root`, exposes the store on `window.__ESCAPE360_NODAL_STORE__`, and wires `window.__escape360NodalChrome` (save / load / snapshot bridged to `*-app.js`).
+- **Nodal → DOM projection** — [`js/editor-shared-nodal-to-dom.js`](../js/editor-shared-nodal-to-dom.js) recopies the nodal project into the legacy DOM blocks (`.scene-block`, hotspot blocks) so `generateGame()` and `exportGameWebZip()` keep working unchanged. The reverse flow (DOM → nodal) is **avoided** outside explicitly documented hydration paths to keep the nodal store as the single source of truth.
+- **Persistence** — `.escapegame` bundle adds a sibling `map-layout.json` (graph node positions); IndexedDB local-draft snapshots cover both the V2 project and the layout.
+
+Authoritative spec, design decisions and chantier-by-chantier journal: [`.cursor/rules/NODAL_MAP_SPEC.mdc`](../.cursor/rules/NODAL_MAP_SPEC.mdc) (Annexe B = livraisons C5–C7 ; Annexe D temporaire pendant un chantier en cours).
+
+Field-by-field V2 ↔ legacy mapping reference: [ACTION_FIELDS_MAPPING.md](./ACTION_FIELDS_MAPPING.md).
 
 ---
 
@@ -126,32 +161,27 @@ Form DOM  →  generateGame()      →  index.html (CDN Pannellum + current URLs
 Form DOM  →  exportGameWebZip()  →  ZIP hosting (index.html + lib/ + media/)
 ```
 
+Player runtime (output of `generateGame()` / `exportGameWebZip()`):
+
 ```mermaid
 flowchart LR
-    A[Editor form DOM]
-    A --> B1[saveProject]
-    B1 --> C1[project.json]
-    A --> B2[saveProjectBundle]
-    B2 --> C2[project.escapegame]
+    HTML[index.html standalone] --> RT[Player runtime - JS template]
+    ZIP[Hosting ZIP - lib/pannellum + media] --> RT
+    RT --> PV[Pannellum viewer - panorama + hotspots]
+    RT --> UI[HUD - inventory + audio settings + timer]
+    RT --> DLG[Dialogs - msg / pwd / req / selector]
 
-    C1 --> D[loadProject]
-    C2 --> D
-    D --> A
-
-    A --> E1[generateGame]
-    E1 --> F1[index.html download]
-
-    A --> E2[exportGameWebZip]
-    E2 --> F2[hosting ZIP]
-
-    F1 --> G[Standalone player runtime]
-    F2 --> G
-    G --> H[Pannellum viewer]
-    G --> I[Inventory + dialogs + audio]
+    subgraph save [Player save - playerSaveMode]
+      SAV[player-shared-save.js - IndexedDB latest slot]
+      EXP[Manual export .escapegame save]
+    end
+    RT <-. none / manual / auto .-> SAV
+    SAV -. import / export .-> EXP
 ```
 
 - **First scene** in document order becomes the player’s start scene.
 - Scene **id** is the short id from `.sc-id` (not only the internal `scene_<n>` wrapper id). Pannellum scenes are keyed by that id.
+- **`playerSaveMode`** (project setting): `none` disables player-side save UI, `manual` allows manual import/export of `.escapegame` saves, `auto` enables a single IndexedDB `latest` slot with auto-save + manual flows. Implemented in [`js/player-shared-save.js`](../js/player-shared-save.js) and embedded by `generateGame()` / `editor-en-generate.js`.
 
 ---
 
@@ -300,7 +330,7 @@ Aujourd’hui, **inventaire** et **réglages** sont deux entrées séparées dan
 Aligned with [README.md](../README.md):
 
 - **Chemin A** — **Web hosting ZIP** (`exportGameWebZip`) and **editor bundle** (`.escapegame`) are **implemented**; remaining work is polish, multi-file stories, and stricter **versioning** once the beta stabilizes.
-- **Chemin B (long term)** — **React Flow** (or similar) replacing Drawflow only if the project adopts a richer front-end stack; keep **`EditorCore` + V2** as the contract.
+- **Chemin B** — **React Flow** nodal map shipped on `feat/nodal-map` (chantier C7): editable graph with per-node edit popups, recursive `REQ → PWD → MSG` chains, IndexedDB drafts. Future work: UX adjustments (chantier C8 — collapsible nodes, auto-zoom, keyboard shortcuts), full nodal sub-graphs (B3), then a merge into `main` once UX is judged sufficient. The **`EditorCore` + V2 JSON** contract remains the source of truth on disk.
 
 **Local persistence (delivered)** — **Editor**: IndexedDB draft pipeline (`editor-shared-local-draft.js`, UI dock). **Player**: progression + manual save files via `playerSaveMode` (`none` / `manual` / `auto`) and `player-shared-save.js` in the generated template. Design notes: [PLAN_SAUVEGARDE_LOCALE_EDITEUR.md](./PLAN_SAUVEGARDE_LOCALE_EDITEUR.md), [plan_sauvegarde_locale_joueur.md](./plan_sauvegarde_locale_joueur.md).
 

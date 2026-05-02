@@ -2,7 +2,7 @@
 
 Document de **référence** pour l’architecture **hybride actuelle** (graphe Drawflow + formulaire classique), le **schéma JSON V2**, et la **vision long terme** d’un éditeur **full nodal** (React Flow ou équivalent). Il complète [ARCHITECTURE.md](./ARCHITECTURE.md) sur les choix de conception.
 
-**Statut (printemps 2026)** : les chantiers **données V2**, **panneau latéral**, **carte Drawflow** (vues multiples, narration), **bundle éditeur `.escapegame`**, **export ZIP hébergement Web** (`exportGameWebZip`), **réglages audio côté joueur** (HUD + `localStorage`), **brouillon éditeur IndexedDB** et **sauvegarde progression joueur** (`playerSaveMode`, IndexedDB + export manuel) sont **livrés**. Les sections **5 à 9** décrivent une **cible produit** et une **planification** à affiner **avant** tout chantier React majeur ; rien n’y est engagé au calendrier. L’**intention pédagogique** (publics, Scratch / LEGO, risque spaghetti, graphe comme entrée principale) est développée dans **[PLAN_NODAL_PEDAGOGIE.md](./PLAN_NODAL_PEDAGOGIE.md)**.
+**Statut (printemps 2026)** : les chantiers **données V2**, **panneau latéral**, **carte Drawflow** (vues multiples, narration), **bundle éditeur `.escapegame`**, **export ZIP hébergement Web** (`exportGameWebZip`), **réglages audio côté joueur** (HUD + `localStorage`), **brouillon éditeur IndexedDB** et **sauvegarde progression joueur** (`playerSaveMode`, IndexedDB + export manuel) sont **livrés** sur `main`. Sur la branche **`feat/nodal-map`**, la **carte nodale React** est également **livrée** (chantiers C5 → C7) : graphe éditable, palette latérale, popups d’édition par nœud, chaînes `REQ → PWD → MSG` récursives, projection nodal → DOM pour la génération du joueur. **Spec autoritative** : [`.cursor/rules/NODAL_MAP_SPEC.mdc`](../.cursor/rules/NODAL_MAP_SPEC.mdc) (Annexe B). Les sections **5 à 9** ci-dessous décrivent une **cible produit** plus large (full nodal, ressources, sous-graphes) ; le travail livré sur `feat/nodal-map` couvre déjà les jalons **B0–B1** et amorce **B2**. L’**intention pédagogique** (publics, Scratch / LEGO, risque spaghetti, graphe comme entrée principale) est développée dans **[PLAN_NODAL_PEDAGOGIE.md](./PLAN_NODAL_PEDAGOGIE.md)**.
 
 **Versioning** : le dépôt reste présenté en **bêta** ; les sauvegardes récentes incluent **`schemaVersion: 2`**. Le terme **schéma projet v2** désigne ce format, distinct des brouillons historiques de développement.
 
@@ -89,8 +89,9 @@ Synchronisation : après ajout de scène depuis la carte, **`refreshAllSceneTarg
 | **2** | Panneau latéral Drawflow + déplacement DOM + vues carte | **Livré** |
 | **3** | Nœuds selector « câblés » dans Drawflow (multi-sorties dédiées) | **Non prioritaire** — le selector reste pleinement éditable dans le formulaire classique |
 | **4** | Bundle `.escapegame` + export Web ZIP + audio joueur | **Livré** — voir [ARCHITECTURE.md](./ARCHITECTURE.md) |
+| **5** | Carte nodale React (graphe éditable, palette, popups d’édition par nœud) sur `feat/nodal-map` | **Livré (C5 → C7)** — spec [`.cursor/rules/NODAL_MAP_SPEC.mdc`](../.cursor/rules/NODAL_MAP_SPEC.mdc) (Annexe B) |
 
-Les **jalons Chemin B** (React / full nodal) sont décrits au **§9** ; ils ne remplacent pas la feuille de route **Chemin A** du [README.md](../README.md) (polish, bundle, diffusion).
+Les **jalons Chemin B** (React / full nodal) sont décrits au **§9** ; ceux livrés sont **B0** (spike Vite + React Flow) et **B1** (parité navigation + édition par popups). Ces phases ne remplacent pas la feuille de route **Chemin A** du [README.md](../README.md) (polish, bundle, diffusion).
 
 Heuristiques de layout avancées (auto-layout graphique) : pertinent surtout une fois un moteur type **React Flow** en place ; reste hors périmètre Drawflow actuel.
 
@@ -164,14 +165,14 @@ Dans tous les cas, **`EditorCore`** (normalisation, defaults, règles métier) r
 
 Ordre **indicatif** ; chaque jalon peut faire l’objet d’un spike ou d’une PR dédiée. Rien n’est figé au calendrier.
 
-| Jalon | But | Réduit le risque |
-|-------|-----|------------------|
-| **B0 — Spike** | Petite app React Flow embarquée (build Vite), graphe **lecture seule** depuis `getCurrentProjectData()`, sélection → focus liste / scroll | Chaîne outillage + intégration HTML racine |
-| **B1 — Parité navigation** | Remplacer Drawflow par React Flow **sans** édition nodale des actions : mêmes vues métier que la carte actuelle + panneau DOM | Régression maîtrisée |
-| **B2 — Édition structurelle dans le graphe** | Ajout / suppression scène, liens de transition évidents, création hotspot « squelette » | Valider UX médiateur |
-| **B3 — Sous-graphes** | Scène = groupe ; selector = sous-flot | Alignement [pédagogie](./PLAN_NODAL_PEDAGOGIE.md) / SELECTOR_SPEC |
-| **B4 — Primitifs & ressources** | Sliders, médias, ports typés ; règles de duplication instance | Cohérence export V2 |
-| **B5 — Richesse texte / Quill** | Décision inspecteur vs nœud « document » | Performance et habitudes utilisateurs |
+| Jalon | But | Réduit le risque | État |
+|-------|-----|------------------|------|
+| **B0 — Spike** | Petite app React Flow embarquée (build Vite), graphe **lecture seule** depuis `getCurrentProjectData()`, sélection → focus liste / scroll | Chaîne outillage + intégration HTML racine | **Livré** (`xflow/react/`, `feat/nodal-map`) |
+| **B1 — Parité navigation** | Remplacer Drawflow par React Flow **sans** édition nodale des actions : mêmes vues métier que la carte actuelle + panneau DOM | Régression maîtrisée | **Livré** — palette latérale + popups d’édition (C7) |
+| **B2 — Édition structurelle dans le graphe** | Ajout / suppression scène, liens de transition évidents, création hotspot « squelette » | Valider UX médiateur | **Partiellement livré** — création / suppression OK ; chaînes `REQ → PWD → MSG` récursives ; reste : ajustements UX (collapsible, auto-zoom, raccourcis) prévus en C8 |
+| **B3 — Sous-graphes** | Scène = groupe ; selector = sous-flot | Alignement [pédagogie](./PLAN_NODAL_PEDAGOGIE.md) / SELECTOR_SPEC | À faire |
+| **B4 — Primitifs & ressources** | Sliders, médias, ports typés ; règles de duplication instance | Cohérence export V2 | À faire |
+| **B5 — Richesse texte / Quill** | Décision inspecteur vs nœud « document » | Performance et habitudes utilisateurs | **Livré** — Quill embarqué dans les popups d’édition C7 |
 
 Entre deux jalons, des **pauses** (polish Chemin A, tests solo) restent **cohérentes** avec une équipe réduite.
 
@@ -181,8 +182,8 @@ Entre deux jalons, des **pauses** (polish Chemin A, tests solo) restent **cohér
 
 | Thème | Décision actuelle | Direction documentée |
 |--------|-------------------|----------------------|
-| Source de vérité | **JSON V2** + DOM formulaire ; graphe Drawflow = **vue** + navigation | **B1** : idem + React Flow. **B2** : graphe comme éditeur principal, avec compilation / adaptateurs vers V2 (§8). |
-| Panneau latéral | Compense les **limites Drawflow** en réutilisant le formulaire | Peut évoluer en **inspecteur** (texte riche, champs longs) même en full nodal — [PLAN_NODAL_PEDAGOGIE](./PLAN_NODAL_PEDAGOGIE.md). |
+| Source de vérité | `main` : **JSON V2** + DOM formulaire ; Drawflow = **vue** + navigation. `feat/nodal-map` : **store nodal React** + projection nodal → DOM pour le générateur (V2 conservé en sortie). | **B2 (suite)** : étendre l’édition full nodal (sous-graphes, ressources). |
+| Panneau latéral | Compense les **limites Drawflow** en réutilisant le formulaire (sur `main`) ; remplacé par les **popups d’édition par nœud** (sur `feat/nodal-map`). | Peut évoluer en **inspecteur** (texte riche, champs longs) — [PLAN_NODAL_PEDAGOGIE](./PLAN_NODAL_PEDAGOGIE.md). |
 | Anciennes sauvegardes | Chargement **legacy V1** ; enregistrement **V2** | Inchangé tant que le fichier projet reste V2 (ou V3 seulement si décision explicite). |
-| Graphe | **Drawflow** (vanilla) | **React Flow** (ou équivalent) pour **B1** puis, si validé, **B2**. |
-| Documentation | **ARCHITECTURE.md** (technique), ce fichier (intention & planning), [PLAN_NODAL_PEDAGOGIE](./PLAN_NODAL_PEDAGOGIE.md) (pédagogie & intention produit) | Mettre à jour **ARCHITECTURE** (diagrammes) quand **B0** démarre. |
+| Graphe | `main` : **Drawflow** (vanilla, lecture/navigation). `feat/nodal-map` : **React Flow** (édition complète, popups). | **Future fusion** : merge `feat/nodal-map` → `main` quand UX C8 jugée suffisante. |
+| Documentation | **ARCHITECTURE.md** (technique), ce fichier (intention & planning), [PLAN_NODAL_PEDAGOGIE](./PLAN_NODAL_PEDAGOGIE.md) (pédagogie & intention produit), [`.cursor/rules/NODAL_MAP_SPEC.mdc`](../.cursor/rules/NODAL_MAP_SPEC.mdc) (carte nodale React) | Mettre à jour **ARCHITECTURE** (diagrammes) lors du futur merge `feat/nodal-map` → `main`. |
