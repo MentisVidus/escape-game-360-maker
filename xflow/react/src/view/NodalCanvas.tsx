@@ -295,6 +295,14 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         }
         if (existing.selected !== undefined) merged.selected = existing.selected;
         if (existing.measured !== undefined) merged.measured = existing.measured;
+        const prevD = existing.data as NodalRFData | undefined;
+        const nextD = merged.data as NodalRFData;
+        if (
+          prevD?.collapsed !== nextD?.collapsed ||
+          prevD?.synthGotoTargetCount !== nextD?.synthGotoTargetCount
+        ) {
+          nodesToUpdate.push(merged.id);
+        }
         return merged;
       });
 
@@ -323,7 +331,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
   useEffect(() => {
     setRfEdges(toReactFlowEdges(state));
-  }, [state.edges, setRfEdges]);
+  }, [state.edges, state.layout, state.actions, state.scenes, setRfEdges]);
 
   // Wrap onNodesChange pour persister les positions finales vers Zustand
   const onNodesChange = useCallback(
