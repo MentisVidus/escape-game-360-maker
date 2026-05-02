@@ -1,4 +1,4 @@
-﻿// --- GÉNÉRATION DU JEU (index.html seul ou ZIP Web) ---
+// --- GÉNÉRATION DU JEU (index.html seul ou ZIP Web) ---
 // Fabrique le HTML du joueur ; `generateGame` télécharge seul l'HTML ; `exportGameWebZip` (ZIP hébergement).
 
 /** URLs CDN Pannellum (identiques aux balises du template joueur). */
@@ -233,6 +233,7 @@ function buildPlayerHtmlTemplate() {
         } else if(a.type === "pwd") {
             out.enigmeTxt = c.bodyHtml || "";
             out.pwd = (p.answer || "").toLowerCase().trim();
+            out.f_pwd_remember = p.rememberSuccess === true ? "yes" : "no";
             var rp = p.rewardAction || {};
             out.f_pwd_action = rp.type || "scene";
             if(rp.type === "req" || rp.type === "pwd") {
@@ -288,6 +289,7 @@ function buildPlayerHtmlTemplate() {
         } else if(a.type === "pwd") {
             out.enigmeTxt = c.bodyHtml || "";
             out.pwd = (p.answer || "").toLowerCase().trim();
+            out.f_pwd_remember = p.rememberSuccess === true ? "yes" : "no";
             var rp = p.rewardAction || {};
             var rpc = (rp.payload && rp.payload.copy) || {};
             out.f_pwd_action = rp.type || "scene";
@@ -374,11 +376,13 @@ function buildPlayerHtmlTemplate() {
             } else if(args.action === "pwd") {
                 args.pwdEnigmeTxt = rc.bodyHtml || "";
                 args.pwdValue = ((r.payload && r.payload.answer) || "").toLowerCase().trim();
+                args.pwdRememberSuccess = !!(r.payload && r.payload.rememberSuccess);
                 args.pwdNext = actionV2ToPlayerArgs((r.payload && r.payload.rewardAction) || {});
             }
         } else if(args.type === "pwd") {
             args.enigmeTxt = pc.bodyHtml || "";
             args.pwd = (p.answer || "").toLowerCase().trim();
+            args.rememberSuccess = p.rememberSuccess === true;
             var rp = p.rewardAction || {};
             var rpc = (rp.payload && rp.payload.copy) || {};
             args.action = rp.type || "scene";
@@ -407,6 +411,7 @@ function buildPlayerHtmlTemplate() {
             } else if(args.action === "pwd") {
                 args.pwdEnigmeTxt = rpc.bodyHtml || "";
                 args.pwdValue = ((rp.payload && rp.payload.answer) || "").toLowerCase().trim();
+                args.pwdRememberSuccess = !!(rp.payload && rp.payload.rememberSuccess);
                 args.pwdNext = actionV2ToPlayerArgs((rp.payload && rp.payload.rewardAction) || {});
             }
         } else if(args.type === "selector") {
@@ -1836,6 +1841,8 @@ function buildPlayerHtmlTemplate() {
         } else if(act === "pwd") {
             out.pwdEnigmeTxt = choice.f_pwd_enigme_txt || choice.enigmeTxt || choice.f_enigme_txt || "";
             out.pwdValue = ((choice.f_pwd_value || choice.pwd || choice.f_pwd || "") + "").toLowerCase().trim();
+            out.pwdRememberSuccess =
+                choice.f_pwd_remember === true || String(choice.f_pwd_remember || "").toLowerCase() === "yes";
         }
         return out;
     }
@@ -1897,6 +1904,8 @@ function buildPlayerHtmlTemplate() {
         if(act === "pwd") {
             out.pwdEnigmeTxt = node.enigmeTxt || node.f_pwd_enigme_txt || node.f_enigme_txt || "";
             out.pwdValue = ((node.pwd || node.f_pwd_value || node.f_pwd || "") + "").toLowerCase().trim();
+            out.pwdRememberSuccess =
+                node.f_pwd_remember === true || String(node.f_pwd_remember || "").toLowerCase() === "yes";
             var rawPwd = node.f_reward_chain_json || node.rewardChainJson || "";
             if(typeof rawPwd === "string" && rawPwd.trim()) {
                 var parsedPwd = parseRewardChainNode(rawPwd);
@@ -1912,7 +1921,15 @@ function buildPlayerHtmlTemplate() {
 
     // Récompense après énigme mot de passe ou objet requis (branches internes scene / msg / pick / selector)
     function executeReward(args, hsDiv) {
-        var act = args && args.action ? args.action : (args && args.type ? args.type : "");
+        // actionV2ToPlayerArgs produit type pwd + action = récompense ; prioriser type pwd sinon l’énigme est sautée.
+        var act =
+            args && args.type === "pwd"
+                ? "pwd"
+                : args && args.action
+                  ? args.action
+                  : args && args.type
+                    ? args.type
+                    : "";
         if(act === "selector" && args.rewardSelector) {
             openSelector(args.rewardSelector, hsDiv);
             return;
@@ -1948,7 +1965,7 @@ function buildPlayerHtmlTemplate() {
             var msg2 = document.createElement("div");
             msg2.style.cssText = "background:${popBg};color:${popColor};font-family:${popFont};padding:24px;border-radius:8px;border:2px solid #888;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);position:relative;";
             msg2.onclick = function (e) { e.stopPropagation(); };
-            msg2.innerHTML = "<div class='play-html-rich'>" + (args.pwdEnigmeTxt || "") + "</div><br><br>";
+            msg2.innerHTML = "<div class='play-html-rich'>" + (args.pwdEnigmeTxt || args.enigmeTxt || "") + "</div><br><br>";
             var inp2 = document.createElement("input");
             inp2.type = "text";
             inp2.style.cssText = "margin-top:15px;padding:10px;width:80%;font-size:16px;text-align:center;font-family:inherit;";
@@ -1962,10 +1979,20 @@ function buildPlayerHtmlTemplate() {
             btn2.innerHTML = "[ VALIDER ]";
             btn2.style.cssText = "margin-top:15px;cursor:pointer;padding:10px 20px;background:${popBtnBg};color:${popBtnCol};font-family:inherit;border:none;border-radius:5px;font-size:16px;";
             btn2.onclick = function () {
-                if(inp2.value.toLowerCase().trim() === (args.pwdValue || "")) {
+                var pwdExpected = String(args.pwdValue != null && args.pwdValue !== "" ? args.pwdValue : (args.pwd || "")).toLowerCase().trim();
+                if(inp2.value.toLowerCase().trim() === pwdExpected) {
                     timerNotifyBlockingClose();
                     document.body.removeChild(pwdBackdrop2);
-                    if(args.pwdNext) executeReward(args.pwdNext, hsDiv);
+                    if(args.pwdNext) {
+                        executeReward(args.pwdNext, hsDiv);
+                    } else {
+                        var ra = args.action;
+                        if(ra === "msg") executeReward({ action: "msg", okMsg: args.okMsg }, hsDiv);
+                        else if(ra === "scene") executeReward({ action: "scene", target: args.target, transTxt: args.transTxt, transBtn: args.transBtn }, hsDiv);
+                        else if(ra === "pick") executeReward({ action: "pick", pickId: args.pickId, pickName: args.pickName, pickMsg: args.pickMsg }, hsDiv);
+                        else if(ra === "selector") executeReward({ action: "selector", rewardSelector: args.rewardSelector }, hsDiv);
+                        else if(ra === "req") executeReward({ action: "req", reqItemId: args.reqItemId, reqKo: args.reqKo, reqNext: args.reqNext }, hsDiv);
+                    }
                 } else {
                     err2.innerHTML = "RÉPONSE INCORRECTE";
                     inp2.value = "";
@@ -2115,7 +2142,9 @@ function buildPlayerHtmlTemplate() {
                 audioSys.playSFX(String(choice.sfxUrl).trim(), choice.sfxVolume);
             }
             var pwdKey = "selpwd_" + String(choice.id || "choice");
-            if(unlockedHotspots[pwdKey]) {
+            var shouldRememberSelectorPwd =
+                choice.f_pwd_remember === true || String(choice.f_pwd_remember || "").toLowerCase() === "yes";
+            if(shouldRememberSelectorPwd && unlockedHotspots[pwdKey]) {
                 var hPwd = selectorHsDiv;
                 closeSelectorOverlay(false);
                 executeReward(choiceRewardToArgs(choice), hPwd);
@@ -2152,11 +2181,11 @@ function buildPlayerHtmlTemplate() {
                 if(inp.value.toLowerCase().trim() === (choice.pwd || "")) {
                     timerNotifyBlockingClose();
                     document.body.removeChild(pwdBackdrop);
-                    unlockedHotspots[pwdKey] = true;
+                    if(shouldRememberSelectorPwd) unlockedHotspots[pwdKey] = true;
                     var hPwd2 = selectorHsDiv;
                     closeSelectorOverlay(false);
                     executeReward(choiceRewardToArgs(choice), hPwd2);
-                    queuePlayerProgressSave("unlock");
+                    if(shouldRememberSelectorPwd) queuePlayerProgressSave("unlock");
                 } else {
                     err.innerHTML = "RÉPONSE INCORRECTE";
                     inp.value = "";
@@ -2362,7 +2391,8 @@ function buildPlayerHtmlTemplate() {
                 if(args.sfxUrl != null && String(args.sfxUrl).trim() !== '') {
                     audioSys.playSFX(String(args.sfxUrl).trim(), args.sfxVolume);
                 }
-                if(unlockedHotspots[args.id]) { executeReward(args, hsDiv); return; }
+                var rememberPwd = args.rememberSuccess === true;
+                if(rememberPwd && args.id && unlockedHotspots[args.id]) { executeReward(args, hsDiv); return; }
                 
                 var pwdBackdrop = document.createElement('div');
                 pwdBackdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
@@ -2388,9 +2418,9 @@ function buildPlayerHtmlTemplate() {
                     if(inp.value.toLowerCase().trim() === args.pwd) { 
                         timerNotifyBlockingClose();
                         document.body.removeChild(pwdBackdrop); 
-                        unlockedHotspots[args.id] = true; 
+                        if(rememberPwd && args.id) unlockedHotspots[args.id] = true; 
                         executeReward(args, hsDiv); 
-                        queuePlayerProgressSave("unlock");
+                        if(rememberPwd) queuePlayerProgressSave("unlock");
                     } else { 
                         err.innerHTML = "RÉPONSE INCORRECTE"; 
                         inp.value = ""; 

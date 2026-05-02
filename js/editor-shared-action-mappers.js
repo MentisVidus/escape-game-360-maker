@@ -62,6 +62,7 @@
             } else if (action.type === "pwd") {
                 p.copy.bodyHtml = src.enigmeTxt || src.enigme_txt || src.f_enigme_txt || "";
                 p.answer = src.pwd || src.f_pwd || "";
+                p.rememberSuccess = src.f_pwd_remember === true || String(src.f_pwd_remember || "").toLowerCase() === "yes";
                 if (!src.f_reward_chain_json && src.next && typeof src.next === "object") {
                     src.f_reward_chain_json = JSON.stringify(src.next);
                 }
@@ -200,6 +201,7 @@
             } else if (a.type === "pwd") {
                 out.enigmeTxt = c.bodyHtml || "";
                 out.pwd = p.answer || "";
+                out.f_pwd_remember = p.rememberSuccess === true ? "yes" : "no";
                 var rp = p.rewardAction || EditorCore.createDefaultAction("scene");
                 out.f_pwd_action = rp.type || "scene";
                 if (rp.type === "scene") {
@@ -290,6 +292,7 @@
             } else if (a.type === "pwd") {
                 out.enigmeTxt = c.bodyHtml || "";
                 out.pwd = p.answer || "";
+                out.f_pwd_remember = p.rememberSuccess === true ? "yes" : "no";
                 var r2 = p.rewardAction || EditorCore.createDefaultAction("scene");
                 var r2c = (r2.payload && r2.payload.copy) || {};
                 out.f_pwd_action = r2.type || "scene";
@@ -406,6 +409,7 @@
             } else if (a.type === "pwd") {
                 out.f_enigme_txt = pc.bodyHtml || "";
                 out.f_pwd = p.answer || "";
+                out.f_pwd_remember = p.rememberSuccess === true ? "yes" : "no";
                 var rp = p.rewardAction || EditorCore.createDefaultAction("scene");
                 var rpc = (rp.payload && rp.payload.copy) || {};
                 out.f_pwd_action = rp.type || "scene";

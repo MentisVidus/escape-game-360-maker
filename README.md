@@ -19,6 +19,20 @@ Pour le détail technique (carte Drawflow, panneau latéral, Quill, flux selecto
 
 ---
 
+## 🌐 Versions disponibles
+
+Plusieurs miroirs de l'éditeur cohabitent : tous servent le **même dépôt**, mais depuis des **branches** différentes. Pour un atelier ou un projet « sérieux », utilisez la version **GitHub Pages** ou la **Production Netlify** (toutes deux basées sur `main`). Les deux autres URL servent à tester en avant-première les chantiers en cours sur la **carte nodale React**.
+
+| Version | Lien | Branche / source | Statut |
+|---------|------|------------------|--------|
+| **GitHub Pages** (FR) | [MentisVidus.github.io/…/editeur.html](https://MentisVidus.github.io/escape-game-360-maker/editeur.html) | `main` (GitHub Pages) | ✅ Stable — référence |
+| **GitHub Pages** (EN) | [MentisVidus.github.io/…/editor_en.html](https://MentisVidus.github.io/escape-game-360-maker/editor_en.html) | `main` (GitHub Pages) | ✅ Stable — référence |
+| **Production Netlify** | [eg360.netlify.app](https://eg360.netlify.app/) | `main` (Netlify) | ✅ Stable — miroir de la version GitHub Pages (formulaire + carte Drawflow) |
+| **Nodal map** (carte React) | [feat-nodal-map--eg360.netlify.app](https://feat-nodal-map--eg360.netlify.app/) | `feat/nodal-map` | 🟡 Branche de travail, **utilisable** — pas de chantier en cours, ce qui est livré est censé fonctionner |
+| **C7.5** (chantier actuel) | [feat-c7-5-smoke-persistence--eg360.netlify.app](https://feat-c7-5-smoke-persistence--eg360.netlify.app/) | `feat/c7-5-smoke-persistence` | ⚠️ **Instable** — branche de développement active, peut casser à tout moment |
+
+---
+
 ## 🛠️ Comment ça marche ?
 
 1. Ouvrez l’éditeur : **[LANCER L'ÉDITEUR FR](https://MentisVidus.github.io/escape-game-360-maker/editeur.html)**
@@ -137,6 +151,20 @@ A **headless** layer ([`js/editor-core.js`](js/editor-core.js)) defines a **univ
 - **Audio** uses **`{ url, volume }`** for global music, per-scene ambiance, and action SFX.
 
 See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and **[docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md)** for technical depth. Nodal **pedagogy & product intent**: **[docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md)**.
+
+---
+
+## 🌐 Available versions
+
+Several editor mirrors run in parallel — they all serve the **same repository** but from different **branches**. For workshops or serious projects, use **GitHub Pages** or the **Netlify production** mirror (both based on `main`). The other two URLs are for previewing in-progress work on the **React nodal map**.
+
+| Version | Link | Branch / source | Status |
+|---------|------|-----------------|--------|
+| **GitHub Pages** (FR) | [MentisVidus.github.io/…/editeur.html](https://MentisVidus.github.io/escape-game-360-maker/editeur.html) | `main` (GitHub Pages) | ✅ Stable — reference |
+| **GitHub Pages** (EN) | [MentisVidus.github.io/…/editor_en.html](https://MentisVidus.github.io/escape-game-360-maker/editor_en.html) | `main` (GitHub Pages) | ✅ Stable — reference |
+| **Netlify production** | [eg360.netlify.app](https://eg360.netlify.app/) | `main` (Netlify) | ✅ Stable — mirror of the GitHub Pages build (form + Drawflow map) |
+| **Nodal map** (React graph) | [feat-nodal-map--eg360.netlify.app](https://feat-nodal-map--eg360.netlify.app/) | `feat/nodal-map` | 🟡 Working branch, **usable** — no active work in progress, what is shipped is expected to work |
+| **C7.5** (current dev) | [feat-c7-5-smoke-persistence--eg360.netlify.app](https://feat-c7-5-smoke-persistence--eg360.netlify.app/) | `feat/c7-5-smoke-persistence` | ⚠️ **Unstable** — active development branch, may break at any time |
 
 ---
 

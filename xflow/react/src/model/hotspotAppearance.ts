@@ -28,11 +28,17 @@ export function mergeHotspotAppearance(partial: Partial<HotspotAppearanceUi> | n
   return { ...DEFAULT_HOTSPOT_APPEARANCE, ...partial };
 }
 
+function byteFromHexPair(hexNoHash: string, start: number): number {
+  const n = parseInt(hexNoHash.slice(start, start + 2), 16);
+  if (Number.isNaN(n)) return 0;
+  return Math.max(0, Math.min(255, n));
+}
+
 export function hexToRgba(hex: string, alpha: number): string {
   const h = (hex || "#ff0000").replace(/^#/, "");
-  const r = parseInt(h.slice(0, 2), 16) || 255;
-  const g = parseInt(h.slice(2, 4), 16) || 0;
-  const b = parseInt(h.slice(4, 6), 16) || 0;
+  const r = byteFromHexPair(h, 0);
+  const g = byteFromHexPair(h, 2);
+  const b = byteFromHexPair(h, 4);
   const a = Number.isFinite(alpha) ? Math.max(0, Math.min(1, alpha)) : 1;
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }

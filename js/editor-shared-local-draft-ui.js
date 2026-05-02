@@ -71,7 +71,8 @@
                 "#local-draft-dock .dock-map-view-btn{background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer}" +
                 "#local-draft-dock .dock-map-view-btn.is-active{background:#2563eb}" +
                 "#local-draft-dock .dock-map-close-btn{background:#334155;color:#fff;border:none;border-radius:6px;padding:6px 8px;cursor:pointer}" +
-                "#local-draft-dock .dock-map-close-btn.is-open{background:#dc2626}";
+                "#local-draft-dock .dock-map-close-btn.is-open{background:#dc2626}" +
+                "body.escape360-nodal-map-ro #local-draft-dock{display:none!important}";
             doc.head.appendChild(st);
         }
 
@@ -274,16 +275,7 @@
                 await refreshStatusUi();
             });
             doc.getElementById("local-draft-save-now").addEventListener("click", async function () {
-                try {
-                    await manager.captureSnapshot("manual");
-                } catch (e) {
-                    console.error("draft.error", e);
-                    alert(
-                        t("alertSnapshotFailPrefix", "Snapshot failed: ") +
-                            (e && e.message ? e.message : String(e))
-                    );
-                }
-                await refreshStatusUi();
+                await captureSnapshotInteractive("manual");
                 closePanel();
             });
             doc.getElementById("local-draft-clear").addEventListener("click", async function () {
@@ -438,6 +430,39 @@
             textEl.textContent = msg;
         }
 
+        /**
+         * Snapshot manuel avec garde-fou UX : si la persistance brouillon est
+         * désactivée, demande confirmation avant de l’activer puis capture.
+         * Utilisé par le bouton « Snapshot » du dock et par le pont palette
+         * carte nodale (`window.__escape360NodalChrome.flushThenLocalDraftSnapshot`).
+         */
+        async function captureSnapshotInteractive(reason) {
+            if (!manager.isEnabled()) {
+                var ask = confirm(
+                    t(
+                        "confirmEnableForSnapshot",
+                        "Local draft is disabled. Enable persistence and take a snapshot?"
+                    )
+                );
+                if (!ask) return null;
+                manager.setEnabled(true);
+                var enEl = doc.getElementById("local-draft-enable");
+                if (enEl) enEl.checked = true;
+            }
+            var result = null;
+            try {
+                result = await manager.captureSnapshot(reason || "manual");
+            } catch (e) {
+                console.error("draft.error", e);
+                alert(
+                    t("alertSnapshotFailPrefix", "Snapshot failed: ") +
+                        (e && e.message ? e.message : String(e))
+                );
+            }
+            await refreshStatusUi();
+            return result;
+        }
+
         function scheduleAutosave(reason) {
             if (!manager.isEnabled()) return;
             if (autosaveTimer) clearTimeout(autosaveTimer);
@@ -540,7 +565,8 @@
             init: init,
             refreshStatusUi: refreshStatusUi,
             noteDirty: noteDirty,
-            scheduleAutosave: scheduleAutosave
+            scheduleAutosave: scheduleAutosave,
+            captureSnapshotInteractive: captureSnapshotInteractive
         };
     }
 

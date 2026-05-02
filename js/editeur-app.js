@@ -235,6 +235,8 @@ var localDraftUi = EditorSharedLocalDraftUiApi.createLocalDraftUi({
         statusWarnHigh: "Alerte forte (>=90%): pensez au mode leger.",
         statusWarnLow: "Alerte (>=80%).",
         alertSnapshotFailPrefix: "Echec du snapshot local : ",
+        confirmEnableForSnapshot:
+            "Le brouillon local est désactivé. Activer la persistance et faire un snapshot maintenant ?",
         confirmClearDrafts: "Effacer les brouillons locaux de cet onglet ?",
         confirmIncompatiblePurge:
             "Des brouillons locaux d'une ancienne version ont ete detectes ({count}). Les ignorer et les supprimer ?",
@@ -546,7 +548,7 @@ function addHotspot(sceneId, hsData = null) {
 
     // Remplissage des champs dynamiques avec les données sauvegardées (si on charge un projet)
     if(hsData) {
-        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-reward-chain-json', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
+        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-remember', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-reward-chain-json', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
         fields.forEach(f => {
             let all = hsDiv.querySelectorAll('.' + f);
             if(all && all.length && hsData[f.replace(/-/g, '_')] !== undefined) {
@@ -1515,6 +1517,7 @@ function updateHsFields(hId, opts) {
         container.innerHTML = `
         <label>Énigme / question :</label><div class="wysiwyg-wrap"><textarea class="f-enigme-txt editor-rich-text" rows="2" placeholder="Code :"></textarea></div>
         <label>Réponse attendue :</label><input type="text" class="f-pwd" value="1234">
+        <label>Mémoriser la réussite :</label><input type="text" class="f-pwd-remember" value="no" readonly>
         <label style="margin-top:10px;"><b>Récompense quand résolu :</b></label>
         <select class="f-pwd-action" onchange="document.getElementById('pwd_res_${hId}').className = 'res-' + this.value">
             <option value="scene">Changer de scène</option><option value="msg">Afficher un message</option><option value="pick">Donner un objet</option>
@@ -1898,6 +1901,32 @@ function updatePreview() {
         updateQuillTheme();
     }
 }
+
+window.updatePreview = updatePreview;
+
+/** Pont palette carte nodale (`xflow/react`) — sauvegarde / chargement / fermeture modale. */
+window.__escape360NodalChrome = {
+    saveEscapegameBundle: function () {
+        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
+        void saveProjectBundle();
+    },
+    flushThenSaveJson: function () {
+        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
+        saveProject();
+    },
+    flushThenLocalDraftSnapshot: async function () {
+        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
+        await localDraftUi.captureSnapshotInteractive("manual");
+    },
+    triggerLoadEscapegame: function () {
+        var inp = document.getElementById("file-import");
+        if (inp) inp.click();
+    },
+    closeProjectMapModal: function () {
+        if (typeof closeProjectMap === "function") closeProjectMap();
+    },
+    updatePreview: updatePreview
+};
 
 (function initEndScreenRichEditors() {
     var root = document.getElementById("end-screens-form-container");

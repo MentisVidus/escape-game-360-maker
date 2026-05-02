@@ -23,7 +23,10 @@ describe("persist meta scène → média", () => {
     const mid = asMediaNodeId("media-img-1");
     store
       .getState()
-      .addMedia({ id: mid, nodeType: "media", mediaType: "media-image", data: { url: "https://example.com/x.png" } }, { x: 30, y: 40 });
+      .addMedia(
+        { id: mid, nodeType: "media", mediaType: "media-image", label: "Media image", data: { url: "https://example.com/x.png" } },
+        { x: 30, y: 40 }
+      );
     store.getState().connect({ id: asEdgeId("e-scene-meta-media"), family: "meta", sourceId: sc.id, targetId: mid });
 
     const fresh = store.getState();

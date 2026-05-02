@@ -11,7 +11,7 @@ import {
   DETACH_OVERLAP_THRESHOLD,
 } from "../view/nesting/constants";
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "../view/nesting/geometry";
-import { toReactFlowNodes } from "../view/NodalCanvas";
+import { toReactFlowNodes } from "../view/nodalReactFlowProjection";
 
 const findObjectSatelliteIdForAction = (
   state: NodalProjectStore,

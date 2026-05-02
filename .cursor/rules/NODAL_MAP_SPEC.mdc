@@ -2,27 +2,38 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.6 (27 avril 2026)
+> **Version** : 1.6 (1ᵉʳ mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
->>
-> **Changelog v1.6** : clôture **lot C7.1** (`feat/c7-chain-reward` fusionné
-> dans `feat/nodal-map`) — chaînes **REQ/PWD** en **`rewardAction` récursif**
-> (V2) ; projection DOM legacy (blocs dynamiques + debug
-> `f-reward-chain-json`) ; runtime joueur FR/EN (`executeReward` séquentiel,
-> terminaux `msg`/`pick`, garde-fous profondeur) ; contrat **uniquement**
-> `V2 → DOM → generateGame` (hors périmètre : `legacy → V2`). **Annexe B — C7.1**
-> (fichiers) ; **§7 C7** mis à jour ; **Annexe D** : C7.1 / C7.1-05 / C7.1-06 /
-> périmètre chaînes (C7.4 partiel) cochés — l’annexe D reste ouverte jusqu’à
-> clôture **C7** entier (cf. **D.5**).
 >
-> **Changelog v1.5.1** : ajout **Annexe D — Chantier C7** — inventaire,
-> découpage **C7.1–C7.6**, points à trancher, journal / checklist vivante
-> jusqu’à clôture C7 (puis synthèse vers **Annexe B** et suppression de
-> l’annexe D, sur le modèle du chantier C6).
+> **Changelog v1.6** : clôture **chantier C7** — popups d’édition de
+> contenu sur la carte nodale + chaînes REQ/PWD multi-paliers + persistance
+> étendue. Contrat **unidirectionnel** `V2 → DOM → generateGame` (le sens
+> `legacy → V2` reste hors périmètre). Découpage livré : **C7.1** chaînes
+> REQ/PWD (`rewardAction` récursif V2, miroir DOM en blocs répétés + debug
+> `f-reward-chain-json`, runtime joueur FR/EN avec garde-fou profondeur) ;
+> **C7.2** popup `msg` Quill 1.3.7 + aperçu runtime-like + thème popup
+> joueur (slice store + persistance via `map-layout.json`) ; **C7.3** popups
+> `pick / goto / req / pwd / selector` sur `payload.copy` / `payload.nested`
+> + composant aperçu commun `PlayerPopupPreview` + édition des labels
+> nodaux ; **C7.5** smoke FR/EN `SMK-01…SMK-10` (round-trip `.escapegame`,
+> `generateGame()`, ZIP web, clair/sombre, bridge DOM) ; **C7.6** wrapper
+> `.nodal-quill-theme` posé sur les 6 popups d’actions et UX bouton
+> « Snapshot » du dock brouillon local (`confirm` interactif quand la case
+> « Activer » est décochée). Détail fichiers : **Annexe B — C7**.
+>
+> **Reports explicites post-C7 (non bloquants)** : médias portables nodaux
+> dans le snapshot IndexedDB (`nodalDraftAdapter.ts` callbacks no-op ; le
+> bundle `.escapegame` reste fonctionnel via projection DOM legacy) ;
+> ménage progressif des `!important` Quill / CSS ; pont `updatePreview()`
+> legacy `C7.2-bis-04` ; durcissement `SELECTOR_SPEC`.
+>
+> *(Cette entrée regroupe les changelogs intermédiaires v1.5.1, v1.6 et
+> v1.6.1 publiés pendant le chantier. Pas de bump tant que l’auteur ne le
+> demande pas explicitement.)*
 
 > **Changelog v1.5** : clôture chantier **C6** — embarquement carte nodale
 > dans l’éditeur (`editeur.html` / `editor_en.html`, bundle
@@ -94,8 +105,7 @@ valider l'intention produit. Il décrit :
 - Les règles de cohérence et warnings (§6).
 - La roadmap d'implémentation (§7).
 - Les règles de collaboration avec l'agent (§8).
-- Les annexes A–D (suivi chantier **C7** actif dans **Annexe D** jusqu’à
-  clôture).
+- Les annexes A–C (chantier **C7** **livré v1.6** ; voir **Annexe B — C7**).
 
 ### 0.2 Règles transversales produit
 
@@ -801,19 +811,24 @@ Neuf chantiers numérotés pour référence dans les commits.
   des contrôles legacy + bandeau « miroir nodal » — voir **Changelog v1.5**
   et §0.2.
 
-### C7 — Popups d'édition de contenu *(et extensions associées)*
+### C7 — Popups d'édition de contenu *(et extensions associées) — livré v1.6*
 
-- Clic sur nœud `msg` → popup Quill pour `bodyHtml`.
-- Idem pour `pick`, `selector`, `req`, `pwd`.
-- Ajout de `req`/`pwd` comme types autorisés de `rewardAction` dans
-  `editor-core.js` (nécessaire pour la récursion §2.2).
-- **Chaînes REQ/PWD** : **livré en C7.1** (v1.6) — `rewardAction` récursif
-  V2, miroir DOM + `f-reward-chain-json` (debug), `generateGame()` / runtime
-  alignés ; détail : **Annexe B — C7.1**. *(UI nodale Quill, bundle médias
-  nodaux, etc. : lots C7.2+ — **Annexe D**.)*
-- **Suivi détaillé** pendant le chantier : **Annexe D** (sous-chantiers
-  **C7.x**, inventaire, journal). À la **clôture C7 entière** : synthèse
-  **Annexe B — C7** puis suppression de l’annexe D.
+- **Popups Quill nodales** (`msg`, `pick`, `selector`, `req`, `pwd`, `goto`)
+  avec aperçu runtime-like + thème popup joueur édité depuis la carte +
+  édition des labels nodaux (actions, scènes inline, médias) — détail
+  **Annexe B — C7**.
+- **Chaînes REQ/PWD** : `rewardAction` récursif V2 (autorisé sur `req` /
+  `pwd` dans `editor-core.js`, §2.2), miroir DOM legacy en blocs répétés +
+  champ debug `f-reward-chain-json`, `generateGame()` / runtime joueur FR/EN
+  alignés.
+- **Persistance hors DOM** du thème popup joueur via `nodalPlayerPopupTheme`
+  dans `map-layout.json` (extras), réprojection au load par
+  `flushNodalStoreToEditorDom`.
+- **Smoke `SMK-01…SMK-10`** validé (FR/EN), incluant export joueur simple +
+  ZIP web et clair/sombre.
+- **Reports explicites** (post-C7, non bloquants) : médias portables nodaux
+  (Q4 D.3), ménage `!important` Quill/CSS, pont `updatePreview()` legacy
+  (`C7.2-bis-04`), durcissement `SELECTOR_SPEC`.
 
 ### C8 — Ajustements UX
 
@@ -851,8 +866,9 @@ partiel avec préfixe `partial:` et liste de ce qui reste.
 ### 8.4 Documenter les fichiers ajoutés
 
 Tout nouveau fichier source listé dans l'**Annexe B** au fil des chantiers.
-Pendant **C7**, le fil journalier / périmètre par sous-lot peut tenir dans
-l’**Annexe D** jusqu’à clôture (puis report dans l’Annexe B).
+Une **Annexe D** vivante peut être ouverte le temps d’un chantier en cours
+(todo / journal de décisions, sur le modèle utilisé pour C6 puis C7) ;
+elle est refondue dans **Annexe B** puis supprimée à la clôture du chantier.
 
 ### 8.5 Ne pas réécrire la spec unilatéralement
 
@@ -1139,8 +1155,8 @@ poursuit sur **`feat/nodal-map`** uniquement.
    valait **avant C7.1**. Depuis **v1.6**, le **lot C7.1** étend schéma V2,
    projection DOM et runtime pour **plusieurs paliers** sur un même hotspot
    (récursion `rewardAction`, debug `f-reward-chain-json`) — voir **Annexe B
-   — C7.1**. Les lots **C7.2+** (popups carte, Quill, bundle médias…) restent
-   sur la roadmap §7 / **Annexe D**.
+   — C7.1**. Les lots **C7.2 → C7.6** sont également **livrés v1.6** —
+   voir **Annexe B — C7** (sous-sections par lot).
 
 **Fichiers et zones principales** *(liste indicative ; le détail exact suit
 `git log` sur la branche)* :
@@ -1184,31 +1200,113 @@ poursuit sur **`feat/nodal-map`** uniquement.
 - Selector : conserver l’alignement ordre **layout Y** ↔ `f_sel_choices` /
   `deferSelectorInit` (cf. `SELECTOR_SPEC`).
 
-### C7.1 — Chaînes REQ/PWD (`rewardAction` récursif) *(clôture v1.6)*
+### C7 — Popups d’édition de contenu + chaînes REQ/PWD *(clôture v1.6)*
 
-**Intégration Git** : développé sur **`feat/c7-chain-reward`**, **fusionné
-dans `feat/nodal-map`** (27 avril 2026). Branche de travail supprimable
-(locale / `origin`) selon politique dépôt.
+**Intégration Git** : C7 développé en plusieurs lots sur des branches
+dédiées (`feat/c7-chain-reward`, `feat/c7-2-msg-popup`,
+`feat/c7-3-action-popups`, `feat/c7-5-smoke-persistence`), tous fusionnés
+dans `feat/nodal-map`. Découpage interne **C7.1 → C7.6** ; les noms
+restent dans la doc pour traçabilité Git mais ne nécessitent plus de
+sous-section séparée.
 
-**Décisions** (rappel — détail **Annexe D — D.3**) : flux **unidirectionnel**
-`V2 → DOM → generateGame` uniquement ; récursion native **`rewardAction`**
-(pas de tableau aplati canonique) ; DOM legacy en **blocs répétés** + JSON
-debug chaîne ; garde-fou **profondeur** runtime ; pas de sens
-`legacy → V2` en C7.
+**Décisions** : flux **unidirectionnel** `V2 → DOM → generateGame` (le
+sens `legacy → V2` est hors périmètre C7) ; récursion native
+`rewardAction` (pas de tableau aplati) ; DOM legacy en blocs répétés +
+JSON debug ; source de vérité d’édition = **store nodal**, pas de fallback
+DOM.
 
-**Fichiers et zones principales** :
+**Schéma + projection (C7.1, chaînes REQ/PWD)** :
 
 - `js/editor-shared-action-mappers.js` — `actionV2ToLegacyNode` /
-  `actionV2ToLegacyHotspotData`, chaînes `req`/`pwd`, champ lisible
-  `f_reward_chain_json`, `legacyRewardToV2` / `legacyActionToV2` côté
-  chaîne si présent.
-- `js/editor-shared-hotspot-dom-mapper.js` — lecture `.f-reward-chain-json`.
+  `actionV2ToLegacyHotspotData`, sérialisation chaîne `req`/`pwd`, champ
+  debug `f_reward_chain_json`.
+- `js/editor-shared-hotspot-dom-mapper.js` — lecture
+  `.f-reward-chain-json` côté DOM legacy.
 - `js/editeur-generate.js`, `js/editor-en-generate.js` —
-  `actionV2ToPlayerArgs`, `choiceRewardToArgs`, `parseRewardChainNode` /
-  `rewardNodeToArgs`, `executeReward` (fallback `type`), export chaîne,
-  `rewardActionV2ToLegacyNode` pour `choiceV2ToLegacy`.
-- `js/editeur-app.js`, `js/editor-en-app.js` — options récompense REQ/PWD,
-  restauration **`querySelectorAll`** des champs chaîne (req vs pwd).
+  `actionV2ToPlayerArgs`, `parseRewardChainNode`, `rewardNodeToArgs`,
+  `executeReward` séquentiel + garde-fou de profondeur. Hotfix runtime
+  PWD post-merge (smoke SMK-04) : la modale PWD privilégie
+  `type === "pwd"` sur `args.action`, compare à `pwdValue` sinon `pwd`,
+  et enchaîne via `args.action` si `pwdNext` absent.
+- `js/editeur-app.js`, `js/editor-en-app.js` — restauration des champs
+  chaîne (req vs pwd) et options récompense.
+
+**Popups d’édition + thème popup joueur (C7.2 / C7.2-bis / C7.3)** :
+
+- `xflow/react/src/view/popups/MsgContentPopup.tsx`,
+  `PickContentPopup.tsx`, `GotoContentPopup.tsx`, `ReqContentPopup.tsx`,
+  `PwdContentPopup.tsx`, `SelectorContentPopup.tsx`,
+  `PopupThemeCustomizationPopup.tsx`,
+  `GlobalSettingsHubPopup.tsx` — popups par actiontype + thème + hub
+  paramètres ; toutes branchées sur `updateNodeData`.
+- `xflow/react/src/view/popups/PlayerPopupPreview.tsx` — composant aperçu
+  runtime-like partagé (variantes `button`, `input`, `selector-buttons`,
+  `selector-dropdown`).
+- `xflow/react/src/view/quill/nodalQuillSetup.ts`,
+  `nodalQuillRich.css`, `quill-shim.d.ts` — toolbar / formats / thème
+  Quill 1.3.7 sans import legacy ; wrapper **`.nodal-quill-theme`**
+  appliqué sur les 6 popups d’actions (C7.6).
+- `xflow/react/src/view/playerPopupPreviewFromTheme.ts`,
+  `usePlayerPopupTheme.ts`, `playerPopupDomRead.ts` — mapping thème
+  store ↔ aperçu et lecture DOM cantonnée.
+- `xflow/react/src/view/nodalReactFlowProjection.ts` — projection RF
+  hors Quill (pour Vitest).
+- `xflow/react/src/view/nodalUiContext.tsx`,
+  `view/NodalCanvas.tsx`, `NodalCanvas.css`, `view/nodes/nodes.css`,
+  `view/nodes/ActionNodeView.tsx`, `view/nodes/MediaNodeView.tsx` —
+  états popups, montage, grille `nodal-general-*` (alias `nodal-ha-*`
+  conservés), interactions nœuds (clic / clavier, édition inline titre
+  scène, label média).
+- `xflow/react/src/view/palette/NodePalette.tsx`, `palette/palette.css` —
+  palette : sauvegardes, lien formulaire, accès popup thème.
+- `xflow/react/src/store/nodalProjectStore.ts` — slice `playerPopupTheme`
+  (`setPlayerPopupTheme`, `syncPlayerPopupThemeFromDom`) ;
+  `updateNodeData` étendu (`payload.copy`, `payload.nested`,
+  `payload.answer`, label action, titre scène, label média).
+- `xflow/react/src/view/hotspotAppearance.ts`,
+  `__tests__/hexToRgba.test.ts` — correctif `hexToRgba` / `hexToRgbaLo`
+  (canal R nul).
+- `xflow/react/package.json` — dépendance **`quill@1.3.7`** alignée CDN
+  éditeur ; `vite.editor-map.config.ts` ne précharge pas Quill au
+  top-level.
+
+**Pont chrome carte (palette → app)** :
+
+- `js/editor-nodal-map-bootstrap.js`, `js/editeur-app.js`,
+  `js/editor-en-app.js`, `xflow/react/src/escape360NodalChrome.d.ts` —
+  `window.__escape360NodalChrome` (sauvegardes, snapshot, fermeture
+  modale, `updatePreview`).
+
+**Persistance / round-trip (C7.5)** :
+
+- `xflow/react/src/serialize/mapLayoutJson.ts` — extras
+  `nodalPlayerPopupTheme` (lecture / écriture).
+- `js/editor-shared-nodal-to-dom.js` — projection thème popup → DOM
+  legacy à partir du store.
+
+**Durcissement UX (C7.6)** :
+
+- `js/editor-shared-local-draft-ui.js` — fonction commune
+  `captureSnapshotInteractive(reason)` (confirm interactif si la
+  persistance brouillon est désactivée), exposée pour usage externe.
+- `js/editeur-app.js`, `js/editor-en-app.js` — strings localisées
+  `confirmEnableForSnapshot` ; pont
+  `__escape360NodalChrome.flushThenLocalDraftSnapshot` rebranché sur
+  `localDraftUi.captureSnapshotInteractive` (le bouton « Snapshot » de la
+  palette nodale bénéficie du même garde-fou que le dock).
+
+**Smoke FR/EN** : recette `SMK-01 → SMK-10` validée (2026-04-27 →
+2026-05-01) — données minimales, long contenu, selector boutons /
+dropdown, chaîne `REQ → REQ → PWD → MSG` + cas mixte `REQ → SELECTOR
+→ REQ`, `generateGame()` simple, `exportGameWebZip()` hors-ligne, bundle
+`.escapegame` round-trip, clair/sombre, non-régression
+`flushNodalStoreToEditorDom`.
+
+**Reports post-C7 (non bloquants)** : médias portables nodaux
+(`nodalDraftAdapter.ts` callbacks no-op pour les snapshots IndexedDB
+nodaux ; bundle `.escapegame` fonctionnel via projection DOM legacy) ;
+ménage progressif des `!important` Quill / CSS ; pont `updatePreview()`
+legacy `C7.2-bis-04` ; durcissement `SELECTOR_SPEC`.
 
 ## Annexe C — Glossaire
 
@@ -1230,172 +1328,3 @@ debug chaîne ; garde-fou **profondeur** runtime ; pas de sens
   (`coords-options`, `choice-options`, `object`).
 - **Transition** (famille handle) : nouvelle famille dédiée au `goto` —
   couleur bleu vif, forme triangle, edge pointillé animé.
-
----
-
-## Annexe D — Chantier en cours (C7)
-
-> **Usage** : pendant le chantier **C7**, cette annexe sert de **todo** et
-> de **journal** (décisions, ordre des lots, cases cochées). À **clôture
-> C7** : en rédiger une **synthèse** en **Annexe B** (nouvelle sous-section
-> type « C7 — … »), mettre à jour le **Changelog** principal (ex. v1.6),
-> ajuster §7 si besoin, puis **supprimer entièrement l’annexe D** — même
-> principe que l’ancien bloc « Chantier C6 » remplacé par l’Annexe B — C6.
-
-**Branche de travail** : `feat/nodal-map` (pas de branche satellite imposée ;
-une branche dédiée `feat/c7-…` reste possible si l’auteur le souhaite).
-
----
-
-### D.0 — Rappel §7 (cible produit C7)
-
-Issu de la roadmap §7 et des décisions **Annexe B — C6** :
-
-1. **Popups d’édition de contenu** sur la carte : accès au texte riche /
-   champs métier pour `msg`, `pick`, `selector` (titre, intro, choix…),
-   `req`, `pwd` (copies, énigme, récompense…), sans passer par le formulaire
-   legacy comme source d’édition.
-2. **`editor-core.js`** : autoriser `req` / `pwd` dans `rewardAction` si
-   récursion / chaînes (déjà mentionné §2.2 pour la récursion théorique).
-3. **Chaînes REQ/PWD** : **livré (C7.1 / v1.6)** — multi-paliers V2 + DOM +
-   `generateGame()` ; suites **C7.2+** : popups nodales, Quill, bundle médias
-   (cf. **D.2** / **D.3**).
-
-Références externes : **`docs/SELECTOR_SPEC.md`** (pièges selector,
-`deferSelectorInit`, `f_sel_choices`), **`docs/ARCHITECTURE.md`**, modules
-`js/editor-shared-action-mappers.js`, `js/editor-shared-hotspot-*`,
-`js/editeur-generate.js` / `js/editor-en-generate.js`.
-
----
-
-### D.1 — Inventaire par thème *(hors ordre strict d’implémentation)*
-
-| Thème | Contenu principal | Fichiers / zones typiques |
-|--------|-------------------|---------------------------|
-| **A. Popups React** | Édition `copy.bodyHtml`, labels, textes `req`/`pwd`, contenus selector (nested), preview éventuelle | `xflow/react/src/view/popups/*`, `NodalCanvas.tsx`, `nodalUiContext.tsx` ; pas de `querySelector` legacy dans React (§8.6) |
-| **B. Quill / riche** | Parité WYSIWYG avec legacy (`editor-quill-scenes.js`), thème, SRI si embarqué ; ou **phase 1** textarea + HTML brut | Décision **D.3** ; risque `file://` + CDN |
-| **C. Schéma V2 + Core** | `rewardAction` / chaîne ; normalisation `EditorCore` ; warnings §6 | `js/editor-core.js`, `xflow/react/src/model/*`, tests |
-| **D. Mappers + DOM** | Mapping **unidirectionnel** nodal → legacy (`actionV2ToLegacyHotspotData`) + projection `editor-shared-nodal-to-dom.js` | `js/editor-shared-action-mappers.js`, `js/editor-shared-nodal-to-dom.js` |
-| **E. Sérialisation / bundle** | `serializeToProjectJson`, `map-layout`, extras satellites ; TODO médias portables C5+ | `xflow/react/src/serialize/*`, `editor-shared-bundle.js` |
-| **F. Export joueur** | `generateGame()`, ZIP Web, args runtime REQ/PWD / selector | `js/editeur-generate.js`, `js/editor-en-generate.js` |
-| **G. Selector** | Ordre, JSON choix, SFX par choix, imbrication | `SELECTOR_SPEC`, `editor-shared-selector-core.js`, mappers |
-| **H. UX / polish** | Z-index popups, FR/EN, accessibilité, pièges connus projet | Alignement `CONTRIBUTING` |
-
----
-
-### D.2 — Découpage proposé en sous-chantiers *(C7.1 … C7.6 — renommable)*
-
-| Lot | Intitulé | Livrables indicatifs |
-|-----|----------|----------------------|
-| **C7.1** | **Périmètre & schéma** | Décisions **D.3** figées ; extension types TS / `EditorCore` pour chaînes ou périmètre « popups seule » ; liste de warnings à mettre à jour |
-| **C7.2** | **Popups contenu — socle** | Pattern popup partagé (titre, save, annuler, bind store) ; première action **msg** (ou autre pilote) FR+EN |
-| **C7.3** | **Popups — couverture actions** | `pick`, `req`, `pwd`, `goto` (copy transition), champs **selector** (nested, `displayMode`) ; réutiliser modules shared quand pas de texte UI |
-| **C7.4** | **Chaînes REQ/PWD** *(retenu en C7)* | Schéma V2 + legacy (`f_req_action` / répétition ou structure nouvelle) ; projection DOM ; tests **V2 → DOM → generateGame** (pas de `legacy → V2`) |
-| **C7.5** | **Export joueur + smoke** | `generateGame()` / ZIP ; scénarios minimal + selector + REQ/PWD (selon nouveau contrat) |
-| **C7.6** | **Durcissement** | SELECTOR_SPEC, médias portables bundle si dans périmètre, doc Annexe B, suppression **Annexe D** |
-
-Les lots **C7.2–C7.3** peuvent être **inversés** ou **parallélisés** partiellement
-selon la priorité produit (édition texte d’abord *vs* schéma d’abord).
-
----
-
-### D.3 — Arbitrages actés / points restants
-
-**Acté (auteur)** :
-
-1. **Ordre des lots C7** : commencer par **chaînes REQ/PWD**, puis **Quill**,
-   puis **bundle médias nodaux**.
-2. **Git flow** : une branche dédiée par lot, clôturée avant d’ouvrir la
-   suivante (ex. `feat/c7-chain-reward` puis lot suivant).
-3. **Chaînes REQ/PWD** : direction **A** (extension de `rewardAction`) avec
-   autorisation de `req`/`pwd` en récompense ; exemple cible :
-   `REQ -> REQ -> PWD -> MSG`.
-4. **DOM legacy** : adaptation minimale, orientée lecture runtime :
-   enrichir les sélecteurs de récompense (`REQ`/`PWD`) et dérouler les
-   champs nécessaires palier par palier.
-5. **Flux data** : **unidirectionnel uniquement** — `V2 -> DOM -> generateGame`.
-   Le sens **`legacy -> V2` est explicitement hors périmètre C7**.
-6. **C6.1** : laissé de côté pour l’instant (édition legacy conservée en debug).
-
-**Tranché (auteur) pour le lot `c7-chain-reward`** :
-
-7. **A1 retenu** : récursion native `rewardAction` (pas de `rewardChain[]`
-   aplati comme structure canonique).
-8. **B1 retenu** : DOM legacy en blocs dynamiques répétés palier par palier.
-9. **C2 retenu** : limite de profondeur fixée (garde-fou runtime), même si la
-   nodale réduit déjà fortement le risque de boucle.
-10. **D3 retenu** : en cas d’anomalie runtime improbable, fallback prudent ;
-    éviter toute injection massive de messages par défaut.
-11. **E1 retenu** : SFX dans la chaîne hors périmètre C7.1 (pas d’interdiction
-    ajoutée ; traitement ultérieur en polissage).
-12. **Q4 acté** : bundle médias nodaux = lot séparé, mais inclus dans C7
-    après REQ/PWD puis Quill.
-
----
-
-### D.4 — Journal / checklist *(à mettre à jour au fil des commits)*
-
-- [x] **D.3** : premier lot d’arbitrages auteur consigné (ordre C7,
-  unidirectionnel `V2 -> DOM -> generateGame`, C6.1 hors périmètre immédiat).
-- [x] **D.3 (A/B/C/D/E)** : arbitrages techniques C7.1 figés
-  (A1, B1, C2, D3, E1).
-- [x] **C7.1** : périmètre figé + livré (spec §7, **Annexe B — C7.1**, merge
-  `feat/c7-chain-reward` → `feat/nodal-map`).
-- [ ] **C7.2** : socle popup + premier type d’action éditable depuis la carte.
-- [ ] **C7.3** : couverture étendue des types / selector.
-- [x] **C7.4** : chaînes REQ/PWD **(slice C7.1)** — schéma V2 + DOM + runtime ;
-  lots C7.2+ (popups nodales, etc.) restent ouverts.
-- [ ] **C7.5** : smoke / export **C7 complet** (hors smoke lot C7.1 déjà OK).
-- [ ] **C7.6** : durcissement + **Annexe B — C7** + suppression **Annexe D**.
-
-**Todo détaillé — lot `c7-chain-reward` (avant ouverture de branche suivante)** :
-
-- [x] **C7.1-00 Contrat figé** : flux unique `V2 -> DOM -> generateGame`,
-  aucune remontée `legacy -> V2`.
-- [x] **C7.1-01 Core** : autoriser `req`/`pwd` comme `rewardAction` partout
-  où la normalisation limite encore les types.
-- [x] **C7.1-02 Projection DOM** : étendre les sélecteurs de récompense
-  (`REQ`/`PWD`) et dérouler les champs en chaîne.
-- [x] **C7.1-03 Runtime joueur** : exécution séquentielle des paliers
-  (`REQ -> ... -> PWD -> ...`) jusqu’à action terminale.
-- [x] **C7.1-04 Garde-fous** : limite de profondeur C2 + warnings déjà existants
-  (reward manquant), sans surcharger en messages par défaut.
-- [x] **C7.1-05 Smoke** : scénario nominal `REQ -> REQ -> PWD -> MSG` +
-  cas mixte `REQ -> SELECTOR -> REQ` *(validé auteur 2026-04-27)*.
-- [x] **C7.1-06 Git** : branche `feat/c7-chain-reward`, merge vers
-  `feat/nodal-map` *(2026-04-27)*, ouverture lot suivant autorisée.
-
-*(Dates / notes libres : utiliser des sous-listes `- YYYY-MM-DD : …` au fil
-de l’eau.)*
-
-- 2026-04-27 — **Ouverture lot C7.1 (`c7-chain-reward`)** : scope figé
-  (A1/B1/C2/D3/E1), flux unidirectionnel `V2 -> DOM -> generateGame`,
-  ordre global C7 validé (**REQ/PWD -> Quill -> bundle médias**).
-- 2026-04-27 — **C7.1 (lot 1 en cours)** : base technique branchée pour
-  chaînes req/pwd côté génération joueur (FR/EN) + sérialisation
-  `f_reward_chain_json` V2 -> legacy pour récompenses req/pwd imbriquées.
-- 2026-04-27 — **C7.1 (lot 1 — projection/debug)** : `f-req-action` /
-  `f-pwd-action` autorisent `req` et `pwd` ; panneau debug JSON
-  `f-reward-chain-json` affiché dans le formulaire legacy pour les chaînes.
-- 2026-04-27 — **C7.1 (fix runtime)** : correction exécution chaîne reward :
-  `executeReward` accepte désormais les nœuds terminaux passés en `type`
-  (fallback si `action` absent), ce qui débloque `PWD -> PWD -> PICK`.
-- 2026-04-27 — **C7.1 (fix runtime 2)** : terminaux chaîne (`msg`/`pick`)
-  lisent maintenant aussi les clés `txt` / `itemId` / `itemName` quand les
-  alias `okMsg` / `pickId` / `pickName` sont absents (plus d’`undefined` final).
-- 2026-04-27 — **C7.1 (fix debug form)** : correction remplissage
-  `f-reward-chain-json` sur tous les blocs dynamiques req/pwd + JSON de chaîne
-  rendu lisible (`next` imbriqué, plus de chaîne doublement échappée).
-- 2026-04-27 — **Clôture lot C7.1** : smoke OK ; spec **v1.6** (§7, **Annexe B
-  — C7.1**, journal D.4) ; merge `feat/c7-chain-reward` → `feat/nodal-map`.
-
----
-
-### D.5 — Checklist « prêt à supprimer l’annexe D »
-
-- [ ] Tous les lots C7.x prévus sont livrés ou **explicitement** reportés
-  (avec cible).
-- [ ] **Annexe B** contient une sous-section **C7** (fichiers + décisions).
-- [ ] **Changelog** document principal mis à jour (ex. **v1.6**).
-- [ ] §7 **C7** reflète l’état livré (sans renvoi obligatoire à l’annexe D).
-- [ ] Supprimer ce bloc **Annexe D** en entier.

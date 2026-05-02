@@ -212,6 +212,11 @@
     transform: scale(0.98);
 }
 
+/* Masqué sur l’onglet carte nodale : réglages globaux déplacés dans la palette React. */
+body.escape360-nodal-map-ro #project-map-fab-settings {
+  display: none !important;
+}
+
 .project-map-fab-settings {
     left: 16px;
     bottom: 16px;

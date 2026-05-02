@@ -37,7 +37,7 @@ export type SelectorActionNode = BaseActionNode<
 export type ReqActionNode = BaseActionNode<"req", { itemId: string; copy: CopyPayload }> & {
   rewardActionId: ActionNodeId | null;
 };
-export type PwdActionNode = BaseActionNode<"pwd", { answer: string; copy: CopyPayload }> & {
+export type PwdActionNode = BaseActionNode<"pwd", { answer: string; rememberSuccess?: boolean; copy: CopyPayload }> & {
   rewardActionId: ActionNodeId | null;
 };
 
@@ -100,6 +100,7 @@ export type MediaImageNode = {
   id: MediaNodeId;
   nodeType: "media";
   mediaType: "media-image";
+  label: string;
   data: {
     url: string;
   };
@@ -109,6 +110,7 @@ export type MediaAudioNode = {
   id: MediaNodeId;
   nodeType: "media";
   mediaType: "media-audio";
+  label: string;
   data: {
     url: string;
     volume: number;

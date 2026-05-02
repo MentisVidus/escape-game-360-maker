@@ -33,13 +33,18 @@ import type {
   ActionNode,
   ChoiceOptionsSatelliteNode,
   CoordsOptionsSatelliteNode,
+  GotoActionNode,
   MediaNode,
+  MsgActionNode,
+  PickActionNode,
+  PwdActionNode,
+  ReqActionNode,
+  SelectorActionNode,
   ObjectSatelliteNode,
 } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
-import { getActionContextualState } from "../store/reconcileAutoSatellites";
 import { isValidConnection } from "./connectionPolicy";
 import {
   HANDLE_FLOW_IN,
@@ -61,49 +66,17 @@ import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
 import { CoordsOptionsPopup } from "./popups/CoordsOptionsPopup";
 import { ChoiceOptionsPopup } from "./popups/ChoiceOptionsPopup";
 import { MediaEditorPopup } from "./popups/MediaEditorPopup";
+import { MsgContentPopup } from "./popups/MsgContentPopup";
+import { PickContentPopup } from "./popups/PickContentPopup";
+import { GotoContentPopup } from "./popups/GotoContentPopup";
+import { ReqContentPopup } from "./popups/ReqContentPopup";
+import { PwdContentPopup } from "./popups/PwdContentPopup";
+import { SelectorContentPopup } from "./popups/SelectorContentPopup";
+import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
+import { PopupThemeCustomizationPopup } from "./popups/PopupThemeCustomizationPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
+import { toReactFlowEdges, toReactFlowNodes, type NodalRFData } from "./nodalReactFlowProjection";
 import "./NodalCanvas.css";
-
-type NodalRFData = {
-  nodeType: "scene" | "action" | "satellite" | "media";
-  node: unknown;
-  isRewardChild?: boolean;
-  rewardParentType?: "req" | "pwd" | null;
-  contextualState?: 1 | 2 | 3 | 4;
-};
-
-function sortNodesParentFirst(nodes: RFNode<NodalRFData>[]): RFNode<NodalRFData>[] {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const visited = new Set<string>();
-  const inStack = new Set<string>();
-  const result: RFNode<NodalRFData>[] = [];
-
-  const visit = (node: RFNode<NodalRFData>) => {
-    if (visited.has(node.id)) return;
-    if (inStack.has(node.id)) {
-      console.warn(`[sortNodesParentFirst] cycle résiduel sur ${node.id}, ignoré`);
-      visited.add(node.id);
-      return;
-    }
-    inStack.add(node.id);
-    if (node.parentId) {
-      const parent = byId.get(node.parentId);
-      if (parent) {
-        visit(parent);
-      } else {
-        console.warn(
-          `[sortNodesParentFirst] parentId ${node.parentId} introuvable pour ${node.id} — désync store/RF`
-        );
-      }
-    }
-    inStack.delete(node.id);
-    visited.add(node.id);
-    result.push(node);
-  };
-
-  for (const node of nodes) visit(node);
-  return result;
-}
 
 const nodeTypes: NodeTypes = {
   sceneNode: SceneNodeView,
@@ -111,110 +84,6 @@ const nodeTypes: NodeTypes = {
   satelliteNode: SatelliteNodeView,
   mediaNode: MediaNodeView,
 };
-
-export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
-  const nodes: RFNode<NodalRFData>[] = [];
-
-  for (const scene of Object.values(state.scenes)) {
-    const layout = state.layout[scene.id];
-    if (!layout) continue;
-    nodes.push({
-      id: scene.id,
-      type: "sceneNode",
-      position: { x: layout.x, y: layout.y },
-      data: { nodeType: "scene", node: scene },
-    });
-  }
-  for (const action of Object.values(state.actions)) {
-    const layout = state.layout[action.id];
-    if (!layout) continue;
-    const parentAction = layout.parentId ? state.actions[layout.parentId as keyof typeof state.actions] : undefined;
-    const actionNode: RFNode<NodalRFData> = {
-      id: action.id,
-      type: "actionNode",
-      position: { x: layout.x, y: layout.y },
-      data: {
-        nodeType: "action",
-        node: action,
-        isRewardChild: parentAction?.actionType === "req" || parentAction?.actionType === "pwd",
-        rewardParentType:
-          parentAction?.actionType === "req" || parentAction?.actionType === "pwd"
-            ? (parentAction.actionType as "req" | "pwd")
-            : null,
-        contextualState: getActionContextualState(state, action.id as ActionNodeId),
-      },
-    };
-    if (action.actionType === "selector" && layout.width && layout.height) {
-      actionNode.style = { width: layout.width, height: layout.height };
-    }
-    if (layout.parentId) {
-      actionNode.parentId = layout.parentId;
-      // C3b: pas d'extent sur récompense pour éviter le clamp RF
-      // (parent non redimensionné + slot visuel hors bbox parent).
-    }
-    nodes.push(actionNode);
-  }
-  for (const satellite of Object.values(state.satellites)) {
-    const layout = state.layout[satellite.id];
-    if (!layout) continue;
-    const satelliteNode: RFNode<NodalRFData> = {
-      id: satellite.id,
-      type: "satelliteNode",
-      position: { x: layout.x, y: layout.y },
-      data: { nodeType: "satellite", node: satellite },
-    };
-    if (layout.parentId) {
-      satelliteNode.parentId = layout.parentId;
-    }
-    nodes.push(satelliteNode);
-  }
-  for (const media of Object.values(state.media)) {
-    const layout = state.layout[media.id];
-    if (!layout) continue;
-    nodes.push({
-      id: media.id,
-      type: "mediaNode",
-      position: { x: layout.x, y: layout.y },
-      data: { nodeType: "media", node: media },
-    });
-  }
-
-  return sortNodesParentFirst(nodes);
-}
-
-export function toReactFlowEdges(state: NodalProject): RFEdge[] {
-  return state.edges.map((edge) => {
-      if (edge.family === "transition") {
-        return {
-          id: edge.id,
-          source: edge.sourceId,
-          target: edge.targetId,
-          sourceHandle: HANDLE_GOTO_OUT,
-          targetHandle: HANDLE_GOTO_IN,
-          animated: true,
-          className: "nodal-edge nodal-edge--transition",
-        };
-      }
-      if (edge.family === "meta") {
-        return {
-          id: edge.id,
-          source: edge.sourceId,
-          target: edge.targetId,
-          sourceHandle: HANDLE_META_OUT,
-          targetHandle: HANDLE_META_IN,
-          className: "nodal-edge nodal-edge--meta",
-        };
-      }
-      return {
-        id: edge.id,
-        source: edge.sourceId,
-        target: edge.targetId,
-        sourceHandle: HANDLE_FLOW_OUT,
-        targetHandle: HANDLE_FLOW_IN,
-        className: "nodal-edge nodal-edge--flow",
-      };
-    });
-}
 
 function detectFamily(connection: Connection): "flow" | "transition" | "meta" | null {
   if (connection.sourceHandle === HANDLE_FLOW_OUT && connection.targetHandle === HANDLE_FLOW_IN) return "flow";
@@ -231,12 +100,147 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [coordsEditorSatelliteId, setCoordsEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
   const [choiceEditorSatelliteId, setChoiceEditorSatelliteId] = useState<SatelliteNodeId | null>(null);
   const [mediaEditorMediaId, setMediaEditorMediaId] = useState<MediaNodeId | null>(null);
+  const [msgEditorActionId, setMsgEditorActionId] = useState<ActionNodeId | null>(null);
+  const [pickEditorActionId, setPickEditorActionId] = useState<ActionNodeId | null>(null);
+  const [gotoEditorActionId, setGotoEditorActionId] = useState<ActionNodeId | null>(null);
+  const [reqEditorActionId, setReqEditorActionId] = useState<ActionNodeId | null>(null);
+  const [pwdEditorActionId, setPwdEditorActionId] = useState<ActionNodeId | null>(null);
+  const [selectorEditorActionId, setSelectorEditorActionId] = useState<ActionNodeId | null>(null);
+  const [globalSettingsHubOpen, setGlobalSettingsHubOpen] = useState(false);
+  const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
+  const openMsgContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setMsgEditorActionId(id);
+  }, []);
+  const openPickContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setPickEditorActionId(id);
+  }, []);
+  const openGotoContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setPickEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setGotoEditorActionId(id);
+  }, []);
+  const openReqContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setReqEditorActionId(id);
+  }, []);
+  const openPwdContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setPwdEditorActionId(id);
+  }, []);
+  const openSelectorContentEditor = useCallback((id: ActionNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setMsgEditorActionId(null);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(id);
+  }, []);
   const state = useSyncExternalStore(
     store.subscribe,
     store.getState,
     store.getState
   );
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!msgEditorActionId) return;
+    const a = state.actions[msgEditorActionId];
+    if (!a || a.actionType !== "msg") {
+      setMsgEditorActionId(null);
+    }
+  }, [msgEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!pickEditorActionId) return;
+    const a = state.actions[pickEditorActionId];
+    if (!a || a.actionType !== "pick") {
+      setPickEditorActionId(null);
+    }
+  }, [pickEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!gotoEditorActionId) return;
+    const a = state.actions[gotoEditorActionId];
+    if (!a || a.actionType !== "goto") {
+      setGotoEditorActionId(null);
+    }
+  }, [gotoEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!reqEditorActionId) return;
+    const a = state.actions[reqEditorActionId];
+    if (!a || a.actionType !== "req") {
+      setReqEditorActionId(null);
+    }
+  }, [reqEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!pwdEditorActionId) return;
+    const a = state.actions[pwdEditorActionId];
+    if (!a || a.actionType !== "pwd") {
+      setPwdEditorActionId(null);
+    }
+  }, [pwdEditorActionId, state.actions]);
+  useEffect(() => {
+    if (!selectorEditorActionId) return;
+    const a = state.actions[selectorEditorActionId];
+    if (!a || a.actionType !== "selector") {
+      setSelectorEditorActionId(null);
+    }
+  }, [selectorEditorActionId, state.actions]);
 
   // State React Flow pour nodes et edges (permet à RF de gérer drag, sélection, mesures)
   const [rfNodes, setRfNodes, onNodesChangeRF] = useNodesState<RFNode<NodalRFData>>([]);
@@ -502,6 +506,42 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const choiceParentAction = findParentAction(choiceEditorSatelliteId);
   const mediaToEdit: MediaNode | null =
     mediaEditorMediaId && state.media[mediaEditorMediaId] ? state.media[mediaEditorMediaId] : null;
+  const msgToEdit: MsgActionNode | null =
+    msgEditorActionId &&
+    state.actions[msgEditorActionId] &&
+    state.actions[msgEditorActionId].actionType === "msg"
+      ? (state.actions[msgEditorActionId] as MsgActionNode)
+      : null;
+  const pickToEdit: PickActionNode | null =
+    pickEditorActionId &&
+    state.actions[pickEditorActionId] &&
+    state.actions[pickEditorActionId].actionType === "pick"
+      ? (state.actions[pickEditorActionId] as PickActionNode)
+      : null;
+  const gotoToEdit: GotoActionNode | null =
+    gotoEditorActionId &&
+    state.actions[gotoEditorActionId] &&
+    state.actions[gotoEditorActionId].actionType === "goto"
+      ? (state.actions[gotoEditorActionId] as GotoActionNode)
+      : null;
+  const reqToEdit: ReqActionNode | null =
+    reqEditorActionId &&
+    state.actions[reqEditorActionId] &&
+    state.actions[reqEditorActionId].actionType === "req"
+      ? (state.actions[reqEditorActionId] as ReqActionNode)
+      : null;
+  const pwdToEdit: PwdActionNode | null =
+    pwdEditorActionId &&
+    state.actions[pwdEditorActionId] &&
+    state.actions[pwdEditorActionId].actionType === "pwd"
+      ? (state.actions[pwdEditorActionId] as PwdActionNode)
+      : null;
+  const selectorToEdit: SelectorActionNode | null =
+    selectorEditorActionId &&
+    state.actions[selectorEditorActionId] &&
+    state.actions[selectorEditorActionId].actionType === "selector"
+      ? (state.actions[selectorEditorActionId] as SelectorActionNode)
+      : null;
 
   return (
     <NodalUiContext.Provider
@@ -515,6 +555,28 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         setChoiceEditorSatelliteId,
         mediaEditorMediaId,
         setMediaEditorMediaId,
+        msgEditorActionId,
+        setMsgEditorActionId,
+        openMsgContentEditor,
+        pickEditorActionId,
+        setPickEditorActionId,
+        openPickContentEditor,
+        gotoEditorActionId,
+        setGotoEditorActionId,
+        openGotoContentEditor,
+        reqEditorActionId,
+        setReqEditorActionId,
+        openReqContentEditor,
+        pwdEditorActionId,
+        setPwdEditorActionId,
+        openPwdContentEditor,
+        selectorEditorActionId,
+        setSelectorEditorActionId,
+        openSelectorContentEditor,
+        globalSettingsHubOpen,
+        setGlobalSettingsHubOpen,
+        popupThemeCustomizationOpen,
+        setPopupThemeCustomizationOpen,
       }}
     >
       <div className={layoutClassName} ref={canvasRef}>
@@ -618,9 +680,124 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             const snap = store.getState();
             const cur = snap.media[mediaEditorMediaId];
             if (!cur) return;
-            snap.updateNodeData(mediaEditorMediaId, { data: { ...cur.data, ...patch } } as never);
+            snap.updateNodeData(mediaEditorMediaId, {
+              ...(typeof patch.label === "string" ? { label: patch.label } : {}),
+              data: { ...cur.data, ...(patch.url !== undefined ? { url: patch.url } : {}), ...(patch.volume !== undefined ? { volume: patch.volume } : {}) },
+            } as never);
           }}
           onClose={() => setMediaEditorMediaId(null)}
+        />
+        <MsgContentPopup
+          store={store}
+          action={msgToEdit}
+          onSave={({ label, copy }) => {
+            if (!msgEditorActionId) return;
+            store.getState().updateNodeData(msgEditorActionId, {
+              label,
+              payload: { copy },
+            } as never);
+          }}
+          onClose={() => setMsgEditorActionId(null)}
+        />
+        <PickContentPopup
+          store={store}
+          action={pickToEdit}
+          onSave={({ label, copy }) => {
+            if (!pickEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[pickEditorActionId];
+            if (!cur || cur.actionType !== "pick") return;
+            snap.updateNodeData(pickEditorActionId, {
+              label,
+              payload: { ...cur.payload, copy },
+            } as never);
+          }}
+          onClose={() => setPickEditorActionId(null)}
+        />
+        <GotoContentPopup
+          store={store}
+          action={gotoToEdit}
+          onSave={({ label, copy }) => {
+            if (!gotoEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[gotoEditorActionId];
+            if (!cur || cur.actionType !== "goto") return;
+            snap.updateNodeData(gotoEditorActionId, {
+              label,
+              payload: { ...cur.payload, copy },
+            } as never);
+          }}
+          onClose={() => setGotoEditorActionId(null)}
+        />
+        <ReqContentPopup
+          store={store}
+          action={reqToEdit}
+          onSave={({ label, copy }) => {
+            if (!reqEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[reqEditorActionId];
+            if (!cur || cur.actionType !== "req") return;
+            snap.updateNodeData(reqEditorActionId, {
+              label,
+              payload: { ...cur.payload, copy },
+            } as never);
+          }}
+          onClose={() => setReqEditorActionId(null)}
+        />
+        <PwdContentPopup
+          store={store}
+          action={pwdToEdit}
+          onSave={({ label, bodyHtml, answer, rememberSuccess }) => {
+            if (!pwdEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[pwdEditorActionId];
+            if (!cur || cur.actionType !== "pwd") return;
+            snap.updateNodeData(pwdEditorActionId, {
+              label,
+              payload: { ...cur.payload, copy: { ...cur.payload.copy, bodyHtml }, answer, rememberSuccess },
+            } as never);
+          }}
+          onClose={() => setPwdEditorActionId(null)}
+        />
+        <SelectorContentPopup
+          store={store}
+          action={selectorToEdit}
+          onSave={({ label, title, bodyHtml, displayMode }) => {
+            if (!selectorEditorActionId) return;
+            const snap = store.getState();
+            const cur = snap.actions[selectorEditorActionId];
+            if (!cur || cur.actionType !== "selector") return;
+            snap.updateNodeData(selectorEditorActionId, {
+              label,
+              payload: {
+                ...cur.payload,
+                nested: {
+                  ...cur.payload.nested,
+                  title,
+                  displayMode,
+                  copy: { ...cur.payload.nested.copy, bodyHtml },
+                },
+              },
+            } as never);
+          }}
+          onClose={() => setSelectorEditorActionId(null)}
+        />
+        <GlobalSettingsHubPopup
+          open={globalSettingsHubOpen}
+          onClose={() => setGlobalSettingsHubOpen(false)}
+          onOpenPopupTheme={() => {
+            setGlobalSettingsHubOpen(false);
+            setPopupThemeCustomizationOpen(true);
+          }}
+        />
+        <PopupThemeCustomizationPopup
+          store={store}
+          open={popupThemeCustomizationOpen}
+          onClose={() => setPopupThemeCustomizationOpen(false)}
+          onBackToHub={() => {
+            setPopupThemeCustomizationOpen(false);
+            setGlobalSettingsHubOpen(true);
+          }}
         />
       </div>
     </div>

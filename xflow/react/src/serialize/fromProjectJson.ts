@@ -122,6 +122,7 @@ const deserializeAction = (state: NodalProject, raw: ProjectJsonV2Action, pathKe
         actionType,
         payload: {
           answer: String(payload.answer ?? ""),
+          rememberSuccess: payload.rememberSuccess === true,
           copy: (payload.copy as CopyPayload) ?? defaultCopy(),
         },
         rewardActionId,

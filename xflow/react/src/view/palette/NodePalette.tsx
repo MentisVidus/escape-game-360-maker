@@ -1,11 +1,13 @@
 import { useReactFlow } from "@xyflow/react";
 import type { RefObject } from "react";
+import { useCallback } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
 import { asActionNodeId, asMediaNodeId } from "../../model/ids";
 import type { ActionNode, MediaNode, SceneNode } from "../../model/nodes";
 import { stableSceneNodeIdFromExternal } from "../../serialize/fromProjectJson";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
+import { useNodalUi } from "../nodalUiContext";
 import "./palette.css";
 
 let counter = 0;
@@ -16,8 +18,49 @@ type PaletteProps = {
   canvasRef: RefObject<HTMLDivElement | null>;
 };
 
+function paletteLocale(): "fr" | "en" {
+  if (typeof document === "undefined") return "fr";
+  return document.documentElement.lang?.toLowerCase().startsWith("en") ? "en" : "fr";
+}
+
+function nodalChrome() {
+  return typeof window !== "undefined" ? window.__escape360NodalChrome : undefined;
+}
+
 export function NodePalette({ store, canvasRef }: PaletteProps) {
   const reactFlow = useReactFlow();
+  const ui = useNodalUi();
+  const L = paletteLocale();
+
+  const labels =
+    L === "en"
+      ? {
+          settings: "Global settings",
+          scene: "Scene",
+          addScene: "Add Scene",
+          actions: "Actions",
+          media: "Media",
+          saveBundle: "Save .escapegame",
+          advanced: "Advanced save",
+          snapshot: "Local snapshot",
+          saveJson: "Save .json",
+          load: "Load…",
+          form: "Form editor",
+        }
+      : {
+          settings: "Paramètres globaux",
+          scene: "Scène",
+          addScene: "Ajouter une scène",
+          actions: "Actions",
+          media: "Médias",
+          saveBundle: "Sauver .escapegame",
+          advanced: "Sauvegarde avancée",
+          snapshot: "Snapshot local",
+          saveJson: "Sauver .json",
+          load: "Charger…",
+          form: "Formulaire",
+        };
+
   const getCenterPosition = () => {
     const host = canvasRef.current;
     if (!host) return { x: 0, y: 0 };
@@ -67,7 +110,12 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
                 }
               : actionType === "req"
                 ? { ...base, actionType, payload: { itemId: "", copy: { bodyHtml: "", buttonLabel: "" } }, rewardActionId: null }
-                : { ...base, actionType: "pwd", payload: { answer: "", copy: { bodyHtml: "", buttonLabel: "" } }, rewardActionId: null };
+                : {
+                    ...base,
+                    actionType: "pwd",
+                    payload: { answer: "", rememberSuccess: false, copy: { bodyHtml: "", buttonLabel: "" } },
+                    rewardActionId: null,
+                  };
     const center = getCenterPosition();
     store.getState().addAction(node, { x: center.x, y: center.y });
   };
@@ -76,28 +124,113 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
     const id = asMediaNodeId(nextId("media"));
     const node: MediaNode =
       mediaType === "media-image"
-        ? { id, nodeType: "media", mediaType, data: { url: "" } }
-        : { id, nodeType: "media", mediaType: "media-audio", data: { url: "", volume: 1 } };
+        ? { id, nodeType: "media", mediaType, label: "Media", data: { url: "" } }
+        : { id, nodeType: "media", mediaType: "media-audio", label: "Media", data: { url: "", volume: 1 } };
     const center = getCenterPosition();
     store.getState().addMedia(node, { x: center.x, y: center.y });
   };
 
+  const runChrome = useCallback((fn: (c: NonNullable<typeof window.__escape360NodalChrome>) => void) => {
+    const c = nodalChrome();
+    if (!c) {
+      window.alert(
+        L === "en"
+          ? "Editor bridge not ready. Reload the page."
+          : "Pont éditeur indisponible. Rechargez la page."
+      );
+      return;
+    }
+    fn(c);
+  }, [L]);
+
+  const openSettingsHub = () => {
+    ui.setObjectEditorSatelliteId(null);
+    ui.setCoordsEditorSatelliteId(null);
+    ui.setChoiceEditorSatelliteId(null);
+    ui.setMediaEditorMediaId(null);
+    ui.setMsgEditorActionId(null);
+    ui.setPickEditorActionId(null);
+    ui.setGotoEditorActionId(null);
+    ui.setReqEditorActionId(null);
+    ui.setPwdEditorActionId(null);
+    ui.setSelectorEditorActionId(null);
+    ui.setGlobalSettingsHubOpen(true);
+  };
+
   return (
     <aside className="nodal-palette">
-      <h3>Scene</h3>
-      <button onClick={addScene}>Add Scene</button>
+      <button type="button" className="nodal-palette-gear" onClick={openSettingsHub} title={labels.settings}>
+        <span className="nodal-palette-gear-icon" aria-hidden>
+          ⚙
+        </span>
+        <span>{labels.settings}</span>
+      </button>
 
-      <h3>Actions</h3>
-      <button onClick={() => addAction("msg")}>Msg</button>
-      <button onClick={() => addAction("pick")}>Pick</button>
-      <button onClick={() => addAction("goto")}>Goto</button>
-      <button onClick={() => addAction("selector")}>Selector</button>
-      <button onClick={() => addAction("req")}>Req</button>
-      <button onClick={() => addAction("pwd")}>Pwd</button>
+      <h3>{labels.scene}</h3>
+      <button type="button" onClick={addScene}>
+        {labels.addScene}
+      </button>
 
-      <h3>Media</h3>
-      <button onClick={() => addMedia("media-image")}>Image</button>
-      <button onClick={() => addMedia("media-audio")}>Audio</button>
+      <h3>{labels.actions}</h3>
+      <button type="button" onClick={() => addAction("msg")}>
+        Msg
+      </button>
+      <button type="button" onClick={() => addAction("pick")}>
+        Pick
+      </button>
+      <button type="button" onClick={() => addAction("goto")}>
+        Goto
+      </button>
+      <button type="button" onClick={() => addAction("selector")}>
+        Selector
+      </button>
+      <button type="button" onClick={() => addAction("req")}>
+        Req
+      </button>
+      <button type="button" onClick={() => addAction("pwd")}>
+        Pwd
+      </button>
+
+      <h3>{labels.media}</h3>
+      <button type="button" onClick={() => addMedia("media-image")}>
+        Image
+      </button>
+      <button type="button" onClick={() => addMedia("media-audio")}>
+        Audio
+      </button>
+
+      <div className="nodal-palette-footer">
+        <button
+          type="button"
+          className="nodal-palette-btn-primary"
+          onClick={() => runChrome((c) => c.saveEscapegameBundle())}
+        >
+          {labels.saveBundle}
+        </button>
+        <details className="nodal-palette-advanced">
+          <summary>{labels.advanced}</summary>
+          <button
+            type="button"
+            className="nodal-palette-btn-secondary"
+            onClick={() => {
+              runChrome((c) => {
+                void c.flushThenLocalDraftSnapshot();
+              });
+            }}
+          >
+            {labels.snapshot}
+          </button>
+          <button type="button" className="nodal-palette-btn-secondary" onClick={() => runChrome((c) => c.flushThenSaveJson())}>
+            {labels.saveJson}
+          </button>
+        </details>
+        <button type="button" onClick={() => runChrome((c) => c.triggerLoadEscapegame())}>
+          {labels.load}
+        </button>
+        <button type="button" onClick={() => runChrome((c) => c.closeProjectMapModal())}>
+          {labels.form}
+        </button>
+      </div>
     </aside>
   );
 }

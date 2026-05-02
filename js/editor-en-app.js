@@ -231,6 +231,8 @@ var localDraftUi = EditorSharedLocalDraftUiApi.createLocalDraftUi({
         statusWarnHigh: "High warning (>=90%): consider light mode.",
         statusWarnLow: "Warning (>=80%).",
         alertSnapshotFailPrefix: "Local snapshot failed: ",
+        confirmEnableForSnapshot:
+            "Local draft is disabled. Enable persistence and take a snapshot now?",
         confirmClearDrafts: "Clear local drafts for this tab?",
         confirmIncompatiblePurge:
             "Incompatible local drafts from an older version were found ({count}). Ignore and delete them?",
@@ -538,7 +540,7 @@ function addHotspot(sceneId, hsData = null) {
 
     // Restore field values when loading hsData from JSON
     if(hsData) {
-        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-reward-chain-json', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
+        let fields = ['f-txt', 'f-target', 'f-trans-txt', 'f-trans-btn', 'f-enigme-txt', 'f-pwd', 'f-pwd-remember', 'f-pwd-action', 'f-req-action', 'f-ok-msg', 'f-pick-id', 'f-pick-name', 'f-pick-msg', 'f-item-id', 'f-item-name', 'f-ok', 'f-ko', 'f-sel-title', 'f-sel-intro', 'f-sel-display', 'f-sel-choices', 'f-reward-sel-title', 'f-reward-sel-intro', 'f-reward-sel-display', 'f-reward-sel-choices', 'f-reward-chain-json', 'f-hs-req-item', 'f-hs-ghost-click', 'f-hs-hidden-if', 'f-sfx-url', 'f-sfx-vol'];
         fields.forEach(f => {
             let all = hsDiv.querySelectorAll('.' + f);
             if(all && all.length && hsData[f.replace(/-/g, '_')] !== undefined) {
@@ -1504,6 +1506,7 @@ function updateHsFields(hId, opts) {
         container.innerHTML = `
         <label>Puzzle / question:</label><div class="wysiwyg-wrap"><textarea class="f-enigme-txt editor-rich-text" rows="2" placeholder="Code:"></textarea></div>
         <label>Expected answer:</label><input type="text" class="f-pwd" value="1234">
+        <label>Remember success:</label><input type="text" class="f-pwd-remember" value="no" readonly>
         <label style="margin-top:10px;"><b>When solved:</b></label>
         <select class="f-pwd-action" onchange="document.getElementById('pwd_res_${hId}').className = 'res-' + this.value">
             <option value="scene">Change scene</option><option value="msg">Show message</option><option value="pick">Give item</option>
@@ -1884,6 +1887,31 @@ function updatePreview() {
         updateQuillTheme();
     }
 }
+
+window.updatePreview = updatePreview;
+
+window.__escape360NodalChrome = {
+    saveEscapegameBundle: function () {
+        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
+        void saveProjectBundle();
+    },
+    flushThenSaveJson: function () {
+        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
+        saveProject();
+    },
+    flushThenLocalDraftSnapshot: async function () {
+        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
+        await localDraftUi.captureSnapshotInteractive("manual");
+    },
+    triggerLoadEscapegame: function () {
+        var inp = document.getElementById("file-import");
+        if (inp) inp.click();
+    },
+    closeProjectMapModal: function () {
+        if (typeof closeProjectMap === "function") closeProjectMap();
+    },
+    updatePreview: updatePreview
+};
 
 (function initEndScreenRichEditors() {
     var root = document.getElementById("end-screens-form-container");

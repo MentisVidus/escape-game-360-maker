@@ -13,6 +13,19 @@
   margin-bottom: 3px;
 }
 
+.nodal-node .nodal-node-title-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 3px;
+  padding: 2px 4px;
+  border: 1px solid var(--palette-button-border, rgba(0, 0, 0, 0.25));
+  border-radius: 4px;
+  background: var(--palette-button-bg, #fff);
+  color: var(--node-text);
+  font: inherit;
+  font-weight: 700;
+}
+
 .nodal-node .subtitle {
   font-size: 11px;
   opacity: var(--node-subtitle-opacity);
@@ -26,6 +39,10 @@
 .nodal-node.action {
   background: var(--node-action-bg);
   border-color: var(--node-action-border);
+}
+
+.nodal-node.action.action-msg--clickable {
+  cursor: pointer;
 }
 
 .nodal-node.satellite {
