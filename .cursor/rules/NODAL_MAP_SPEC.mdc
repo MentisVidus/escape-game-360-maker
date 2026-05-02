@@ -1408,11 +1408,20 @@ validation visuelle des chaînes, undo/redo.
 À ajuster pendant le chantier — la phase « questions d’abord » (§8.1)
 reste obligatoire pour chaque sous-item non trivial.
 
-- **C8.1 — Nœuds repliables**
-  - État `collapsed` lu/écrit dans `map-layout.json` (champ déjà prévu).
-  - Affichage replié = en-tête seulement (titre + handles essentiels) ;
-    interactions de connexion conservées sur les handles visibles.
-  - Aucun impact sur `project.json` (purement layout).
+- **C8.1 — Nœuds repliables** *(décisions figées 2026-05-02 après cadrage
+  utilisateur — voir « Plan détaillé C8.1 » plus bas)*
+  - Repliage activé sur **deux types de conteneurs uniquement** :
+    - **selector** (sous-chantier C8.1.a — extension de l'existant) ;
+    - **scene** (sous-chantier C8.1.b — nouveau, scène = vrai conteneur RF).
+  - Repliage **ne masque jamais** une scène cible : les scènes sont
+    l'unité maximale, on s'arrête au bord du conteneur.
+  - Conteneur replié expose un **handle synthétique** `synth-goto-out`
+    qui agrège (1 edge par scène-cible distincte, dédoublonnée) tous
+    les `goto` internes. Pas de variante visuelle — apparence identique
+    aux transitions normales.
+  - Aucun impact sur `project.json` (purement layout / projection RF).
+  - `collapsed` persisté dans `map-layout.json` (champ déjà prévu côté
+    actions ; à étendre côté `nodalSceneLayoutByExternalId`).
 
 - **C8.2 — Raccourcis clavier**
   - `Delete` / `Backspace` : suppression du / des nœuds sélectionnés
@@ -1474,17 +1483,397 @@ reste obligatoire pour chaque sous-item non trivial.
 Un sous-chantier = un commit (cf. §8.2). Ordre indicatif (du plus
 isolé au plus transverse) :
 
-1. **C8.1** Nœuds repliables (changement layout-only, peu de risque).
-2. **C8.3** Indicateur scène initiale (style + 1 prop).
-3. **C8.4** Recherche de nœud (composant nouveau, peu invasif).
-4. **C8.2** Raccourcis clavier (transverse, à brancher proprement
+1. **C8.1.a** Nœuds repliables — selector + synth-goto-out (extension
+   du commit `511871a` — voir Plan détaillé).
+2. **C8.1.b** Cadre scène + repli scène (sous-chantier propre, cf.
+   Plan détaillé — étapes 1.b.1 à 1.b.4).
+3. **C8.3** Indicateur scène initiale (style + 1 prop).
+4. **C8.4** Recherche de nœud (composant nouveau, peu invasif).
+5. **C8.2** Raccourcis clavier (transverse, à brancher proprement
    sans casser les inputs Quill).
-5. **C8.6** Rework UX selector (touche au cœur du moteur de
+6. **C8.6** Rework UX selector (touche au cœur du moteur de
    connexion ; à isoler).
-6. **C8.5** Copier/coller (dépend des raccourcis et bénéficie du
+7. **C8.5** Copier/coller (dépend des raccourcis et bénéficie du
    rework selector pour les sous-graphes).
 
-### Smoke C8 (à compléter)
+### Plan détaillé C8.1 — directives pour Cursor
+
+> Cadrage validé le 2026-05-02 (cf. journal). Cursor doit suivre ces
+> étapes dans l'ordre, **un commit par étape** (sauf indication
+> contraire). Chaque étape donne le contexte, la directive et le
+> critère de fin. Si une décision te paraît ambiguë, **stoppe et pose
+> la question** dans le chat — ne reprends pas un défaut implicite.
+
+#### Sous-chantier C8.1.a — Synth-goto-out sur selector replié
+
+##### Étape 1.a.1 — Handle `synth-goto-out` + edges synthétiques
+
+**Contexte technique** :
+- L'implémentation C8.1 du commit `511871a` est conservée : chevron,
+  `toggleNodeCollapsed`, `collectHiddenIdsFromCollapsedSelectors`,
+  marquage `hidden:true` des descendants et edges associés.
+- Manque uniquement la **représentation visuelle** des goto internes :
+  un handle de sortie agrégé sur le selector replié + edges projetées.
+
+**Directive** :
+
+1. Ajouter `HANDLE_SYNTH_GOTO_OUT = "synth-goto-out"` dans
+   [xflow/react/src/view/handles/handleIds.ts](xflow/react/src/view/handles/handleIds.ts).
+
+2. Étendre [xflow/react/src/view/nodalReactFlowProjection.ts](xflow/react/src/view/nodalReactFlowProjection.ts) :
+   - Ajouter une fonction
+     `collectSynthGotoTargets(state, containerIds: Set<AnyNodeId>): Map<AnyNodeId, Set<SceneNodeId>>`.
+     Pour chaque conteneur (selector replié), parcourir ses
+     descendants transitifs (réutiliser la table `childrenByParent`
+     déjà construite dans `collectHiddenIdsFromCollapsedSelectors` —
+     factoriser dans un helper commun pour ne pas calculer deux fois).
+   - Pour chaque action descendante de type `goto` avec
+     `payload.target` non vide, retrouver l'`SceneNodeId` interne
+     correspondant via `state.scenes` (clé `sceneId === payload.target`).
+   - Dédoublonner les cibles par conteneur (`Set<SceneNodeId>`).
+   - Étendre `toReactFlowEdges` : pour chaque entrée
+     `(containerId, targetSceneIds)`, pousser une edge synthétique :
+     ```ts
+     {
+       id: `synth-trans-${containerId}-${targetSceneId}`,
+       source: containerId,
+       target: targetSceneId,
+       sourceHandle: HANDLE_SYNTH_GOTO_OUT,
+       targetHandle: HANDLE_GOTO_IN,
+       animated: true,
+       className: "nodal-edge nodal-edge--transition",
+     }
+     ```
+   - Étendre `NodalRFData` : ajouter
+     `synthGotoTargetCount?: number` (taille du `Set` pour le selector
+     replié, sinon undefined).
+   - Aucune autre edge n'est touchée. Les vraies transitions internes
+     restent `hidden:true` (pas de duplication visible).
+
+3. Étendre [xflow/react/src/view/nodes/ActionNodeView.tsx](xflow/react/src/view/nodes/ActionNodeView.tsx) :
+   - Quand `isSelector && isCollapsed && (synthGotoTargetCount ?? 0) > 0` :
+     rendre `<Handle id={HANDLE_SYNTH_GOTO_OUT} type="source"
+     position={Position.Right} isConnectable={false}
+     className="nodal-handle transition nodal-handle--synth" />`.
+   - Le handle classique `goto-out` reste **uniquement** sur les goto
+     (inchangé).
+
+4. Garde-fou côté policy
+   ([xflow/react/src/view/connectionPolicy.ts](xflow/react/src/view/connectionPolicy.ts)) :
+   ajouter un `if (connection.sourceHandle === HANDLE_SYNTH_GOTO_OUT) return false;`
+   en début de fonction, pour défense en profondeur même si
+   `isConnectable={false}` empêche déjà l'interaction.
+
+5. CSS : ajouter `.nodal-handle--synth` dans
+   [xflow/react/src/view/nodes/nodes.css](xflow/react/src/view/nodes/nodes.css)
+   ou `handles.css`. Apparence identique au goto-out (couleur, taille) ;
+   ajouter `cursor: default` (pas de `crosshair`).
+
+6. Tests — étendre
+   [xflow/react/src/__tests__/selectorCollapsed.test.ts](xflow/react/src/__tests__/selectorCollapsed.test.ts) :
+   - Cas A : selector replié contenant un goto → 1 edge synthétique
+     (source = selectorId, sourceHandle = `synth-goto-out`,
+     target = sceneId, targetHandle = `goto-in`).
+   - Cas B : selector replié contenant 2 goto vers la **même** scène →
+     **1 seule** edge synthétique (dédoublonnage).
+   - Cas C : selector replié contenant 2 goto vers 2 scènes
+     différentes → 2 edges.
+   - Cas D : selector replié sans goto interne → aucune edge
+     synthétique, `synthGotoTargetCount === 0`, handle non rendu.
+   - Cas E : selector déplié → aucune edge synthétique (idempotence).
+
+**Critère de fin** :
+- `npm run test --workspace xflow/react` vert (suite complète).
+- `npm run build --workspace editor-map` sans nouveau warning.
+- Smoke manuel : créer un selector avec un goto vers Scene B et un
+  goto vers Scene C, replier → 2 edges depuis le synth-handle.
+  Modifier un goto pour pointer aussi vers Scene B → après repli,
+  une seule edge.
+- Mise à jour journal Annexe D (étape 1.a.1 livrée).
+
+---
+
+#### Sous-chantier C8.1.b — Cadre scène + repli scène
+
+> ⚠️ Sous-chantier nouveau, plus invasif (modèle layout + sérialisation).
+> Pré-requis : C8.1.a livré et stabilisé. Plusieurs commits attendus.
+
+##### Étape 1.b.1 — Conteneur scène : modèle, store, migration
+
+**Contexte technique** :
+- Aujourd'hui, lorsqu'une edge `flow scene→action` existe, l'action
+  reste « top-level » (`state.layout[id].parentId === null`). Position
+  absolue.
+- La sérialisation `getHotspotActionIdsForScene`
+  ([toProjectJson.ts:93](xflow/react/src/serialize/toProjectJson.ts:93))
+  filtre justement sur `!parentId` pour récupérer les hotspots de la
+  scène. Cette logique doit évoluer pour considérer
+  `parentId === sceneId` comme **également** « top-level scène ».
+- React Flow ne supporte qu'un seul `parentId` par nœud. La chaîne
+  `choice → selector → scene` reste valide (RF gère l'imbrication
+  multi-niveaux sans problème). Les choix de selector gardent leur
+  `parentId = selectorId`, le selector reçoit `parentId = sceneId`.
+
+**Directive** :
+
+1. **Store — `connect()`**
+   ([nodalProjectStore.ts:294](xflow/react/src/store/nodalProjectStore.ts:294)) :
+   après l'ajout d'une edge `flow` avec `sourceId in scenes` et
+   `targetId in actions`, **si** `state.layout[targetId].parentId == null` :
+   - Conversion position absolue → relative à la scène :
+     ```ts
+     const sceneLayout = state.layout[edge.sourceId];
+     const childLayout = state.layout[edge.targetId];
+     state.layout[edge.targetId] = {
+       ...childLayout,
+       x: childLayout.x - sceneLayout.x,
+       y: childLayout.y - sceneLayout.y,
+       parentId: edge.sourceId,
+     };
+     ```
+   - Si `wouldCreateCycle` détecte un cycle, refuser l'edge
+     (warning console + `return state` sans mutation).
+
+2. **Store — `disconnect()`**
+   ([nodalProjectStore.ts:304](xflow/react/src/store/nodalProjectStore.ts:304)) :
+   après suppression d'une edge `flow scene→action`, si l'action n'a
+   plus aucune autre edge `flow` entrante depuis une scène **et** son
+   `parentId === sceneId`, alors :
+   - Conversion relative → absolue :
+     ```ts
+     state.layout[targetId] = {
+       ...layout,
+       x: layout.x + sceneLayout.x,
+       y: layout.y + sceneLayout.y,
+       parentId: null,
+     };
+     ```
+
+3. **Migration projets existants** — créer
+   `xflow/react/src/serialize/migrateSceneParentIds.ts` :
+   - Fonction `migrateSceneParentIds(state: NodalProject): void`
+     idempotente, qui parcourt `state.edges`, détecte chaque flow
+     `scene→action` dont la cible a `parentId === null`, applique la
+     conversion (parentId + position relative), comme dans `connect`.
+   - Appelée dans `hydrateFromProject`
+     ([nodalProjectStore.ts:519](xflow/react/src/store/nodalProjectStore.ts:519))
+     **après** `applyHydratedLayout` et **avant** `reconcileAutoSatellites`.
+   - Aussi appelée dans `deserializeFromProjectJson` (post-edges) si
+     ce chemin est utilisé hors hydrate.
+
+4. **Sérialisation — `getHotspotActionIdsForScene`**
+   ([toProjectJson.ts:93](xflow/react/src/serialize/toProjectJson.ts:93)) :
+   adapter le filtre :
+   ```ts
+   // Avant
+   !state.layout[edge.targetId]?.parentId
+   // Après
+   const p = state.layout[edge.targetId]?.parentId;
+   p == null || p === sceneId
+   ```
+   *Justification* : une action top-level d'une scène est désormais
+   soit `parentId === null` (legacy non migré, pendant tests), soit
+   `parentId === sceneId` (post-migration). Les choix de selector
+   conservent `parentId === selectorId` et continuent d'être exclus.
+
+5. **`map-layout.json`** : étendre
+   [xflow/react/src/serialize/mapLayoutJson.ts](xflow/react/src/serialize/mapLayoutJson.ts)
+   pour persister la chaîne `parentId` des actions vers les scènes.
+   Vérifier que le slot `parentId` existe déjà dans
+   `nodalActionLayoutByPathKey` (probablement OK — les choix de
+   selector y sont déjà sérialisés). Si manquant, étendre — sinon
+   no-op.
+
+6. **Tests** — créer
+   `xflow/react/src/__tests__/sceneAsContainer.test.ts` :
+   - `connect flow scene→action` → action reçoit
+     `parentId = sceneId` + position relative.
+   - `disconnect flow scene→action` → action revient
+     `parentId = null` + position absolue.
+   - `migrateSceneParentIds` idempotent (deux passes = même état).
+   - Round-trip serialize/deserialize sur un projet legacy
+     (sans parentId scène) : `hotspots` sérialisés identiques avant/
+     après migration.
+   - Cas selector imbriqué dans une scène : selector reçoit
+     `parentId = sceneId`, ses choix gardent `parentId = selectorId`.
+
+**Critère de fin** :
+- Vitest vert.
+- Round-trip serialize/deserialize sur les fixtures existantes :
+  diff vide vs avant-migration.
+- Smoke manuel : ouvrir un projet legacy (sans cadre scène),
+  vérifier que rien n'est cassé visuellement (positions inchangées).
+  Créer un nouveau flow scene→action, vérifier que l'action « rentre »
+  dans la scène (cohérent avec le futur cadre).
+
+##### Étape 1.b.2 — Auto-resize de la scène (rendu cadre)
+
+**Contexte technique** :
+- React Flow ne dimensionne pas automatiquement les nœuds parent.
+- Le selector utilise un `NodeResizer` manuel — pour la scène, on
+  veut **automatique**.
+- Référence existante :
+  [xflow/react/src/view/nesting/geometry.ts](xflow/react/src/view/nesting/geometry.ts)
+  pour `getAbsolutePosition` / `toAbsoluteRect`.
+
+**Directive** :
+
+1. Helper `computeContainerBounds(state, containerId): { width: number, height: number }`
+   dans `nesting/geometry.ts` (ou nouveau fichier `containerBounds.ts`) :
+   - Récupère tous les descendants transitifs (parentId chain).
+   - Calcule le bounding box des positions **relatives** au conteneur,
+     en tenant compte de `width`/`height` (avec fallbacks
+     `DEFAULT_NODE_*`).
+   - Ajoute une marge interne (constantes : `SCENE_PADDING_TOP = 32`,
+     `SCENE_PADDING_X = 16`, `SCENE_PADDING_BOTTOM = 16`).
+   - Renvoie `{ width: maxRight + padX, height: maxBottom + padBottom }`.
+
+2. **Application des dimensions** :
+   - **Option recommandée** : calcul dans la projection
+     `toReactFlowNodes` — pour chaque scène avec ≥1 enfant et
+     `!collapsed`, fixer `style: { width, height }` sur le nœud RF.
+   - **Alternative** (à éviter sauf besoin) : `useEffect` dans
+     `NodalCanvas` qui écoute `state.layout` et appelle
+     `updateNodeLayout` — risque de boucle.
+
+3. **`SceneNodeView.tsx`** (refonte légère) :
+   - La scène devient un conteneur visible : bordure plus marquée,
+     fond translucide.
+   - Le titre + sous-titre + handles restent en haut (header zone).
+   - Quand la scène a ≥1 enfant : appliquer la classe
+     `nodal-node--scene-frame` pour le styling cadre.
+   - Quand 0 enfant : rendu compact (comme aujourd'hui), pas de cadre.
+
+4. **CSS** — ajouter dans
+   [xflow/react/src/view/nodes/nodes.css](xflow/react/src/view/nodes/nodes.css) :
+   ```css
+   .nodal-node--scene-frame {
+     background: color-mix(in srgb, var(--node-scene-bg) 70%, transparent);
+     border-width: 2px;
+     padding: 8px 12px 12px;
+   }
+   .nodal-node--scene-frame .title {
+     /* le header reste lisible même quand le cadre est grand */
+   }
+   ```
+   Variables dark mode à compléter si nécessaire.
+
+5. **Drag** : laisser tel quel — RF déplace automatiquement les
+   enfants quand on déplace le parent. Vérifier au smoke qu'aucune
+   logique d'attachement existante (`onNodeDragStop`) ne casse à
+   cause de la nouvelle hiérarchie.
+
+6. Tests :
+   - `computeContainerBounds` : 1 enfant en (50, 30) de taille
+     180×70 → bounds attendus selon la formule + padding.
+   - Projection : scène avec 3 actions chaînées → `style.width` /
+     `style.height` cohérents avec le bounding box.
+
+**Critère de fin** :
+- Smoke : créer Scene A + 3 msg en chaîne flow → la scène englobe
+  visuellement les 3 nœuds.
+- Drag de Scene A : les 3 actions suivent.
+- Drag d'une action **dans** la scène (sans sortir) : la scène
+  s'adapte (re-render immédiat).
+- Drag d'une action **hors** de la scène : elle se détache (cf.
+  étape 1.b.1, `disconnect` non concerné ici — détachement géré
+  par overlap dans `onNodeDragStop`).
+
+##### Étape 1.b.3 — Repli de la scène (chevron + handles synthétiques)
+
+**Contexte technique** :
+- Étapes 1.b.1 et 1.b.2 livrées : la scène est un cadre auto-resize.
+- L'infrastructure de repli existe déjà via C8.1.a
+  (`toggleNodeCollapsed`, `collectHidden…`, synth-goto-out).
+  Il s'agit d'**élargir** les fonctions existantes aux scènes, pas
+  de réécrire.
+
+**Directive** :
+
+1. **Renommage** :
+   - `collectHiddenIdsFromCollapsedSelectors` →
+     `collectHiddenIdsFromCollapsedContainers` (étendre la liste des
+     conteneurs détectés : selectors **et** scènes avec
+     `layout.collapsed === true`).
+   - `selectorChildCount` → `containerChildCount` (ou ajouter un
+     champ parallèle `sceneChildCount` selon la lisibilité).
+   - `collectSynthGotoTargets` (étape 1.a.1) doit accepter aussi les
+     scènes en entrée.
+
+2. **Composant `SceneNodeView.tsx`** :
+   - Réutiliser le composant `CollapseToggle` (extrait de
+     `ActionNodeView.tsx` — petite refacto à faire au passage si pas
+     déjà factorisé).
+   - Quand `collapsed === true` :
+     - Header seulement (titre + subtitle = « Scène — N action(s)
+       masquée(s) »).
+     - `flow-out` masqué (`display: none` via classe
+       `nodal-node--collapsed`) — toutes les cibles internes sont
+       cachées, le handle perd son sens.
+     - `goto-in` et `meta-out` **conservés actifs** (handles
+       toujours rendus, isConnectable inchangé).
+     - `synth-goto-out` ajouté **conditionnellement** (uniquement si
+       au moins un goto interne avec cible définie).
+   - Quand `collapsed === false` : rendu cadre normal (étape 1.b.2).
+
+3. **Persistance `collapsed` côté scène** — vérifier que
+   [mapLayoutJson.ts](xflow/react/src/serialize/mapLayoutJson.ts)
+   sérialise `collapsed` dans `nodalSceneLayoutByExternalId`
+   (probablement déjà supporté par `serializeLayout` / `applyLayout`,
+   sinon étendre — voir le fixture C8.1 existant qui inclut déjà
+   `collapsed: false` côté scène).
+
+4. **Tests** — étendre `selectorCollapsed.test.ts` (ou nouveau
+   `sceneCollapsed.test.ts`) :
+   - Pliage scène avec ≥1 action : descendants `hidden`, scène
+     visible, synth-goto-out présent si goto interne pointant vers
+     une scène externe.
+   - Cas E2E reproduit l'exemple utilisateur :
+     `Scene1 → Selector(Choix1, Selector(SousChoix1, SousChoix2 →
+     goto Scene2))` puis pli de Scene1 → la projection contient
+     **uniquement** Scene1 et Scene2 visibles + edge synthétique
+     `Scene1 → Scene2` (sourceHandle = `synth-goto-out`).
+   - Pliage scène vide (0 enfant) : aucun effet (`collapsed` ignoré
+     ou pas de chevron rendu).
+   - Round-trip collapsed scene (sérialize → reload).
+
+**Critère de fin** :
+- Vitest vert.
+- Smoke E2E exemple ci-dessus.
+- Smoke « legacy » : un projet sans aucune scène repliée doit se
+  comporter exactement comme avant.
+
+##### Étape 1.b.4 — Polish + meta/satellites
+
+**Directive** :
+
+1. **Cadre vide** : si une scène n'a aucune action enfant
+   (transitif), pas de chevron rendu, pas de classe
+   `nodal-node--scene-frame`, dimension par défaut.
+
+2. **Meta / satellites** :
+   - Comportement par défaut **conservé** : un satellite dont la
+     source meta est cachée (descendant de conteneur replié) est
+     marqué `hidden:true` (déjà géré par
+     `collectHiddenIdsFromCollapsedContainers`).
+   - **Cas multi-source** (1 satellite avec plusieurs `meta-in`
+     depuis des conteneurs différents) : aujourd'hui le modèle V2
+     est 1:1 (1 satellite ↔ 1 source). **Hors scope C8.1.b** —
+     documenter dans le journal comme report.
+
+3. **Style final** :
+   - Variables CSS pour le cadre scène (clair/sombre).
+   - Cohérence visuelle : le cadre scène doit être nettement
+     identifiable mais ne pas écraser les actions internes.
+
+4. Mise à jour journal Annexe D + ouverture des tickets de report
+   (multi-meta, etc.).
+
+**Critère de fin** :
+- Visual QA validé par l'utilisateur.
+- Tous les SMK-C8.1-* passent (à définir lors de cette étape).
+
+
 
 À définir en fin de chantier — base : la suite SMK-01 → SMK-10 reste
 valable, ajout de SMK-C8-* pour valider chaque sous-item (replier /
@@ -1496,7 +1885,9 @@ déplier, raccourcis, recherche, copier/coller, drag selector parenté).
 questions ouvertes, captures pertinentes.)
 
 - 2026-05-02 — Cadrage initial (présent document).
-- 2026-05-02 — **C8.1 implémenté**.
+- 2026-05-02 — **C8.1.a partiel** (commit `511871a` — chevron + repli +
+  masquage descendants, **sans** synth-goto-out — voir étape 1.a.1 du
+  Plan détaillé).
   - Décision Q1 ajustée : repliement réservé aux **selectors uniquement**.
     Pour REQ/PWD, la récompense reste visible donc replier l'en-tête
     n'apporte rien (chevron retiré pour ces types).
@@ -1518,3 +1909,36 @@ questions ouvertes, captures pertinentes.)
     serialize/applyLayout). Suite complète : 48 passed, 1 skipped.
   - Build editor-map OK (691.77 kB / gzip 201.23 kB — pas de variation
     notable).
+- 2026-05-02 — **Cadrage C8.1 réajusté** (cadrage utilisateur — voir
+  « Plan détaillé C8.1 » plus haut).
+  - Décisions provisoires Cursor (Q1 = selectors only, Q2 = hide tout
+    descendant) **conservées** pour C8.1.a, mais **insuffisantes** :
+    il manquait la représentation visuelle des goto internes vers
+    l'extérieur, et le scope « scènes repliables » a été ajouté.
+  - **C8.1 scindé** en deux sous-chantiers :
+    - **C8.1.a** : selector replié + `synth-goto-out` (extension de
+      l'existant — étape 1.a.1).
+    - **C8.1.b** : scène = vrai conteneur RF + repli scène + même
+      logique synth-goto-out (étapes 1.b.1 → 1.b.4).
+  - Décisions clés validées avec utilisateur :
+    - **A1** : nouveau handle `synth-goto-out` (id distinct,
+      non-interactif, projection seulement).
+    - **A2** : 1 edge synthétique par scène-cible distincte
+      (dédoublonnage).
+    - **A3** : style identique à une transition normale.
+    - **A4** : C8.1.a partiel (commit `511871a`) conservé et complété.
+    - **B1** : la scène devient **vrai conteneur RF** (parentId
+      scène ajouté à la création d'un flow scene→action ; chaîne
+      `choice → selector → scene` exploitée).
+    - **B2** : tous les descendants transitifs cachés en repli scène.
+    - **B3** : scène repliée garde `goto-in` + `meta-out` ; cache
+      `flow-out` ; ajoute `synth-goto-out` conditionnel.
+    - **B4** : `collapsed` scène persisté dans
+      `nodalSceneLayoutByExternalId` ; géométrie cadre recalculée au
+      runtime.
+    - **C1** : scinder C8.1 en C8.1.a / C8.1.b.
+  - Reports identifiés :
+    - Cas multi-source meta (1 satellite, plusieurs `meta-in` depuis
+      conteneurs différents). Modèle V2 = 1:1, donc non bloquant.
+      À ajouter dans la section §7 « Reports en attente » si la
+      situation se présente.
