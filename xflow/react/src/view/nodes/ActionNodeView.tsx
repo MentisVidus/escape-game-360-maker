@@ -3,7 +3,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 
 import type { ActionNodeId, AnyNodeId } from "../../model/ids";
 import type { ActionNode } from "../../model/nodes";
-import { HANDLE_FLOW_IN, HANDLE_GOTO_OUT, HANDLE_META_OUT } from "../handles/handleIds";
+import { HANDLE_FLOW_IN, HANDLE_GOTO_OUT, HANDLE_META_OUT, HANDLE_SYNTH_GOTO_OUT } from "../handles/handleIds";
 import { useNodalUi } from "../nodalUiContext";
 import "../handles/handles.css";
 import "./nodes.css";
@@ -32,6 +32,7 @@ type ActionNodeViewData = {
   contextualState?: 1 | 2 | 3 | 4;
   collapsed?: boolean;
   selectorChildCount?: number;
+  synthGotoTargetCount?: number;
 };
 
 export function ActionNodeView({ id, data }: NodeProps) {
@@ -117,6 +118,8 @@ export function ActionNodeView({ id, data }: NodeProps) {
   };
 
   const childCount = nodeData.selectorChildCount ?? 0;
+  const synthGotoCount = nodeData.synthGotoTargetCount ?? 0;
+  const showSynthGotoOut = isSelector && isCollapsed && synthGotoCount > 0;
 
   return (
     <div
@@ -156,6 +159,15 @@ export function ActionNodeView({ id, data }: NodeProps) {
         </button>
       ) : null}
       <Handle id={HANDLE_FLOW_IN} type="target" position={Position.Left} className="nodal-handle flow" />
+      {showSynthGotoOut ? (
+        <Handle
+          id={HANDLE_SYNTH_GOTO_OUT}
+          type="source"
+          position={Position.Right}
+          isConnectable={false}
+          className="nodal-handle transition nodal-handle--synth"
+        />
+      ) : null}
       {node.actionType === "goto" ? (
         <Handle id={HANDLE_GOTO_OUT} type="source" position={Position.Right} className="nodal-handle transition" />
       ) : null}

@@ -8,8 +8,10 @@ import {
 import {
   deserializeFromProjectJson,
   stableActionNodeIdFromPathKey,
+  stableSceneNodeIdFromExternal,
 } from "../serialize/fromProjectJson";
 import type { ProjectJsonV2, ProjectJsonV2Action } from "../serialize/toProjectJson";
+import { HANDLE_GOTO_IN, HANDLE_GOTO_OUT, HANDLE_SYNTH_GOTO_OUT } from "../view/handles/handleIds";
 import {
   toReactFlowEdges,
   toReactFlowNodes,
@@ -35,6 +37,13 @@ const selector = (title: string, choices: ProjectJsonV2Action[]): ProjectJsonV2A
       choices: choices.map((action) => ({ label: "opt", action })),
     },
   },
+  sfx: { ...sfx },
+  visibility: { ...visibility },
+});
+
+const goto = (target: string): ProjectJsonV2Action => ({
+  type: "goto",
+  payload: { target, copy: { bodyHtml: "", buttonLabel: "" } },
   sfx: { ...sfx },
   visibility: { ...visibility },
 });
@@ -150,5 +159,118 @@ describe("C8.1 — repliement des selectors", () => {
     const fresh = deserializeFromProjectJson(projectJson);
     applyLayout(fresh, serialized);
     expect(fresh.layout[s1]?.collapsed).toBe(true);
+  });
+
+  it("selector replié : edges synthétiques synth-goto-out → scènes (goto internes)", () => {
+    const sceneA = "scnA";
+    const sceneB = "scnB";
+    const projectJson: ProjectJsonV2 = {
+      schemaVersion: 2,
+      title: "T",
+      startSceneId: sceneA,
+      scenes: [
+        {
+          id: sceneA,
+          title: "A",
+          panoramaUrl: "",
+          hotspots: [
+            {
+              action: selector("S1", [msg("c1"), goto(sceneB)]),
+            },
+          ],
+        },
+        { id: sceneB, title: "B", panoramaUrl: "", hotspots: [] },
+      ],
+    };
+    const s1 = stableActionNodeIdFromPathKey(`${sceneA}:h:0`);
+    const sceneNodeB = stableSceneNodeIdFromExternal(sceneB);
+
+    const layoutJson = {
+      positions: {},
+      parentId: {},
+      collapsed: {},
+      drafts: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      nodalSceneLayoutByExternalId: {
+        [sceneA]: { x: 0, y: 0, collapsed: false },
+        [sceneB]: { x: 400, y: 0, collapsed: false },
+      },
+      nodalActionLayoutByPathKey: {
+        [`${sceneA}:h:0`]: { x: 0, y: 0, collapsed: false },
+        [`${sceneA}:h:0:c:0`]: { x: 0, y: 0, collapsed: false },
+        [`${sceneA}:h:0:c:1`]: { x: 0, y: 0, collapsed: false },
+      },
+    };
+
+    const state = deserializeFromProjectJson(projectJson);
+    applyHydratedLayout(state, layoutJson, projectJson);
+    state.layout[s1] = { ...state.layout[s1], collapsed: true };
+
+    const edges = toReactFlowEdges(state);
+    const synth = edges.filter((e) => e.id === `synth-trans-${s1}-${sceneNodeB}`);
+    expect(synth).toHaveLength(1);
+    expect(synth[0].source).toBe(s1);
+    expect(synth[0].target).toBe(sceneNodeB);
+    expect(synth[0].sourceHandle).toBe(HANDLE_SYNTH_GOTO_OUT);
+    expect(synth[0].targetHandle).toBe(HANDLE_GOTO_IN);
+
+    const realTransitions = edges.filter(
+      (e) => e.sourceHandle === HANDLE_GOTO_OUT && e.targetHandle === HANDLE_GOTO_IN
+    );
+    expect(realTransitions).toHaveLength(1);
+    expect(realTransitions.every((e) => e.hidden)).toBe(true);
+
+    const s1Node = toReactFlowNodes(state).find((n) => n.id === s1);
+    expect((s1Node?.data as { synthGotoTargetCount?: number }).synthGotoTargetCount).toBe(1);
+  });
+
+  it("selector replié : deux goto vers la même scène → une seule edge synthétique", () => {
+    const sceneA = "scnA";
+    const sceneB = "scnB";
+    const projectJson: ProjectJsonV2 = {
+      schemaVersion: 2,
+      title: "T",
+      startSceneId: sceneA,
+      scenes: [
+        {
+          id: sceneA,
+          title: "A",
+          panoramaUrl: "",
+          hotspots: [
+            {
+              action: selector("S1", [goto(sceneB), goto(sceneB)]),
+            },
+          ],
+        },
+        { id: sceneB, title: "B", panoramaUrl: "", hotspots: [] },
+      ],
+    };
+    const s1 = stableActionNodeIdFromPathKey(`${sceneA}:h:0`);
+    const sceneNodeB = stableSceneNodeIdFromExternal(sceneB);
+
+    const layoutJson = {
+      positions: {},
+      parentId: {},
+      collapsed: {},
+      drafts: [],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      nodalSceneLayoutByExternalId: {
+        [sceneA]: { x: 0, y: 0, collapsed: false },
+        [sceneB]: { x: 400, y: 0, collapsed: false },
+      },
+      nodalActionLayoutByPathKey: {
+        [`${sceneA}:h:0`]: { x: 0, y: 0, collapsed: false },
+        [`${sceneA}:h:0:c:0`]: { x: 0, y: 0, collapsed: false },
+        [`${sceneA}:h:0:c:1`]: { x: 0, y: 0, collapsed: false },
+      },
+    };
+
+    const state = deserializeFromProjectJson(projectJson);
+    applyHydratedLayout(state, layoutJson, projectJson);
+    state.layout[s1] = { ...state.layout[s1], collapsed: true };
+
+    const edges = toReactFlowEdges(state);
+    const synthToB = edges.filter((e) => e.target === sceneNodeB && e.sourceHandle === HANDLE_SYNTH_GOTO_OUT);
+    expect(synthToB).toHaveLength(1);
   });
 });

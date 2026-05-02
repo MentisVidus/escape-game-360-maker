@@ -9,6 +9,7 @@ import {
   HANDLE_GOTO_OUT,
   HANDLE_META_IN,
   HANDLE_META_OUT,
+  HANDLE_SYNTH_GOTO_OUT,
 } from "./handles/handleIds";
 
 type NodeKind = "scene" | "action" | "satellite" | "media" | "unknown";
@@ -33,6 +34,9 @@ function getNodeKind(node: ReturnType<typeof getNodeById>): NodeKind {
 }
 
 export function isValidConnection(connection: Connection, state: NodalProject): boolean {
+  if (connection.sourceHandle === HANDLE_SYNTH_GOTO_OUT || connection.targetHandle === HANDLE_SYNTH_GOTO_OUT) {
+    return false;
+  }
   const source = getNodeById(state, connection.source);
   const target = getNodeById(state, connection.target);
   const sourceKind = getNodeKind(source);

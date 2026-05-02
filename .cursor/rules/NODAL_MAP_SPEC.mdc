@@ -1942,3 +1942,8 @@ questions ouvertes, captures pertinentes.)
       conteneurs différents). Modèle V2 = 1:1, donc non bloquant.
       À ajouter dans la section §7 « Reports en attente » si la
       situation se présente.
+- 2026-05-02 — **C8.1.a étape 1.a.1 livrée** (`HANDLE_SYNTH_GOTO_OUT`,
+  `collectSynthGotoTargets`, edges `synth-trans-*`, handle sur selector
+  replié, garde-fou `connectionPolicy`, tests + build). Projection
+  factorisée : `buildChildrenByParent` +
+  `computeSelectorFoldProjection`. Suite Vitest : 50 passed, 1 skipped.
