@@ -5,7 +5,7 @@ Tout ce qui concerne la **vue graphe** de l’éditeur est regroupé ici, en deu
 | Dossier | Contenu |
 |---------|---------|
 | **`draw/`** | Carte **Drawflow** actuelle : `project-graph.js`, `project-graph.css` (modale « Carte du projet », vues Focus / complète / acyclique, panneau latéral). |
-| **`react/`** | Réservé au futur **Vite + React + React Flow** (Chemin B) — voir `react/README.md` et [docs/PLAN_REACT_INTEGRATION.md](../docs/PLAN_REACT_INTEGRATION.md). |
+| **`react/`** | Sous-projet **Vite + React + React Flow** (carte nodale, branche `feat/nodal-map`) — voir `react/README.md` et [`.cursor/rules/NODAL_MAP_SPEC.mdc`](../.cursor/rules/NODAL_MAP_SPEC.mdc). |
 
 Les pages racine **`editeur.html`** / **`editor_en.html`** chargent la carte via **`xflow/draw/project-graph.*`**.
 
@@ -18,8 +18,9 @@ L’ancienne POC (`poc.html` / `poc.js` / `poc.css`) a été retirée : le compo
 | Critère | Drawflow (`draw/`) | React Flow (`react/`) |
 |--------|---------------------|-------------------------|
 | Stack | Vanilla JS | React + Vite |
-| Aujourd’hui | **En production** dans la modale carte | Spike / remplacement sur branche `feat/react-map` |
-| Demain | Remplacé ou complété selon jalons B0–B1 | Voir [PLAN_EDITEUR_NODAL.md](../docs/PLAN_EDITEUR_NODAL.md) §9 |
+| Branche | `main` (et `feat/nodal-map` côté Drawflow legacy) | `feat/nodal-map` — carte nodale livrée (C5–C7) |
+| Aujourd’hui | **En production** sur `main` (vue carte modale uniquement) | **Source de vérité d’édition** sur `feat/nodal-map` (popups, chaînes REQ/PWD, palette) |
+| Demain | Remplacé par la carte nodale lors d’un futur merge `feat/nodal-map` → `main` | Voir [`NODAL_MAP_SPEC.mdc`](../.cursor/rules/NODAL_MAP_SPEC.mdc) (spec autoritative) et [docs/PLAN_EDITEUR_NODAL.md](../docs/PLAN_EDITEUR_NODAL.md) §9 |
 
 ---
 

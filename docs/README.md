@@ -7,7 +7,7 @@
 | [SELECTOR_SPEC.md](./SELECTOR_SPEC.md) | Spec + implementation status for hotspot **`selector`** (menus, nesting, SFX) |
 | [PLAN_EDITEUR_NODAL.md](./PLAN_EDITEUR_NODAL.md) | **Hybrid / nodal** — V2, panneau latéral, bundle & ZIP livrés ; Chemin B (React Flow, full nodal), jalons B0–B5 |
 | [PLAN_NODAL_PEDAGOGIE.md](./PLAN_NODAL_PEDAGOGIE.md) | **Pédagogie & intention produit** — publics EPN / jeunes, Scratch & LEGO comme repères, graphe vs formulaire, anti-spaghetti, apprentissage par l’expérience |
-| [PLAN_REACT_INTEGRATION.md](./PLAN_REACT_INTEGRATION.md) | **Branche Git + intégration React** — `main` stable, **`xflow/react/`** (Vite), carte Drawflow dans **`xflow/draw/`**, feature flag |
+| [ACTION_FIELDS_MAPPING.md](./ACTION_FIELDS_MAPPING.md) | Référence durable V2 ↔ legacy par actiontype (`msg`, `pick`, `goto`, `req`, `pwd`, `selector`) : champs nodaux, équivalents `f_*` du formulaire, mapping `rewardAction` |
 | [PLAN_SAUVEGARDE_LOCALE_EDITEUR.md](./PLAN_SAUVEGARDE_LOCALE_EDITEUR.md) | **Brouillon éditeur** (IndexedDB, snapshots, dock) : cadrage risques / UX — **implémenté** ; le plan reste la référence d’intention |
 | [plan_sauvegarde_locale_joueur.md](./plan_sauvegarde_locale_joueur.md) | **Progression joueur** : IndexedDB, `playerSaveMode`, export/import `.escapegame` de sauvegarde — **implémenté** ; le plan documente le contrat et les phases |
 | [ICONOGRAPHIE_UI.md](./ICONOGRAPHIE_UI.md) | Plan de migration des emoji UI vers des SVG dédiés (`media/icons/`) |

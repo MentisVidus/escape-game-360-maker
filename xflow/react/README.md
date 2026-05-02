@@ -1,11 +1,11 @@
-# xflow/react — React Flow + Vite (Chemin B)
+# xflow/react — React Flow + Vite (carte nodale)
 
-Dossier réservé au sous-projet **Vite + React + React Flow** sur la branche **`feat/react-map`**.
+Sous-projet **Vite + React + React Flow** porté par la branche **`feat/nodal-map`** (la précédente `feat/react-map` est archivée — voir tag `archive/feat-react-map`).
 
-- **`xflow/draw/`** : carte **Drawflow** actuelle (`project-graph.js` / `.css`).
+- **`xflow/draw/`** : carte **Drawflow** legacy (`project-graph.js` / `.css`) toujours présente sur `main`.
 - **`xflow/react/`** : outillage npm **local** ici uniquement (`package.json`, `src/`, build).
 
-Voir **[docs/PLAN_REACT_INTEGRATION.md](../../docs/PLAN_REACT_INTEGRATION.md)**. Tant que ce dossier ne contient pas encore de `package.json` sur `main`, l’éditeur vanilla ne nécessite pas Node.
+Spec autoritative : **[`.cursor/rules/NODAL_MAP_SPEC.mdc`](../../.cursor/rules/NODAL_MAP_SPEC.mdc)**.
 
 ## Intégration éditeur HTML (chantier C6.0, `feat/nodal-map`)
 

@@ -160,7 +160,7 @@ Dans tous les cas, **`EditorCore`** (normalisation, defaults, règles métier) r
 
 ## 9. Jalons de migration (planification — à affiner avant développement)
 
-**Branche dédiée, `main` stable, où placer Vite / le bundle** : voir **[PLAN_REACT_INTEGRATION.md](./PLAN_REACT_INTEGRATION.md)**.
+**Branche dédiée, organisation `xflow/react/` (Vite) et état du chantier** : voir **[`.cursor/rules/NODAL_MAP_SPEC.mdc`](../.cursor/rules/NODAL_MAP_SPEC.mdc)** (spec autoritative de la carte nodale React, branche `feat/nodal-map`). L’ancien plan `PLAN_REACT_INTEGRATION.md` (associé à la branche `feat/react-map` archivée) a été retiré au profit de cette spec.
 
 Ordre **indicatif** ; chaque jalon peut faire l’objet d’un spike ou d’une PR dédiée. Rien n’est figé au calendrier.
 

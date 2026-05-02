@@ -36,7 +36,6 @@ alwaysApply: true
 - `docs/ARCHITECTURE.md` — flux, JSON, carte, Quill, audio, pièges **selector**.
 - `docs/PLAN_EDITEUR_NODAL.md` — état livré V2 / hybride, Chemin B (React Flow, jalons).
 - `docs/PLAN_NODAL_PEDAGOGIE.md` — intention produit / pédagogie nodale (complément au plan nodal).
-- `docs/PLAN_REACT_INTEGRATION.md` — branche Git `feat/react-map`, Vite **`xflow/react/`**, Drawflow **`xflow/draw/`**, intégration sans casser l’éditeur vanilla.
 - `docs/SELECTOR_SPEC.md` — menus à choix, imbrication, SFX.
 - `docs/CONTRIBUTING.md` — synchro FR/EN.
 - `docs/todo.md` — backlog court (tâches / bugs repérés en test), distinct des specs ; voir aussi `.cursor/rules/todo.mdc`.

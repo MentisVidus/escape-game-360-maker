@@ -53,7 +53,7 @@ Plusieurs miroirs de l'éditeur cohabitent : tous servent le **même dépôt**, 
 * [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — dépôt, **JSON V2**, **`.escapegame`**, export ZIP Web, carte, Quill, Pannellum, audio, HUD joueur, selector.
 * [docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md) — vision **nodale / hybride**, état d’avancement, Chemin B (React Flow).
 * [docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md) — **pédagogie & intention** (EPN, graphe vs formulaire, anti-spaghetti).
-* [docs/PLAN_REACT_INTEGRATION.md](docs/PLAN_REACT_INTEGRATION.md) — **branche Git + React** (`main` stable, **`xflow/react/`** Vite ; carte Drawflow **`xflow/draw/`**).
+* [docs/ACTION_FIELDS_MAPPING.md](docs/ACTION_FIELDS_MAPPING.md) — **référence** V2 ↔ legacy par actiontype (`msg`, `pick`, `goto`, `req`, `pwd`, `selector`).
 * [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — synchronisation FR/EN, bonnes pratiques.
 * [docs/SELECTOR_SPEC.md](docs/SELECTOR_SPEC.md) — menus à choix, imbrication, SFX.
 * [docs/todo.md](docs/todo.md) — mini backlog technique (tests, suivi), distinct des specs.
@@ -189,7 +189,7 @@ Several editor mirrors run in parallel — they all serve the **same repository*
 * [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — repo layout, **V2 JSON**, **`.escapegame`**, Web ZIP export, map, Quill, Pannellum, audio, player HUD, selector.
 * [docs/PLAN_EDITEUR_NODAL.md](docs/PLAN_EDITEUR_NODAL.md) — hybrid / nodal vision, status, Chemin B (React Flow).
 * [docs/PLAN_NODAL_PEDAGOGIE.md](docs/PLAN_NODAL_PEDAGOGIE.md) — pedagogy & intent (workshop audiences, graph vs form).
-* [docs/PLAN_REACT_INTEGRATION.md](docs/PLAN_REACT_INTEGRATION.md) — **Git branch + React** (stable `main`, **`xflow/react/`** Vite; Drawflow map **`xflow/draw/`**).
+* [docs/ACTION_FIELDS_MAPPING.md](docs/ACTION_FIELDS_MAPPING.md) — V2 ↔ legacy reference per actiontype (`msg`, `pick`, `goto`, `req`, `pwd`, `selector`).
 * [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — FR/EN sync, safe changes.
 * [docs/SELECTOR_SPEC.md](docs/SELECTOR_SPEC.md) — choice menus, nesting, SFX.
 * [docs/todo.md](docs/todo.md) — short technical backlog (tests, tracking), not a functional spec.
