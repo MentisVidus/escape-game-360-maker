@@ -1916,8 +1916,7 @@ window.__escape360NodalChrome = {
     },
     flushThenLocalDraftSnapshot: async function () {
         if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
-        await localDraftManager.captureSnapshot("manual");
-        await refreshLocalDraftStatusUi();
+        await localDraftUi.captureSnapshotInteractive("manual");
     },
     triggerLoadEscapegame: function () {
         var inp = document.getElementById("file-import");

@@ -9,73 +9,31 @@
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
 >
-> **Changelog v1.6** : clôture **chantier C7** — popups d’édition de contenu
-> sur la carte nodale + chaînes REQ/PWD multi-paliers + persistance étendue,
-> avec contrat **unidirectionnel** `V2 → DOM → generateGame` (le sens
-> `legacy → V2` reste hors périmètre).
->
-> - **C7.1 — Chaînes REQ/PWD (`rewardAction` récursif)** : extension du
->   schéma V2 pour autoriser `req`/`pwd` en récompense (récursion native, pas
->   de tableau aplati) ; projection DOM legacy en blocs répétés palier par
->   palier + champ debug `f-reward-chain-json` (FR/EN) ; runtime joueur FR/EN
->   (`executeReward` séquentiel, terminaux `msg`/`pick`, garde-fou de
->   profondeur) ; smoke nominal `REQ → REQ → PWD → MSG` + cas mixte
->   `REQ → SELECTOR → REQ`. Hotfix runtime PWD (modale joueur) :
->   priorité **`type === "pwd"`** sur `args.action` lorsqu’un objet fusionné
->   `{ type: "pwd", action: "msg", … }` arrive (sinon l’énigme est sautée) ;
->   comparaison réponse attendue sur **`pwdValue` sinon `pwd`** (alignement
->   `actionV2ToPlayerArgs`) ; après succès sans `pwdNext`, enchaînement selon
->   **`args.action`** (`msg`, `scene`, `pick`, `selector`, `req`) ; texte
->   d’énigme **`pwdEnigmeTxt || enigmeTxt`**.
-> - **C7.2 — Popup `msg` + thème popup joueur (incluant C7.2-bis)** : popup
->   carte dédiée pour `msg` (Quill 1.3.7 aligné `editor-quill-scenes.js`,
->   sans import legacy) avec aperçu runtime-like ; slice **`playerPopupTheme`**
->   sur `NodalProjectStore`, popup « Personnalisation des popups » alimentée
->   par le store, écriture legacy via `writeDomState` ; **persistance hors
->   DOM** via `nodalPlayerPopupTheme` dans `map-layout.json` (extras),
->   réprojection au load par `flushNodalStoreToEditorDom`. Grille CSS
->   **`nodal-general-*`** (alias `nodal-ha-*` conservés) ; correctif
->   `hexToRgba` / `hexToRgbaLo` (canal R nul ne tombe plus à 255).
-> - **C7.3 — Couverture des actiontypes texte/selector** : popups dédiées
->   `pick`, `goto`, `req`, `pwd`, `selector` sur `payload.copy` /
->   `payload.nested` selon le type ; validations bloquantes minimales
->   (`pwd.payload.answer` requis), pas de limite de longueur ; helper preview
->   commun `PlayerPopupPreview` (variantes bouton, input, selector
->   boutons/dropdown) ; édition des labels nodaux dans les popups d’actions
->   et inline pour scènes/médias ; aperçu selector reprend les enfants
->   directs (ordre nodal Y/id).
-> - **C7.4 — Couvert par C7.1** (slice unique : schéma V2 + DOM + runtime
->   + smoke).
-> - **C7.5 — Smoke / export / persistance** : recette `SMK-01…SMK-10`
->   formalisée FR/EN ; round-trip `.escapegame` complet (actions, labels
->   nodaux, thème popup, médias) ; export joueur `generateGame()` + ZIP web
->   `exportGameWebZip()` validés sur `msg/pick/goto/req/pwd/selector` +
->   chaînes REQ/PWD ; smoke clair/sombre OK ; non-régression
->   `flushNodalStoreToEditorDom`. Persistance thème popup hors DOM intégrée
->   ici (ex-`C7.2-bis` phase B).
-> - **C7.6 — Durcissement** : wrapper `.nodal-quill-theme` créé et appliqué
->   sur les 6 popups d’actions ; pickers Quill `header / font / size`
->   stables clair/sombre (validation par SMK-08) ; **UX bouton « Snapshot »
->   du dock brouillon local** (`js/editor-shared-local-draft-ui.js`) — au
->   clic avec « Activer » décoché, `confirm` invitant à activer la
->   persistance puis prise du snapshot (FR/EN, clé
->   `confirmEnableForSnapshot` dans `editeur-app.js` / `editor-en-app.js`).
-> - **Annexe B — C7** : synthèse fichiers + décisions consolidée (en lieu
->   et place de l’ancienne **Annexe D** vivante).
+> **Changelog v1.6** : clôture **chantier C7** — popups d’édition de
+> contenu sur la carte nodale + chaînes REQ/PWD multi-paliers + persistance
+> étendue. Contrat **unidirectionnel** `V2 → DOM → generateGame` (le sens
+> `legacy → V2` reste hors périmètre). Découpage livré : **C7.1** chaînes
+> REQ/PWD (`rewardAction` récursif V2, miroir DOM en blocs répétés + debug
+> `f-reward-chain-json`, runtime joueur FR/EN avec garde-fou profondeur) ;
+> **C7.2** popup `msg` Quill 1.3.7 + aperçu runtime-like + thème popup
+> joueur (slice store + persistance via `map-layout.json`) ; **C7.3** popups
+> `pick / goto / req / pwd / selector` sur `payload.copy` / `payload.nested`
+> + composant aperçu commun `PlayerPopupPreview` + édition des labels
+> nodaux ; **C7.5** smoke FR/EN `SMK-01…SMK-10` (round-trip `.escapegame`,
+> `generateGame()`, ZIP web, clair/sombre, bridge DOM) ; **C7.6** wrapper
+> `.nodal-quill-theme` posé sur les 6 popups d’actions et UX bouton
+> « Snapshot » du dock brouillon local (`confirm` interactif quand la case
+> « Activer » est décochée). Détail fichiers : **Annexe B — C7**.
 >
 > **Reports explicites post-C7 (non bloquants)** : médias portables nodaux
-> dans le bundle (point Q4 D.3 — `nodalDraftAdapter.ts` callbacks
-> `eachPortableMediaUrlInProject` / `rewritePortableUrlsInProjectClone` /
-> `getBlobOrFileForPortableUrl` restent no-op pour les snapshots IndexedDB
-> nodaux ; le bundle `.escapegame` reste fonctionnel via la projection DOM
-> legacy) ; ménage progressif des `!important` Quill/CSS (`nodalQuillRich.css`,
-> `palette.css`, `NodalCanvas.css`) ; pont `updatePreview()` legacy
-> `C7.2-bis-04` (jamais observé en pratique) ; durcissement
-> `SELECTOR_SPEC` (aucun écart identifié en SMK-03/04).
+> dans le snapshot IndexedDB (`nodalDraftAdapter.ts` callbacks no-op ; le
+> bundle `.escapegame` reste fonctionnel via projection DOM legacy) ;
+> ménage progressif des `!important` Quill / CSS ; pont `updatePreview()`
+> legacy `C7.2-bis-04` ; durcissement `SELECTOR_SPEC`.
 >
-> *(Cette entrée v1.6 regroupe les changelogs intermédiaires v1.5.1, v1.6
-> et v1.6.1 publiés pendant le chantier C7. Le bump v1.7+ n’interviendra
-> qu’après autorisation explicite, conformément à la consigne projet.)*
+> *(Cette entrée regroupe les changelogs intermédiaires v1.5.1, v1.6 et
+> v1.6.1 publiés pendant le chantier. Pas de bump tant que l’auteur ne le
+> demande pas explicitement.)*
 
 > **Changelog v1.5** : clôture chantier **C6** — embarquement carte nodale
 > dans l’éditeur (`editeur.html` / `editor_en.html`, bundle
@@ -1243,213 +1201,114 @@ poursuit sur **`feat/nodal-map`** uniquement.
 - Selector : conserver l’alignement ordre **layout Y** ↔ `f_sel_choices` /
   `deferSelectorInit` (cf. `SELECTOR_SPEC`).
 
-### C7.1 — Chaînes REQ/PWD (`rewardAction` récursif) *(livré v1.6)*
+### C7 — Popups d’édition de contenu + chaînes REQ/PWD *(clôture v1.6)*
 
-**Intégration Git** : développé sur **`feat/c7-chain-reward`**, **fusionné
-dans `feat/nodal-map`** (27 avril 2026). Branche de travail supprimable
-(locale / `origin`) selon politique dépôt.
+**Intégration Git** : C7 développé en plusieurs lots sur des branches
+dédiées (`feat/c7-chain-reward`, `feat/c7-2-msg-popup`,
+`feat/c7-3-action-popups`, `feat/c7-5-smoke-persistence`), tous fusionnés
+dans `feat/nodal-map`. Découpage interne **C7.1 → C7.6** ; les noms
+restent dans la doc pour traçabilité Git mais ne nécessitent plus de
+sous-section séparée.
 
-**Décisions** : flux **unidirectionnel** `V2 → DOM → generateGame`
-uniquement ; récursion native **`rewardAction`** (pas de tableau aplati
-canonique) ; DOM legacy en **blocs répétés** + JSON debug chaîne ;
-garde-fou **profondeur** runtime ; pas de sens `legacy → V2` en C7.
+**Décisions** : flux **unidirectionnel** `V2 → DOM → generateGame` (le
+sens `legacy → V2` est hors périmètre C7) ; récursion native
+`rewardAction` (pas de tableau aplati) ; DOM legacy en blocs répétés +
+JSON debug ; source de vérité d’édition = **store nodal**, pas de fallback
+DOM.
 
-**Fichiers et zones principales** :
+**Schéma + projection (C7.1, chaînes REQ/PWD)** :
 
 - `js/editor-shared-action-mappers.js` — `actionV2ToLegacyNode` /
-  `actionV2ToLegacyHotspotData`, chaînes `req`/`pwd`, champ lisible
-  `f_reward_chain_json`, `legacyRewardToV2` / `legacyActionToV2` côté
-  chaîne si présent.
-- `js/editor-shared-hotspot-dom-mapper.js` — lecture `.f-reward-chain-json`.
+  `actionV2ToLegacyHotspotData`, sérialisation chaîne `req`/`pwd`, champ
+  debug `f_reward_chain_json`.
+- `js/editor-shared-hotspot-dom-mapper.js` — lecture
+  `.f-reward-chain-json` côté DOM legacy.
 - `js/editeur-generate.js`, `js/editor-en-generate.js` —
-  `actionV2ToPlayerArgs`, `choiceRewardToArgs`, `parseRewardChainNode` /
-  `rewardNodeToArgs`, `executeReward` (fallback `type`), export chaîne,
-  `rewardActionV2ToLegacyNode` pour `choiceV2ToLegacy`.
-- `js/editeur-app.js`, `js/editor-en-app.js` — options récompense REQ/PWD,
-  restauration **`querySelectorAll`** des champs chaîne (req vs pwd).
+  `actionV2ToPlayerArgs`, `parseRewardChainNode`, `rewardNodeToArgs`,
+  `executeReward` séquentiel + garde-fou de profondeur. Hotfix runtime
+  PWD post-merge (smoke SMK-04) : la modale PWD privilégie
+  `type === "pwd"` sur `args.action`, compare à `pwdValue` sinon `pwd`,
+  et enchaîne via `args.action` si `pwdNext` absent (cf. journal
+  Annexe D).
+- `js/editeur-app.js`, `js/editor-en-app.js` — restauration des champs
+  chaîne (req vs pwd) et options récompense.
 
-**Correctifs post-merge (smoke C7.5 — SMK-04, avril 2026)** : dans le template
-joueur embarqué, la branche modale **PWD** doit (1) résoudre **`act`** en
-privilégiant **`type === "pwd"`** lorsque présent, pour ne pas court-circuiter
-l’énigme lorsque **`action`** porte déjà la récompense suivante (`msg`, etc.) ;
-(2) comparer la saisie à **`pwdValue` si renseigné, sinon `pwd`** (contrat
-`actionV2ToPlayerArgs` nodal/V2) ; (3) après validation réussie, appeler
-**`pwdNext`** si défini, sinon **`executeReward`** sur un objet minimal dérivé
-de **`args.action`** pour terminer la chaîne (ex. **`msg`** avec **`okMsg`**).
+**Popups d’édition + thème popup joueur (C7.2 / C7.2-bis / C7.3)** :
 
-### C7.2 — Popup `msg` + thème popup joueur *(livré v1.6 ; inclut C7.2-bis)*
-
-**Branche de lot** : `feat/c7-2-msg-popup` (mergée vers `feat/nodal-map`).
-
-**Périmètre livré** : clic sur nœud **`msg`** (hors handle / bouton détacher) →
-popup **Quill 1.3.7** (`copy.bodyHtml` WYSIWYG + `copy.buttonLabel`) — même
-toolbar / formats whitelist que `js/editor-quill-scenes.js`, **sans** importer
-le legacy (bundle `quill` npm + `nodalQuillSetup.ts` + `nodalQuillRich.css`).
-**Annuler** / **Enregistrer** ; fermeture si le nœud disparaît ; ouverture ferme
-les autres popups carte. Libellés **FR / EN** via `document.documentElement.lang`.
-Projection RF extraite dans **`nodalReactFlowProjection.ts`** pour que les tests
-Vitest ne chargent pas Quill. Aperçu colonne droite type popup joueur
-(`afficherPopup`), styles dérivés du thème **store** via
-`playerPopupPreviewFromTheme.ts`. Grille CSS **`nodal-general-*`** (avec
-alias `nodal-ha-*` conservés pour compat). Correctif **`hexToRgba` /
-`hexToRgbaLo`** : R nul ne tombe plus à 255 (test Vitest).
-
-**C7.2-bis (thème popup joueur)** :
-- Phase A : slice **`playerPopupTheme`** sur `NodalProjectStore`
-  (`setPlayerPopupTheme`, `syncPlayerPopupThemeFromDom`), popups thème +
-  `MsgContentPopup` alimentées par le store, écriture legacy via
-  `writeDomState` ; lecture DOM cantonnée (`playerPopupDomRead.ts`).
-- Phase B (intégrée à **C7.5**) : extras `nodalPlayerPopupTheme` dans
-  `map-layout.json` ; reprojection au load via `flushNodalStoreToEditorDom` ;
-  suppression des `syncPlayerPopupThemeFromDom` au montage / ouverture popup
-  `msg` (le store devient source de vérité au-delà du DOM).
-- Phase A-04 (pont legacy `updatePreview()` sans `input`) : **non observé en
-  pratique** ; reporté en backlog.
-
-**Fichiers** :
-
-- `xflow/react/src/view/popups/MsgContentPopup.tsx` — popup message + Quill +
-  aperçu runtime-like.
-- `xflow/react/src/view/popups/PopupThemeCustomizationPopup.tsx` — popup
-  « Personnalisation des popups » (alimentée par le store).
-- `xflow/react/src/view/quill/nodalQuillSetup.ts`,
-  `xflow/react/src/view/quill/nodalQuillRich.css`,
-  `xflow/react/src/view/quill/quill-shim.d.ts` — toolbar / formats / thème.
-- `xflow/react/src/view/playerPopupPreviewFromTheme.ts` — mapping thème
-  store → styles d’aperçu (`afficherPopup`-like).
-- `xflow/react/src/view/usePlayerPopupTheme.ts` — hook lecture store.
-- `xflow/react/src/store/nodalProjectStore.ts` — slice `playerPopupTheme`,
-  `setPlayerPopupTheme`, `syncPlayerPopupThemeFromDom`.
-- `xflow/react/src/view/playerPopupDomRead.ts` — lecture DOM cantonnée.
-- `xflow/react/src/view/nodalReactFlowProjection.ts` — `toReactFlowNodes` /
-  `toReactFlowEdges` hors Quill (pour Vitest).
-- `xflow/react/src/view/nodalUiContext.tsx` — `msgEditorActionId`,
-  `openMsgContentEditor`, accès popup thème.
-- `xflow/react/src/view/NodalCanvas.tsx`, `NodalCanvas.css`,
-  `view/nodes/nodes.css` — montage popups + grille `nodal-general-*` +
-  layout panneau élargi.
-- `xflow/react/src/view/nodes/ActionNodeView.tsx` — interaction nœud `msg`.
-- `xflow/react/src/view/palette/NodePalette.tsx`, `palette/palette.css` —
-  hub paramètres (palette : sauvegardes, lien formulaire, popup thème).
-- `xflow/react/src/view/popups/GlobalSettingsHubPopup.tsx` — hub paramètres.
-- `js/editor-nodal-map-bootstrap.js`, `js/editeur-app.js`,
-  `js/editor-en-app.js` — pont chrome carte
-  `window.__escape360NodalChrome` + `updatePreview`.
-- `xflow/react/src/escape360NodalChrome.d.ts` — typage du pont.
-- `xflow/react/src/serialize/mapLayoutJson.ts` — extras
-  `nodalPlayerPopupTheme` (phase B).
-- `xflow/react/package.json` — dépendance **`quill@1.3.7`**.
-- `xflow/react/vite.editor-map.config.ts` — bundle React ne précharge pas
-  Quill au top-level.
-- `xflow/react/src/__tests__/hexToRgba.test.ts` — non-régression conversion
-  hex → rgba (R=0).
-
-### C7.3 — Couverture des actiontypes texte/selector *(livré v1.6)*
-
-**Branche de lot** : `feat/c7-3-action-popups` (mergée vers `feat/nodal-map`).
-
-**Périmètre livré** : popups dédiées pour **chaque actiontype** restant
-(`pick`, `goto`, `req`, `pwd`, `selector`) sur `payload.copy` /
-`payload.nested` selon le type ; source de vérité **store nodal**
-uniquement (pas de fallback DOM pour l’édition). Validation produit
-**sans limite de longueur** sur `label` / `bodyHtml` / titres ; seule
-contrainte bloquante : **`pwd.payload.answer` requis** (save désactivé si
-vide). Aperçus runtime-like via composant partagé **`PlayerPopupPreview`**
-(variantes `button`, `input`, `selector-buttons`, `selector-dropdown`).
-Édition des **labels nodaux** dans les popups d’actions ; édition inline
-du titre des scènes (Enter/blur valide, Escape annule) ; renommage des
-nœuds média via popup média. Aperçu selector reprend les enfants directs
-du nœud (priorité `layout.parentId`, fallback edges `flow` legacy ; tri
-ordre nodal Y puis id).
-
-**Fichiers** :
-
-- `xflow/react/src/view/popups/PickContentPopup.tsx`,
-  `GotoContentPopup.tsx`, `ReqContentPopup.tsx`, `PwdContentPopup.tsx`,
-  `SelectorContentPopup.tsx` — popups par actiontype.
+- `xflow/react/src/view/popups/MsgContentPopup.tsx`,
+  `PickContentPopup.tsx`, `GotoContentPopup.tsx`, `ReqContentPopup.tsx`,
+  `PwdContentPopup.tsx`, `SelectorContentPopup.tsx`,
+  `PopupThemeCustomizationPopup.tsx`,
+  `GlobalSettingsHubPopup.tsx` — popups par actiontype + thème + hub
+  paramètres ; toutes branchées sur `updateNodeData`.
 - `xflow/react/src/view/popups/PlayerPopupPreview.tsx` — composant aperçu
-  partagé (variantes bouton, input, selector boutons / dropdown).
-- `xflow/react/src/view/popups/MsgContentPopup.tsx` — migration vers
-  `PlayerPopupPreview`.
-- `xflow/react/src/view/nodalUiContext.tsx` — états ouverture popups
-  `pick / goto / req / pwd / selector`.
-- `xflow/react/src/view/NodalCanvas.tsx`, `NodalCanvas.css` — montage des
-  popups + ajustements grille / scroll.
-- `xflow/react/src/view/nodes/ActionNodeView.tsx`, `MediaNodeView.tsx`,
-  `nodes.css` — interactions clic / clavier, édition inline scène, label
-  média visible.
-- `xflow/react/src/store/nodalProjectStore.ts` — `updateNodeData` couvre
-  `payload.copy.bodyHtml`, `payload.copy.buttonLabel`, `payload.answer`,
-  `payload.nested.title / copy.bodyHtml / displayMode`, `label` action,
-  titre scène, label média.
+  runtime-like partagé (variantes `button`, `input`, `selector-buttons`,
+  `selector-dropdown`).
+- `xflow/react/src/view/quill/nodalQuillSetup.ts`,
+  `nodalQuillRich.css`, `quill-shim.d.ts` — toolbar / formats / thème
+  Quill 1.3.7 sans import legacy ; wrapper **`.nodal-quill-theme`**
+  appliqué sur les 6 popups d’actions (C7.6).
+- `xflow/react/src/view/playerPopupPreviewFromTheme.ts`,
+  `usePlayerPopupTheme.ts`, `playerPopupDomRead.ts` — mapping thème
+  store ↔ aperçu et lecture DOM cantonnée.
+- `xflow/react/src/view/nodalReactFlowProjection.ts` — projection RF
+  hors Quill (pour Vitest).
+- `xflow/react/src/view/nodalUiContext.tsx`,
+  `view/NodalCanvas.tsx`, `NodalCanvas.css`, `view/nodes/nodes.css`,
+  `view/nodes/ActionNodeView.tsx`, `view/nodes/MediaNodeView.tsx` —
+  états popups, montage, grille `nodal-general-*` (alias `nodal-ha-*`
+  conservés), interactions nœuds (clic / clavier, édition inline titre
+  scène, label média).
+- `xflow/react/src/view/palette/NodePalette.tsx`, `palette/palette.css` —
+  palette : sauvegardes, lien formulaire, accès popup thème.
+- `xflow/react/src/store/nodalProjectStore.ts` — slice `playerPopupTheme`
+  (`setPlayerPopupTheme`, `syncPlayerPopupThemeFromDom`) ;
+  `updateNodeData` étendu (`payload.copy`, `payload.nested`,
+  `payload.answer`, label action, titre scène, label média).
+- `xflow/react/src/view/hotspotAppearance.ts`,
+  `__tests__/hexToRgba.test.ts` — correctif `hexToRgba` / `hexToRgbaLo`
+  (canal R nul).
+- `xflow/react/package.json` — dépendance **`quill@1.3.7`** alignée CDN
+  éditeur ; `vite.editor-map.config.ts` ne précharge pas Quill au
+  top-level.
 
-### C7.5 — Smoke / export / persistance *(livré v1.6)*
+**Pont chrome carte (palette → app)** :
 
-**Branche de lot** : `feat/c7-5-smoke-persistence` (à merger vers
-`feat/nodal-map` à la clôture C7).
+- `js/editor-nodal-map-bootstrap.js`, `js/editeur-app.js`,
+  `js/editor-en-app.js`, `xflow/react/src/escape360NodalChrome.d.ts` —
+  `window.__escape360NodalChrome` (sauvegardes, snapshot, fermeture
+  modale, `updatePreview`).
 
-**Périmètre livré** :
-
-- Recette manuelle FR/EN **`SMK-01 → SMK-10`** validée (auteur 2026-04-27 →
-  2026-05-01) couvrant données minimales, long contenu, selector, chaînes
-  REQ/PWD, export simple `generateGame()`, ZIP web `exportGameWebZip()`,
-  bundle `.escapegame`, clair/sombre, non-régression bridge DOM.
-- **Persistance hors DOM** du thème popup (ex-`C7.2-bis` phase B) intégrée
-  ici : extras `nodalPlayerPopupTheme` dans `map-layout.json` ; round-trip
-  `.escapegame` reprojette le thème depuis le store (plus de resync DOM
-  systématique au montage).
-- Hotfix runtime PWD identifié et corrigé pendant la campagne smoke (voir
-  **C7.1** ci-dessus, paragraphe « Correctifs post-merge »).
-
-**Fichiers** :
+**Persistance / round-trip (C7.5)** :
 
 - `xflow/react/src/serialize/mapLayoutJson.ts` — extras
-  `nodalPlayerPopupTheme` (read/write).
-- `xflow/react/src/store/nodalProjectStore.ts` — réduction des
-  `syncPlayerPopupThemeFromDom` (montage + ouverture popup `msg`).
-- `js/editor-shared-nodal-to-dom.js` — projection thème popup vers DOM
+  `nodalPlayerPopupTheme` (lecture / écriture).
+- `js/editor-shared-nodal-to-dom.js` — projection thème popup → DOM
   legacy à partir du store.
-- `js/editeur-generate.js`, `js/editor-en-generate.js` — hotfix runtime PWD
-  (cf. C7.1).
 
-### C7.6 — Durcissement *(livré v1.6)*
+**Durcissement UX (C7.6)** :
 
-**Branche de lot** : `feat/c7-5-smoke-persistence` (suite directe du smoke
-C7.5 ; merge groupé à la clôture C7).
+- `js/editor-shared-local-draft-ui.js` — fonction commune
+  `captureSnapshotInteractive(reason)` (confirm interactif si la
+  persistance brouillon est désactivée), exposée pour usage externe.
+- `js/editeur-app.js`, `js/editor-en-app.js` — strings localisées
+  `confirmEnableForSnapshot` ; pont
+  `__escape360NodalChrome.flushThenLocalDraftSnapshot` rebranché sur
+  `localDraftUi.captureSnapshotInteractive` (le bouton « Snapshot » de la
+  palette nodale bénéficie du même garde-fou que le dock).
 
-**Périmètre livré** :
+**Smoke FR/EN** : recette `SMK-01 → SMK-10` validée (2026-04-27 →
+2026-05-01) — données minimales, long contenu, selector boutons /
+dropdown, chaîne `REQ → REQ → PWD → MSG` + cas mixte `REQ → SELECTOR
+→ REQ`, `generateGame()` simple, `exportGameWebZip()` hors-ligne, bundle
+`.escapegame` round-trip, clair/sombre, non-régression
+`flushNodalStoreToEditorDom`. Détail journal : Annexe D — D.4.
 
-- **Wrapper `.nodal-quill-theme`** créé et appliqué sur les **6 popups
-  d’actions** (`msg / pick / goto / req / pwd / selector`) — base d’une
-  reprise progressive des `!important` dans `nodalQuillRich.css`,
-  `palette.css`, `NodalCanvas.css` (ménage explicitement reporté
-  post-C7).
-- **Pickers Quill** `header / font / size` — interaction clair/sombre
-  validée par **SMK-08**.
-- **UX bouton « Snapshot » du dock brouillon local**
-  (`js/editor-shared-local-draft-ui.js`) — au clic alors que la case
-  « Activer » est décochée, **`confirm`** invitant à activer la
-  persistance puis prise immédiate du snapshot ; texte localisable via la
-  clé **`confirmEnableForSnapshot`** dans `js/editeur-app.js` (FR) et
-  `js/editor-en-app.js` (EN).
-
-**Fichiers** :
-
-- `js/editor-shared-local-draft-ui.js` — handler `local-draft-save-now`
-  (`confirm` → `setEnabled(true)` → `captureSnapshot("manual")`).
-- `js/editeur-app.js`, `js/editor-en-app.js` — strings
-  `confirmEnableForSnapshot`.
-- `xflow/react/src/view/popups/*ContentPopup.tsx` — application du wrapper
-  `.nodal-quill-theme` (déjà en place via C7.2 / C7.3).
-- `xflow/react/src/view/quill/nodalQuillRich.css` — surcharges scopées au
-  wrapper (ménage `!important` reporté post-C7).
-
-**Reports explicites post-C7 (consignés dans changelog v1.6)** : médias
-portables nodaux dans le bundle (`nodalDraftAdapter.ts` callbacks no-op
-pour les snapshots IndexedDB nodaux ; le bundle `.escapegame` reste
-fonctionnel via la projection DOM legacy) ; ménage progressif des
-`!important` Quill / CSS ; pont `updatePreview()` legacy `C7.2-bis-04` ;
-durcissement `SELECTOR_SPEC`.
+**Reports post-C7 (non bloquants)** : médias portables nodaux
+(`nodalDraftAdapter.ts` callbacks no-op pour les snapshots IndexedDB
+nodaux ; bundle `.escapegame` fonctionnel via projection DOM legacy) ;
+ménage progressif des `!important` Quill / CSS ; pont `updatePreview()`
+legacy `C7.2-bis-04` ; durcissement `SELECTOR_SPEC`.
 
 ## Annexe C — Glossaire
 
