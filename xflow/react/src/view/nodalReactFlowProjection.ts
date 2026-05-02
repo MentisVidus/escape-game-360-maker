@@ -16,6 +16,11 @@ import {
   HANDLE_META_OUT,
   HANDLE_SYNTH_GOTO_OUT,
 } from "./handles/handleIds";
+import {
+  buildChildrenByParent,
+  collectDescendantNodeIds,
+  computeContainerBounds,
+} from "./nesting/containerBounds";
 
 export type NodalRFData = {
   nodeType: "scene" | "action" | "satellite" | "media";
@@ -29,20 +34,9 @@ export type NodalRFData = {
   selectorChildCount?: number;
   /** Nombre de scènes cibles distinctes via goto internes (selector replié, C8.1.a). */
   synthGotoTargetCount?: number;
+  /** C8.1.b — scène avec ≥1 descendant : rendu cadre auto-dimensionné. */
+  sceneFrame?: boolean;
 };
-
-function buildChildrenByParent(state: NodalProject): Map<AnyNodeId, AnyNodeId[]> {
-  const childrenByParent = new Map<AnyNodeId, AnyNodeId[]>();
-  for (const [nodeId, layout] of Object.entries(state.layout) as Array<
-    [AnyNodeId, NodalProject["layout"][AnyNodeId]]
-  >) {
-    if (!layout?.parentId) continue;
-    const list = childrenByParent.get(layout.parentId) ?? [];
-    list.push(nodeId);
-    childrenByParent.set(layout.parentId, list);
-  }
-  return childrenByParent;
-}
 
 function getCollapsedSelectorIds(state: NodalProject): Set<AnyNodeId> {
   const collapsedSelectorIds = new Set<AnyNodeId>();
@@ -127,8 +121,7 @@ export function collectSynthGotoTargets(
   return out;
 }
 
-function computeSelectorFoldProjection(state: NodalProject) {
-  const childrenByParent = buildChildrenByParent(state);
+function computeSelectorFoldProjection(state: NodalProject, childrenByParent: Map<AnyNodeId, AnyNodeId[]>) {
   const collapsedSelectorIds = getCollapsedSelectorIds(state);
   const hiddenIds = collectHiddenIdsUnderCollapsedSelectors(collapsedSelectorIds, childrenByParent);
   const synthGotoTargets = collectSynthGotoTargets(state, collapsedSelectorIds, childrenByParent);
@@ -178,16 +171,22 @@ function sortNodesParentFirst(nodes: RFNode<NodalRFData>[]): RFNode<NodalRFData>
 
 export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
   const nodes: RFNode<NodalRFData>[] = [];
-  const { hiddenIds, synthGotoTargets } = computeSelectorFoldProjection(state);
+  const childrenByParent = buildChildrenByParent(state);
+  const { hiddenIds, synthGotoTargets } = computeSelectorFoldProjection(state, childrenByParent);
 
   for (const scene of Object.values(state.scenes)) {
     const layout = state.layout[scene.id];
     if (!layout) continue;
+    const descendantIds = collectDescendantNodeIds(scene.id, childrenByParent);
+    const visibleDescendants = descendantIds.filter((id) => !hiddenIds.has(id));
+    const hasFrame = visibleDescendants.length > 0 && !layout.collapsed;
+    const bounds = hasFrame ? computeContainerBounds(state, scene.id, { excludeIds: hiddenIds }) : null;
     nodes.push({
       id: scene.id,
       type: "sceneNode",
       position: { x: layout.x, y: layout.y },
-      data: { nodeType: "scene", node: scene },
+      data: { nodeType: "scene", node: scene, sceneFrame: hasFrame },
+      ...(bounds ? { style: { width: bounds.width, height: bounds.height } } : {}),
     });
   }
   for (const action of Object.values(state.actions)) {
@@ -267,7 +266,8 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
 }
 
 export function toReactFlowEdges(state: NodalProject): RFEdge[] {
-  const { hiddenIds, synthGotoTargets } = computeSelectorFoldProjection(state);
+  const childrenByParent = buildChildrenByParent(state);
+  const { hiddenIds, synthGotoTargets } = computeSelectorFoldProjection(state, childrenByParent);
   const base: RFEdge[] = state.edges.map((edge) => {
     const hidden = hiddenIds.has(edge.sourceId) || hiddenIds.has(edge.targetId);
     if (edge.family === "transition") {

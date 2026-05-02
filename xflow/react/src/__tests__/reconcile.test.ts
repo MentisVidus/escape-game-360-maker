@@ -524,7 +524,8 @@ describe("C3a reconcileAutoSatellites + meta.objects", () => {
 
     state.attachChild(req.id, msg.id);
     const next = store.getState();
-    expect(next.layout[msg.id]?.parentId).toBeNull();
+    /* C8.1.b : le msg reste enfant de la scène (hotspot) ; attachChild récompense est refusé. */
+    expect(next.layout[msg.id]?.parentId).toBe(scene.id);
     const reqAfter = next.actions[req.id];
     expect(reqAfter).toBeDefined();
     if (!reqAfter) throw new Error("reqAfter absent");

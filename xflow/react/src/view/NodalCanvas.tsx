@@ -28,6 +28,7 @@ import {
   type EdgeId,
   type MediaNodeId,
   type SatelliteNodeId,
+  type SceneNodeId,
 } from "../model/ids";
 import type {
   ActionNode,
@@ -60,6 +61,7 @@ import { SatelliteNodeView } from "./nodes/SatelliteNodeView";
 import { SceneNodeView } from "./nodes/SceneNodeView";
 import { NodalUiContext } from "./nodalUiContext";
 import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X } from "./nesting/constants";
+import { SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
 import { NodePalette } from "./palette/NodePalette";
 import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
@@ -401,8 +403,22 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         return;
       }
 
-      const hasFlowInFromScene = state.edges.some(
-        (edge) => edge.family === "flow" && edge.targetId === draggedNode.id && edge.sourceId in state.scenes
+      const live = store.getState();
+      const postDragLayout = live.layout[draggedNode.id as AnyNodeId];
+      const sceneParentId: SceneNodeId | undefined =
+        postDragLayout?.parentId && postDragLayout.parentId in live.scenes
+          ? (postDragLayout.parentId as SceneNodeId)
+          : undefined;
+      if (
+        sceneParentId &&
+        postDragLayout &&
+        (postDragLayout.x < SCENE_PADDING_X || postDragLayout.y < SCENE_PADDING_TOP)
+      ) {
+        live.reanchorSceneContainer(sceneParentId);
+      }
+
+      const hasFlowInFromScene = live.edges.some(
+        (edge) => edge.family === "flow" && edge.targetId === draggedNode.id && edge.sourceId in live.scenes
       );
       if (hasFlowInFromScene) return;
 

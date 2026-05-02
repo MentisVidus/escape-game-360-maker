@@ -1779,6 +1779,180 @@ isolé au plus transverse) :
   étape 1.b.1, `disconnect` non concerné ici — détachement géré
   par overlap dans `onNodeDragStop`).
 
+##### Étape 1.b.2-fix — Bornes correctes + re-ancrage de la scène
+
+> **À faire avant 1.b.3.** Le rendu actuel est cassé : la scène grandit
+> mais ne contient pas visuellement ses actions (cf. capture 2026-05-02
+> dans le journal). Deux maths à corriger.
+
+**Diagnostic** :
+
+Le rendu sub-flow React Flow (`reactflow.dev/examples/grouping/sub-flows`)
+exige deux invariants :
+
+1. La box d'un nœud parent commence à **son origine (0, 0)**. Sa largeur
+   couvre `[0, max_right]`, pas `[min_x, max_right]`. Tout enfant à coord
+   relative négative ou au-delà de la largeur est rendu **hors** de la box.
+2. Les enfants doivent avoir des **coords relatives positives**, idéalement
+   ≥ `(padX, padTop)` pour laisser la place du header (titre).
+
+L'implémentation actuelle viole les deux :
+
+- **`computeContainerBounds`** calcule `innerW = maxRight - minX`. Si un
+  enfant est à relatif `(500, 50)` et size `180×70`, on obtient
+  `innerW = 180` → scène large de `212` qui démarre à `0` et ne couvre que
+  `[0, 212]`, alors que l'enfant est dessiné à `[500, 680]`.
+- **`migrateSceneParentIds`** et **`connect()`** font simplement
+  `child.x - scene.x` sans s'assurer que le résultat est positif. Une
+  action absolue plus à gauche/au-dessus que la scène se retrouve à coord
+  relative négative → rendu au-dessus/à gauche de la box visible.
+
+**Directive** :
+
+1. **Corriger `computeContainerBounds`**
+   ([containerBounds.ts](xflow/react/src/view/nesting/containerBounds.ts)) :
+
+   ```ts
+   // Bornes : on part de l'origine du conteneur (0, 0).
+   // Les enfants sont supposés à coords relatives ≥ (padX, padTop)
+   // grâce au re-ancrage (point 2). On calcule donc max-right / max-bottom
+   // et on rajoute le padding restant à droite/en bas.
+   let maxRight = 0;
+   let maxBottom = 0;
+   for (const id of descendants) {
+     const rel = positionRelativeToContainer(state, id, containerId);
+     if (!rel) continue;
+     const { width, height } = nodeMeasuredSize(state, id);
+     maxRight = Math.max(maxRight, rel.x + width);
+     maxBottom = Math.max(maxBottom, rel.y + height);
+   }
+   const innerW = Math.max(maxRight, SCENE_MIN_INNER_WIDTH + SCENE_PADDING_X);
+   const innerH = Math.max(maxBottom, SCENE_PADDING_TOP + SCENE_MIN_INNER_HEIGHT);
+   return {
+     width:  innerW + SCENE_PADDING_X,
+     height: innerH + SCENE_PADDING_BOTTOM,
+   };
+   ```
+
+   *Note* : on ne soustrait plus `minX` / `minY`. Le re-ancrage (point 2)
+   garantit qu'aucun enfant n'a de coord négative.
+
+2. **Nouveau helper `reanchorSceneContainer(state, sceneId)`**
+   (dans [containerBounds.ts](xflow/react/src/view/nesting/containerBounds.ts)
+   ou nouveau `reanchorContainer.ts`) :
+
+   ```ts
+   /**
+    * Garantit que tous les descendants directs ont une coord relative
+    * ≥ (SCENE_PADDING_X, SCENE_PADDING_TOP). Si non, déplace la scène
+    * de delta = padding - min, et translate les coords des descendants
+    * directs de -delta — leurs positions absolues sont préservées.
+    *
+    * Idempotent : un second appel sans nouvel enfant est un no-op.
+    */
+   export function reanchorSceneContainer(state, sceneId): void {
+     const sceneLayout = state.layout[sceneId];
+     if (!sceneLayout) return;
+     const directChildren = [...] // Object.entries(state.layout) avec parentId === sceneId
+
+     if (directChildren.length === 0) return;
+
+     let minRelX = Infinity;
+     let minRelY = Infinity;
+     for (const [, l] of directChildren) {
+       minRelX = Math.min(minRelX, l.x);
+       minRelY = Math.min(minRelY, l.y);
+     }
+
+     const targetMinX = SCENE_PADDING_X;
+     const targetMinY = SCENE_PADDING_TOP;
+     const dx = minRelX - targetMinX; // signé ; négatif = enfant à coord < pad
+     const dy = minRelY - targetMinY;
+     if (dx === 0 && dy === 0) return;
+
+     // Décale la scène de (dx, dy) en absolu, et chaque enfant direct de (-dx, -dy)
+     // pour que leurs absolus restent inchangés.
+     state.layout[sceneId] = { ...sceneLayout, x: sceneLayout.x + dx, y: sceneLayout.y + dy };
+     for (const [childId, l] of directChildren) {
+       state.layout[childId] = { ...l, x: l.x - dx, y: l.y - dy };
+     }
+   }
+   ```
+
+   ⚠️ Seuls les enfants **directs** (parentId === sceneId) sont
+   translatés — leurs propres descendants suivent automatiquement
+   puisque les coordonnées de petits-enfants sont relatives à leur
+   parent direct (selector / req…), pas à la scène.
+
+3. **Appeler `reanchorSceneContainer` après chaque mutation qui touche
+   un enfant direct de scène** :
+
+   - Dans
+     [`migrateSceneParentIds`](xflow/react/src/serialize/migrateSceneParentIds.ts) :
+     après la boucle `for (const edge…)`, parcourir les scènes touchées
+     et appeler le re-ancrage.
+   - Dans `connect()` ([store/nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts:294))
+     juste après l'attribution de `parentId = sceneId` à un nouvel
+     enfant.
+   - Dans `disconnect()` ([store/nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts:344))
+     après le détachement (la scène peut maintenant être plus compacte —
+     mais le re-ancrage avec dx ≥ 0 ne fait rien si tous les enfants
+     restants sont déjà à des relatives ≥ pad ; c'est OK).
+   - Dans `onNodesChange` / `onNodeDragStop`
+     ([NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx:336)) :
+     si un enfant direct d'une scène a été déplacé et que sa nouvelle
+     position relative est < `(padX, padTop)`, déclencher un re-ancrage.
+     **Important** : ne pas créer de boucle (re-ancrage met à jour le
+     store qui retrigger `onNodesChange`) — gérer en lisant directement
+     `state.layout` après le drag, pas via un effet sur `rfNodes`.
+
+4. **Migration corrective sur les projets déjà cassés** :
+   `migrateSceneParentIds` actuel ignore les actions ayant déjà
+   `parentId !== null`. Étendre :
+   - Si `parentId === sceneId` (déjà migré) **et** que la coord relative
+     est négative, c'est un projet « contaminé » par le bug 1.b.2.
+     Ré-exécuter `reanchorSceneContainer(state, sceneId)` à la fin de
+     la migration corrige tout.
+
+5. **Tests** — étendre
+   [containerBounds.test.ts](xflow/react/src/__tests__/containerBounds.test.ts)
+   et
+   [sceneAsContainer.test.ts](xflow/react/src/__tests__/sceneAsContainer.test.ts) :
+
+   - **`computeContainerBounds`** :
+     - 1 enfant à relatif `(500, 50)` size `180×70` → bounds attendus
+       `width = 500 + 180 + padX`, `height = 50 + 70 + padBottom`.
+       (Plus de `maxRight - minX`.)
+     - 1 enfant à relatif `(20, 40)` size `180×70` → bounds attendus
+       `width = 20 + 180 + padX = 232`, `height = 40 + 70 + padBottom`.
+   - **`reanchorSceneContainer`** :
+     - Scène à `(200, 200)`, enfant à relatif `(-50, -10)` → après
+       re-ancrage : scène à `(200 - 50 - padX, 200 - 10 - padTop)`,
+       enfant à relatif `(padX, padTop)`. Position absolue de l'enfant
+       inchangée (= `(200 + (-50), 200 + (-10))` = `(150, 190)` avant ;
+       après = scène + relatif = même valeur).
+     - Idempotent : 2 appels successifs = 1 seul effet.
+     - Plusieurs enfants : tous décalés du même `(dx, dy)`, absolus
+       préservés.
+   - **Migration** : projet où une action a `parentId === null` mais
+     position absolue **à gauche** de la scène → après hydrate, l'action
+     est dans le cadre, le titre de la scène n'est pas écrasé.
+   - **Connect** : créer un flow scene→action où l'action est
+     pré-positionnée plus haut que la scène → après connect, elle est
+     dans le cadre.
+
+**Critère de fin** :
+
+- Capture du smoke « Scène Hall + Read Note + Go To Lab + SELECTOR(2 MSG) »
+  reproduit l'effet visuel attendu : **les 3 actions et les 2 sous-MSG
+  sont visuellement à l'intérieur** du cadre Hall (comme dans
+  l'exemple sub-flow React Flow référencé).
+- Drag d'une action vers la gauche au-delà du `padX` interne : le cadre
+  s'étend à gauche (re-ancrage immédiat), le titre reste bien aligné.
+- Drag du nœud Hall : les 3 actions et les 2 MSG suivent.
+- Round-trip serialize / deserialize d'un projet déjà migré sans bug
+  reste idempotent (pas de drift de positions).
+
 ##### Étape 1.b.3 — Repli de la scène (chevron + handles synthétiques)
 
 **Contexte technique** :
@@ -1952,3 +2126,22 @@ questions ouvertes, captures pertinentes.)
   arêtes synthétiques / `hidden` n’étaient pas recalculées. Dépendances
   étendues (`layout`, `actions`, `scenes`) + `updateNodeInternals` quand
   `collapsed` / `synthGotoTargetCount` change sur un nœud action.
+- 2026-05-02 — **C8.1.b étapes 1.b.1 + 1.b.2 livrées (en local, non
+  commitées)** : `migrateSceneParentIds`, mutations `connect`/`disconnect`,
+  `computeContainerBounds`, classe `nodal-node--scene-frame`, projection
+  qui injecte `style.width/height` sur les scènes ayant ≥ 1 descendant.
+  Smoke utilisateur : **rendu cassé** — la scène grandit mais ses actions
+  sont rendues **à l’extérieur** du cadre (cf. capture). Deux bugs
+  identifiés (cf. **Étape 1.b.2-fix** dans le plan détaillé) :
+  1. `computeContainerBounds` calcule
+     `innerW = maxRight - minX` au lieu de partir de l’origine RF du
+     conteneur (`(0, 0)`). Box trop étroite quand les enfants ont une
+     coord relative `> 0`.
+  2. Aucun re-ancrage : `migrateSceneParentIds` et `connect()` posent
+     `child.x - scene.x` même si le résultat est négatif → enfants à
+     coords relatives négatives, donc rendus hors du cadre.
+  Plan correctif : nouvel helper `reanchorSceneContainer` idempotent +
+  formule de bornes simplifiée (origine `(0, 0)`) + appels du re-ancrage
+  dans migration / connect / disconnect / drag. Tests étendus.
+  Référence design : exemple sub-flow React Flow
+  `reactflow.dev/examples/grouping/sub-flows`.

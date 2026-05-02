@@ -92,10 +92,11 @@ const serializeAction = (state: NodalProject, actionId: ActionNodeId): ProjectJs
 
 export const getHotspotActionIdsForScene = (state: NodalProject, sceneId: SceneNodeId): ActionNodeId[] =>
   state.edges
-    .filter(
-      (edge) =>
-        edge.family === "flow" && edge.sourceId === sceneId && edge.targetId in state.actions && !state.layout[edge.targetId]?.parentId
-    )
+    .filter((edge) => {
+      if (edge.family !== "flow" || edge.sourceId !== sceneId || !(edge.targetId in state.actions)) return false;
+      const p = state.layout[edge.targetId]?.parentId;
+      return p == null || p === sceneId;
+    })
     .map((edge) => edge.targetId as ActionNodeId);
 
 export const serializeToProjectJson = (state: NodalProject): ProjectJsonV2 => {

@@ -22,6 +22,7 @@ import {
   readPlayerPopupFieldsFromDom,
   type PlayerPopupTheme,
 } from "../view/popups/playerPopupDomRead";
+import { reanchorSceneContainer as reanchorSceneLayout } from "../view/nesting/containerBounds";
 import { computeWarnings, type Warning } from "./computeWarnings";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 
@@ -52,6 +53,8 @@ export type NodalProjectStore = NodalProject & {
   removeObject: (objectId: string) => void;
   /** Remplace tout le projet (ZIP / brouillon) : même schéma que `removeNode` — copie + reconcile + withWarnings. */
   hydrateFromProject: (projectJson: ProjectJsonV2, layoutJson: MapLayoutJson) => void;
+  /** C8.1.b.2-fix — enfants directs de scène : coords relatives ≥ (padX, padTop). */
+  reanchorSceneContainer: (sceneId: SceneNodeId) => void;
 };
 
 export type NodalProjectStoreApi = StoreApi<NodalProjectStore>;
@@ -294,7 +297,48 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     connect: (edge) => {
       set((state) => {
         if (state.edges.some((existing) => existing.id === edge.id)) return state;
-        const next: NodalProjectStore = { ...state, edges: [...state.edges, edge] };
+
+        if (
+          edge.family === "flow" &&
+          edge.sourceId in state.scenes &&
+          edge.targetId in state.actions
+        ) {
+          const childLayout = state.layout[edge.targetId as AnyNodeId];
+          const sceneLayout = state.layout[edge.sourceId as AnyNodeId];
+          if (childLayout && sceneLayout && childLayout.parentId == null) {
+            if (wouldCreateCycle(state.layout, edge.sourceId as string, edge.targetId as string)) {
+              console.warn(
+                `[connect] flow scène→action refusé : cycle parentId (${String(edge.sourceId)} → ${String(edge.targetId)})`
+              );
+              return state;
+            }
+          }
+        }
+
+        const next: NodalProjectStore = {
+          ...state,
+          edges: [...state.edges, edge],
+          layout: { ...state.layout },
+        };
+
+        if (
+          edge.family === "flow" &&
+          edge.sourceId in state.scenes &&
+          edge.targetId in state.actions
+        ) {
+          const childLayout = next.layout[edge.targetId as AnyNodeId];
+          const sceneLayout = next.layout[edge.sourceId as AnyNodeId];
+          if (childLayout && sceneLayout && childLayout.parentId == null) {
+            next.layout[edge.targetId as AnyNodeId] = {
+              ...childLayout,
+              x: childLayout.x - sceneLayout.x,
+              y: childLayout.y - sceneLayout.y,
+              parentId: edge.sourceId as AnyNodeId,
+            };
+            reanchorSceneLayout(next, edge.sourceId as SceneNodeId);
+          }
+        }
+
         syncGotoTargetFromTransitionEdge(next, edge);
         reconcileAutoSatellites(next, nextAutoId);
         return withWarnings(next);
@@ -304,8 +348,47 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     disconnect: (edgeId) => {
       set((state) => {
         const removed = state.edges.find((e) => e.id === edgeId);
-        const next: NodalProjectStore = { ...state, edges: state.edges.filter((edge) => edge.id !== edgeId) };
+        const next: NodalProjectStore = {
+          ...state,
+          edges: state.edges.filter((edge) => edge.id !== edgeId),
+          layout: { ...state.layout },
+        };
+
+        if (
+          removed?.family === "flow" &&
+          removed.sourceId in state.scenes &&
+          removed.targetId in state.actions
+        ) {
+          const stillHasSceneFlow = next.edges.some(
+            (e) => e.family === "flow" && e.targetId === removed.targetId && e.sourceId in next.scenes
+          );
+          const layout = next.layout[removed.targetId as AnyNodeId];
+          if (!stillHasSceneFlow && layout?.parentId === removed.sourceId) {
+            const sceneLayout = next.layout[removed.sourceId as AnyNodeId];
+            if (sceneLayout) {
+              next.layout[removed.targetId as AnyNodeId] = {
+                ...layout,
+                x: layout.x + sceneLayout.x,
+                y: layout.y + sceneLayout.y,
+                parentId: null,
+              };
+            }
+          }
+          if (removed.sourceId in next.scenes) {
+            reanchorSceneLayout(next, removed.sourceId as SceneNodeId);
+          }
+        }
+
         if (removed) clearGotoTargetIfNoTransition(next, removed);
+        reconcileAutoSatellites(next, nextAutoId);
+        return withWarnings(next);
+      });
+    },
+
+    reanchorSceneContainer: (sceneId) => {
+      set((state) => {
+        const next = { ...state, layout: { ...state.layout } };
+        reanchorSceneLayout(next, sceneId);
         reconcileAutoSatellites(next, nextAutoId);
         return withWarnings(next);
       });

@@ -9,11 +9,14 @@ import {
   HANDLE_META_OUT,
 } from "../handles/handleIds";
 import { useNodalUi } from "../nodalUiContext";
+import type { NodalRFData } from "../nodalReactFlowProjection";
 import "../handles/handles.css";
 import "./nodes.css";
 
 export function SceneNodeView({ data }: NodeProps) {
-  const node = (data as { node: SceneNode }).node;
+  const rf = data as NodalRFData;
+  const node = rf.node as SceneNode;
+  const sceneFrame = !!rf.sceneFrame;
   const ui = useNodalUi();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(node.label);
@@ -53,7 +56,10 @@ export function SceneNodeView({ data }: NodeProps) {
   };
 
   return (
-    <div className="nodal-node scene" onClick={startEditingTitle}>
+    <div
+      className={`nodal-node scene${sceneFrame ? " nodal-node--scene-frame" : ""}`}
+      onClick={startEditingTitle}
+    >
       {editingTitle ? (
         <input
           className="nodal-node-title-input"

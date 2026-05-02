@@ -17,6 +17,7 @@ import {
   type NodalMetaMediaLink,
   type NodalSceneMetaMediaLink,
 } from "./nodalMapExtras";
+import { migrateSceneParentIds } from "./migrateSceneParentIds";
 
 export type MapLayoutJson = {
   positions: Record<string, { x: number; y: number }>;
@@ -117,6 +118,7 @@ export function applyHydratedLayout(state: NodalProject, layout: MapLayoutJson, 
   }
   applyLayout(state, stripAutoSatelliteLayoutFromMap(layout));
   applyStableSceneAndActionLayout(state, layout, buildActionIdByPathKeyMapFromProjectJson(projectJson));
+  migrateSceneParentIds(state);
   stripSelectorChoiceFlowEdgesAfterParentRestore(state);
   applySceneMetaMediaLinks(state, layout.nodalSceneMetaMediaLinks);
   ensureGraphNodeLayoutsAfterHydrate(state);
@@ -162,8 +164,12 @@ function applyStableSceneAndActionLayout(
     const existing = state.layout[actionId];
     const parentPath = deriveParentPathKey(pathKey);
     const mappedParent = parentPath !== null ? actionIdByPathFromJson.get(parentPath) ?? null : null;
-    const parentId =
-      parentPath === null ? null : (mappedParent ?? (existing?.parentId as AnyNodeId | null | undefined) ?? null);
+    let parentId: AnyNodeId | null;
+    if (parentPath !== null) {
+      parentId = (mappedParent ?? (existing?.parentId as AnyNodeId | null | undefined) ?? null) as AnyNodeId | null;
+    } else {
+      parentId = (existing?.parentId as AnyNodeId | null) ?? null;
+    }
     state.layout[actionId] = {
       ...existing,
       x: l.x,

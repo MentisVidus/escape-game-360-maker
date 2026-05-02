@@ -1,4 +1,5 @@
 import { asActionNodeId, asEdgeId, asSceneNodeId, type ActionNodeId, type SceneNodeId } from "../model/ids";
+import { migrateSceneParentIds } from "./migrateSceneParentIds";
 import type { ActionNode, CopyPayload } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import type { ProjectJsonV2, ProjectJsonV2Action } from "./toProjectJson";
@@ -219,6 +220,7 @@ export const deserializeFromProjectJson = (json: ProjectJsonV2): NodalProject =>
     });
   }
   wireGotoTransitions(state);
+  migrateSceneParentIds(state);
   return state;
 };
 

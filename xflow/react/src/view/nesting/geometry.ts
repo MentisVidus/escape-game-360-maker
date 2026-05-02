@@ -11,8 +11,9 @@ export type NestedNodeLike = {
 
 type Rect = { x: number; y: number; width: number; height: number };
 
-const DEFAULT_NODE_WIDTH = 180;
-const DEFAULT_NODE_HEIGHT = 70;
+/** Fallbacks alignés sur la projection RF / `computeContainerBounds`. */
+export const DEFAULT_NODE_WIDTH = 180;
+export const DEFAULT_NODE_HEIGHT = 70;
 
 function getNodeSize(node: NestedNodeLike): { width: number; height: number } {
   return {
