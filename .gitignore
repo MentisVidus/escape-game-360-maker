@@ -15,3 +15,6 @@ xflow/react/dist/
 # Décommentez si vous ne voulez pas versionner certains dossiers :
 # dist/
 # *.local.json
+
+# Notes / pistes / brainstorming non versionnés (locales seulement)
+docs/temporaire/
