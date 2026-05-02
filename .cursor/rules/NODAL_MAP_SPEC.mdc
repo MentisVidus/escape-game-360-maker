@@ -826,15 +826,63 @@ Neuf chantiers numérotés pour référence dans les commits.
   `flushNodalStoreToEditorDom`.
 - **Smoke `SMK-01…SMK-10`** validé (FR/EN), incluant export joueur simple +
   ZIP web et clair/sombre.
-- **Reports explicites** (post-C7, non bloquants) : médias portables nodaux
-  (Q4 D.3), ménage `!important` Quill/CSS, pont `updatePreview()` legacy
-  (`C7.2-bis-04`), durcissement `SELECTOR_SPEC`.
+- **Reports explicites** (post-C7, non bloquants) : voir sous-section
+  **Reports en attente** ci-dessous.
+
+### Reports en attente (à intégrer si pertinent)
+
+Liste vivante des items **non bloquants** sortis d’un chantier précédent
+sans être traités, ou volontairement écartés du prochain chantier. À
+relire au démarrage de chaque chantier UX/code pour décider d’une
+absorption opportuniste. Cocher / déplacer dès qu’un item est traité.
+
+- **Médias portables nodaux** (Q4 D.3, post-C7) — chargement local
+  depuis la carte sans passer par le miroir DOM ; nécessite un travail
+  côté `coords-options` / popup hotspot et serialize.
+- **Ménage `!important` Quill/CSS** (post-C7) — supprimer les
+  `!important` ajoutés sur la stack pour neutraliser la cascade Quill ;
+  vérifier un audit CSS minimal avant de toucher.
+- **Pont `updatePreview()` legacy** (`C7.2-bis-04`, post-C7) — relier
+  les modifications nodales du thème popup à la `updatePreview()`
+  legacy ; aujourd’hui le rendu DOM ne suit pas en live.
+- **Durcissement `SELECTOR_SPEC`** (post-C7) — passer la spec selector
+  en revue côté nodal pour acter ce qui est délibérément en retard
+  (ex. visibilité conditionnelle complète sur les choix).
+- **Zoom auto sur sélection** (initialement scope C8, repoussé) —
+  centrer/zoomer la vue sur le nœud sélectionné via le panel warnings
+  ou un raccourci ; à reprendre quand la palette latérale gagnera en
+  contenu (post-C9 ?).
 
 ### C8 — Ajustements UX
 
-- Nœuds repliables.
-- Zoom automatique sur sélection.
-- Raccourcis clavier (suppression, duplication).
+Scope finalisé (voir **Annexe D — Chantier C8**) :
+
+- **Nœuds repliables** (état `collapsed` déjà réservé en `map-layout.json`).
+- **Raccourcis clavier** : `Delete`/`Backspace` (suppression), `Ctrl+D`
+  (duplication), `Ctrl+C` / `Ctrl+V` (copier/coller), `Échap` (fermer
+  popup), `Ctrl+A` (tout sélectionner).
+- **Indicateur visuel de la scène initiale** (badge / couleur / icône
+  dédiés sur le nœud `scene` qui correspond au `firstScene`).
+- **Recherche de nœud** (`Ctrl+F`) par titre / id, avec navigation
+  (Entrée pour aller au suivant) et centrage.
+- **Copier/coller de nœuds** : `Ctrl+C` / `Ctrl+V`, sélection multiple,
+  copies indépendantes (nouveaux IDs, satellites recréés via
+  `reconcileAutoSatellites`), références objets (`objectId`) conservées,
+  cas selector (sous-graphe complet).
+- **Rework UX selector** (S1–S4 du `DEV-C8-Selector-UX.md`) :
+  - **S1.** Sous-selector au premier plan (`z-index` élevé).
+  - **S2.** Fond selector non transparent (semi-transparent ou coloré).
+  - **S3.** Seuil d’accrochage REQ/PWD basé sur la surface du **plus
+    petit** des deux nœuds (ou zone d’accrochage dédiée sur la pince
+    REQ/PWD).
+  - **S4.** Selector enfant de REQ/PWD : drag indépendant **bloqué**
+    (suit le parent ; détachement via bouton uniquement). Distinction
+    explicite avec le sous-selector (selector enfant d’un selector)
+    qui garde son drag libre pour réordonner.
+
+**Hors scope C8** : zoom auto sur sélection, mini-map, validation
+visuelle des chaînes incomplètes, undo/redo (voir Reports en attente
+ou backlog produit).
 
 ### C9 — Drag & drop depuis la palette
 
@@ -1302,11 +1350,10 @@ dropdown, chaîne `REQ → REQ → PWD → MSG` + cas mixte `REQ → SELECTOR
 `.escapegame` round-trip, clair/sombre, non-régression
 `flushNodalStoreToEditorDom`.
 
-**Reports post-C7 (non bloquants)** : médias portables nodaux
-(`nodalDraftAdapter.ts` callbacks no-op pour les snapshots IndexedDB
-nodaux ; bundle `.escapegame` fonctionnel via projection DOM legacy) ;
-ménage progressif des `!important` Quill / CSS ; pont `updatePreview()`
-legacy `C7.2-bis-04` ; durcissement `SELECTOR_SPEC`.
+**Reports post-C7 (non bloquants)** : voir §7 « Reports en attente »
+pour la liste vivante (médias portables nodaux, ménage `!important`
+Quill/CSS, pont `updatePreview()` legacy `C7.2-bis-04`, durcissement
+`SELECTOR_SPEC`, zoom auto sur sélection).
 
 ## Annexe C — Glossaire
 
@@ -1328,3 +1375,124 @@ legacy `C7.2-bis-04` ; durcissement `SELECTOR_SPEC`.
   (`coords-options`, `choice-options`, `object`).
 - **Transition** (famille handle) : nouvelle famille dédiée au `goto` —
   couleur bleu vif, forme triangle, edge pointillé animé.
+
+## Annexe D — Chantier C8 (en cours)
+
+> Annexe vivante (§8.4) — temporaire pendant le chantier C8. Sera
+> condensée dans **Annexe B — C8** à la clôture, puis supprimée.
+
+**Date d’ouverture** : 2026-05-02.
+**Branche** : `feat/c8-ux-adjustments` (à créer depuis `feat/nodal-map`).
+**Statut** : cadrage validé, implémentation à démarrer.
+
+### Scope figé
+
+Voir §7 → C8. Rappel synthétique :
+
+- **C8.1** Nœuds repliables (`collapsed` déjà dans `map-layout.json`).
+- **C8.2** Raccourcis clavier (`Delete`, `Ctrl+D`, `Ctrl+C/V`, `Échap`,
+  `Ctrl+A`).
+- **C8.3** Indicateur visuel de la scène initiale.
+- **C8.4** Recherche de nœud (`Ctrl+F`).
+- **C8.5** Copier/coller de nœuds (full version : sélection multiple,
+  satellites recréés, IDs nouveaux, sous-graphes selector).
+- **C8.6** Rework UX selector (S1 z-index sous-selector / S2 fond non
+  transparent / S3 seuil d’accrochage REQ/PWD / S4 drag bloqué quand
+  selector enfant de REQ/PWD).
+
+**Hors scope** : zoom auto sur sélection (reporté), mini-map,
+validation visuelle des chaînes, undo/redo.
+
+### Décisions de design provisoires
+
+À ajuster pendant le chantier — la phase « questions d’abord » (§8.1)
+reste obligatoire pour chaque sous-item non trivial.
+
+- **C8.1 — Nœuds repliables**
+  - État `collapsed` lu/écrit dans `map-layout.json` (champ déjà prévu).
+  - Affichage replié = en-tête seulement (titre + handles essentiels) ;
+    interactions de connexion conservées sur les handles visibles.
+  - Aucun impact sur `project.json` (purement layout).
+
+- **C8.2 — Raccourcis clavier**
+  - `Delete` / `Backspace` : suppression du / des nœuds sélectionnés
+    (avec confirmation si la sélection casse une chaîne REQ/PWD ?).
+  - `Ctrl+D` : duplication immédiate du nœud sélectionné (offset
+    visuel, nouveaux IDs, satellites recréés).
+  - `Ctrl+C` / `Ctrl+V` : copier/coller (cf. C8.5).
+  - `Échap` : ferme la popup d’édition active.
+  - `Ctrl+A` : sélection multiple (à coordonner avec C8.5).
+  - **Désactivation** des raccourcis quand un input / Quill / popup a
+    le focus.
+
+- **C8.3 — Indicateur scène initiale**
+  - Badge ou icône dédiée sur le nœud `scene` correspondant à
+    `firstScene` (slot prévu en `meta`).
+  - Couleur ou bordure spécifique pour distinguer immédiatement.
+  - Comportement si `firstScene` invalide / absent : warning existant
+    suffit, pas de double signal.
+
+- **C8.4 — Recherche de nœud**
+  - Champ dans la palette latérale ou modal `Ctrl+F`.
+  - Cherche dans : titre / id de scène, label d’action, titre selector,
+    nom d’objet.
+  - Navigation : Entrée = nœud suivant ; Maj+Entrée = précédent ; clic
+    = centrage immédiat (réutiliser la logique « centrage panel
+    warnings » C4).
+
+- **C8.5 — Copier/coller de nœuds**
+  - Buffer interne (pas presse-papier OS, pour éviter conflits).
+  - Coller = duplication décalée + nouveaux IDs stables.
+  - Satellites auto recréés via `reconcileAutoSatellites` (même
+    logique que la désérialisation).
+  - Références objets (`objectId`) **non dupliquées** (l’objet reste
+    unique dans `meta.objects`).
+  - Sélection multiple : copie un sous-graphe complet (selector + ses
+    choix, REQ/PWD + récompense imbriquée).
+  - Hors périmètre initial : copier-coller entre projets / sessions.
+
+- **C8.6 — Rework UX selector** (cf. `DEV-C8-Selector-UX.md` local)
+  - **S1.** Sous-selector au premier plan : `z-index` plus élevé que
+    le selector parent, peut-être basé sur la profondeur d’imbrication.
+  - **S2.** Fond du selector : `rgba(...)` semi-transparent (à
+    accorder avec dark/light mode), conserver la lisibilité des
+    enfants.
+  - **S3.** Seuil d’accrochage REQ/PWD :
+    - **Piste A** : calcul du seuil sur la surface du **plus petit**
+      des deux nœuds (souvent le REQ/PWD).
+    - **Piste B** : zone d’accrochage **dédiée** sur la pince REQ/PWD
+      (rectangle invisible avec son propre seuil).
+    - Choix à valider en début de C8.6 selon faisabilité React Flow.
+  - **S4.** Selector enfant de REQ/PWD : drag indépendant **bloqué**
+    (option React Flow `draggable: false` ou contrôle dans
+    `onNodeDragStart`). Détachement via le bouton dédié uniquement.
+    Sous-selector (selector enfant d’un selector) : drag conservé
+    libre pour permettre le réordonnancement Y des choix.
+
+### Stratégie de découpage
+
+Un sous-chantier = un commit (cf. §8.2). Ordre indicatif (du plus
+isolé au plus transverse) :
+
+1. **C8.1** Nœuds repliables (changement layout-only, peu de risque).
+2. **C8.3** Indicateur scène initiale (style + 1 prop).
+3. **C8.4** Recherche de nœud (composant nouveau, peu invasif).
+4. **C8.2** Raccourcis clavier (transverse, à brancher proprement
+   sans casser les inputs Quill).
+5. **C8.6** Rework UX selector (touche au cœur du moteur de
+   connexion ; à isoler).
+6. **C8.5** Copier/coller (dépend des raccourcis et bénéficie du
+   rework selector pour les sous-graphes).
+
+### Smoke C8 (à compléter)
+
+À définir en fin de chantier — base : la suite SMK-01 → SMK-10 reste
+valable, ajout de SMK-C8-* pour valider chaque sous-item (replier /
+déplier, raccourcis, recherche, copier/coller, drag selector parenté).
+
+### Journal de chantier
+
+(À remplir au fil des sessions Cursor — décisions, points bloquants,
+questions ouvertes, captures pertinentes.)
+
+- 2026-05-02 — Cadrage initial (présent document).
