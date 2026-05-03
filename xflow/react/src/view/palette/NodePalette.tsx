@@ -1,10 +1,10 @@
 import { useReactFlow } from "@xyflow/react";
 import type { RefObject } from "react";
 import type { NodalSearchFieldHandle } from "./NodalSearchField";
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import { asActionNodeId, asMediaNodeId, type SceneNodeId } from "../../model/ids";
+import { asActionNodeId, asMediaNodeId } from "../../model/ids";
 import type { ActionNode, MediaNode, SceneNode } from "../../model/nodes";
 import { stableSceneNodeIdFromExternal } from "../../serialize/fromProjectJson";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
@@ -18,8 +18,6 @@ const nextId = (prefix: string) => `${prefix}-${Date.now()}-${++counter}`;
 type PaletteProps = {
   store: StoreApi<NodalProjectStore>;
   canvasRef: RefObject<HTMLDivElement | null>;
-  /** Une seule scène sélectionnée sur la carte (C8.3). */
-  selectedSceneId: SceneNodeId | null;
   /** C8.4.1 — focus depuis Ctrl+F dans `NodalCanvas`. */
   searchFieldRef: RefObject<NodalSearchFieldHandle | null>;
 };
@@ -33,14 +31,10 @@ function nodalChrome() {
   return typeof window !== "undefined" ? window.__escape360NodalChrome : undefined;
 }
 
-export function NodePalette({ store, canvasRef, selectedSceneId, searchFieldRef }: PaletteProps) {
+export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) {
   const reactFlow = useReactFlow();
   const ui = useNodalUi();
   const L = paletteLocale();
-  const projectSnap = useSyncExternalStore(store.subscribe, store.getState, store.getState);
-  const startSceneId = projectSnap.meta.startSceneId;
-  const sceneCount = Object.keys(projectSnap.scenes).length;
-  const needStartChoice = sceneCount >= 2 && (!startSceneId || !(startSceneId in projectSnap.scenes));
 
   const labels =
     L === "en"
@@ -56,9 +50,6 @@ export function NodePalette({ store, canvasRef, selectedSceneId, searchFieldRef 
           saveJson: "Save .json",
           load: "Load…",
           form: "Form editor",
-          setAsStartScene: "Set as start scene",
-          currentStartScene: "Current start scene",
-          startSceneHint: "Select a scene on the map, then set the start here.",
         }
       : {
           settings: "Paramètres globaux",
@@ -72,9 +63,6 @@ export function NodePalette({ store, canvasRef, selectedSceneId, searchFieldRef 
           saveJson: "Sauver .json",
           load: "Charger…",
           form: "Formulaire",
-          setAsStartScene: "Définir comme scène de départ",
-          currentStartScene: "Scène de départ actuelle",
-          startSceneHint: "Sélectionnez une scène sur la carte, puis définissez le départ ici.",
         };
 
   const getCenterPosition = () => {
@@ -187,21 +175,6 @@ export function NodePalette({ store, canvasRef, selectedSceneId, searchFieldRef 
       <button type="button" onClick={addScene}>
         {labels.addScene}
       </button>
-      {selectedSceneId && selectedSceneId in projectSnap.scenes ? (
-        startSceneId === selectedSceneId ? (
-          <p className="nodal-palette-start-status">{labels.currentStartScene}</p>
-        ) : (
-          <button
-            type="button"
-            className="nodal-palette-btn-secondary nodal-palette-set-start"
-            onClick={() => store.getState().setStartScene(selectedSceneId)}
-          >
-            {labels.setAsStartScene}
-          </button>
-        )
-      ) : needStartChoice ? (
-        <p className="nodal-palette-start-hint">{labels.startSceneHint}</p>
-      ) : null}
 
       <h3>{labels.actions}</h3>
       <button type="button" onClick={() => addAction("msg")}>
