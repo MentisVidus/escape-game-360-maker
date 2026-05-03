@@ -1,3 +1,55 @@
+/* C8.4.1 — recherche nœuds */
+.nodal-palette-search {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--palette-border);
+}
+
+.nodal-palette-search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nodal-palette-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--palette-button-border);
+  border-radius: 8px;
+  background: var(--palette-button-bg);
+  color: var(--palette-heading);
+  font: 12px/1.3 Arial, sans-serif;
+}
+
+.nodal-palette-search-nav {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.nodal-palette-search-nav-btn {
+  padding: 4px 8px;
+  border: 1px solid var(--palette-button-border);
+  border-radius: 6px;
+  background: var(--palette-button-bg);
+  color: var(--palette-heading);
+  font: 12px/1 Arial, sans-serif;
+  cursor: pointer;
+}
+
+.nodal-palette-search-nav-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nodal-palette-search-meta {
+  margin-top: 4px;
+  font: 11px/1.2 Arial, sans-serif;
+  color: var(--palette-heading);
+  opacity: 0.85;
+}
+
 .nodal-palette {
   display: flex;
   flex-direction: column;

@@ -19,7 +19,7 @@ import {
   type OnConnect,
   type OnMove,
 } from "@xyflow/react";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
 import {
@@ -66,7 +66,9 @@ import { NodalUiContext } from "./nodalUiContext";
 import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X } from "./nesting/constants";
 import { SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
+import { isEditingContext } from "./keyboard/isEditingContext";
 import { NodePalette } from "./palette/NodePalette";
+import type { NodalSearchFieldHandle } from "./palette/NodalSearchField";
 import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
 import { CoordsOptionsPopup } from "./popups/CoordsOptionsPopup";
 import { ChoiceOptionsPopup } from "./popups/ChoiceOptionsPopup";
@@ -221,7 +223,51 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     store.getState
   );
   const canvasRef = useRef<HTMLDivElement>(null);
+  const nodalSearchFieldRef = useRef<NodalSearchFieldHandle | null>(null);
   const [paletteSelectedSceneId, setPaletteSelectedSceneId] = useState<SceneNodeId | null>(null);
+
+  const anyPopupOpen = useMemo(
+    () =>
+      !!objectEditorSatelliteId ||
+      !!coordsEditorSatelliteId ||
+      !!choiceEditorSatelliteId ||
+      !!mediaEditorMediaId ||
+      !!msgEditorActionId ||
+      !!pickEditorActionId ||
+      !!gotoEditorActionId ||
+      !!reqEditorActionId ||
+      !!pwdEditorActionId ||
+      !!selectorEditorActionId ||
+      globalSettingsHubOpen ||
+      popupThemeCustomizationOpen,
+    [
+      objectEditorSatelliteId,
+      coordsEditorSatelliteId,
+      choiceEditorSatelliteId,
+      mediaEditorMediaId,
+      msgEditorActionId,
+      pickEditorActionId,
+      gotoEditorActionId,
+      reqEditorActionId,
+      pwdEditorActionId,
+      selectorEditorActionId,
+      globalSettingsHubOpen,
+      popupThemeCustomizationOpen,
+    ]
+  );
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (anyPopupOpen) return;
+      if (isEditingContext(e.target)) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key !== "f" && e.key !== "F") return;
+      e.preventDefault();
+      nodalSearchFieldRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [anyPopupOpen]);
 
   useEffect(() => {
     if (!msgEditorActionId) return;
@@ -639,7 +685,12 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       }}
     >
       <div className={layoutClassName} ref={canvasRef}>
-        <NodePalette store={store} canvasRef={canvasRef} selectedSceneId={paletteSelectedSceneId} />
+        <NodePalette
+          store={store}
+          canvasRef={canvasRef}
+          selectedSceneId={paletteSelectedSceneId}
+          searchFieldRef={nodalSearchFieldRef}
+        />
         <div className="nodal-canvas-pane">
         <button
           type="button"

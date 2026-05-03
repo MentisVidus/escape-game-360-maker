@@ -4638,6 +4638,15 @@ questions ouvertes, captures pertinentes.)
     [js/editor-en-generate.js](js/editor-en-generate.js) : `firstSceneId` /
     `initialSceneId` = `project.startSceneId` si présent dans la liste des
     scènes, sinon première scène (ordre DOM / tableau).
+- 2026-05-02 — **C8.4.1 livré** — recherche nœud (palette + Ctrl+F) :
+  - Helper [searchNodes.ts](xflow/react/src/view/palette/searchNodes.ts) +
+    [NodalSearchField.tsx](xflow/react/src/view/palette/NodalSearchField.tsx)
+    en tête de palette ; compteur k/N, ◀ ▶, Entrée / Maj+Entrée ;
+    `fitView` + sélection nœud cible.
+  - [isEditingContext.ts](xflow/react/src/view/keyboard/isEditingContext.ts) +
+    raccourci **Ctrl+F** / **Cmd+F** dans `NodalCanvas` (désactivé si popup
+    ou contexte édition).
+  - Tests : `searchNodes.test.ts`.
 - 2026-05-XX — **Cadrage C8.4 / C8.2 / C8.5 / C8.6 — réponses utilisateur**.
   Décisions clés pour la suite des chantiers C8 :
   - **C8.4** (recherche de nœud) : palette latérale + champ Ctrl+F + champs

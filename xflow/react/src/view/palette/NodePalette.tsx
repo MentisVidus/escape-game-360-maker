@@ -1,5 +1,6 @@
 import { useReactFlow } from "@xyflow/react";
 import type { RefObject } from "react";
+import type { NodalSearchFieldHandle } from "./NodalSearchField";
 import { useCallback, useSyncExternalStore } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
@@ -8,6 +9,7 @@ import type { ActionNode, MediaNode, SceneNode } from "../../model/nodes";
 import { stableSceneNodeIdFromExternal } from "../../serialize/fromProjectJson";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
 import { useNodalUi } from "../nodalUiContext";
+import { NodalSearchField } from "./NodalSearchField";
 import "./palette.css";
 
 let counter = 0;
@@ -18,6 +20,8 @@ type PaletteProps = {
   canvasRef: RefObject<HTMLDivElement | null>;
   /** Une seule scène sélectionnée sur la carte (C8.3). */
   selectedSceneId: SceneNodeId | null;
+  /** C8.4.1 — focus depuis Ctrl+F dans `NodalCanvas`. */
+  searchFieldRef: RefObject<NodalSearchFieldHandle | null>;
 };
 
 function paletteLocale(): "fr" | "en" {
@@ -29,7 +33,7 @@ function nodalChrome() {
   return typeof window !== "undefined" ? window.__escape360NodalChrome : undefined;
 }
 
-export function NodePalette({ store, canvasRef, selectedSceneId }: PaletteProps) {
+export function NodePalette({ store, canvasRef, selectedSceneId, searchFieldRef }: PaletteProps) {
   const reactFlow = useReactFlow();
   const ui = useNodalUi();
   const L = paletteLocale();
@@ -171,6 +175,7 @@ export function NodePalette({ store, canvasRef, selectedSceneId }: PaletteProps)
 
   return (
     <aside className="nodal-palette">
+      <NodalSearchField ref={searchFieldRef} store={store} locale={L} />
       <button type="button" className="nodal-palette-gear" onClick={openSettingsHub} title={labels.settings}>
         <span className="nodal-palette-gear-icon" aria-hidden>
           ⚙
