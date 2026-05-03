@@ -303,7 +303,9 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         const nextD = merged.data as NodalRFData;
         if (
           prevD?.collapsed !== nextD?.collapsed ||
-          prevD?.synthGotoTargetCount !== nextD?.synthGotoTargetCount
+          prevD?.synthGotoTargetCount !== nextD?.synthGotoTargetCount ||
+          prevD?.containerCollapsed !== nextD?.containerCollapsed ||
+          prevD?.sceneBoxSynthGotoTargetCount !== nextD?.sceneBoxSynthGotoTargetCount
         ) {
           nodesToUpdate.push(merged.id);
         }

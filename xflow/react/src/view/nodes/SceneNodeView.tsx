@@ -1,4 +1,4 @@
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, Position, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
 import { useEffect, useState, type KeyboardEvent, type MouseEvent } from "react";
 
 import type { SceneBoxNodeId, SceneNodeId } from "../../model/ids";
@@ -32,6 +32,11 @@ export function SceneNodeView({ data }: NodeProps) {
   useEffect(() => {
     setTitleDraft(node.label);
   }, [node.label, node.id]);
+
+  /** RF ne mesure pas les handles montés/démontés sans recalcul (arêtes synth-goto-out). */
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, updateNodeInternals, showSynthGotoOut, hideFlowOut]);
 
   const toggleSBoxCollapsed = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
