@@ -14,17 +14,19 @@ export function NodalContextMenu({ items, position, onSelect, onClose }: Props) 
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onDown = (e: MouseEvent) => {
+    /* Capture : React Flow stoppe souvent le bubbling du clic gauche sur le canvas — sans capture,
+     * le `mousedown` n’atteint pas `document` et le menu reste ouvert. */
+    const onPointerDown = (e: PointerEvent) => {
       if (ref.current?.contains(e.target as Node)) return;
       onClose();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
-    document.addEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("pointerdown", onPointerDown, true);
       document.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
