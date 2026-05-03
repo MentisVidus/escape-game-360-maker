@@ -43,6 +43,8 @@ export type NodalRFData = {
   sceneBoxActionCount?: number;
   /** Cibles goto externes agrégées quand le s-box est replié (handle synth sur la scène). */
   sceneBoxSynthGotoTargetCount?: number;
+  /** Scène de départ joueur (`meta.startSceneId` ↔ `startSceneId` projet, C8.3). */
+  isStartScene?: boolean;
 };
 
 function getCollapsedSelectorIds(state: NodalProject): Set<AnyNodeId> {
@@ -297,6 +299,7 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
         containerCollapsed,
         sceneBoxActionCount: actionUnderSbox,
         sceneBoxSynthGotoTargetCount: sceneSynthCount,
+        isStartScene: state.meta.startSceneId === scene.id,
       },
     });
   }

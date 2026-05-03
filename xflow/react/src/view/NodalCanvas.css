@@ -52,6 +52,12 @@
   --sbox-collapsed-opacity: 0.86;
   --sbox-empty-bg: color-mix(in srgb, var(--sbox-frame-bg) 55%, transparent);
   --sbox-empty-border: color-mix(in srgb, var(--sbox-frame-border) 42%, transparent);
+
+  /* C8.3 — scène de départ (distinct du vert scène) */
+  --node-start-scene-ring: rgba(217, 119, 6, 0.38);
+  --node-start-badge-bg: #fef3c7;
+  --node-start-badge-border: #d97706;
+  --node-start-badge-text: #92400e;
 }
 
 .nodal-canvas-layout.dark-mode {
@@ -99,6 +105,11 @@
   --sbox-collapsed-opacity: 0.82;
   --sbox-empty-bg: color-mix(in srgb, var(--sbox-frame-bg) 48%, transparent);
   --sbox-empty-border: color-mix(in srgb, var(--sbox-frame-border) 38%, transparent);
+
+  --node-start-scene-ring: rgba(245, 158, 11, 0.42);
+  --node-start-badge-bg: #422006;
+  --node-start-badge-border: #f59e0b;
+  --node-start-badge-text: #fde68a;
 }
 
 .nodal-canvas-pane {

@@ -332,6 +332,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     state.satellites,
     state.media,
     state.layout,
+    state.meta.startSceneId,
     setRfNodes,
     updateNodeInternals,
   ]);

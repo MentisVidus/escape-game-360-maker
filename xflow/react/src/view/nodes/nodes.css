@@ -37,6 +37,27 @@
   border-color: var(--node-scene-border);
 }
 
+/* C8.3 — indicateur scène de départ (meta.startSceneId) */
+.nodal-node.scene.nodal-node--start-scene {
+  box-shadow:
+    var(--node-shadow),
+    0 0 0 2px var(--node-start-scene-ring, rgba(217, 119, 6, 0.35));
+}
+
+.nodal-node-start-badge {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--node-start-badge-border, #d97706);
+  background: var(--node-start-badge-bg, #fef3c7);
+  color: var(--node-start-badge-text, #92400e);
+  font: 600 9px/1.2 Arial, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
 .nodal-node.scene.nodal-node--scene-sbox-collapsed {
   opacity: 0.95;
 }

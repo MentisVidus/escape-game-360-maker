@@ -3401,3 +3401,9 @@ questions ouvertes, captures pertinentes.)
     en tête de boucle d’overlap (complément au filtre `live.sceneBoxes`).
   - Reports inchangés : multi-meta satellite, copie / bibliothèque media
     (cf. journal 1.b.5 et §7).
+- 2026-05-02 — **C8.3 livré** — indicateur scène de départ sur la carte nodale :
+  - Projection : `isStartScene` (`meta.startSceneId === scene.id`, aligné sur
+    `startSceneId` JSON projet / `firstScene` côté doc).
+  - UI : badge « Départ » + anneau ambre (`--node-start-*` clair/sombre) ;
+    `startSceneId` invalide / absent : aucun badge (warnings existants inchangés).
+  - Sync RF : dépendance `state.meta.startSceneId` sur l’effet Zustand → nodes.

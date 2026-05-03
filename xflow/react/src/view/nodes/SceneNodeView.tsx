@@ -27,6 +27,7 @@ export function SceneNodeView({ id, data }: NodeProps) {
   const synthGotoCount = rf.sceneBoxSynthGotoTargetCount ?? 0;
   const showSynthGotoOut = containerCollapsed && synthGotoCount > 0;
   const hideFlowOut = containerCollapsed;
+  const isStartScene = !!rf.isStartScene;
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(node.label);
 
@@ -76,9 +77,14 @@ export function SceneNodeView({ id, data }: NodeProps) {
 
   return (
     <div
-      className={`nodal-node scene${containerCollapsed ? " nodal-node--scene-sbox-collapsed" : ""}`}
+      className={`nodal-node scene${containerCollapsed ? " nodal-node--scene-sbox-collapsed" : ""}${isStartScene ? " nodal-node--start-scene" : ""}`}
       onClick={startEditingTitle}
     >
+      {isStartScene ? (
+        <span className="nodal-node-start-badge" title="Scène de départ (joueur)" role="status">
+          Départ
+        </span>
+      ) : null}
       {editingTitle ? (
         <input
           className="nodal-node-title-input"
