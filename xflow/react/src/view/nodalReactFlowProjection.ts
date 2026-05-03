@@ -39,7 +39,7 @@ export type NodalRFData = {
   label?: string;
   /** S-box parent replié (1.b.3) — chevron / sous-titre / handles sur la scène. */
   containerCollapsed?: boolean;
-  /** Nombre d’actions dans le sous-arbre du s-box (hors nœud scène) — chevron si ≥ 1. */
+  /** Nombre d’actions dans le sous-arbre du s-box (hors nœud scène) — chevron scène si ≥ 1 ; style s-box vide si 0. */
   sceneBoxActionCount?: number;
   /** Cibles goto externes agrégées quand le s-box est replié (handle synth sur la scène). */
   sceneBoxSynthGotoTargetCount?: number;
@@ -262,6 +262,7 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
     if (!bl) continue;
     const scene = state.scenes[box.sceneId];
     const bounds = computeContainerBounds(state, box.id, { excludeIds: hiddenIds });
+    const actionUnderSbox = countActionsUnderSBox(state, box.id, childrenByParent);
     nodes.push({
       id: box.id,
       type: "sceneBoxNode",
@@ -271,6 +272,7 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
         node: box,
         label: scene?.label,
         collapsed: !!bl.collapsed,
+        sceneBoxActionCount: actionUnderSbox,
       },
       style: { width: bounds.width, height: bounds.height },
     });

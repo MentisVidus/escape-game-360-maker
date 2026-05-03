@@ -56,15 +56,15 @@
   pointer-events: none !important;
 }
 
-/* C8.1.b.2.x — groupe RF auto (s-box), dimensions depuis la projection */
+/* C8.1.b.2.x — groupe RF auto (s-box), dimensions depuis la projection ; tokens --sbox-* (1.b.4) */
 .nodal-node-sbox {
   position: relative;
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  background: color-mix(in srgb, var(--node-scene-bg) 60%, transparent);
-  border: 2px solid var(--node-scene-border);
-  border-radius: 12px;
+  background: var(--sbox-frame-bg, color-mix(in srgb, var(--node-scene-bg) 60%, transparent));
+  border: var(--sbox-frame-border-width, 2px) solid var(--sbox-frame-border, var(--node-scene-border));
+  border-radius: var(--sbox-frame-radius, 12px);
   pointer-events: all;
 }
 
@@ -74,7 +74,7 @@
   top: 4px;
   font-size: 10px;
   font-weight: 600;
-  opacity: 0.65;
+  opacity: var(--sbox-label-opacity, 0.65);
   pointer-events: none;
   max-width: calc(100% - 16px);
   overflow: hidden;
@@ -83,8 +83,17 @@
 }
 
 .nodal-node-sbox--collapsed {
-  opacity: 0.88;
-  border-color: color-mix(in srgb, var(--node-scene-border) 70%, transparent);
+  background: var(--sbox-collapsed-bg, color-mix(in srgb, var(--node-scene-bg) 45%, transparent));
+  border-color: var(--sbox-collapsed-border, color-mix(in srgb, var(--node-scene-border) 58%, transparent));
+  opacity: var(--sbox-collapsed-opacity, 0.86);
+}
+
+/* Scène sans actions hotspot : cadre discret (1.b.4) */
+.nodal-node-sbox--empty:not(.nodal-node-sbox--collapsed) {
+  background: var(--sbox-empty-bg, var(--sbox-frame-bg));
+  border-style: dashed;
+  border-color: var(--sbox-empty-border, var(--sbox-frame-border));
+  border-width: 1px;
 }
 
 .nodal-node.action {

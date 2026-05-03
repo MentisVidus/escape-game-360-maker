@@ -2804,6 +2804,290 @@ perdue → un repli ultérieur ne fait pas de rewind. Acceptable
 - Smoke : dépli A déplace B ; user drag B ailleurs ; repli A →
   B reste là où l'utilisateur l'a mise.
 
+##### Étape 1.b.6-fix — Origin protection, push +x/+y only, drag-collision
+
+> Suite au commit `8c61a52` (1.b.6 livrée), trois bugs structurels
+> identifiés au smoke utilisateur. Quatre issues remontées, trois
+> à corriger ici (la 4ᵉ est une limite acceptable de la phase 2
+> mémoire, documentée plus bas).
+
+**BUG 1 — La scène dépliée bouge elle-même au lieu de pousser les voisines**
+
+*Cause* : la double boucle dans
+[`sboxCollision.ts:91-121`](xflow/react/src/view/nesting/sboxCollision.ts#L91-L121)
+ignore le paramètre `_originId` (préfixe `_` = unused) et itère
+sur toutes les paires `(i, j)` avec `i < j`, en poussant
+**toujours `idB`**. Si l'origine est triée alphabétiquement après
+sa voisine, c'est l'origine qui se fait pousser → la scène dépliée
+se retrouve déplacée à la place de la voisine.
+
+**BUG 2 — Push parfois vers la gauche / le haut**
+
+*Cause* : `computeMinPushSeparation` choisit l'axe du chevauchement
+le plus court ET la direction qui éloigne du centre de l'ancre :
+```ts
+sepX = (overlapX + gap) * (bcx >= acx ? 1 : -1);
+```
+Pour une s-box à gauche de l'origine, `bcx < acx` → `sepX < 0` →
+push à gauche. Conséquence visuelle : l'edge `goto` qui pointait
+de gauche-à-droite (sens du flux) repart en arrière.
+
+**Observation clé** : un s-box ne grandit jamais vers le haut ou
+la gauche au dépli — son point d'ancrage `(layout.x, layout.y)`
+reste fixe, seules `width` / `height` augmentent. Donc une s-box
+*originellement* à gauche ou au-dessus de l'origine **ne peut pas**
+soudainement chevaucher l'origine par effet du dépli. Seules les
+s-box à droite ou en-dessous sont concernées par le chevauchement
+au dépli. **Restreindre le push à +x / +y est donc mathématiquement
+correct dans ce cas.**
+
+**BUG 3 — Pas de résolution au drag d'une s-box**
+
+*Cause* : l'appel à `resolveSBoxOverlapsAfterUnfold` n'est branché
+que dans `toggleNodeCollapsed` (transition `collapsed: true →
+false`). Drag d'une s-box ne déclenche aucune vérification → l'utilisateur
+peut superposer manuellement, et le système ne corrige pas.
+
+**LIMITE acceptée — Mémoire de rewind fragile entre opérations**
+
+La trace de `sceneBoxOverlapMemory` est figée au moment du dépli.
+Si l'utilisateur déplie A, déplie B (qui à son tour pousse les
+mêmes voisines), drag manuellement, etc., les `from` mémorisées de
+A ne reflètent plus le contexte au moment du repli ; le rewind ne
+restaure parfois pas les positions « initiales » attendues.
+
+**Décision** : limite documentée mais non corrigée à ce stade.
+Coût d'une correction propre = importante (graph d'historique avec
+invalidation) ; bénéfice = marginal pour le workflow utilisateur.
+À reconsidérer plus tard si le cas devient bloquant.
+
+**Directive** :
+
+1. **Fix BUG 1 — utiliser réellement `originId`**
+   ([sboxCollision.ts](xflow/react/src/view/nesting/sboxCollision.ts)) :
+
+   Remplacer la double boucle par une boucle origin-centrique.
+   L'origine est **toujours** l'ancre fixe ; les autres sont
+   poussées :
+
+   ```ts
+   export function resolveSBoxOverlapsAfterChange(
+     state: NodalProject,
+     originId: SceneBoxNodeId,
+     maxIter = 5
+   ): SBoxDisplacement[] {
+     const trace: SBoxDisplacement[] = [];
+
+     for (let iter = 0; iter < maxIter; iter++) {
+       let moved = false;
+       const originRect = sboxWorldRect(state, originId);
+       if (!originRect) break;
+
+       for (const otherId of Object.keys(state.sceneBoxes) as SceneBoxNodeId[]) {
+         if (otherId === originId) continue;
+         const otherRect = sboxWorldRect(state, otherId);
+         if (!otherRect || !rectsNeedSeparation(originRect, otherRect)) continue;
+
+         const push = computeRightDownPush(originRect, otherRect); // cf. point 2
+         if (push.dx === 0 && push.dy === 0) continue;
+
+         const lo = state.layout[otherId];
+         if (!lo) continue;
+         const from = { x: lo.x, y: lo.y };
+         const to = { x: lo.x + push.dx, y: lo.y + push.dy };
+         trace.push({ id: otherId, from, to });
+         state.layout[otherId] = { ...lo, x: to.x, y: to.y };
+         moved = true;
+       }
+
+       // Cascade : après le push initial, deux s-box non-origine
+       // peuvent se chevaucher entre elles. Les itérations suivantes
+       // résolvent ces overlaps en traitant la s-box la plus proche
+       // de l'origine (en min(x+y) depuis (originRect.x, originRect.y))
+       // comme nouvelle ancre temporaire.
+       if (!moved) break;
+       resolveCascadeOverlaps(state, originRect, trace); // cf. helper en point 4
+     }
+
+     return trace;
+   }
+   ```
+
+   Renommer la fonction de `resolveSBoxOverlapsAfterUnfold` →
+   `resolveSBoxOverlapsAfterChange` (générique : sert au dépli ET
+   au drag).
+
+2. **Fix BUG 2 — `computeRightDownPush` (push +x / +y uniquement)**
+   ([sboxCollision.ts](xflow/react/src/view/nesting/sboxCollision.ts)) :
+
+   Remplacer `computeMinPushSeparation` (ou ajouter une variante)
+   par une fonction qui ne renvoie que des déplacements positifs.
+   Quand `other` est à droite de `anchor` (overlap horizontal),
+   pousser à droite. Quand `other` est en-dessous (overlap
+   vertical), pousser en bas. Choisir l'axe avec le plus petit
+   déplacement (parmi les deux options non-négatives).
+
+   ```ts
+   export function computeRightDownPush(
+     anchor: SBoxRect,
+     other: SBoxRect,
+     gap: number = SBOX_GAP
+   ): { dx: number; dy: number } {
+     // dx pour pousser `other` à droite de `anchor` : other.x ≥ anchor.right + gap
+     const targetX = anchor.x + anchor.width + gap;
+     const dxRight = Math.max(0, targetX - other.x);
+
+     // dy pour pousser `other` sous `anchor` : other.y ≥ anchor.bottom + gap
+     const targetY = anchor.y + anchor.height + gap;
+     const dyDown = Math.max(0, targetY - other.y);
+
+     // Choisir l'axe au plus petit déplacement non-nul (le moins intrusif).
+     if (dxRight === 0 && dyDown === 0) return { dx: 0, dy: 0 };
+     if (dxRight === 0) return { dx: 0, dy: dyDown };
+     if (dyDown === 0) return { dx: dxRight, dy: 0 };
+     return dxRight <= dyDown ? { dx: dxRight, dy: 0 } : { dx: 0, dy: dyDown };
+   }
+   ```
+
+   *Justification du choix d'axe* : si la s-box est essentiellement
+   à droite de l'origine mais déborde un peu en bas, on la pousse
+   à droite (moins intrusif que la pousser bien plus bas). Et
+   inversement.
+
+   ⚠️ **Garde-fou** : si la s-box `other` est *à gauche* de
+   l'origine ET *au-dessus*, `dxRight` et `dyDown` peuvent être
+   énormes (la pousser de l'autre côté). Dans ce cas — qui ne
+   devrait pas arriver vu l'observation ci-dessus — préférer ne
+   rien faire (return `{ dx: 0, dy: 0 }`) et laisser un warning
+   console. Concrètement :
+   ```ts
+   const isLeftOfAnchor = other.x + other.width <= anchor.x;
+   const isAboveAnchor  = other.y + other.height <= anchor.y;
+   if (isLeftOfAnchor && isAboveAnchor) {
+     console.warn("[computeRightDownPush] other diagonalement avant anchor — push ignoré (cas inattendu post-dépli)");
+     return { dx: 0, dy: 0 };
+   }
+   ```
+
+3. **Fix BUG 3 — Drag-collision sur s-box**
+   ([view/NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx)
+   `onNodeDragStop`) :
+
+   - Ajouter une branche en début de la fonction (ou dans la
+     branche existante des sceneBoxes si elle existe) :
+     ```ts
+     if (draggedNode.id in live.sceneBoxes) {
+       // Le s-box dragué devient l'ancre temporaire ; les voisines
+       // qu'il chevauche désormais sont poussées +x/+y.
+       store.getState().resolveSBoxOverlapsAfterChange(draggedNode.id as SceneBoxNodeId);
+       return;
+     }
+     ```
+   - Exposer la méthode `resolveSBoxOverlapsAfterChange` sur le
+     store (équivalent du `toggleNodeCollapsed` / `reanchorSBox`)
+     pour qu'elle soit appelable depuis le composant.
+
+   *Note* : la mémoire `sceneBoxOverlapMemory` reste alimentée par
+   la trace retournée — au cas où l'utilisateur veut « rewinder »
+   son drag (peu utile en pratique, mais pas faux).
+
+   *Edge case* : drag d'un s-box vide (sans aucun descendant
+   visible). Bypass : si `state.sceneBoxes[id]` existe sans aucun
+   enfant visible, ne pas résoudre.
+
+4. **Cascade — helper `resolveCascadeOverlaps`** :
+
+   Après la résolution origin-centrique, les s-box poussées
+   peuvent désormais se chevaucher entre elles. Boucler une fois
+   sur les paires non-origine et résoudre en utilisant la **plus
+   proche de l'origine** comme ancre temporaire :
+
+   ```ts
+   function resolveCascadeOverlaps(
+     state: NodalProject,
+     originRect: SBoxRect,
+     trace: SBoxDisplacement[]
+   ): void {
+     const allIds = Object.keys(state.sceneBoxes) as SceneBoxNodeId[];
+     // distance Manhattan au coin top-left de l'origine, pour ordonner par proximité
+     const distFromOrigin = (id: SceneBoxNodeId): number => {
+       const lo = state.layout[id];
+       if (!lo) return Infinity;
+       return Math.abs(lo.x - originRect.x) + Math.abs(lo.y - originRect.y);
+     };
+     const sorted = [...allIds].sort((a, b) => distFromOrigin(a) - distFromOrigin(b));
+
+     for (let i = 0; i < sorted.length; i++) {
+       for (let j = i + 1; j < sorted.length; j++) {
+         const anchorId = sorted[i]!;
+         const otherId  = sorted[j]!;
+         const ra = sboxWorldRect(state, anchorId);
+         const rb = sboxWorldRect(state, otherId);
+         if (!ra || !rb || !rectsNeedSeparation(ra, rb)) continue;
+         const push = computeRightDownPush(ra, rb);
+         if (push.dx === 0 && push.dy === 0) continue;
+         const lo = state.layout[otherId];
+         if (!lo) continue;
+         const from = { x: lo.x, y: lo.y };
+         const to = { x: lo.x + push.dx, y: lo.y + push.dy };
+         trace.push({ id: otherId, from, to });
+         state.layout[otherId] = { ...lo, x: to.x, y: to.y };
+       }
+     }
+   }
+   ```
+
+   La cascade est ainsi traitée en respectant le « sens du flux »
+   (la s-box la plus proche de l'origine est toujours l'ancre).
+
+5. **Branchements à mettre à jour** dans `nodalProjectStore.ts` :
+
+   - Renommer / remplacer l'appel actuel à
+     `resolveSBoxOverlapsAfterUnfold` par
+     `resolveSBoxOverlapsAfterChange`.
+   - Ajouter la nouvelle méthode publique
+     `resolveSBoxOverlapsAfterChange(sboxId)` exposée pour usage
+     depuis NodalCanvas (drag).
+   - Le rewind au repli reste sur `rewindSBoxOverlapPushes`
+     (inchangé).
+
+6. **Tests** — étendre `sboxCollision.test.ts` :
+
+   - **`computeRightDownPush`** :
+     - other à droite : push +x.
+     - other en-dessous : push +y.
+     - other à droite ET en-dessous, dx < dy : push +x.
+     - other à gauche-au-dessus (cas pathologique) : push (0, 0)
+       avec warning.
+   - **`resolveSBoxOverlapsAfterChange`** :
+     - L'origine ne bouge **jamais** (assertion explicite sur
+       `state.layout[originId].{x,y}` invariant).
+     - Une s-box à droite de l'origine se fait pousser +x.
+     - Une s-box en-dessous de l'origine se fait pousser +y.
+     - Cascade : 3 s-box en ligne, dépli de la première pousse les
+       deux autres (la 3ᵉ est poussée par la 2ᵉ devenue ancre
+       temporaire).
+   - **Drag-collision** (test d'intégration) :
+     - Drag d'un s-box sur un autre → l'autre est poussé +x/+y.
+     - Drag d'un s-box dans une zone libre → rien ne bouge.
+
+**Critère de fin** :
+
+- Smoke : déplier une scène A située à gauche d'une scène B → B
+  poussée à droite, A inchangée, edge goto A→B reste de gauche à
+  droite.
+- Smoke : déplier une scène A située en haut d'une scène B → B
+  poussée en bas, A inchangée.
+- Smoke : déplier une scène A entourée par 2 voisines → les deux
+  voisines poussées +x/+y, A inchangée, ordonnancement vertical /
+  horizontal préservé.
+- Smoke : drag manuel d'une s-box pour la rapprocher d'une autre
+  → l'autre se décale automatiquement, sans superposition.
+- Smoke (limite documentée — ne pas régresser malgré tout) :
+  cycle dépli/drag/dépli/repli → la mémoire trace peut ne pas
+  rewinder parfaitement, mais aucune position n'est cassée.
+- Vitest vert (suite + nouveaux cas).
+
 ##### Étape 1.b.4 — Polish + meta/satellites (étape finale)
 
 > Adapté pour le modèle s-box (étape 1.b.2.x). **Vient après 1.b.5
@@ -3067,3 +3351,53 @@ questions ouvertes, captures pertinentes.)
     pour rejouer en sens inverse au repli, avec garde
     « l'utilisateur n'a pas bougé la s-box manuellement »
     (epsilon = 5 px).
+- 2026-05-XX — **1.b.6 livrée (commit `8c61a52`), 4 issues au smoke
+  utilisateur**. Anti-collision globalement fonctionnelle mais avec
+  défauts structurels :
+  - **BUG 1** : la scène dépliée bouge elle-même au lieu de pousser
+    ses voisines. Cause : la double boucle `for (i, j) i<j` ignore
+    `_originId` (préfixe `_`) ; selon le tri alphabétique des IDs,
+    l'origine peut se retrouver en position « victime ».
+  - **BUG 2** : push parfois vers la gauche / le haut (s-box voisine
+    poussée *avant* l'origine dans le flux), créant des edges qui
+    repartent en arrière. Cause : `computeMinPushSeparation` permet
+    `dx`/`dy` négatifs (direction « hors centre de l'ancre »).
+  - **BUG 3** : aucun anti-collision quand l'utilisateur drag une
+    s-box (vérification appelée uniquement au dépli).
+  - **LIMITE 4** (acceptée, non corrigée) : la mémoire de rewind
+    se base uniquement sur la trace du **dernier** dépli ; les
+    drags manuels et dépliages successifs entre temps peuvent la
+    rendre obsolète. Documenté comme limite connue.
+  Plan correctif sous **Étape 1.b.6-fix** :
+  - Réécriture de `resolveSBoxOverlaps*` en boucle origin-centrique
+    (l'origine est toujours l'ancre fixe, jamais déplacée).
+  - Remplacement de `computeMinPushSeparation` par
+    `computeRightDownPush` (push +x / +y uniquement, axe au plus
+    petit déplacement non-nul).
+  - Cascade gérée par un helper `resolveCascadeOverlaps` qui prend
+    la s-box la plus proche de l'origine (Manhattan) comme nouvelle
+    ancre temporaire.
+  - Branchement drag-collision dans `onNodeDragStop` pour les
+    s-box draguées (l'utilisateur l'a déplacée → c'est elle
+    l'ancre).
+  - Tests unitaires renforcés (assertion explicite « origine ne
+    bouge jamais »).
+  Justification du **+x / +y only** : un s-box ne grandit jamais
+  vers le haut ou la gauche au dépli (son point d'ancrage `(x, y)`
+  est fixe, seules `width` / `height` augmentent). Donc une s-box
+  *originellement* à gauche ou au-dessus de l'origine ne peut pas
+  soudainement chevaucher l'origine du fait du dépli — restreindre
+  le push à +x / +y est mathématiquement correct.
+- 2026-05-02 — **C8.1.b étape 1.b.4 livrée** (polish s-box / meta inchangé) :
+  - Tokens CSS `--sbox-*` (clair / sombre) dans `NodalCanvas.css`, consommés
+    par `nodes.css` pour le cadre s-box ; état `--collapsed` plus discret
+    (fond / bordure / opacité via variables).
+  - s-box sans action sous-arbre : `sceneBoxActionCount` aussi sur le nœud
+    `sceneBoxNode` ; classe `nodal-node-sbox--empty` + bordure pointillée
+    atténuée (hors repli, pour ne pas doubler avec `--collapsed`).
+  - Nœud scène : sous-titre « N action(s) masquée(s) » uniquement si
+    `actionCount > 0` (évite « 0 action masquée » si état replié résiduel).
+  - `onNodeDragStop` : garde explicite `candidate.type === 'sceneBoxNode'`
+    en tête de boucle d’overlap (complément au filtre `live.sceneBoxes`).
+  - Reports inchangés : multi-meta satellite, copie / bibliothèque media
+    (cf. journal 1.b.5 et §7).

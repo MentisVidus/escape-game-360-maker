@@ -305,7 +305,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           prevD?.collapsed !== nextD?.collapsed ||
           prevD?.synthGotoTargetCount !== nextD?.synthGotoTargetCount ||
           prevD?.containerCollapsed !== nextD?.containerCollapsed ||
-          prevD?.sceneBoxSynthGotoTargetCount !== nextD?.sceneBoxSynthGotoTargetCount
+          prevD?.sceneBoxSynthGotoTargetCount !== nextD?.sceneBoxSynthGotoTargetCount ||
+          prevD?.sceneBoxActionCount !== nextD?.sceneBoxActionCount
         ) {
           nodesToUpdate.push(merged.id);
         }
@@ -456,6 +457,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
       for (const candidate of allNodes) {
         if (candidate.id === draggedNode.id) continue;
+        if (candidate.type === "sceneBoxNode") continue;
         if (candidate.id in live.sceneBoxes) continue;
         const candidateAction = live.actions[candidate.id as keyof typeof live.actions];
         if (!candidateAction) continue;

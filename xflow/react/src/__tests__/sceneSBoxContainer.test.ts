@@ -375,4 +375,24 @@ describe("C8.1.b.2.x — s-box (conteneur groupe) + hotspots sous le s-box", () 
     expect(serialized.collapsed[bid]).toBe(true);
     expect(serialized.nodalSceneBoxLayoutByExternalId?.[scene.sceneId]?.collapsed).toBe(true);
   });
+
+  it("1.b.4 : scène seule — s-box et scène exposent sceneBoxActionCount 0 (polish / chevron absent)", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-only"),
+      nodeType: "scene",
+      sceneId: "ext-only",
+      label: "Seule",
+      panoramaUrl: "",
+    };
+    const store = createNodalProjectStore();
+    store.getState().addScene(scene, { x: 0, y: 0 });
+    const st = store.getState();
+    const bid = sboxIdFromScene(scene.id);
+    const nodes = toReactFlowNodes(st);
+    const boxRf = nodes.find((n) => n.id === bid);
+    const sceneRf = nodes.find((n) => n.id === scene.id);
+    expect(boxRf?.type).toBe("sceneBoxNode");
+    expect((boxRf?.data as { sceneBoxActionCount?: number }).sceneBoxActionCount).toBe(0);
+    expect((sceneRf?.data as { sceneBoxActionCount?: number }).sceneBoxActionCount).toBe(0);
+  });
 });

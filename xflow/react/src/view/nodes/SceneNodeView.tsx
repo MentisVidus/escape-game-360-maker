@@ -106,7 +106,7 @@ export function SceneNodeView({ id, data }: NodeProps) {
           {containerCollapsed ? "▸" : "▾"}
         </button>
       ) : null}
-      {containerCollapsed ? (
+      {containerCollapsed && actionCount > 0 ? (
         <div className="subtitle nodal-scene-sbox-collapsed-count">
           Scène — {actionCount} {actionCount > 1 ? "actions masquées" : "action masquée"}
         </div>
