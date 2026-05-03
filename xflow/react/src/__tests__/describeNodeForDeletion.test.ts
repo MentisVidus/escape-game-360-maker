@@ -8,6 +8,7 @@ import {
   filterRfDeletionRoots,
   orderedDeleteChainForStoreNode,
 } from "../view/deletion/describeNodeForDeletion";
+import { absoluteFlowPositionInPane } from "../view/nesting/containerBounds";
 
 const sfx = { url: "", volume: 1 };
 const visibility = { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true };
@@ -250,6 +251,56 @@ describe("describeNodeForDeletion (C8.2.2)", () => {
     const after = store.getState();
     expect(after.actions[rewardId]).toBeDefined();
     expect(after.layout[rewardId]?.parentId).toBeNull();
+  });
+
+  it("suppression REQ parent d’un enfant : position absolue conservée (comme détacher)", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-abs"),
+      nodeType: "scene",
+      sceneId: "ext-abs",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const req2 = asActionNodeId("req-abs2");
+    const msg = asActionNodeId("msg-abs");
+    const store = createNodalProjectStore();
+    const s = store.getState();
+    s.addScene(scene, { x: 0, y: 0 });
+    s.addAction(
+      {
+        id: req2,
+        nodeType: "action",
+        actionType: "req",
+        label: "R2",
+        payload: { itemId: "b", copy: { bodyHtml: "", buttonLabel: "" } },
+        sfx: { ...sfx },
+        visibility: { ...visibility },
+        rewardActionId: null,
+      },
+      { x: 120, y: 90 }
+    );
+    s.connect({ id: asEdgeId("eab1"), family: "flow", sourceId: scene.id, targetId: req2 });
+    s.addAction(
+      {
+        id: msg,
+        nodeType: "action",
+        actionType: "msg",
+        label: "M",
+        payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+        sfx: { ...sfx },
+        visibility: { ...visibility },
+      },
+      { x: 15, y: 25 }
+    );
+    s.attachChild(req2, msg);
+    const before = store.getState();
+    const absMsg = absoluteFlowPositionInPane(before, msg);
+    s.removeNode(req2);
+    const after = store.getState();
+    expect(after.actions[msg]).toBeDefined();
+    expect(after.layout[msg]?.parentId).toBeNull();
+    expect(after.layout[msg]?.x).toBeCloseTo(absMsg.x, 5);
+    expect(after.layout[msg]?.y).toBeCloseTo(absMsg.y, 5);
   });
 
   it("orderedDeleteChainForStoreNode : scène inclut les actions avant la scène", () => {

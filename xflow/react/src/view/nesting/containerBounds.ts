@@ -51,6 +51,21 @@ function nodeMeasuredSize(state: NodalProject, nodeId: AnyNodeId): { width: numb
  * Coin supérieur gauche du nœud `nodeId` en coordonnées relatives à `containerId`
  * (somme des `layout.x` / `layout.y` le long de la chaîne `parentId` jusqu’à `containerId`).
  */
+/** Somme des `layout.x` / `layout.y` le long de la chaîne `parentId` jusqu’à la racine — position absolue dans le repère du graphe RF. */
+export function absoluteFlowPositionInPane(state: NodalProject, nodeId: AnyNodeId): { x: number; y: number } {
+  let x = 0;
+  let y = 0;
+  let id: AnyNodeId | null | undefined = nodeId;
+  while (id) {
+    const l = state.layout[id];
+    if (!l) break;
+    x += l.x;
+    y += l.y;
+    id = (l.parentId ?? null) as AnyNodeId | null;
+  }
+  return { x, y };
+}
+
 export function positionRelativeToContainer(
   state: NodalProject,
   nodeId: AnyNodeId,

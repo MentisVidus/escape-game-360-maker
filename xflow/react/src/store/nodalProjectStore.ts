@@ -24,7 +24,7 @@ import {
   readPlayerPopupFieldsFromDom,
   type PlayerPopupTheme,
 } from "../view/popups/playerPopupDomRead";
-import { reanchorSBox as reanchorSBoxLayout } from "../view/nesting/containerBounds";
+import { absoluteFlowPositionInPane, reanchorSBox as reanchorSBoxLayout } from "../view/nesting/containerBounds";
 import type { SBoxDisplacement } from "../view/nesting/sboxCollision";
 import { resolveSBoxOverlapsAfterUnfold, rewindSBoxOverlapPushes } from "../view/nesting/sboxCollision";
 import { attachMediaToMetaSource, detachMediaFromMetaSource } from "./mediaMetaLayout";
@@ -333,13 +333,19 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           detachMediaFromMetaSource(next, e.sourceId, e.targetId as MediaNodeId);
         }
       }
+      // Enfants directs : comme `detachChild` — coords absolues dans le graphe avant de retirer le parent du layout.
+      const directOrphans = (Object.entries(next.layout) as Array<[AnyNodeId, (typeof next.layout)[AnyNodeId]]>).filter(
+        ([, lo]) => lo.parentId === nodeId
+      );
+      for (const [childId, lo] of directOrphans) {
+        if (!lo) continue;
+        const abs = absoluteFlowPositionInPane(next, childId);
+        next.layout[childId] = { ...lo, x: abs.x, y: abs.y, parentId: null };
+      }
       removeNodeFromIndexes(next, nodeId);
       removeRelatedEdges(next, nodeId);
       for (const action of Object.values(next.actions)) {
         if (isReqOrPwd(action) && action.rewardActionId === nodeId) action.rewardActionId = null;
-      }
-      for (const layout of Object.values(next.layout)) {
-        if (layout.parentId === nodeId) layout.parentId = null;
       }
       pruneOrphanSatellites(next);
       reconcileSceneBoxes(next);
