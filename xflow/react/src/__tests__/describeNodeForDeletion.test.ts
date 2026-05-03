@@ -5,25 +5,12 @@ import type { ActionNode, SceneNode } from "../model/nodes";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 import {
   describeNodeForDeletion,
-  filterRfDeletionRoots,
   orderedDeleteChainForStoreNode,
 } from "../view/deletion/describeNodeForDeletion";
 import { absoluteFlowPositionInPane } from "../view/nesting/containerBounds";
 
 const sfx = { url: "", volume: 1 };
 const visibility = { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true };
-
-describe("filterRfDeletionRoots", () => {
-  it("ne garde que la racine si ancêtre présent dans le lot (REQ2>REQ3>MSG)", () => {
-    const deleted = [
-      { id: "req2", parentId: "sceneBox" },
-      { id: "req3", parentId: "req2" },
-      { id: "msg1", parentId: "req3" },
-    ];
-    const roots = filterRfDeletionRoots(deleted);
-    expect(roots.map((r) => r.id)).toEqual(["req2"]);
-  });
-});
 
 describe("describeNodeForDeletion (C8.2.2)", () => {
   it("scène sans action → pas de confirmation", () => {
@@ -137,7 +124,7 @@ describe("describeNodeForDeletion (C8.2.2)", () => {
     expect(d?.body).toMatch(/1 choix/);
   });
 
-  it("REQ avec ou sans récompense → pas de confirmation", () => {
+  it("REQ seul sans enfant layout → pas de confirmation", () => {
     const scene: SceneNode = {
       id: asSceneNodeId("scn-r"),
       nodeType: "scene",
@@ -161,7 +148,16 @@ describe("describeNodeForDeletion (C8.2.2)", () => {
     s.addAction(req, { x: 30, y: 30 });
     s.connect({ id: asEdgeId("er1"), family: "flow", sourceId: scene.id, targetId: req.id });
     expect(describeNodeForDeletion(store.getState(), req.id, "fr")?.needsConfirm).toBe(false);
+  });
 
+  it("REQ avec enfant(s) layout (récompense / chaîne) → confirmation C8.2.2", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-r2"),
+      nodeType: "scene",
+      sceneId: "ext-r2",
+      label: "S",
+      panoramaUrl: "",
+    };
     const reward: ActionNode = {
       id: asActionNodeId("act-rew"),
       nodeType: "action",
@@ -175,15 +171,24 @@ describe("describeNodeForDeletion (C8.2.2)", () => {
     const s2 = store2.getState();
     s2.addScene(scene, { x: 0, y: 0 });
     s2.addAction(
-      { ...req, id: asActionNodeId("act-req2"), rewardActionId: asActionNodeId("act-rew") },
+      {
+        id: asActionNodeId("act-req2"),
+        nodeType: "action",
+        actionType: "req",
+        label: "Besoin",
+        payload: { itemId: "k", copy: { bodyHtml: "", buttonLabel: "" } },
+        sfx: { ...sfx },
+        visibility: { ...visibility },
+        rewardActionId: asActionNodeId("act-rew"),
+      },
       { x: 30, y: 30 }
     );
     s2.addAction(reward, { x: 5, y: 5 });
     s2.connect({ id: asEdgeId("er2"), family: "flow", sourceId: scene.id, targetId: asActionNodeId("act-req2") });
     s2.attachChild(asActionNodeId("act-req2"), asActionNodeId("act-rew"));
-    expect(describeNodeForDeletion(store2.getState(), asActionNodeId("act-req2"), "fr")?.needsConfirm).toBe(
-      false
-    );
+    const d = describeNodeForDeletion(store2.getState(), asActionNodeId("act-req2"), "fr");
+    expect(d?.needsConfirm).toBe(true);
+    expect(d?.body).toMatch(/1 nœud/);
   });
 
   it("msg / goto / pick → pas de confirmation", () => {
@@ -329,5 +334,51 @@ describe("describeNodeForDeletion (C8.2.2)", () => {
     expect(chain[chain.length - 1]).toBe(scene.id);
     expect(chain).toContain(act.id);
     expect(chain.indexOf(act.id)).toBeLessThan(chain.indexOf(scene.id));
+  });
+
+  it("orderedDeleteChainForStoreNode : REQ avec enfant → feuilles puis REQ", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-reqch"),
+      nodeType: "scene",
+      sceneId: "ext-rc",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const reqId = asActionNodeId("act-reqch");
+    const msgId = asActionNodeId("act-msgch");
+    const store = createNodalProjectStore();
+    const s = store.getState();
+    s.addScene(scene, { x: 0, y: 0 });
+    s.addAction(
+      {
+        id: reqId,
+        nodeType: "action",
+        actionType: "req",
+        label: "R",
+        payload: { itemId: "x", copy: { bodyHtml: "", buttonLabel: "" } },
+        sfx: { ...sfx },
+        visibility: { ...visibility },
+        rewardActionId: null,
+      },
+      { x: 10, y: 10 }
+    );
+    s.connect({ id: asEdgeId("erc1"), family: "flow", sourceId: scene.id, targetId: reqId });
+    s.addAction(
+      {
+        id: msgId,
+        nodeType: "action",
+        actionType: "msg",
+        label: "M",
+        payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+        sfx: { ...sfx },
+        visibility: { ...visibility },
+      },
+      { x: 2, y: 2 }
+    );
+    s.attachChild(reqId, msgId);
+    const chain = orderedDeleteChainForStoreNode(store.getState(), reqId);
+    expect(chain[chain.length - 1]).toBe(reqId);
+    expect(chain).toContain(msgId);
+    expect(chain.indexOf(msgId)).toBeLessThan(chain.indexOf(reqId));
   });
 });

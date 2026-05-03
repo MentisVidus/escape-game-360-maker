@@ -4647,17 +4647,19 @@ questions ouvertes, captures pertinentes.)
     **Ctrl+F** / **Cmd+F** branché via [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts)
     (C8.2.1, désactivé si popup ou contexte édition).
   - Tests : `searchNodes.test.ts`.
-- 2026-05-02 — **C8.2.2 livré** — confirmations suppression (scène avec actions, selector avec choix) :
+- 2026-05-02 — **C8.2.2 livré** — confirmations suppression (scène avec actions, selector avec choix,
+  chaîne REQ / PWD avec nœuds imbriqués `layout`) :
   - [describeNodeForDeletion.ts](xflow/react/src/view/deletion/describeNodeForDeletion.ts) :
     `describeNodeForDeletion`, `normalizeDeletionTarget`, `orderedDeleteChainForStoreNode`,
-    `flattenDeleteChains`, `topoDeleteOrder`, **`filterRfDeletionRoots`** ; choix selector = **actions**
-    enfants directes (satellites exclus du compte de confirmation).
+    `flattenDeleteChains`, `topoDeleteOrder` ; choix selector = **actions** enfants directes ;
+    chaîne REQ·PWD = descendants `layout` (actions / médias / satellites).
   - [DeleteConfirmDialog.tsx](xflow/react/src/view/popups/DeleteConfirmDialog.tsx) : focus **Annuler**,
     **Échap** / **Entrée** ; styles `NodalCanvas.css`.
   - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : **`onBeforeDelete`** (API RF v12 — le hook
     `onNodesChange` seul ne suffit pas) ; dialogue async + `resolve(false)` après suppression store ;
-    lot restreint aux **racines** `{ nodes, edges }` sinon ; `onNodesDelete` + racines + satellites ignorés.
-  - Tests : `describeNodeForDeletion.test.ts` (REQ + récompense orpheline, `filterRfDeletionRoots`).
+    lot RF inchangé si pas de confirmation ; `onNodesDelete` : un `removeNode` par nœud RF supprimé,
+    satellites ignorés.
+  - Tests : `describeNodeForDeletion.test.ts` (REQ + récompense orpheline, chaîne REQ + `orderedDeleteChain`).
 - 2026-05-02 — **C8.2.1 livré** — infrastructure raccourcis + **Échap** + **`D`** :
   - [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts) :
     `nodalKeyboardHandleKeyDown` + hook ; **Échap** = désélection nœuds/arêtes RF

@@ -69,7 +69,6 @@ import { SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
 import {
   describeNodeForDeletion,
-  filterRfDeletionRoots,
   flattenDeleteChains,
   normalizeDeletionTarget,
 } from "./deletion/describeNodeForDeletion";
@@ -456,8 +455,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
   /**
    * RF v12 : appelé **avant** la suppression clavier — retourner `false` annule ;
-   * retourner `{ nodes, edges }` restreint évite de supprimer les enfants en cascade dans le store
-   * (ex. chaîne REQ1>REQ2>REQ3 : un seul `removeNode` sur REQ2).
+   * C8.2.2 : dialogue si scène / selector / chaîne REQ·PWD imbriquée ; sinon lot inchangé.
    */
   const onBeforeDelete = useCallback<OnBeforeDelete<RFNode<NodalRFData>, RFEdge>>(
     async ({ nodes: deletedNodes, edges: deletedEdges }) => {
@@ -465,42 +463,39 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       const locale = detectNodalLocale();
 
       const nonSat = deletedNodes.filter((n) => !(n.id in snap.satellites));
-      if (nonSat.length === 0) return false;
-
-      const rootsRf = filterRfDeletionRoots(nonSat);
+      /* `onBeforeDelete` couvre aussi les arêtes : si aucun nœud store à traiter, ne pas annuler la suppression des seules arêtes (return `false` bloquait tout). */
+      if (nonSat.length === 0) {
+        if (deletedEdges.length === 0) return false;
+        return { nodes: deletedNodes, edges: deletedEdges };
+      }
 
       const storeTargets: AnyNodeId[] = [];
       const seen = new Set<string>();
-      for (const n of rootsRf) {
+      for (const n of nonSat) {
         const t = normalizeDeletionTarget(snap, n.id as AnyNodeId);
         if (t == null) continue;
         if (seen.has(t)) continue;
         seen.add(t);
         storeTargets.push(t);
       }
-      if (storeTargets.length === 0) return false;
 
       const pairs: { target: AnyNodeId; desc: NonNullable<ReturnType<typeof describeNodeForDeletion>> }[] = [];
       for (const tid of storeTargets) {
         const d = describeNodeForDeletion(snap, tid, locale);
         if (d) pairs.push({ target: d.storeTargetId, desc: d });
       }
-      if (pairs.length === 0) return { nodes: rootsRf, edges: deletedEdges };
+      if (pairs.length === 0) return { nodes: nonSat, edges: deletedEdges };
 
       const needConfirm = pairs.some((p) => p.desc.needsConfirm);
       if (!needConfirm) {
-        return { nodes: rootsRf, edges: deletedEdges };
+        return { nodes: nonSat, edges: deletedEdges };
       }
 
-      const bodies = pairs.filter((p) => p.desc.needsConfirm).map((p) => p.desc.body);
-      const titles = pairs.filter((p) => p.desc.needsConfirm).map((p) => p.desc.title);
-      const title =
-        titles.length === 1
-          ? titles[0]!
-          : locale === "fr"
-            ? "Confirmer la suppression"
-            : "Confirm deletion";
-      const body = bodies.join("\n\n");
+      /* Un seul libellé : évite la redondance (ex. PWD>PWD>PWD ou selectors imbriqués dans une scène). */
+      const confirmingPairs = pairs.filter((p) => p.desc.needsConfirm);
+      const first = confirmingPairs[0]!;
+      const title = first.desc.title;
+      const body = first.desc.body;
 
       return await new Promise<boolean | { nodes: RFNode<NodalRFData>[]; edges: RFEdge[] }>((resolve) => {
         pendingDeleteFlowRef.current = {
@@ -807,9 +802,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           deleteKeyCode={["Delete", "Backspace"]}
           onBeforeDelete={onBeforeDelete}
           onNodesDelete={(deleted) => {
-            const snap = store.getState();
-            const roots = filterRfDeletionRoots(deleted);
-            for (const n of roots) {
+            for (const n of deleted) {
+              const snap = store.getState();
               if (n.id in snap.satellites) continue;
               snap.removeNode(n.id as AnyNodeId);
             }

@@ -3,27 +3,6 @@ import type { NodalProject } from "../../model/project";
 import { sboxIdFromScene } from "../../store/reconcileSceneBoxes";
 import { buildChildrenByParent, collectDescendantNodeIds } from "../nesting/containerBounds";
 
-/**
- * Réduit le lot de nœuds RF que le moteur s’apprête à supprimer aux **racines** :
- * si un ancêtre est aussi dans le lot (ex. REQ2>REQ3>MSG), ne garder que REQ2.
- * Sinon `onNodesDelete` appellerait `removeNode` pour chaque enfant en cascade.
- */
-export function filterRfDeletionRoots<NodeType extends { id: string; parentId?: string | null }>(
-  deleted: NodeType[]
-): NodeType[] {
-  const idSet = new Set(deleted.map((n) => n.id));
-  return deleted.filter((n) => {
-    let p: string | null | undefined = n.parentId ?? undefined;
-    while (p) {
-      if (idSet.has(p)) return false;
-      const parent = deleted.find((x) => x.id === p);
-      if (!parent) break;
-      p = parent.parentId ?? undefined;
-    }
-    return true;
-  });
-}
-
 export type DeletionDescribeResult = {
   needsConfirm: boolean;
   title: string;
@@ -55,6 +34,13 @@ function countSelectorChoices(state: NodalProject, selectorId: AnyNodeId): numbe
     if (nid in state.actions) count += 1;
   }
   return count;
+}
+
+/** Descendants « métier » sous REQ / pwd (actions + médias) — satellites auto exclus du **compte** d’avertissement (cf. selector). */
+function countReqPwdChainDescendants(state: NodalProject, actionId: AnyNodeId): number {
+  const ch = buildChildrenByParent(state);
+  const desc = collectDescendantNodeIds(actionId, ch);
+  return desc.filter((id) => id in state.actions || id in state.media).length;
 }
 
 /** Remappe s-box → id nœud scène ; ignore satellites (non supprimables depuis le store via RF). */
@@ -115,6 +101,28 @@ export function describeNodeForDeletion(
             locale === "fr"
               ? `Supprimer ce selector et ses ${k} choix ?`
               : `Delete this selector and its ${k} choice(s)?`,
+          storeTargetId: nodeId,
+        };
+      }
+    }
+    if (act.actionType === "req" || act.actionType === "pwd") {
+      const n = countReqPwdChainDescendants(state, nodeId);
+      if (n > 0) {
+        const kind =
+          act.actionType === "req"
+            ? locale === "fr"
+              ? "ce besoin (REQ)"
+              : "this requirement (REQ)"
+            : locale === "fr"
+              ? "ce mot de passe (PWD)"
+              : "this password gate (PWD)";
+        return {
+          needsConfirm: true,
+          title: locale === "fr" ? "Supprimer la chaîne ?" : "Delete nested chain?",
+          body:
+            locale === "fr"
+              ? `Supprimer ${kind} et ${n} nœud(s) imbriqué(s) (résultat, suite, etc.) ?`
+              : `Delete ${kind} and ${n} nested node(s) (reward, follow-up, etc.)?`,
           storeTargetId: nodeId,
         };
       }
@@ -185,6 +193,15 @@ export function orderedDeleteChainForStoreNode(state: NodalProject, rawId: AnyNo
   if (nodeId in state.actions) {
     const act = state.actions[nodeId as ActionNodeId];
     if (act.actionType === "selector" && countSelectorChoices(state, nodeId) > 0) {
+      const ch = buildChildrenByParent(state);
+      const desc = collectDescendantNodeIds(nodeId, ch);
+      const inner = desc.filter((id) => id in state.actions || id in state.media || id in state.satellites);
+      return [...topoDeleteOrder(inner, state.layout), nodeId];
+    }
+    if (
+      (act.actionType === "req" || act.actionType === "pwd") &&
+      countReqPwdChainDescendants(state, nodeId) > 0
+    ) {
       const ch = buildChildrenByParent(state);
       const desc = collectDescendantNodeIds(nodeId, ch);
       const inner = desc.filter((id) => id in state.actions || id in state.media || id in state.satellites);
