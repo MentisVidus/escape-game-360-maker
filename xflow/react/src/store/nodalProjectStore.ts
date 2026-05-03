@@ -559,13 +559,17 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     },
 
     toggleNodeCollapsed: (nodeId) => {
-      const state = get();
-      const current = state.layout[nodeId];
-      if (!current) return;
-      const next = { ...current, collapsed: !current.collapsed };
-      set({
-        ...state,
-        layout: { ...state.layout, [nodeId]: next },
+      set((state) => {
+        const current = state.layout[nodeId];
+        if (!current) return state;
+        const next: NodalProjectStore = {
+          ...state,
+          layout: { ...state.layout, [nodeId]: { ...current, collapsed: !current.collapsed } },
+          sceneBoxes: { ...state.sceneBoxes },
+        };
+        reconcileSceneBoxes(next);
+        reconcileAutoSatellites(next, nextAutoId);
+        return withWarnings(next);
       });
     },
 

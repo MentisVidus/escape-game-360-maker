@@ -450,6 +450,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
       for (const candidate of allNodes) {
         if (candidate.id === draggedNode.id) continue;
+        if (candidate.id in state.sceneBoxes) continue;
         const candidateAction = state.actions[candidate.id as keyof typeof state.actions];
         if (!candidateAction) continue;
         const parentRect = toAbsoluteRect(candidate as unknown as NestedNodeLike, nodesById);

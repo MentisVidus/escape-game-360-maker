@@ -257,14 +257,16 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
 
   for (const [nodeId, layout] of Object.entries(state.layout) as Array<[AnyNodeId, NodalProject["layout"][AnyNodeId]]>) {
     if (AUTO_SATELLITE_LAYOUT_KEY_RE.test(String(nodeId))) continue;
-    if (SBOX_LAYOUT_KEY_RE.test(String(nodeId))) continue;
-    const parentPid = layout.parentId;
-    const skipSceneWorldPos =
-      nodeId in state.scenes && parentPid != null && parentPid in state.sceneBoxes;
-    if (!skipSceneWorldPos) {
-      positions[nodeId] = { x: layout.x, y: layout.y };
-      if (layout.width != null && layout.height != null) {
-        dimensions[nodeId] = { width: layout.width, height: layout.height };
+    const isSbox = SBOX_LAYOUT_KEY_RE.test(String(nodeId));
+    if (!isSbox) {
+      const parentPid = layout.parentId;
+      const skipSceneWorldPos =
+        nodeId in state.scenes && parentPid != null && parentPid in state.sceneBoxes;
+      if (!skipSceneWorldPos) {
+        positions[nodeId] = { x: layout.x, y: layout.y };
+        if (layout.width != null && layout.height != null) {
+          dimensions[nodeId] = { width: layout.width, height: layout.height };
+        }
       }
     }
     collapsed[nodeId] = layout.collapsed;

@@ -9,8 +9,12 @@ export function SceneBoxNodeView({ data }: NodeProps) {
   const rf = data as NodalRFData;
   const box = rf.node as SceneBoxNode;
   const label = typeof rf.label === "string" && rf.label.trim() ? rf.label.trim() : null;
+  const collapsed = !!rf.collapsed;
   return (
-    <div className="nodal-node-sbox" data-scene-box-id={box.id}>
+    <div
+      className={`nodal-node-sbox${collapsed ? " nodal-node-sbox--collapsed" : ""}`}
+      data-scene-box-id={box.id}
+    >
       {label ? <div className="nodal-node-sbox__label">{label}</div> : null}
     </div>
   );

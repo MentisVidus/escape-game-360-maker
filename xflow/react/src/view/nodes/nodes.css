@@ -32,8 +32,28 @@
 }
 
 .nodal-node.scene {
+  position: relative;
   background: var(--node-scene-bg);
   border-color: var(--node-scene-border);
+}
+
+.nodal-node.scene.nodal-node--scene-sbox-collapsed {
+  opacity: 0.95;
+}
+
+.nodal-scene-sbox-collapsed-count {
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.nodal-node.scene .nodal-node-collapse-toggle:hover,
+.nodal-node.scene .nodal-node-collapse-toggle:focus-visible {
+  border-color: var(--node-scene-border);
+}
+
+.nodal-handle--hidden-when-sbox-collapsed {
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* C8.1.b.2.x — groupe RF auto (s-box), dimensions depuis la projection */
@@ -60,6 +80,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.nodal-node-sbox--collapsed {
+  opacity: 0.88;
+  border-color: color-mix(in srgb, var(--node-scene-border) 70%, transparent);
 }
 
 .nodal-node.action {

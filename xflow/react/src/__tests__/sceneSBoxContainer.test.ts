@@ -2,16 +2,25 @@ import { describe, expect, it } from "vitest";
 
 import { asActionNodeId, asEdgeId, asSceneNodeId, type SceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
-import { applyHydratedLayout } from "../serialize/mapLayoutJson";
-import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
+import { applyHydratedLayout, serializeLayout } from "../serialize/mapLayoutJson";
+import { deserializeFromProjectJson, stableSceneNodeIdFromExternal } from "../serialize/fromProjectJson";
 import { migrateSceneToSBoxParenting } from "../serialize/migrateSceneToSBoxParenting";
 import { getHotspotActionIdsForScene, type ProjectJsonV2 } from "../serialize/toProjectJson";
 import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import { SCENE_PADDING_TOP, SCENE_PADDING_X } from "../view/nesting/containerBounds";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
+import { HANDLE_SYNTH_GOTO_OUT } from "../view/handles/handleIds";
+import { toReactFlowEdges, toReactFlowNodes } from "../view/nodalReactFlowProjection";
 
 const sfx = { url: "", volume: 1 };
 const visibility = { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true };
+
+const gotoHotspot = (target: string) => ({
+  type: "goto" as const,
+  payload: { target, copy: { bodyHtml: "", buttonLabel: "" } },
+  sfx: { ...sfx },
+  visibility: { ...visibility },
+});
 
 describe("C8.1.b.2.x — s-box (conteneur groupe) + hotspots sous le s-box", () => {
   it("migrateSceneToSBoxParenting est idempotent", () => {
@@ -251,5 +260,119 @@ describe("C8.1.b.2.x — s-box (conteneur groupe) + hotspots sous le s-box", () 
     expect(state.layout[actionId]?.parentId).toBe(bid);
     expect(state.layout[actionId]?.x).toBe(150);
     expect(state.layout[actionId]?.y).toBe(120);
+  });
+
+  it("1.b.3 : s-box replié masque les actions, pas la scène", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-fold"),
+      nodeType: "scene",
+      sceneId: "ext-fold",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const act: ActionNode = {
+      id: asActionNodeId("act-fold"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "M",
+      payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const store = createNodalProjectStore();
+    const s = store.getState();
+    s.addScene(scene, { x: 0, y: 0 });
+    s.addAction(act, { x: 200, y: 50 });
+    s.connect({ id: asEdgeId("e-fold"), family: "flow", sourceId: scene.id, targetId: act.id });
+    const bid = sboxIdFromScene(scene.id);
+    store.getState().toggleNodeCollapsed(bid);
+    const nodes = toReactFlowNodes(store.getState());
+    expect(nodes.find((n) => n.id === act.id)?.hidden).toBe(true);
+    expect(nodes.find((n) => n.id === scene.id)?.hidden).toBeFalsy();
+    const sceneRf = nodes.find((n) => n.id === scene.id);
+    expect((sceneRf?.data as { containerCollapsed?: boolean }).containerCollapsed).toBe(true);
+    expect((sceneRf?.data as { sceneBoxActionCount?: number }).sceneBoxActionCount).toBeGreaterThan(0);
+  });
+
+  it("1.b.3 : s-box replié + goto interne → edge synthétique depuis la scène", () => {
+    const extA = "sc-fold-a";
+    const extB = "sc-fold-b";
+    const projectJson: ProjectJsonV2 = {
+      schemaVersion: 2,
+      title: "T",
+      startSceneId: extA,
+      scenes: [
+        {
+          id: extA,
+          title: "A",
+          panoramaUrl: "",
+          hotspots: [{ action: gotoHotspot(extB) }],
+        },
+        { id: extB, title: "B", panoramaUrl: "", hotspots: [] },
+      ],
+    };
+    const layoutBase = {
+      positions: {},
+      parentId: {},
+      collapsed: {},
+      drafts: [] as string[],
+      viewport: { x: 0, y: 0, zoom: 1 },
+      nodalSceneLayoutByExternalId: {
+        [extA]: { x: 0, y: 0, collapsed: false },
+        [extB]: { x: 400, y: 0, collapsed: false },
+      },
+      nodalSceneBoxLayoutByExternalId: {
+        [extA]: { x: 0, y: 0, collapsed: false },
+        [extB]: { x: 400, y: 0, collapsed: false },
+      },
+      nodalActionLayoutByPathKey: {
+        [`${extA}:h:0`]: { x: 0, y: 0, collapsed: false },
+      },
+    };
+    const store = createNodalProjectStore();
+    store.getState().hydrateFromProject(projectJson, layoutBase);
+    const scA = stableSceneNodeIdFromExternal(extA);
+    const scB = stableSceneNodeIdFromExternal(extB);
+    const bid = sboxIdFromScene(scA);
+    store.getState().toggleNodeCollapsed(bid);
+    const st = store.getState();
+    expect(st.layout[bid]?.collapsed).toBe(true);
+    const edges = toReactFlowEdges(st);
+    const synth = edges.filter((e) => e.id === `synth-trans-${scA}-${scB}`);
+    expect(synth).toHaveLength(1);
+    expect(synth[0].source).toBe(scA);
+    expect(synth[0].target).toBe(scB);
+    expect(synth[0].sourceHandle).toBe(HANDLE_SYNTH_GOTO_OUT);
+    const sceneRf = toReactFlowNodes(st).find((n) => n.id === scA);
+    expect((sceneRf?.data as { sceneBoxSynthGotoTargetCount?: number }).sceneBoxSynthGotoTargetCount).toBe(1);
+  });
+
+  it("1.b.3 : sérialisation conserve collapsed sur le s-box et la clé stable", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-rtc"),
+      nodeType: "scene",
+      sceneId: "ext-rtc",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const act: ActionNode = {
+      id: asActionNodeId("act-rtc"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "M",
+      payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const store = createNodalProjectStore();
+    const s = store.getState();
+    s.addScene(scene, { x: 0, y: 0 });
+    s.addAction(act, { x: 100, y: 40 });
+    s.connect({ id: asEdgeId("e-rtc"), family: "flow", sourceId: scene.id, targetId: act.id });
+    const bid = sboxIdFromScene(scene.id);
+    store.getState().toggleNodeCollapsed(bid);
+    const serialized = serializeLayout(store.getState());
+    expect(serialized.collapsed[bid]).toBe(true);
+    expect(serialized.nodalSceneBoxLayoutByExternalId?.[scene.sceneId]?.collapsed).toBe(true);
   });
 });

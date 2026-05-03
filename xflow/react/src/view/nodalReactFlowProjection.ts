@@ -4,7 +4,7 @@
  */
 import type { Edge as RFEdge, Node as RFNode } from "@xyflow/react";
 
-import type { ActionNodeId, AnyNodeId, SceneNodeId } from "../model/ids";
+import type { ActionNodeId, AnyNodeId, SceneBoxNodeId, SceneNodeId } from "../model/ids";
 import type { NodalProject } from "../model/project";
 import { getActionContextualState } from "../store/reconcileAutoSatellites";
 import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
@@ -37,6 +37,12 @@ export type NodalRFData = {
   synthGotoTargetCount?: number;
   /** Titre scène pour l’étiquette discrète du s-box. */
   label?: string;
+  /** S-box parent replié (1.b.3) — chevron / sous-titre / handles sur la scène. */
+  containerCollapsed?: boolean;
+  /** Nombre d’actions dans le sous-arbre du s-box (hors nœud scène) — chevron si ≥ 1. */
+  sceneBoxActionCount?: number;
+  /** Cibles goto externes agrégées quand le s-box est replié (handle synth sur la scène). */
+  sceneBoxSynthGotoTargetCount?: number;
 };
 
 function getCollapsedSelectorIds(state: NodalProject): Set<AnyNodeId> {
@@ -49,6 +55,14 @@ function getCollapsedSelectorIds(state: NodalProject): Set<AnyNodeId> {
     }
   }
   return collapsedSelectorIds;
+}
+
+function getCollapsedSceneBoxIds(state: NodalProject): Set<SceneBoxNodeId> {
+  const ids = new Set<SceneBoxNodeId>();
+  for (const bid of Object.keys(state.sceneBoxes) as SceneBoxNodeId[]) {
+    if (state.layout[bid]?.collapsed) ids.add(bid);
+  }
+  return ids;
 }
 
 /**
@@ -73,6 +87,48 @@ function collectHiddenIdsUnderCollapsedSelectors(
     }
   }
   return hidden;
+}
+
+/** S-box replié : masquer tout sauf la scène (1.b.3). */
+function collectHiddenIdsUnderCollapsedSceneBoxes(
+  state: NodalProject,
+  collapsedSBoxIds: Set<SceneBoxNodeId>,
+  childrenByParent: Map<AnyNodeId, AnyNodeId[]>
+): Set<AnyNodeId> {
+  const hidden = new Set<AnyNodeId>();
+  if (collapsedSBoxIds.size === 0) return hidden;
+  for (const bid of collapsedSBoxIds) {
+    const box = state.sceneBoxes[bid];
+    if (!box) continue;
+    const sceneId = box.sceneId;
+    const roots = childrenByParent.get(bid);
+    if (!roots) continue;
+    for (const child of roots) {
+      if (child === sceneId) continue;
+      const stack: AnyNodeId[] = [child];
+      while (stack.length > 0) {
+        const id = stack.pop()!;
+        if (hidden.has(id)) continue;
+        hidden.add(id);
+        const ch = childrenByParent.get(id);
+        if (!ch) continue;
+        for (const c of ch) stack.push(c);
+      }
+    }
+  }
+  return hidden;
+}
+
+/** Union masquage selectors + s-box (1.b.3). */
+export function collectHiddenIdsFromCollapsedContainers(
+  state: NodalProject,
+  childrenByParent: Map<AnyNodeId, AnyNodeId[]>
+): Set<AnyNodeId> {
+  const fromSelectors = collectHiddenIdsUnderCollapsedSelectors(getCollapsedSelectorIds(state), childrenByParent);
+  const fromBoxes = collectHiddenIdsUnderCollapsedSceneBoxes(state, getCollapsedSceneBoxIds(state), childrenByParent);
+  const out = new Set<AnyNodeId>(fromSelectors);
+  for (const id of fromBoxes) out.add(id);
+  return out;
 }
 
 /** Cibles `transition` agrégées par selector replié (C8.1.a). */
@@ -117,15 +173,42 @@ export function collectSynthGotoTargets(
       const sceneNodeId = externalSceneIdToNodeId.get(ext);
       if (sceneNodeId) targets.add(sceneNodeId);
     }
-    if (targets.size > 0) out.set(containerId, targets);
+    if (targets.size === 0) continue;
+    const synthSourceId =
+      containerId in state.sceneBoxes
+        ? state.sceneBoxes[containerId as SceneBoxNodeId].sceneId
+        : containerId;
+    out.set(synthSourceId, targets);
   }
   return out;
 }
 
+function countActionsUnderSBox(
+  state: NodalProject,
+  bid: SceneBoxNodeId,
+  childrenByParent: Map<AnyNodeId, AnyNodeId[]>
+): number {
+  let n = 0;
+  const stack = [...(childrenByParent.get(bid) ?? [])];
+  const seen = new Set<string>();
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    if (id in state.actions) n += 1;
+    const ch = childrenByParent.get(id);
+    if (!ch) continue;
+    for (const c of ch) stack.push(c);
+  }
+  return n;
+}
+
 function computeSelectorFoldProjection(state: NodalProject, childrenByParent: Map<AnyNodeId, AnyNodeId[]>) {
   const collapsedSelectorIds = getCollapsedSelectorIds(state);
-  const hiddenIds = collectHiddenIdsUnderCollapsedSelectors(collapsedSelectorIds, childrenByParent);
-  const synthGotoTargets = collectSynthGotoTargets(state, collapsedSelectorIds, childrenByParent);
+  const collapsedSBoxIds = getCollapsedSceneBoxIds(state);
+  const collapsedContainerIds = new Set<AnyNodeId>([...collapsedSelectorIds, ...collapsedSBoxIds]);
+  const hiddenIds = collectHiddenIdsFromCollapsedContainers(state, childrenByParent);
+  const synthGotoTargets = collectSynthGotoTargets(state, collapsedContainerIds, childrenByParent);
   return { childrenByParent, collapsedSelectorIds, hiddenIds, synthGotoTargets };
 }
 
@@ -184,7 +267,12 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
       id: box.id,
       type: "sceneBoxNode",
       position: { x: bl.x, y: bl.y },
-      data: { nodeType: "sceneBox", node: box, label: scene?.label },
+      data: {
+        nodeType: "sceneBox",
+        node: box,
+        label: scene?.label,
+        collapsed: !!bl.collapsed,
+      },
       style: { width: bounds.width, height: bounds.height },
     });
   }
@@ -192,13 +280,23 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
     const layout = state.layout[scene.id];
     if (!layout) continue;
     const bid = sboxIdFromScene(scene.id);
+    const sboxLayout = state.layout[bid];
+    const containerCollapsed = !!sboxLayout?.collapsed;
+    const actionUnderSbox = countActionsUnderSBox(state, bid, childrenByParent);
+    const sceneSynthCount = containerCollapsed ? (synthGotoTargets.get(scene.id)?.size ?? 0) : 0;
     nodes.push({
       id: scene.id,
       type: "sceneNode",
       parentId: bid,
       position: { x: layout.x, y: layout.y },
       extent: "parent",
-      data: { nodeType: "scene", node: scene },
+      data: {
+        nodeType: "scene",
+        node: scene,
+        containerCollapsed,
+        sceneBoxActionCount: actionUnderSbox,
+        sceneBoxSynthGotoTargetCount: sceneSynthCount,
+      },
     });
   }
   for (const action of Object.values(state.actions)) {
@@ -317,11 +415,11 @@ export function toReactFlowEdges(state: NodalProject): RFEdge[] {
   });
 
   const synthEdges: RFEdge[] = [];
-  for (const [containerId, sceneIds] of synthGotoTargets) {
+  for (const [synthSourceId, sceneIds] of synthGotoTargets) {
     for (const targetSceneId of sceneIds) {
       synthEdges.push({
-        id: `synth-trans-${containerId}-${targetSceneId}`,
-        source: containerId,
+        id: `synth-trans-${synthSourceId}-${targetSceneId}`,
+        source: synthSourceId,
         target: targetSceneId,
         sourceHandle: HANDLE_SYNTH_GOTO_OUT,
         targetHandle: HANDLE_GOTO_IN,
