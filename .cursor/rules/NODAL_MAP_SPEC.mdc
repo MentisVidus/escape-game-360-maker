@@ -3145,7 +3145,262 @@ invalidation) ; bénéfice = marginal pour le workflow utilisateur.
   (selector/REQ/PWD attachement non perturbé par le s-box ; media
   auto-parentés non perturbés par les filtres anti-s-box).
 
+#### Sous-chantier C8.3 — Indicateur scène initiale + propagation au runtime
 
+> C8.3 a été livré en deux temps (commits `bfea640` indicateur + `74ea78c`
+> palette + réconciliation R3/R2). **Bug structurel résiduel** signalé au
+> smoke utilisateur : changer `meta.startSceneId` dans la carte nodale
+> n'a **aucun effet** sur la scène effectivement utilisée par le jeu
+> généré. Étape correctrice **C8.3.x** ci-dessous.
+
+##### Étape C8.3.x — Faire respecter `meta.startSceneId` dans `generateGame`
+
+**Diagnostic — chaîne cassée à deux endroits**
+
+```
+Nodal store [meta.startSceneId]
+  └─ flush DOM (intervalle 8 s)
+       via applyNodalStateToLegacyDom
+       └─ sortedScenes() trie par layout.x   ← ❌ ignore startSceneId
+            └─ DOM #scenes-container : .scene-block (1er = leftmost x)
+                 └─ getCurrentProjectData() lit l'ordre DOM
+                      └─ project.scenes[0].id
+                           └─ generateGame: firstSceneId = scenes[0].id ← ❌
+                                └─ player: initialSceneId = leftmost x
+```
+
+Conséquence : peu importe ce que l'utilisateur sélectionne dans la
+palette « scène de départ », le jeu généré démarre toujours sur la
+scène la plus à gauche dans la carte nodale. Le badge affiché sur la
+nodal n'est qu'un indicateur visuel, sans effet sur le runtime.
+
+**Discussion des deux corrections proposées**
+
+L'utilisateur a évoqué deux pistes :
+
+- **(A)** Faire en sorte que la scène marquée comme départ soit
+  remontée en tête du formulaire (DOM `.scene-block` à l'index 0).
+- **(B)** Faire en sorte que `generateGame` lise directement
+  `project.startSceneId` (avec fallback sur `scenes[0]`).
+
+**Décision : appliquer les deux**, en defense-in-depth. (A) résout le
+problème dans la majorité des cas (le flush DOM est régulier et les
+deux chemins de génération — HTML + ZIP — passent par la même
+`getCurrentProjectData`). (B) couvre le cas où le flush DOM n'a pas
+encore eu lieu (utilisateur clique « Generate » dans les 8 secondes
+qui suivent un changement de départ) **et** est cohérent avec le
+principe « la nodal est source de vérité » (quel que soit l'état
+intermédiaire du DOM).
+
+**Directive** :
+
+1. **Fix (A) — Tri du flush nodal → DOM**
+   ([js/editor-shared-nodal-to-dom.js](js/editor-shared-nodal-to-dom.js)) :
+
+   Modifier `sortedScenes(state)` (autour de la ligne 370) pour
+   placer en premier la scène dont l'`id` correspond à
+   `state.meta.startSceneId`, puis trier le reste par `layout.x` :
+
+   ```js
+   function sortedScenes(state) {
+     var scenes = state.scenes || {};
+     var startId = state.meta && state.meta.startSceneId
+       ? String(state.meta.startSceneId)
+       : null;
+     var list = [];
+     for (var k in scenes) {
+       if (Object.prototype.hasOwnProperty.call(scenes, k)) list.push(scenes[k]);
+     }
+     list.sort(function (a, b) {
+       // Scène de départ toujours en tête (cf. C8.3.x).
+       if (startId) {
+         if (a.id === startId) return -1;
+         if (b.id === startId) return 1;
+       }
+       var la = (state.layout && state.layout[a.id]) || {};
+       var lb = (state.layout && state.layout[b.id]) || {};
+       return (la.x || 0) - (lb.x || 0);
+     });
+     return list;
+   }
+   ```
+
+   Effet : à chaque flush (intervalle ou immédiat), la scène
+   `startSceneId` est en tête du DOM `#scenes-container`.
+
+2. **Flush immédiat sur changement de `startSceneId`**
+   ([js/editor-nodal-map-bootstrap.js](js/editor-nodal-map-bootstrap.js)
+   ou un endroit équivalent où le store est référencé) :
+
+   Le flush actuel est périodique (8 s). Pour que l'effet visuel et
+   le générateur soient instantanés, ajouter un abonnement Zustand
+   sur `state.meta.startSceneId` qui déclenche immédiatement
+   `flushNodalProjectionToDom()`.
+
+   ```js
+   // Pseudo-code dans le bootstrap, après l'init du store.
+   var st = window.__ESCAPE360_NODAL_STORE__;
+   if (st && typeof st.subscribe === "function") {
+     var prevStart = (st.getState().meta || {}).startSceneId || null;
+     st.subscribe(function (state) {
+       var nextStart = (state.meta || {}).startSceneId || null;
+       if (nextStart !== prevStart) {
+         prevStart = nextStart;
+         flushNodalProjectionToDom();
+       }
+     });
+   }
+   ```
+
+   *Idempotence* : si `flushNodalProjectionToDom` est déjà
+   re-entrant-safe (cf. `applying` flag dans
+   `editor-shared-nodal-to-dom.js`), aucun risque.
+
+3. **Fix (B) — `generateGame` respecte `project.startSceneId`**
+   ([js/editeur-generate.js](js/editeur-generate.js) **et**
+   [js/editor-en-generate.js](js/editor-en-generate.js) — version
+   anglaise à synchroniser) :
+
+   Ligne ~437-438 actuellement :
+   ```js
+   (project.scenes || []).forEach((scene, index) => {
+     const scId = scene.id || ("scene_" + (index + 1));
+     ...
+     if(index === 0) firstSceneId = scId;
+   ```
+
+   Remplacer la logique d'attribution de `firstSceneId` :
+
+   ```js
+   // Avant la boucle des scènes :
+   const explicitStart = project.startSceneId
+     ? String(project.startSceneId).trim()
+     : "";
+
+   // Dans la boucle :
+   (project.scenes || []).forEach((scene, index) => {
+     const scId = scene.id || ("scene_" + (index + 1));
+     ...
+     // Priorité : startSceneId explicite si la scène existe ; sinon, fallback DOM index 0.
+     if (explicitStart && scId === explicitStart) {
+       firstSceneId = scId;
+     } else if (!firstSceneId && !explicitStart && index === 0) {
+       firstSceneId = scId;
+     } else if (!firstSceneId && explicitStart && index === project.scenes.length - 1) {
+       // explicitStart pointait vers un id absent : fallback sur la 1ère scène en ordre DOM.
+       firstSceneId = (project.scenes[0] && project.scenes[0].id) || scId;
+     }
+   });
+   ```
+
+   ⚠️ **Simplification** — pour éviter la triple-condition fragile,
+   on peut sortir le calcul de `firstSceneId` de la boucle :
+
+   ```js
+   const sceneIds = (project.scenes || [])
+     .map((s, i) => s.id || ("scene_" + (i + 1)));
+   const explicitStart = project.startSceneId
+     ? String(project.startSceneId).trim()
+     : "";
+   firstSceneId = explicitStart && sceneIds.includes(explicitStart)
+     ? explicitStart
+     : (sceneIds[0] || "");
+   ```
+
+   Cette forme est plus lisible et résiste au cas
+   `startSceneId` absent ou invalide.
+
+4. **`getCurrentProjectData` doit inclure `startSceneId`**
+   ([js/editor-shared-project-serialization.js](js/editor-shared-project-serialization.js)) :
+
+   Aujourd'hui, l'objet `project` retourné n'a pas de champ
+   `startSceneId`. Pour que (B) fonctionne, il faut l'alimenter.
+
+   **Option simple** : lire directement le store nodal depuis le
+   serializer DOM :
+
+   ```js
+   // Dans getCurrentProjectData, avant le return :
+   var nodalStore = global.__ESCAPE360_NODAL_STORE__;
+   if (nodalStore && typeof nodalStore.getState === "function") {
+     var meta = (nodalStore.getState().meta) || {};
+     var ssid = meta.startSceneId
+       ? String(meta.startSceneId).trim()
+       : "";
+     if (ssid) {
+       // meta.startSceneId est l'`id` interne nodal (ex. scene_1).
+       // On résout vers l'id externe (= scene.id du JSON).
+       var scenes = (nodalStore.getState().scenes) || {};
+       var sceneEntry = scenes[ssid];
+       if (sceneEntry && sceneEntry.sceneId) {
+         project.startSceneId = String(sceneEntry.sceneId).trim();
+       }
+     }
+   }
+   ```
+
+   *Note* : on lit `sceneEntry.sceneId` (l'id externe stable) et non
+   `meta.startSceneId` (id interne nodal), pour que ça matche les
+   `scene.id` que le DOM expose et que `generateGame` compare.
+
+   *Alternative* si l'accès direct au store global est jugé trop
+   intrusif : passer par un input caché côté DOM, écrit par le
+   nodal-to-dom au moment du flush, lu par `getCurrentProjectData`.
+   Plus de couplage à maintenir, sans avantage net — préférer
+   l'accès direct au store.
+
+5. **Tests** — étendre / créer :
+
+   - `editor-shared-nodal-to-dom.test.js` (s'il existe sinon
+     vitest unit dans xflow) :
+     - `sortedScenes` avec `meta.startSceneId` défini : la scène
+       cible est **première** quel que soit son `layout.x`.
+     - `sortedScenes` sans `meta.startSceneId` : tri par x
+       (régression).
+     - `sortedScenes` avec `startSceneId` pointant vers une scène
+       absente : ignoré, tri par x.
+
+   - Test d'intégration legacy (puppet / vanilla) si possible :
+     - Ouvrir un projet → choisir scène B comme départ →
+       cliquer Generate → vérifier que `initialSceneId` du
+       template HTML pointe sur B.
+
+   - Vitest store : `setStartScene` puis lire `meta.startSceneId`
+     (déjà couvert par `startSceneReconcile.test.ts`, vérifier
+     qu'aucune régression).
+
+6. **Documentation** — Annexe D + commentaire en tête de
+   `editor-shared-nodal-to-dom.js` rappelant que la scène de
+   départ est toujours placée en index 0 lors du flush.
+
+**Critère de fin** :
+
+- Smoke : ouvrir un projet à 3 scènes A / B / C ; A est en tête du
+  formulaire. Sélectionner C dans la nodal, cliquer « Définir
+  comme scène de départ » dans la palette. Vérifier que :
+  1. Le badge « Départ » passe sur C dans la nodal ✓ (déjà OK).
+  2. **Sans attendre 8 s**, ouvrir le formulaire — C est en tête.
+  3. Cliquer « Generate » — le HTML généré contient
+     `var initialSceneId = "C"`.
+- Smoke : supprimer la scène de départ → `startSceneId` réconcilié
+  selon R3/R2 (déjà OK depuis `74ea78c`) → tête du formulaire et
+  `firstSceneId` du HTML restent cohérents.
+- Smoke : projet legacy (sans `startSceneId` dans le JSON) →
+  comportement DOM-index-0 préservé (régression).
+- Vitest vert.
+- Pas d'effet visible si on retire la nodal et qu'on travaille
+  uniquement au formulaire (le code legacy continue à fonctionner
+  avec `startSceneId` absent → fallback sur index 0).
+
+**Hors scope (à reporter)** :
+
+- Indicateur visuel « scène de départ » dans le formulaire vanilla
+  (badge ou icône sur le `.scene-block`). La position en tête
+  servira de signal implicite ; un signal explicite peut être
+  ajouté plus tard si besoin.
+- Action « définir comme scène de départ » depuis le formulaire
+  vanilla. Pour l'instant, l'opération passe uniquement par la
+  nodal map.
 
 À définir en fin de chantier — base : la suite SMK-01 → SMK-10 reste
 valable, ajout de SMK-C8-* pour valider chaque sous-item (replier /
@@ -3415,3 +3670,44 @@ questions ouvertes, captures pertinentes.)
     réalignement **R3** (1 scène restante → elle devient départ) + **R2**
     (≥2 scènes et départ supprimé / invalide → `startSceneId` null).
   - Warning `START_SCENE_UNSET` si ≥2 scènes et pas de départ valide.
+- 2026-05-XX — **Bug structurel signalé sur C8.3** : changer
+  `meta.startSceneId` dans la nodal n'a aucun effet sur la scène
+  effectivement utilisée par le jeu généré. Diagnostic : double
+  rupture dans la chaîne nodal → DOM → JSON → generateGame.
+  - **Côté flush nodal-to-DOM** : `sortedScenes` dans
+    [editor-shared-nodal-to-dom.js](js/editor-shared-nodal-to-dom.js)
+    trie par `layout.x` sans tenir compte de `meta.startSceneId`.
+  - **Côté `generateGame`** : la fonction utilise
+    `project.scenes[index === 0]` comme `firstSceneId` ; elle ne
+    lit jamais `project.startSceneId` (champ d'ailleurs absent
+    de l'objet retourné par `getCurrentProjectData`, qui est lui
+    DOM-only).
+  Plan correctif sous **Étape C8.3.x** :
+  - **(A)** Tri du flush nodal-to-DOM placé `meta.startSceneId`
+    en tête, fallback sur `layout.x`.
+  - Flush immédiat sur changement de `startSceneId` (subscribe au
+    store) pour ne pas attendre l'intervalle 8 s.
+  - **(B)** `generateGame` lit `project.startSceneId` (avec
+    fallback sur `scenes[0]`) — defense-in-depth.
+  - `getCurrentProjectData` alimente `project.startSceneId`
+    depuis le store nodal global (résolution `meta.startSceneId`
+    interne → `sceneEntry.sceneId` externe).
+  - Hors scope : indicateur visuel et action « définir départ »
+    dans le formulaire vanilla — reportés.
+- 2026-05-02 — **C8.3.x livré** (correctif chaîne nodal → DOM →
+  `getCurrentProjectData` → `generateGame`) :
+  - [editor-shared-nodal-to-dom.js](js/editor-shared-nodal-to-dom.js) :
+    `sortedScenes` place `meta.startSceneId` en tête puis tri par `layout.x` ;
+    id interne absent du store → ignoré (tri par x) ; export test
+    `_sortedScenesForTests`.
+  - [editor-nodal-map-bootstrap.js](js/editor-nodal-map-bootstrap.js) :
+    abonnement Zustand sur `meta.startSceneId` → flush DOM immédiat
+    (`flushNodalProjectionToDomInner`, sans repasser par l’intervalle 8 s) ;
+    réabonnement si le store est recréé.
+  - [editor-shared-project-serialization.js](js/editor-shared-project-serialization.js) :
+    `project.startSceneId` = id **externe** (`scene.sceneId`) résolu depuis
+    le store nodal.
+  - [js/editeur-generate.js](js/editeur-generate.js) +
+    [js/editor-en-generate.js](js/editor-en-generate.js) : `firstSceneId` /
+    `initialSceneId` = `project.startSceneId` si présent dans la liste des
+    scènes, sinon première scène (ordre DOM / tableau).

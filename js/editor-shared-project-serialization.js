@@ -118,6 +118,22 @@
                 project.scenes.push(scene);
             });
 
+            /* C8.3.x — départ joueur : priorité au store nodal (id externe = `.sc-id` / `scene.id` JSON). */
+            var nodalStore =
+                typeof global.__ESCAPE360_NODAL_STORE__ !== "undefined" ? global.__ESCAPE360_NODAL_STORE__ : null;
+            if (nodalStore && typeof nodalStore.getState === "function") {
+                var nState = nodalStore.getState();
+                var nMeta = nState.meta || {};
+                var internalStart = nMeta.startSceneId ? String(nMeta.startSceneId).trim() : "";
+                if (internalStart) {
+                    var nScenes = nState.scenes || {};
+                    var sceneEntry = nScenes[internalStart];
+                    if (sceneEntry && sceneEntry.sceneId) {
+                        project.startSceneId = String(sceneEntry.sceneId).trim();
+                    }
+                }
+            }
+
             return project;
         }
 

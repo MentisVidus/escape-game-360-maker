@@ -2,6 +2,10 @@
  * C6.2 — Projection « état carte nodale (Zustand) → DOM legacy ».
  * Aucune logique FR/EN : lit `window.__escape360EditorDomApi` (rempli par *-app.js).
  *
+ * C8.3.x : `sortedScenes` place **toujours** la scène `meta.startSceneId` en tête
+ * du `#scenes-container` (index 0), puis le reste par `layout.x` — aligné
+ * `getCurrentProjectData` / `generateGame` (voir `project.startSceneId`).
+ *
  * Scènes + hotspots (edges `flow` depuis chaque scène, tri `layout.y`).
  * Satellites : `object` (meta → pick/req `itemId`), `coords-options` / `choice-options` (visibilité + pitch/yaw).
  * SFX actions : nœud `media-audio` lié en meta à l’action ; image 360 scène : `media-image` lié en meta à la scène.
@@ -368,11 +372,18 @@
 
     function sortedScenes(state) {
         var scenes = state.scenes || {};
+        var meta = state.meta || {};
+        var startId = meta.startSceneId ? String(meta.startSceneId) : null;
+        if (startId && !scenes[startId]) startId = null;
         var list = [];
         for (var k in scenes) {
             if (Object.prototype.hasOwnProperty.call(scenes, k)) list.push(scenes[k]);
         }
         list.sort(function (a, b) {
+            if (startId) {
+                if (a.id === startId) return -1;
+                if (b.id === startId) return 1;
+            }
             var la = (state.layout && state.layout[a.id]) || {};
             var lb = (state.layout && state.layout[b.id]) || {};
             return (la.x || 0) - (lb.x || 0);
@@ -546,6 +557,8 @@
 
     global.EditorSharedNodalToDom = {
         applyNodalStateToLegacyDom: applyNodalStateToLegacyDom,
-        applyFromStore: applyFromStore
+        applyFromStore: applyFromStore,
+        /** @internal Vitest / régression C8.3.x */
+        _sortedScenesForTests: sortedScenes
     };
 })(typeof window !== "undefined" ? window : this);
