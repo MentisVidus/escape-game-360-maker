@@ -2284,9 +2284,210 @@ s-box (groupNode, parentId: null)          ← géré par le store comme un sate
 - Smoke « legacy » (projet sans aucun s-box replié) : comportement
   identique au précédent (à part la présence des s-box auto-créés).
 
-##### Étape 1.b.4 — Polish + meta/satellites
+##### Étape 1.b.5 — Media auto-parentés (descendants visuels du nœud lié)
 
-> Adapté pour le modèle s-box (étape 1.b.2.x).
+> Étape créée 2026-05-XX après smoke 1.b.3 OK. **Vient avant le polish
+> (1.b.4)** : c'est un changement comportemental substantiel sur les
+> nœuds media, pas un finishing touch.
+
+**Symptôme actuel** :
+
+Quand un conteneur (s-box ou selector) est replié, les actions
+internes deviennent `hidden:true`. Mais les **nœuds media** liés à
+ces actions par une edge `meta` restent visibles : seule l'edge
+meta passe en `hidden`, le media flotte alors comme un orphelin
+(cf. captures 2026-05-XX).
+
+**Décision utilisateur** :
+
+Aligner les media sur les satellites — devenir enfants du nœud lié
+(via `parentId`) et hériter automatiquement de l'état caché par la
+chaîne `parentId` transitive existante.
+
+**Trade-off accepté** :
+
+- Media limité à **1 seule edge meta entrante** (1 owner unique).
+- Compensation future hors scope C8.1 : option de copie / bibliothèque
+  media — pendant de ce qui existe déjà pour les nœuds `object`.
+
+**Modèle final** :
+
+- `media.parentId = sourceId` de son edge meta entrante (scene ou
+  action).
+- Position du media : relative au parent quand `parentId` est défini,
+  absolue sinon.
+- Connection policy : refus de toute 2ᵉ meta entrante vers un media
+  déjà connecté.
+- Repli : la chaîne `parentId` transitive existante
+  (`collectHiddenIdsFromCollapsedContainers`) prend automatiquement
+  en charge le masquage. Aucun cas spécial à ajouter.
+
+**Comportement final attendu** :
+
+| Cas | Avant (smoke 1.b.3) | Après 1.b.5 |
+|---|---|---|
+| Media lié à scène (s-box **non replié**) | media + edge visibles | identique |
+| Media lié à scène (s-box **replié**) | media + edge visibles | media + edge **visibles** (la scène elle-même reste visible) |
+| Media lié à un **selector replié** | media visible, edge cachée | media + edge **visibles** (le selector lui-même reste visible) |
+| Media lié à un **choix** d'un selector replié | media visible, edge cachée | media + edge **cachés** ✓ |
+| Media lié à une action interne d'un s-box replié | media visible, edge cachée | media + edge **cachés** ✓ |
+
+Justification de la cohérence : `hiddenIds` n'inclut **jamais** les
+conteneurs eux-mêmes (s-box, selector replié), uniquement leurs
+descendants. Donc un media dont le parent direct est le conteneur
+reste visible ; un media dont le parent direct est un descendant
+caché du conteneur devient caché.
+
+**Directive** :
+
+1. **`connectionPolicy.ts`**
+   ([view/connectionPolicy.ts](xflow/react/src/view/connectionPolicy.ts)) :
+   ajouter le garde-fou « 1 seule meta-in par media » dans la
+   branche meta :
+   ```ts
+   if (connection.sourceHandle === HANDLE_META_OUT && connection.targetHandle === HANDLE_META_IN) {
+     if (sourceKind !== "scene" && sourceKind !== "action") return false;
+     if (targetKind !== "media") return false;
+     // Nouveau : refus si le media a déjà une meta entrante.
+     const hasIncomingMeta = state.edges.some(
+       (e) => e.family === "meta" && e.targetId === target.id
+     );
+     return !hasIncomingMeta;
+   }
+   ```
+   *(Pour les satellites, la branche reste inchangée — ils sont
+   exclusivement auto-réconciliés et donc rejetés par cette branche.)*
+
+2. **Store mutations** ([store/nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts)) :
+
+   **`connect()`** — quand l'edge ajoutée est `family === "meta"` et
+   `targetId in state.media` :
+   - Si le media n'a pas déjà `parentId` :
+     - Convertir position absolue → relative en utilisant
+       `getAbsolutePosition` (chaîne complète, le source peut être
+       lui-même imbriqué : action dans selector dans s-box).
+     - Poser `media.parentId = source.id`.
+   - Si le media a déjà un `parentId` (cas anormal compte tenu de la
+     policy) : warning console + skip — laisser le store tel quel
+     pour ne pas masquer un bug de policy.
+
+   **`disconnect()`** — quand l'edge retirée est `family === "meta"`
+   et `targetId in state.media` :
+   - Si le media a `parentId === removed.sourceId` :
+     - Convertir position relative → absolue.
+     - Poser `media.parentId = null`.
+   - Sinon : ne rien toucher au layout (cas pathologique).
+
+3. **Migration des projets existants**
+   ([serialize/migrateSceneToSBoxParenting.ts](xflow/react/src/serialize/migrateSceneToSBoxParenting.ts)
+   ou nouveau helper `migrateMediaParenting`) :
+   - Pour chaque media dans `state.media` ayant `parentId == null`
+     mais une edge meta entrante : poser `parentId = sourceId` et
+     convertir position en relative (via `getAbsolutePosition`).
+   - **Idempotent** — un projet déjà migré reste inchangé.
+   - **Cas legacy multi-meta** : si plusieurs edges meta pointent
+     vers le même media (autorisé avant 1.b.5), garder uniquement la
+     **première** dans l'ordre des edges, supprimer les autres avec
+     un warning console (`[migrateMediaParenting] media-X : 3 meta-in
+     détectées, 2 supprimées`).
+   - Appel de la migration : dans `hydrateFromProject` après
+     `migrateSceneToSBoxParenting` et `reconcileSceneBoxes`.
+
+4. **Projection** ([view/nodalReactFlowProjection.ts](xflow/react/src/view/nodalReactFlowProjection.ts)) :
+
+   Aucun changement structurel requis — la projection pose déjà
+   `mediaNode.parentId = layout.parentId` quand défini (ligne ~243
+   dans la version actuelle). `collectHiddenIdsFromCollapsedContainers`
+   parcourt la chaîne `parentId` transitivement, donc media hérite
+   automatiquement.
+
+   ✅ Vérifier au passage que `sortNodesParentFirst` traite bien les
+   media (probablement OK puisqu'il itère sur `nodes` sans filtre).
+
+5. **Position absolue ↔ relative** :
+
+   Réutiliser `getAbsolutePosition` de
+   [view/nesting/geometry.ts](xflow/react/src/view/nesting/geometry.ts).
+   Pseudo-code de la conversion abs → rel quand on attache à `source` :
+   ```ts
+   const sourceAbs = getAbsolutePosition(source, nodesById);
+   media.x = mediaAbsX - sourceAbs.x;
+   media.y = mediaAbsY - sourceAbs.y;
+   ```
+   Et l'inverse pour le détachement.
+
+6. **`extent`** :
+   Ne **pas** poser `extent: 'parent'` sur les media (contrairement
+   à la scène dans son s-box). L'utilisateur doit pouvoir traîner
+   un media hors de son parent — ce qui déclenche le détachement
+   (point 7).
+
+7. **`onNodeDragStop`** ([view/NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx)) :
+
+   Étendre la logique de détachement existante pour les media :
+   - Si un media est draggué et son `overlap` avec son parent direct
+     tombe sous `DETACH_OVERLAP_THRESHOLD` : appeler `disconnect`
+     sur son edge meta entrante. Le `disconnect` étendu (point 2)
+     se charge de clear `parentId` + position absolue.
+   - Filtrer le s-box dans la détection de candidat parent
+     (déjà prévu en 1.b.4 — point 4 — mais à anticiper ici si pas
+     encore fait).
+
+   **Optionnel — drag-attach** : si un media sans `parentId` est
+   draggué sur une scène/action candidate (overlap >
+   `ATTACH_OVERLAP_THRESHOLD`), créer une edge meta source → media.
+   À discuter avec l'utilisateur — peut être reporté si jugé moins
+   prioritaire que le drag par handle classique.
+
+8. **Tests** — créer
+   `xflow/react/src/__tests__/mediaAutoParented.test.ts` :
+   - **Connect meta scene→media** : `media.parentId = sceneId`,
+     position relative, position absolue préservée.
+   - **Connect meta action→media** où action est imbriquée (action
+     dans selector dans s-box) : conversion abs → rel utilise la
+     chaîne complète.
+   - **Disconnect** : `parentId = null`, position absolue
+     correctement restaurée.
+   - **Garde-fou policy** : tentative de connecter une 2ᵉ meta vers
+     un media déjà connecté → `isValidConnection` retourne `false`.
+   - **Migration legacy** : projet où un media a une edge meta
+     préexistante mais `parentId == null` → après hydrate, parentId
+     set, position relative.
+   - **Migration multi-meta** : projet legacy avec 2 metas vers le
+     même media → après migration, 1 seule edge restante (la
+     première), media parenté à son source.
+   - **Repli s-box** : media lié à une action top-level d'une scène
+     dont le s-box est replié → `hidden:true`. Media lié à la
+     scène elle-même → reste visible.
+   - **Repli selector** : media lié à un choix d'un selector replié
+     → `hidden:true`. Media lié au selector lui-même → reste visible.
+   - **Round-trip serialize** : positions absolues préservées
+     après save/reload.
+
+**Critère de fin** :
+
+- Smoke utilisateur : reproduire la capture (Hall + media liés à
+  Hall + Read Note + selector imbriqué + media liés au selector
+  et à ses choix). Replier le s-box Hall :
+  - Media de Hall **restent visibles** (parent = scène, scène
+    visible) ;
+  - Media de Read Note (action top-level cachée) **disparaissent** ;
+  - Media du selector lui-même restent visibles (parent = selector,
+    selector visible si non replié indépendamment) ;
+  - Media des choix internes du selector **disparaissent**.
+- Replier seulement le selector (sans replier le s-box) : media
+  liés au selector restent ; media liés aux choix disparaissent.
+- Tentative de drag d'une 2ᵉ meta sur un media déjà connecté :
+  refusée silencieusement (handle reste idle au drop).
+- Round-trip serialize/deserialize d'un projet avec media
+  auto-parentés : aucun drift de position.
+- Vitest vert (suite complète + nouveaux cas).
+
+##### Étape 1.b.4 — Polish + meta/satellites (étape finale)
+
+> Adapté pour le modèle s-box (étape 1.b.2.x). **Vient après 1.b.5
+> (media auto-parentés)** — c'est la dernière étape du sous-chantier
+> C8.1.b.
 
 **Directive** :
 
@@ -2298,15 +2499,15 @@ s-box (groupNode, parentId: null)          ← géré par le store comme un sate
      (bordure transparente) pour ne pas polluer l'affichage —
      **décision UX à confirmer avec l'utilisateur** lors du polish.
 
-2. **Meta / satellites** :
+2. **Satellites** *(media déjà traités en 1.b.5)* :
    - Comportement par défaut **conservé** : un satellite dont la
      source meta est cachée (descendant de conteneur replié = s-box
      ou selector) est marqué `hidden:true` (géré par
      `collectHiddenIdsFromCollapsedContainers`).
-   - **Cas multi-source** (1 satellite avec plusieurs `meta-in`
-     depuis des conteneurs différents) : aujourd'hui le modèle V2
-     est 1:1 (1 satellite ↔ 1 source). **Hors scope C8.1.b** —
-     documenter dans le journal comme report.
+   - **Cas multi-source satellite** (1 satellite avec plusieurs
+     `meta-in` depuis des conteneurs différents) : modèle V2 = 1:1
+     pour les satellites auto-réconciliés, donc ne se présente pas.
+     Maintenu hors scope C8.1.b — report.
 
 3. **Style final** :
    - Variables CSS pour le s-box (clair/sombre).
@@ -2322,17 +2523,22 @@ s-box (groupNode, parentId: null)          ← géré par le store comme un sate
    `onNodeDragStop`) :
    - S'assurer que le s-box n'est jamais candidat parent dans la
      boucle de détection d'overlap (ni pour les rewards REQ/PWD ni
-     pour les choix de selector). Filtrer par
+     pour les choix de selector ni pour les media). Filtrer par
      `nodeType !== 'sceneBox'` à l'entrée de la boucle.
+   - *(Si déjà fait en 1.b.5 point 7 pour le détachement media,
+     c'est OK — vérifier que c'est bien posé en début de boucle de
+     détection plutôt que dans des branches spécifiques.)*
 
 5. Mise à jour journal Annexe D + ouverture des tickets de report
-   (multi-meta, etc.).
+   (multi-meta satellite, copie media, etc.).
 
 **Critère de fin** :
 - Visual QA validé par l'utilisateur.
-- Tous les SMK-C8.1-* passent (à définir lors de cette étape).
+- Tous les SMK-C8.1-* passent (à définir lors de cette étape — la
+  liste inclut désormais les cas media de 1.b.5).
 - Pas de régression sur les tests existants
-  (selector/REQ/PWD attachement non perturbé par le s-box).
+  (selector/REQ/PWD attachement non perturbé par le s-box ; media
+  auto-parentés non perturbés par les filtres anti-s-box).
 
 
 
@@ -2467,3 +2673,25 @@ questions ouvertes, captures pertinentes.)
     `nodalSceneBoxLayoutByExternalId` dans `map-layout.json`.
   - Plan détaillé complet sous **Étape 1.b.2.x** ; étapes 1.b.3
     (repli) et 1.b.4 (polish) adaptées en conséquence.
+- 2026-05-XX — **Étape 1.b.2.x livrée + smoke 1.b.3 OK**. Le pivot
+  s-box rend la lecture des edges scène→action correcte (handles
+  sur la scène, edges courtes). Le repli du s-box masque
+  correctement les actions et leurs satellites.
+- 2026-05-XX — **Bug ergonomique signalé sur les nœuds media**.
+  Avec le repli, les media liés à des actions cachées restent
+  visibles (orphelins) — seules leurs edges meta sont cachées.
+  **Décision utilisateur** : aligner les media sur les satellites
+  (devenir enfants du nœud lié via `parentId`, hériter du
+  `hidden:true` par la chaîne parentId transitive). Trade-off
+  accepté : limite à **1 seule meta-in par media**, compensée
+  ultérieurement par une option de copie / bibliothèque media
+  (hors scope C8.1, équivalent de ce qui existe pour les nœuds
+  `object`).
+  Plan détaillé sous **Étape 1.b.5** (insérée entre 1.b.3 et
+  1.b.4, exécution avant le polish final). Étape 1.b.4 ajustée
+  pour ne plus traiter les media (déjà couverts par 1.b.5) et
+  pour intégrer les cas media dans les SMK-C8.1-*.
+  Reports identifiés :
+  - Bibliothèque / copie media (équivalent du système d'objets
+    pour permettre de référencer le même media depuis plusieurs
+    actions) — à inscrire dans §7 « Reports en attente ».

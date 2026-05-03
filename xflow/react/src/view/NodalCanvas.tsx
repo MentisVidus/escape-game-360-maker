@@ -389,41 +389,61 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     (_event, draggedNode) => {
       const allNodes = reactFlow.getNodes();
       const latestDragged = allNodes.find((n) => n.id === draggedNode.id) ?? draggedNode;
-      const draggedAction = state.actions[draggedNode.id as keyof typeof state.actions];
-      if (!draggedAction) return;
+      const live = store.getState();
+      const draggedMedia = live.media[draggedNode.id as MediaNodeId];
+      const draggedAction = live.actions[draggedNode.id as keyof typeof live.actions];
       const nodesById = new Map(allNodes.map((n) => [n.id, n as unknown as NestedNodeLike]));
-      const childRect = toAbsoluteRect(latestDragged as unknown as NestedNodeLike, nodesById);
-      const draggedLayout = state.layout[draggedNode.id as AnyNodeId];
+      const draggedLayout = live.layout[draggedNode.id as AnyNodeId];
       if (!draggedLayout) return;
 
-      if (draggedLayout.parentId && draggedLayout.parentId in state.sceneBoxes) {
+      if (draggedMedia) {
+        const parentId = draggedLayout.parentId;
+        if (!parentId) return;
+        if (parentId in live.sceneBoxes) return;
+        if (!(parentId in live.scenes) && !(parentId in live.actions)) return;
+        const parentNode = nodesById.get(parentId);
+        if (!parentNode) return;
+        const childRect = toAbsoluteRect(latestDragged as unknown as NestedNodeLike, nodesById);
+        const parentRect = toAbsoluteRect(parentNode, nodesById);
+        const overlap = overlapRatioByChild(childRect, parentRect);
+        if (overlap < DETACH_OVERLAP_THRESHOLD) {
+          const meta = live.edges.find(
+            (e) => e.family === "meta" && e.sourceId === parentId && e.targetId === draggedNode.id
+          );
+          if (meta) live.disconnect(meta.id);
+        }
+        return;
+      }
+
+      if (!draggedAction) return;
+      const childRect = toAbsoluteRect(latestDragged as unknown as NestedNodeLike, nodesById);
+
+      if (draggedLayout.parentId && draggedLayout.parentId in live.sceneBoxes) {
         const parentNode = nodesById.get(draggedLayout.parentId);
         if (parentNode) {
           const parentRect = toAbsoluteRect(parentNode, nodesById);
           const overlap = overlapRatioByChild(childRect, parentRect);
           if (overlap < DETACH_OVERLAP_THRESHOLD) {
-            state.detachChild(draggedNode.id as AnyNodeId, { x: childRect.x, y: childRect.y });
+            live.detachChild(draggedNode.id as AnyNodeId, { x: childRect.x, y: childRect.y });
             return;
           }
         }
-        const live = store.getState();
-        const pl = live.layout[draggedNode.id as AnyNodeId];
+        const pl = store.getState().layout[draggedNode.id as AnyNodeId];
         const bid = draggedLayout.parentId as SceneBoxNodeId;
         if (pl && (pl.x < SCENE_PADDING_X || pl.y < SCENE_PADDING_TOP)) {
-          live.reanchorSBox(bid);
+          store.getState().reanchorSBox(bid);
         }
-      } else if (draggedLayout.parentId && draggedLayout.parentId in state.actions) {
+      } else if (draggedLayout.parentId && draggedLayout.parentId in live.actions) {
         const parentNode = nodesById.get(draggedLayout.parentId);
         if (!parentNode) return;
         const parentRect = toAbsoluteRect(parentNode, nodesById);
         const overlap = overlapRatioByChild(childRect, parentRect);
         if (overlap < DETACH_OVERLAP_THRESHOLD) {
-          state.detachChild(draggedNode.id as AnyNodeId, { x: childRect.x, y: childRect.y });
+          live.detachChild(draggedNode.id as AnyNodeId, { x: childRect.x, y: childRect.y });
         }
         return;
       }
 
-      const live = store.getState();
       const hasFlowInFromScene = live.edges.some(
         (edge) => edge.family === "flow" && edge.targetId === draggedNode.id && edge.sourceId in live.scenes
       );
@@ -452,8 +472,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
       for (const candidate of allNodes) {
         if (candidate.id === draggedNode.id) continue;
-        if (candidate.id in state.sceneBoxes) continue;
-        const candidateAction = state.actions[candidate.id as keyof typeof state.actions];
+        if (candidate.id in live.sceneBoxes) continue;
+        const candidateAction = live.actions[candidate.id as keyof typeof live.actions];
         if (!candidateAction) continue;
         const parentRect = toAbsoluteRect(candidate as unknown as NestedNodeLike, nodesById);
         const overlap = overlapRatioByChild(childRect, parentRect);
@@ -485,13 +505,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       if (!useRewardParent && !useChoiceParent) return;
 
       const bestParentId = useRewardParent ? bestRewardParentId! : bestChoiceParentId!;
-      state.attachChild(bestParentId, draggedNode.id as AnyNodeId);
+      live.attachChild(bestParentId, draggedNode.id as AnyNodeId);
 
       if (useRewardParent) {
         const parentNode = nodesById.get(bestParentId);
         if (!parentNode) return;
         const parentSize = parentNode.measured?.width ?? parentNode.width ?? 180;
-        state.updateNodeLayout(draggedNode.id as AnyNodeId, {
+        live.updateNodeLayout(draggedNode.id as AnyNodeId, {
           parentId: bestParentId,
           x: parentSize + REWARD_CHILD_GAP_X,
           y: 0,
@@ -500,7 +520,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         const parentNode = nodesById.get(bestParentId);
         if (!parentNode) return;
         const parentAbsRect = toAbsoluteRect(parentNode, nodesById);
-        state.updateNodeLayout(draggedNode.id as AnyNodeId, {
+        live.updateNodeLayout(draggedNode.id as AnyNodeId, {
           parentId: bestParentId,
           x: childRect.x - parentAbsRect.x,
           y: childRect.y - parentAbsRect.y,

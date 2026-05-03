@@ -17,6 +17,7 @@ import type { NodalProject } from "../model/project";
 import { applyHydratedLayout, type MapLayoutJson } from "../serialize/mapLayoutJson";
 import { applyMetaMediaLinks, applyNodalAutoSatelliteData } from "../serialize/nodalMapExtras";
 import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
+import { migrateMediaParenting } from "../serialize/migrateMediaParenting";
 import type { ProjectJsonV2 } from "../serialize/toProjectJson";
 import {
   DEFAULT_PLAYER_POPUP_THEME,
@@ -24,6 +25,7 @@ import {
   type PlayerPopupTheme,
 } from "../view/popups/playerPopupDomRead";
 import { reanchorSBox as reanchorSBoxLayout } from "../view/nesting/containerBounds";
+import { attachMediaToMetaSource, detachMediaFromMetaSource } from "./mediaMetaLayout";
 import { reconcileSceneBoxes, sboxIdFromScene } from "./reconcileSceneBoxes";
 import { computeWarnings, type Warning } from "./computeWarnings";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
@@ -304,6 +306,12 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           delete next.layout[bid];
         }
       }
+      for (const e of [...next.edges]) {
+        if (e.family !== "meta" || !(e.targetId in next.media)) continue;
+        if (e.sourceId === nodeId) {
+          detachMediaFromMetaSource(next, e.sourceId, e.targetId as MediaNodeId);
+        }
+      }
       removeNodeFromIndexes(next, nodeId);
       removeRelatedEdges(next, nodeId);
       for (const action of Object.values(next.actions)) {
@@ -357,6 +365,9 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         }
 
         syncGotoTargetFromTransitionEdge(next, edge);
+        if (edge.family === "meta" && edge.targetId in next.media) {
+          attachMediaToMetaSource(next, edge.sourceId as AnyNodeId, edge.targetId as MediaNodeId);
+        }
         reconcileSceneBoxes(next);
         reconcileAutoSatellites(next, nextAutoId);
         return withWarnings(next);
@@ -398,6 +409,9 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         }
 
         if (removed) clearGotoTargetIfNoTransition(next, removed);
+        if (removed?.family === "meta" && removed.targetId in next.media) {
+          detachMediaFromMetaSource(next, removed.sourceId as AnyNodeId, removed.targetId as MediaNodeId);
+        }
         reconcileSceneBoxes(next);
         reconcileAutoSatellites(next, nextAutoId);
         return withWarnings(next);
@@ -648,6 +662,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       reconcileAutoSatellites(next, nextAutoId);
       applyNodalAutoSatelliteData(next, layoutJson.nodalAutoSatelliteData);
       applyMetaMediaLinks(next, layoutJson.nodalMetaMediaLinks);
+      migrateMediaParenting(next);
       const playerPopupTheme = normalizePlayerPopupTheme(
         layoutJson.nodalPlayerPopupTheme ?? readPlayerPopupFieldsFromDom()
       );

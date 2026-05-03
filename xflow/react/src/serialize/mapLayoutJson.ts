@@ -17,6 +17,7 @@ import {
   type NodalMetaMediaLink,
   type NodalSceneMetaMediaLink,
 } from "./nodalMapExtras";
+import { migrateMediaParenting } from "./migrateMediaParenting";
 import { migrateSceneToSBoxParenting } from "./migrateSceneToSBoxParenting";
 import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 
@@ -133,6 +134,7 @@ export function applyHydratedLayout(state: NodalProject, layout: MapLayoutJson, 
   stripSelectorChoiceFlowEdgesAfterParentRestore(state);
   applySceneMetaMediaLinks(state, layout.nodalSceneMetaMediaLinks);
   ensureGraphNodeLayoutsAfterHydrate(state);
+  migrateMediaParenting(state);
 }
 
 /** Positions monde des s-box depuis `map-layout.json` (1.b.2.x). */

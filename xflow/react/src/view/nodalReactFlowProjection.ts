@@ -67,8 +67,10 @@ function getCollapsedSceneBoxIds(state: NodalProject): Set<SceneBoxNodeId> {
 
 /**
  * Descendants (transitifs) des selectors repliés — le selector racine n’est pas inclus.
+ * C8.1.b.5 : les **media** enfant **direct** du selector replié restent visibles (comme le selector).
  */
 function collectHiddenIdsUnderCollapsedSelectors(
+  state: NodalProject,
   collapsedSelectorIds: Set<AnyNodeId>,
   childrenByParent: Map<AnyNodeId, AnyNodeId[]>
 ): Set<AnyNodeId> {
@@ -82,6 +84,7 @@ function collectHiddenIdsUnderCollapsedSelectors(
     if (!children) continue;
     for (const child of children) {
       if (hidden.has(child)) continue;
+      if (collapsedSelectorIds.has(parent) && child in state.media) continue;
       hidden.add(child);
       stack.push(child);
     }
@@ -124,7 +127,7 @@ export function collectHiddenIdsFromCollapsedContainers(
   state: NodalProject,
   childrenByParent: Map<AnyNodeId, AnyNodeId[]>
 ): Set<AnyNodeId> {
-  const fromSelectors = collectHiddenIdsUnderCollapsedSelectors(getCollapsedSelectorIds(state), childrenByParent);
+  const fromSelectors = collectHiddenIdsUnderCollapsedSelectors(state, getCollapsedSelectorIds(state), childrenByParent);
   const fromBoxes = collectHiddenIdsUnderCollapsedSceneBoxes(state, getCollapsedSceneBoxIds(state), childrenByParent);
   const out = new Set<AnyNodeId>(fromSelectors);
   for (const id of fromBoxes) out.add(id);
@@ -366,6 +369,9 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
       position: { x: layout.x, y: layout.y },
       data: { nodeType: "media", node: media },
     };
+    if (layout.parentId) {
+      mediaNode.parentId = layout.parentId;
+    }
     if (hiddenIds.has(media.id)) {
       mediaNode.hidden = true;
     }
