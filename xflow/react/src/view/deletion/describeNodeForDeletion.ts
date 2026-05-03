@@ -3,6 +3,27 @@ import type { NodalProject } from "../../model/project";
 import { sboxIdFromScene } from "../../store/reconcileSceneBoxes";
 import { buildChildrenByParent, collectDescendantNodeIds } from "../nesting/containerBounds";
 
+/**
+ * Réduit le lot de nœuds RF que le moteur s’apprête à supprimer aux **racines** :
+ * si un ancêtre est aussi dans le lot (ex. REQ2>REQ3>MSG), ne garder que REQ2.
+ * Sinon `onNodesDelete` appellerait `removeNode` pour chaque enfant en cascade.
+ */
+export function filterRfDeletionRoots<NodeType extends { id: string; parentId?: string | null }>(
+  deleted: NodeType[]
+): NodeType[] {
+  const idSet = new Set(deleted.map((n) => n.id));
+  return deleted.filter((n) => {
+    let p: string | null | undefined = n.parentId ?? undefined;
+    while (p) {
+      if (idSet.has(p)) return false;
+      const parent = deleted.find((x) => x.id === p);
+      if (!parent) break;
+      p = parent.parentId ?? undefined;
+    }
+    return true;
+  });
+}
+
 export type DeletionDescribeResult = {
   needsConfirm: boolean;
   title: string;

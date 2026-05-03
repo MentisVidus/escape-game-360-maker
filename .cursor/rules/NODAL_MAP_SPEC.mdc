@@ -4650,13 +4650,14 @@ questions ouvertes, captures pertinentes.)
 - 2026-05-02 — **C8.2.2 livré** — confirmations suppression (scène avec actions, selector avec choix) :
   - [describeNodeForDeletion.ts](xflow/react/src/view/deletion/describeNodeForDeletion.ts) :
     `describeNodeForDeletion`, `normalizeDeletionTarget`, `orderedDeleteChainForStoreNode`,
-    `flattenDeleteChains`, `topoDeleteOrder` ; choix selector = **actions** enfants directes
-    (satellites exclus du compte de confirmation).
+    `flattenDeleteChains`, `topoDeleteOrder`, **`filterRfDeletionRoots`** ; choix selector = **actions**
+    enfants directes (satellites exclus du compte de confirmation).
   - [DeleteConfirmDialog.tsx](xflow/react/src/view/popups/DeleteConfirmDialog.tsx) : focus **Annuler**,
     **Échap** / **Entrée** ; styles `NodalCanvas.css`.
-  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : interception `onNodesChange` (`type === "remove"`),
-    satellites ignorés ; après confirmation : chaîne de `removeNode` (scène / selector avec sous-arbre).
-  - Tests : `describeNodeForDeletion.test.ts` (REQ + récompense orpheline).
+  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : **`onBeforeDelete`** (API RF v12 — le hook
+    `onNodesChange` seul ne suffit pas) ; dialogue async + `resolve(false)` après suppression store ;
+    lot restreint aux **racines** `{ nodes, edges }` sinon ; `onNodesDelete` + racines + satellites ignorés.
+  - Tests : `describeNodeForDeletion.test.ts` (REQ + récompense orpheline, `filterRfDeletionRoots`).
 - 2026-05-02 — **C8.2.1 livré** — infrastructure raccourcis + **Échap** + **`D`** :
   - [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts) :
     `nodalKeyboardHandleKeyDown` + hook ; **Échap** = désélection nœuds/arêtes RF

@@ -16,6 +16,7 @@ import {
   type Node as RFNode,
   type NodeChange,
   type NodeTypes,
+  type OnBeforeDelete,
   type OnConnect,
   type OnMove,
 } from "@xyflow/react";
@@ -68,6 +69,7 @@ import { SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
 import {
   describeNodeForDeletion,
+  filterRfDeletionRoots,
   flattenDeleteChains,
   normalizeDeletionTarget,
 } from "./deletion/describeNodeForDeletion";
@@ -149,6 +151,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     body: string;
     confirmLabel: string;
     cancelLabel: string;
+  } | null>(null);
+  /** Promise `onBeforeDelete` en attente de la réponse du dialogue (ids store + resolve). */
+  const pendingDeleteFlowRef = useRef<{
+    resolve: (value: boolean | { nodes: RFNode<NodalRFData>[]; edges: RFEdge[] }) => void;
     pendingStoreIds: AnyNodeId[];
   } | null>(null);
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
@@ -431,93 +437,85 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setRfEdges(toReactFlowEdges(state));
   }, [state.edges, state.layout, state.actions, state.scenes, setRfEdges]);
 
-  // Wrap onNodesChange : persistance positions + C8.2.2 interception suppressions à confirmer
+  // Persistance des positions + passage des changements RF (suppression gérée par `onBeforeDelete` C8.2.2).
   const onNodesChange = useCallback(
     (changes: NodeChange<RFNode<NodalRFData>>[]) => {
+      onNodesChangeRF(changes);
+      const snap = store.getState();
+      for (const change of changes) {
+        if (change.type === "position" && change.position && !change.dragging) {
+          snap.updateNodeLayout(change.id as AnyNodeId, {
+            x: change.position.x,
+            y: change.position.y,
+          });
+        }
+      }
+    },
+    [onNodesChangeRF, store]
+  );
+
+  /**
+   * RF v12 : appelé **avant** la suppression clavier — retourner `false` annule ;
+   * retourner `{ nodes, edges }` restreint évite de supprimer les enfants en cascade dans le store
+   * (ex. chaîne REQ1>REQ2>REQ3 : un seul `removeNode` sur REQ2).
+   */
+  const onBeforeDelete = useCallback<OnBeforeDelete<RFNode<NodalRFData>, RFEdge>>(
+    async ({ nodes: deletedNodes, edges: deletedEdges }) => {
       const snap = store.getState();
       const locale = detectNodalLocale();
 
-      const removeChanges = changes.filter((c) => c.type === "remove");
-      const otherChanges = changes.filter((c) => c.type !== "remove");
+      const nonSat = deletedNodes.filter((n) => !(n.id in snap.satellites));
+      if (nonSat.length === 0) return false;
 
-      const applyPositionPatches = (ch: NodeChange<RFNode<NodalRFData>>[]) => {
-        for (const change of ch) {
-          if (change.type === "position" && change.position && !change.dragging) {
-            snap.updateNodeLayout(change.id as AnyNodeId, {
-              x: change.position.x,
-              y: change.position.y,
-            });
-          }
-        }
-      };
+      const rootsRf = filterRfDeletionRoots(nonSat);
 
-      if (removeChanges.length === 0) {
-        onNodesChangeRF(changes);
-        applyPositionPatches(changes);
-        return;
-      }
-
-      const allowedRemoves = removeChanges.filter((c) => !(c.id in snap.satellites));
-      if (allowedRemoves.length === 0) {
-        if (otherChanges.length) onNodesChangeRF(otherChanges);
-        applyPositionPatches(otherChanges);
-        return;
-      }
-
-      const targetIds: AnyNodeId[] = [];
+      const storeTargets: AnyNodeId[] = [];
       const seen = new Set<string>();
-      for (const c of allowedRemoves) {
-        const normalized = normalizeDeletionTarget(snap, c.id as AnyNodeId);
-        if (normalized == null) continue;
-        if (seen.has(normalized)) continue;
-        seen.add(normalized);
-        targetIds.push(normalized);
+      for (const n of rootsRf) {
+        const t = normalizeDeletionTarget(snap, n.id as AnyNodeId);
+        if (t == null) continue;
+        if (seen.has(t)) continue;
+        seen.add(t);
+        storeTargets.push(t);
       }
-
-      if (targetIds.length === 0) {
-        if (otherChanges.length) onNodesChangeRF(otherChanges);
-        applyPositionPatches(otherChanges);
-        return;
-      }
+      if (storeTargets.length === 0) return false;
 
       const pairs: { target: AnyNodeId; desc: NonNullable<ReturnType<typeof describeNodeForDeletion>> }[] = [];
-      for (const tid of targetIds) {
+      for (const tid of storeTargets) {
         const d = describeNodeForDeletion(snap, tid, locale);
         if (d) pairs.push({ target: d.storeTargetId, desc: d });
       }
-      if (pairs.length === 0) {
-        if (otherChanges.length) onNodesChangeRF(otherChanges);
-        applyPositionPatches(otherChanges);
-        return;
-      }
+      if (pairs.length === 0) return { nodes: rootsRf, edges: deletedEdges };
 
       const needConfirm = pairs.some((p) => p.desc.needsConfirm);
-      if (needConfirm) {
-        const bodies = pairs.filter((p) => p.desc.needsConfirm).map((p) => p.desc.body);
-        const titles = pairs.filter((p) => p.desc.needsConfirm).map((p) => p.desc.title);
-        const title =
-          titles.length === 1
-            ? titles[0]!
-            : locale === "fr"
-              ? "Confirmer la suppression"
-              : "Confirm deletion";
-        const body = bodies.join("\n\n");
+      if (!needConfirm) {
+        return { nodes: rootsRf, edges: deletedEdges };
+      }
+
+      const bodies = pairs.filter((p) => p.desc.needsConfirm).map((p) => p.desc.body);
+      const titles = pairs.filter((p) => p.desc.needsConfirm).map((p) => p.desc.title);
+      const title =
+        titles.length === 1
+          ? titles[0]!
+          : locale === "fr"
+            ? "Confirmer la suppression"
+            : "Confirm deletion";
+      const body = bodies.join("\n\n");
+
+      return await new Promise<boolean | { nodes: RFNode<NodalRFData>[]; edges: RFEdge[] }>((resolve) => {
+        pendingDeleteFlowRef.current = {
+          resolve,
+          pendingStoreIds: pairs.map((p) => p.target),
+        };
         setDeleteConfirm({
           title,
           body,
           confirmLabel: locale === "fr" ? "Supprimer" : "Delete",
           cancelLabel: locale === "fr" ? "Annuler" : "Cancel",
-          pendingStoreIds: pairs.map((p) => p.target),
         });
-        if (otherChanges.length) onNodesChangeRF(otherChanges);
-        applyPositionPatches(otherChanges);
-        return;
-      }
-
-      onNodesChangeRF([...otherChanges, ...allowedRemoves]);
-      applyPositionPatches([...otherChanges, ...allowedRemoves]);
+      });
     },
-    [onNodesChangeRF, store]
+    [store]
   );
 
   // Wrap onEdgesChange pour passer à React Flow
@@ -807,10 +805,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           deleteKeyCode={["Delete", "Backspace"]}
+          onBeforeDelete={onBeforeDelete}
           onNodesDelete={(deleted) => {
-            for (const n of deleted) {
-              if (n.id in state.satellites) continue;
-              state.removeNode(n.id as AnyNodeId);
+            const snap = store.getState();
+            const roots = filterRfDeletionRoots(deleted);
+            for (const n of roots) {
+              if (n.id in snap.satellites) continue;
+              snap.removeNode(n.id as AnyNodeId);
             }
           }}
           onEdgesDelete={(deleted) => {
@@ -843,18 +844,26 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           body={deleteConfirm?.body ?? ""}
           confirmLabel={deleteConfirm?.confirmLabel ?? ""}
           cancelLabel={deleteConfirm?.cancelLabel ?? ""}
-          onCancel={() => setDeleteConfirm(null)}
-          onConfirm={() => {
-            if (!deleteConfirm) return;
-            const snap = store.getState();
-            const chain = flattenDeleteChains(snap, deleteConfirm.pendingStoreIds);
+          onCancel={() => {
+            const p = pendingDeleteFlowRef.current;
+            pendingDeleteFlowRef.current = null;
             setDeleteConfirm(null);
-            for (const step of chain) {
-              const s = store.getState();
-              if (step in s.scenes || step in s.actions || step in s.media) {
-                store.getState().removeNode(step);
+            p?.resolve(false);
+          }}
+          onConfirm={() => {
+            const p = pendingDeleteFlowRef.current;
+            if (p) {
+              const chain = flattenDeleteChains(store.getState(), p.pendingStoreIds);
+              for (const step of chain) {
+                const s = store.getState();
+                if (step in s.scenes || step in s.actions || step in s.media) {
+                  store.getState().removeNode(step);
+                }
               }
+              pendingDeleteFlowRef.current = null;
+              p.resolve(false);
             }
+            setDeleteConfirm(null);
           }}
         />
         <ObjectEditorPopup

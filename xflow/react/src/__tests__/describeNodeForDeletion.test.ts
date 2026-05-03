@@ -5,11 +5,24 @@ import type { ActionNode, SceneNode } from "../model/nodes";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 import {
   describeNodeForDeletion,
+  filterRfDeletionRoots,
   orderedDeleteChainForStoreNode,
 } from "../view/deletion/describeNodeForDeletion";
 
 const sfx = { url: "", volume: 1 };
 const visibility = { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true };
+
+describe("filterRfDeletionRoots", () => {
+  it("ne garde que la racine si ancêtre présent dans le lot (REQ2>REQ3>MSG)", () => {
+    const deleted = [
+      { id: "req2", parentId: "sceneBox" },
+      { id: "req3", parentId: "req2" },
+      { id: "msg1", parentId: "req3" },
+    ];
+    const roots = filterRfDeletionRoots(deleted);
+    expect(roots.map((r) => r.id)).toEqual(["req2"]);
+  });
+});
 
 describe("describeNodeForDeletion (C8.2.2)", () => {
   it("scène sans action → pas de confirmation", () => {
