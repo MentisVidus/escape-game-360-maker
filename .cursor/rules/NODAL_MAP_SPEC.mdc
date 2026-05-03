@@ -3789,7 +3789,7 @@ le même.
 
 ##### Étape C8.5.1 — Comportements clic + menu contextuel *(livrée partiellement 2026-05-02)*
 
-**Livré dans cette itération** : double-clic pour ouvrir les popups d’édition (actions, média, satellite) et l’édition du titre de scène ; `NodalContextMenu` + `onNodeContextMenu` / `onPaneContextMenu` ; entrées **Copier** / **Coller** / **Dupliquer la scène** désactivées ou no-op en attendant C8.5.2 / C8.5.3 ; tests `nodalContextMenuModel.test.ts`.
+**Livré dans cette itération** : double-clic pour ouvrir les popups d’édition (actions, média, satellite) et l’édition du titre de scène ; `NodalContextMenu` + `onNodeContextMenu` / `onPaneContextMenu` ; **Copier** / **Coller** : voir **C8.5.2** ; entrée **Dupliquer la scène** (s-box) restée désactivée — **C8.5.3** ignorée (couvert par copier-coller scène) ; tests `nodalContextMenuModel.test.ts`.
 
 **Décisions design (validées)** :
 - **Clic simple** sur un nœud → sélection seulement (plus
@@ -3999,7 +3999,9 @@ sous-graphe sérialisé. Au collage :
 
 ##### Étape C8.5.3 — Dupliquer scène complète (s-box)
 
-**Décision** : option spécifique au clic-droit sur s-box,
+> **Statut (2026-05-02) — non réalisée, volontairement ignorée** : le besoin est **couvert par C8.5.2** (copier une scène ou le pod s-box + contenu via `buildClipboard` / `pasteClipboard`). Pas d’entrée dédiée « Dupliquer la scène complète » nécessaire pour l’instant ; le texte ci-dessous reste une **référence** si l’on souhaite plus tard un raccourci one-click (ex. suffixe de label, offset fixe) sans repasser par le presse-papiers.
+
+**Décision** *(historique)* : option spécifique au clic-droit sur s-box,
 dédiée à la **duplication d'une scène et de tout son contenu**
 en un seul geste — équivalent à une « Save as » de scène.
 
@@ -4683,16 +4685,21 @@ questions ouvertes, captures pertinentes.)
   - [NodalContextMenu.tsx](xflow/react/src/view/contextMenu/NodalContextMenu.tsx) +
     [nodalContextMenuModel.ts](xflow/react/src/view/contextMenu/nodalContextMenuModel.ts) +
     [NodalContextMenu.css](xflow/react/src/view/contextMenu/NodalContextMenu.css) ;
-  - [nodalClipboard.ts](xflow/react/src/store/nodalClipboard.ts) (stub vide, C8.5.2) ;
+  - [clipboard.ts](xflow/react/src/store/clipboard.ts) (presse-papiers runtime C8.5.2) ;
   - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `onNodeContextMenu` / `onPaneContextMenu`,
     actions **Ouvrir** / **Supprimer** / **Définir départ** / **Replier** / **Aller au parent** ;
-    **Copier** / **Coller** / **Dupliquer scène** en attente C8.5.2–C8.5.3.
+    **Copier** / **Coller** : **C8.5.2** ; **Dupliquer scène** (C8.5.3) **non poursuivie** (couvert par copier-coller du pod scène).
   - Tests : `nodalContextMenuModel.test.ts`.
+- 2026-05-02 — **C8.5.2 livré** — presse-papiers nodal + **C8.5.3 écartée** (doublon : copier une scène embarque le pod complet) :
+  - [clipboard.ts](xflow/react/src/store/clipboard.ts), [nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts) (`copyNodesToClipboard`, `pasteClipboardAt`) ; suppression du stub `nodalClipboard.ts` ;
+  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `Ctrl/Cmd+C`·`V`, `onSelectionContextMenu` (rectangle Maj+drag), menu fond de carte avec sélection (copier / supprimer sélection, coller) ;
+  - [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts), [nodalContextMenuModel.ts](xflow/react/src/view/contextMenu/nodalContextMenuModel.ts), [NodalContextMenu.tsx](xflow/react/src/view/contextMenu/NodalContextMenu.tsx) ;
+  - Tests : `clipboard.test.ts`, mises à jour `nodalContextMenuModel.test.ts`, `nodalKeyboard.test.ts`.
 - 2026-05-02 — **C8.2.1 livré** — infrastructure raccourcis + **Échap** + **`D`** :
   - [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts) :
     `nodalKeyboardHandleKeyDown` + hook ; **Échap** = désélection nœuds/arêtes RF
-    (hors popup) ; **`D`** sans modificateur = `duplicateSelection` (**stub**
-    jusqu’à C8.5.3, no-op) ; **Ctrl/Cmd+F** = focus champ recherche (cf. C8.4.1).
+    (hors popup) ; **`D`** sans modificateur = `duplicateSelection` (**stub** no-op ;
+    C8.5.3 non implémentée, voir C8.5.2) ; **Ctrl/Cmd+F** = focus champ recherche (cf. C8.4.1).
   - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `deselectAllRf` +
     stub duplication ; un seul listener `window` « keydown ».
   - DevDependency **jsdom** + tests **`@vitest-environment jsdom`** :
@@ -4739,7 +4746,7 @@ questions ouvertes, captures pertinentes.)
     - `goto.payload.target` : préservé (pointe vers la scène externe
       d'origine — sauf cas duplication scène complète où on remappe
       vers la scène clone).
-    - Plan **C8.5.1 → C8.5.3** rédigé.
+    - Plan **C8.5.1 → C8.5.3** rédigé ; **C8.5.3** ensuite **écartée** (doublon avec C8.5.2).
   - **C8.6** (rework selector) :
     - **Auto-resize hybride** : auto-grow à l'attachement, shrink
       uniquement au détachement (sortie d'un enfant via drag).

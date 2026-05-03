@@ -6,9 +6,13 @@ import { isEditingContext } from "./isEditingContext";
 export type NodalKeyboardHandlers = {
   anyPopupOpen: boolean;
   deselectAll: () => void;
-  /** C8.5.3 — duplication ; stub vide en C8.2.1. */
+  /** Touche D : duplication rapide — stub (C8.5.3 non faite, doublon C8.5.2). */
   duplicateSelection: () => void;
   focusSearchField: () => void;
+  /** C8.5.2 — copier la sélection RF (optionnel si non branché). */
+  copySelection?: () => void;
+  /** C8.5.2 — coller sous le pointeur / centre carte (optionnel). */
+  pasteFromClipboard?: () => void;
 };
 
 /**
@@ -18,7 +22,24 @@ export type NodalKeyboardHandlers = {
 export function nodalKeyboardHandleKeyDown(e: KeyboardEvent, h: NodalKeyboardHandlers): boolean {
   if (isEditingContext(e.target)) return false;
 
-  const modF = (e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "F");
+  const mod = e.ctrlKey || e.metaKey;
+
+  if (mod && (e.key === "c" || e.key === "C")) {
+    if (h.anyPopupOpen) return false;
+    if (!h.copySelection) return false;
+    e.preventDefault();
+    h.copySelection();
+    return true;
+  }
+  if (mod && (e.key === "v" || e.key === "V")) {
+    if (h.anyPopupOpen) return false;
+    if (!h.pasteFromClipboard) return false;
+    e.preventDefault();
+    h.pasteFromClipboard();
+    return true;
+  }
+
+  const modF = mod && (e.key === "f" || e.key === "F");
   if (modF) {
     if (h.anyPopupOpen) return false;
     e.preventDefault();

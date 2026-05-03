@@ -8,6 +8,8 @@ export type NodalContextMenuAction =
   | "copy-selection"
   | "paste"
   | "delete"
+  /** Fond de carte / rectangle de sélection RF : supprime tous les nœuds sélectionnés (hors flux satellite seul géré par RF). */
+  | "delete-selection"
   | "set-start-scene"
   | "duplicate-scene"
   | "toggle-fold"
@@ -27,6 +29,7 @@ function labels(locale: "fr" | "en") {
     copySelection: L ? "Copy selection" : "Copier la sélection",
     paste: L ? "Paste" : "Coller",
     delete: L ? "Delete" : "Supprimer",
+    deleteSelection: L ? "Delete selection" : "Supprimer la sélection",
     setStart: L ? "Set as start scene" : "Définir comme scène de départ",
     duplicateScene: L ? "Duplicate entire scene" : "Dupliquer la scène complète",
     fold: L ? "Collapse" : "Replier",
@@ -36,8 +39,8 @@ function labels(locale: "fr" | "en") {
 }
 
 /**
- * Construit les entrées du menu contextuel (C8.5.1).
- * Copier / Coller : désactivés jusqu’à C8.5.2 ; duplication scène : C8.5.3.
+ * Construit les entrées du menu contextuel (C8.5.1 + C8.5.2 copier/coller).
+ * Entrée s-box « Dupliquer la scène complète » : désactivée ; C8.5.3 ignorée (couvert par C8.5.2).
  */
 export function buildNodalContextMenuItems(
   snap: NodalProjectStore,
@@ -48,12 +51,28 @@ export function buildNodalContextMenuItems(
 ): NodalContextMenuItem[] {
   const t = labels(locale);
   const out: NodalContextMenuItem[] = [];
-  const copyDisabled = true;
   const dupDisabled = true;
 
   if (targetId == null) {
-    if (clipboardEmpty) return [];
-    out.push({ action: "paste", label: t.paste, disabled: false });
+    const storeSelectable = selectedIds.filter((id) => {
+      const k = id as AnyNodeId;
+      return (
+        k in snap.scenes ||
+        k in snap.sceneBoxes ||
+        k in snap.actions ||
+        k in snap.media ||
+        k in snap.satellites
+      );
+    });
+    const hasPaneMenu = storeSelectable.length > 0 || !clipboardEmpty;
+    if (!hasPaneMenu) return [];
+    if (!clipboardEmpty) {
+      out.push({ action: "paste", label: t.paste, disabled: false });
+    }
+    if (storeSelectable.length > 0) {
+      out.push({ action: "copy-selection", label: t.copySelection });
+      out.push({ action: "delete-selection", label: t.deleteSelection });
+    }
     return out;
   }
 
@@ -62,9 +81,9 @@ export function buildNodalContextMenuItems(
     if (snap.meta.startSceneId !== sid) {
       out.push({ action: "set-start-scene", label: t.setStart });
     }
-    out.push({ action: "copy-target", label: t.copy, disabled: copyDisabled });
+    out.push({ action: "copy-target", label: t.copy });
     if (selectedIds.length > 1) {
-      out.push({ action: "copy-selection", label: t.copySelection, disabled: copyDisabled });
+      out.push({ action: "copy-selection", label: t.copySelection });
     }
     out.push({ action: "delete", label: t.delete });
     return out;
@@ -84,9 +103,9 @@ export function buildNodalContextMenuItems(
     const act = snap.actions[targetId as ActionNodeId];
     const isSelector = act.actionType === "selector";
     out.push({ action: "open", label: t.open });
-    out.push({ action: "copy-target", label: t.copy, disabled: copyDisabled });
+    out.push({ action: "copy-target", label: t.copy });
     if (selectedIds.length > 1) {
-      out.push({ action: "copy-selection", label: t.copySelection, disabled: copyDisabled });
+      out.push({ action: "copy-selection", label: t.copySelection });
     }
     if (isSelector) {
       const collapsed = !!snap.layout[targetId]?.collapsed;
@@ -101,9 +120,9 @@ export function buildNodalContextMenuItems(
 
   if (targetId in snap.media) {
     out.push({ action: "open", label: t.open });
-    out.push({ action: "copy-target", label: t.copy, disabled: copyDisabled });
+    out.push({ action: "copy-target", label: t.copy });
     if (selectedIds.length > 1) {
-      out.push({ action: "copy-selection", label: t.copySelection, disabled: copyDisabled });
+      out.push({ action: "copy-selection", label: t.copySelection });
     }
     out.push({ action: "delete", label: t.delete });
     return out;

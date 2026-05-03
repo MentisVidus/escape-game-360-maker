@@ -29,6 +29,7 @@ import type { SBoxDisplacement } from "../view/nesting/sboxCollision";
 import { resolveSBoxOverlapsAfterUnfold, rewindSBoxOverlapPushes } from "../view/nesting/sboxCollision";
 import { attachMediaToMetaSource, detachMediaFromMetaSource } from "./mediaMetaLayout";
 import { reconcileSceneBoxes, sboxIdFromScene } from "./reconcileSceneBoxes";
+import { buildClipboard, getNodalClipboard, pasteClipboard, setNodalClipboard } from "./clipboard";
 import { computeWarnings, type Warning } from "./computeWarnings";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 
@@ -63,6 +64,10 @@ export type NodalProjectStore = NodalProject & {
   hydrateFromProject: (projectJson: ProjectJsonV2, layoutJson: MapLayoutJson) => void;
   /** C8.1.b.2.x — re-ancrage du conteneur s-box (coords directes ≥ pad). */
   reanchorSBox: (sboxId: SceneBoxNodeId) => void;
+  /** C8.5.2 — presse-papiers runtime (sous-graphe). */
+  copyNodesToClipboard: (nodeIds: AnyNodeId[]) => void;
+  /** C8.5.2 — collage en coordonnées flow ; ids des nœuds créés. */
+  pasteClipboardAt: (pasteAbs: { x: number; y: number }) => AnyNodeId[];
 };
 
 export type NodalProjectStoreApi = StoreApi<NodalProjectStore>;
@@ -636,6 +641,34 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       if (!(sceneId in state.scenes)) return;
       const next = { ...state, meta: { ...state.meta, startSceneId: sceneId } };
       set(withWarnings(next));
+    },
+
+    copyNodesToClipboard: (nodeIds) => {
+      const state = get();
+      const clip = buildClipboard(state, nodeIds);
+      if (clip) setNodalClipboard(clip);
+    },
+
+    pasteClipboardAt: (pasteAbs) => {
+      const clip = getNodalClipboard();
+      if (!clip) return [];
+      let newIds: AnyNodeId[] = [];
+      set((state) => {
+        const merged = pasteClipboard(state, clip, pasteAbs, nextAutoId);
+        newIds = merged.newIds;
+        const next: NodalProjectStore = {
+          ...merged.project,
+          sceneBoxOverlapMemory: state.sceneBoxOverlapMemory,
+          playerPopupTheme: state.playerPopupTheme,
+        } as NodalProjectStore;
+        for (const e of next.edges) {
+          if (e.family === "transition") syncGotoTargetFromTransitionEdge(next, e);
+        }
+        reconcileSceneBoxes(next);
+        reconcileAutoSatellites(next, nextAutoId);
+        return withWarnings(next);
+      });
+      return newIds;
     },
 
     setViewport: (viewport) => {

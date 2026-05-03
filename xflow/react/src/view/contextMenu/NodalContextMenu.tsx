@@ -45,7 +45,7 @@ export function NodalContextMenu({ items, position, onSelect, onClose }: Props) 
           key={`${it.action}-${index}`}
           type="button"
           role="menuitem"
-          className={`nodal-context-menu__item${it.disabled ? " nodal-context-menu__item--disabled" : ""}${it.action === "delete" ? " nodal-context-menu__item--danger" : ""}`}
+          className={`nodal-context-menu__item${it.disabled ? " nodal-context-menu__item--disabled" : ""}${it.action === "delete" || it.action === "delete-selection" ? " nodal-context-menu__item--danger" : ""}`}
           disabled={it.disabled}
           onClick={() => {
             if (!it.disabled) onSelect(it.action);

@@ -93,4 +93,42 @@ describe("nodalKeyboardHandleKeyDown", () => {
     expect(h.focusSearchField).not.toHaveBeenCalled();
     expect(ev.defaultPrevented).toBe(false);
   });
+
+  it("Ctrl+C sans handler laissé au navigateur", () => {
+    const div = document.createElement("div");
+    const h = handlers();
+    const ev = new KeyboardEvent("keydown", { key: "c", bubbles: true, cancelable: true, ctrlKey: true });
+    div.dispatchEvent(ev);
+    expect(nodalKeyboardHandleKeyDown(ev, h)).toBe(false);
+  });
+
+  it("Ctrl+C appelle copySelection si fourni", () => {
+    const div = document.createElement("div");
+    const copySelection = vi.fn();
+    const h = handlers({ copySelection });
+    const ev = new KeyboardEvent("keydown", { key: "c", bubbles: true, cancelable: true, ctrlKey: true });
+    div.dispatchEvent(ev);
+    expect(nodalKeyboardHandleKeyDown(ev, h)).toBe(true);
+    expect(copySelection).toHaveBeenCalledTimes(1);
+  });
+
+  it("Ctrl+V appelle pasteFromClipboard si fourni", () => {
+    const div = document.createElement("div");
+    const pasteFromClipboard = vi.fn();
+    const h = handlers({ pasteFromClipboard });
+    const ev = new KeyboardEvent("keydown", { key: "v", bubbles: true, cancelable: true, ctrlKey: true });
+    div.dispatchEvent(ev);
+    expect(nodalKeyboardHandleKeyDown(ev, h)).toBe(true);
+    expect(pasteFromClipboard).toHaveBeenCalledTimes(1);
+  });
+
+  it("Ctrl+C ignoré si popup ouverte", () => {
+    const div = document.createElement("div");
+    const copySelection = vi.fn();
+    const h = handlers({ anyPopupOpen: true, copySelection });
+    const ev = new KeyboardEvent("keydown", { key: "c", bubbles: true, cancelable: true, ctrlKey: true });
+    div.dispatchEvent(ev);
+    expect(nodalKeyboardHandleKeyDown(ev, h)).toBe(false);
+    expect(copySelection).not.toHaveBeenCalled();
+  });
 });

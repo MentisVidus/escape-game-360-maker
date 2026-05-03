@@ -57,7 +57,7 @@ import type {
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
-import { isNodalClipboardEmpty } from "../store/nodalClipboard";
+import { isNodalClipboardEmpty } from "../store/clipboard";
 import { isValidConnection } from "./connectionPolicy";
 import {
   HANDLE_FLOW_IN,
@@ -175,8 +175,11 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [contextMenu, setContextMenu] = useState<{
     clientX: number;
     clientY: number;
+    /** C8.5.2 — ancrage collage (flow), même si la cible menu est un nœud. */
+    flowDrop: { x: number; y: number };
     targetId: AnyNodeId | null;
   } | null>(null);
+  const lastFlowPointerRef = useRef<{ x: number; y: number } | null>(null);
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
@@ -309,7 +312,38 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     reactFlow.setEdges((edges) => edges.map((e) => ({ ...e, selected: false })));
   }, [reactFlow]);
 
-  /** C8.5.3 — duplication clavier ; no-op jusqu’à branchement copier-coller. */
+  const getPasteFlowPosition = useCallback((): { x: number; y: number } => {
+    if (lastFlowPointerRef.current) return lastFlowPointerRef.current;
+    const wrap = canvasRef.current?.querySelector(".react-flow") ?? canvasRef.current;
+    if (wrap) {
+      const r = wrap.getBoundingClientRect();
+      return reactFlow.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    }
+    return { x: 0, y: 0 };
+  }, [reactFlow]);
+
+  const applyPasteSelection = useCallback(
+    (newIds: AnyNodeId[]) => {
+      if (newIds.length === 0) return;
+      const idSet = new Set(newIds.map(String));
+      reactFlow.setNodes((ns) => ns.map((n) => ({ ...n, selected: idSet.has(n.id) })));
+      reactFlow.setEdges((es) => es.map((e) => ({ ...e, selected: false })));
+    },
+    [reactFlow]
+  );
+
+  const copyRfSelectionToClipboard = useCallback(() => {
+    const ids = reactFlow.getNodes().filter((n) => n.selected).map((n) => n.id as AnyNodeId);
+    if (ids.length > 0) store.getState().copyNodesToClipboard(ids);
+  }, [reactFlow, store]);
+
+  const pasteAtPointerOrCenter = useCallback(() => {
+    const pasteAbs = getPasteFlowPosition();
+    const newIds = store.getState().pasteClipboardAt(pasteAbs);
+    applyPasteSelection(newIds);
+  }, [getPasteFlowPosition, store, applyPasteSelection]);
+
+  /** Touche D : no-op (C8.5.3 ignorée ; copier-coller scène = C8.5.2). */
   const duplicateSelectionStub = useCallback(() => {}, []);
 
   useNodalKeyboard({
@@ -319,6 +353,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     focusSearchField: () => {
       nodalSearchFieldRef.current?.focus();
     },
+    copySelection: copyRfSelectionToClipboard,
+    pasteFromClipboard: pasteAtPointerOrCenter,
   });
 
   useEffect(() => {
@@ -383,10 +419,18 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     );
   }, [contextMenu, store, reactFlow]);
 
-  const onNodeContextMenu = useCallback((e: ReactMouseEvent, node: RFNode<NodalRFData>) => {
-    e.preventDefault();
-    setContextMenu({ clientX: e.clientX, clientY: e.clientY, targetId: node.id as AnyNodeId });
-  }, []);
+  const onNodeContextMenu = useCallback(
+    (e: ReactMouseEvent, node: RFNode<NodalRFData>) => {
+      e.preventDefault();
+      setContextMenu({
+        clientX: e.clientX,
+        clientY: e.clientY,
+        flowDrop: reactFlow.screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+        targetId: node.id as AnyNodeId,
+      });
+    },
+    [reactFlow]
+  );
 
   const onPaneContextMenu = useCallback(
     (e: ReactMouseEvent) => {
@@ -401,7 +445,37 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         isNodalClipboardEmpty()
       );
       if (items.length === 0) return;
-      setContextMenu({ clientX: e.clientX, clientY: e.clientY, targetId: null });
+      setContextMenu({
+        clientX: e.clientX,
+        clientY: e.clientY,
+        flowDrop: reactFlow.screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+        targetId: null,
+      });
+    },
+    [store, reactFlow]
+  );
+
+  /** Clic droit sur le rectangle de sélection RF (Maj + drag) : `onPaneContextMenu` ne reçoit pas l’événement. */
+  const onSelectionContextMenu = useCallback(
+    (e: MouseEvent | ReactMouseEvent, selectedNodes: RFNode<NodalRFData>[]) => {
+      e.preventDefault();
+      if (selectedNodes.length === 0) return;
+      const snap = store.getState();
+      const selected = selectedNodes.map((n) => n.id);
+      const items = buildNodalContextMenuItems(
+        snap,
+        detectNodalLocale(),
+        null,
+        selected,
+        isNodalClipboardEmpty()
+      );
+      if (items.length === 0) return;
+      setContextMenu({
+        clientX: e.clientX,
+        clientY: e.clientY,
+        flowDrop: reactFlow.screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+        targetId: null,
+      });
     },
     [store, reactFlow]
   );
@@ -415,9 +489,27 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       const snap = store.getState();
 
       if (action === "paste") {
+        const pasteAbs = cm.flowDrop ?? getPasteFlowPosition();
+        const newIds = store.getState().pasteClipboardAt(pasteAbs);
+        applyPasteSelection(newIds);
+        return;
+      }
+      if (action === "copy-selection") {
+        const ids = reactFlow.getNodes().filter((n) => n.selected).map((n) => n.id as AnyNodeId);
+        if (ids.length > 0) store.getState().copyNodesToClipboard(ids);
+        return;
+      }
+      if (action === "delete-selection") {
+        const nodes = reactFlow.getNodes().filter((n) => n.selected);
+        if (nodes.length > 0) void reactFlow.deleteElements({ nodes });
         return;
       }
       if (tid == null) return;
+
+      if (action === "copy-target") {
+        store.getState().copyNodesToClipboard([tid]);
+        return;
+      }
 
       if (action === "open") {
         if (tid in snap.actions) {
@@ -433,7 +525,6 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         }
         return;
       }
-      if (action === "copy-target" || action === "copy-selection") return;
       if (action === "delete") {
         const rfNode = reactFlow.getNode(String(tid));
         if (rfNode) void reactFlow.deleteElements({ nodes: [rfNode] });
@@ -466,6 +557,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       closeContextMenu,
       store,
       reactFlow,
+      getPasteFlowPosition,
+      applyPasteSelection,
       openPickContentEditor,
       openGotoContentEditor,
       openReqContentEditor,
@@ -955,8 +1048,15 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           }
           onMoveEnd={onMoveEnd}
           onNodeDragStop={onNodeDragStop}
+          onPaneMouseMove={(e) => {
+            lastFlowPointerRef.current = reactFlow.screenToFlowPosition({
+              x: e.clientX,
+              y: e.clientY,
+            });
+          }}
           onNodeContextMenu={onNodeContextMenu}
           onPaneContextMenu={onPaneContextMenu}
+          onSelectionContextMenu={onSelectionContextMenu}
           fitView
         >
           <NodalMapSelectionSync onSelectedSceneId={setPaletteSelectedSceneId} />

@@ -32,7 +32,42 @@ describe("buildNodalContextMenuItems (C8.5.1)", () => {
     expect(actions).toContain("set-start-scene");
     expect(actions).toContain("copy-target");
     expect(actions).toContain("delete");
-    expect(items.find((i) => i.action === "copy-target")?.disabled).toBe(true);
+    expect(items.find((i) => i.action === "copy-target")?.disabled).toBeUndefined();
+  });
+
+  it("fond de carte + presse-papiers non vide → Coller", () => {
+    const store = createNodalProjectStore();
+    const items = buildNodalContextMenuItems(store.getState(), "fr", null, [], false);
+    expect(items.map((i) => i.action)).toEqual(["paste"]);
+    expect(items[0]?.disabled).not.toBe(true);
+  });
+
+  it("fond de carte + sélection store + presse-papiers vide → copier / supprimer la sélection", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-sel"),
+      nodeType: "scene",
+      sceneId: "ext-sel",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const store = createNodalProjectStore();
+    store.getState().addScene(scene, { x: 0, y: 0 });
+    const items = buildNodalContextMenuItems(store.getState(), "fr", null, [String(scene.id)], true);
+    expect(items.map((i) => i.action)).toEqual(["copy-selection", "delete-selection"]);
+  });
+
+  it("fond de carte + sélection + presse-papiers non vide → Coller puis copier / supprimer", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-sel2"),
+      nodeType: "scene",
+      sceneId: "ext-sel2",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const store = createNodalProjectStore();
+    store.getState().addScene(scene, { x: 0, y: 0 });
+    const items = buildNodalContextMenuItems(store.getState(), "fr", null, [String(scene.id)], false);
+    expect(items.map((i) => i.action)).toEqual(["paste", "copy-selection", "delete-selection"]);
   });
 
   it("action msg : ouvrir + copier + supprimer", () => {
