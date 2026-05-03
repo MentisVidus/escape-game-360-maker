@@ -4,6 +4,7 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useOnSelectionChange,
   useReactFlow,
   useNodesState,
   useEdgesState,
@@ -29,6 +30,7 @@ import {
   type MediaNodeId,
   type SatelliteNodeId,
   type SceneBoxNodeId,
+  type SceneNodeId,
 } from "../model/ids";
 import type {
   ActionNode,
@@ -93,6 +95,23 @@ function detectFamily(connection: Connection): "flow" | "transition" | "meta" | 
   if (connection.sourceHandle === HANDLE_FLOW_OUT && connection.targetHandle === HANDLE_FLOW_IN) return "flow";
   if (connection.sourceHandle === HANDLE_GOTO_OUT && connection.targetHandle === HANDLE_GOTO_IN) return "transition";
   if (connection.sourceHandle === HANDLE_META_OUT && connection.targetHandle === HANDLE_META_IN) return "meta";
+  return null;
+}
+
+/** C8.3 — remonte à la palette la seule scène sélectionnée (exactement un nœud `sceneNode`). */
+function NodalMapSelectionSync({
+  onSelectedSceneId,
+}: {
+  onSelectedSceneId: (id: SceneNodeId | null) => void;
+}) {
+  const onChange = useCallback(
+    ({ nodes }: { nodes: RFNode<NodalRFData>[] }) => {
+      const scenes = nodes.filter((n) => n.type === "sceneNode");
+      onSelectedSceneId(scenes.length === 1 ? (scenes[0].id as SceneNodeId) : null);
+    },
+    [onSelectedSceneId]
+  );
+  useOnSelectionChange({ onChange });
   return null;
 }
 
@@ -202,6 +221,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     store.getState
   );
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [paletteSelectedSceneId, setPaletteSelectedSceneId] = useState<SceneNodeId | null>(null);
 
   useEffect(() => {
     if (!msgEditorActionId) return;
@@ -619,7 +639,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       }}
     >
       <div className={layoutClassName} ref={canvasRef}>
-        <NodePalette store={store} canvasRef={canvasRef} />
+        <NodePalette store={store} canvasRef={canvasRef} selectedSceneId={paletteSelectedSceneId} />
         <div className="nodal-canvas-pane">
         <button
           type="button"
@@ -660,6 +680,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           onNodeDragStop={onNodeDragStop}
           fitView
         >
+          <NodalMapSelectionSync onSelectedSceneId={setPaletteSelectedSceneId} />
           <Background />
           <MiniMap />
           <Controls />

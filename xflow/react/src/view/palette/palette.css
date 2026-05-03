@@ -74,6 +74,31 @@
   margin-bottom: 4px;
 }
 
+.nodal-palette-set-start {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.nodal-palette-start-status,
+.nodal-palette-start-hint {
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font: 11px/1.35 Arial, sans-serif;
+  color: var(--palette-heading);
+}
+
+.nodal-palette-start-status {
+  border: 1px solid color-mix(in srgb, var(--node-start-badge-border, #d97706) 55%, var(--palette-border));
+  background: color-mix(in srgb, var(--node-start-badge-bg, #fef3c7) 35%, var(--palette-button-bg));
+}
+
+.nodal-palette-start-hint {
+  opacity: 0.88;
+  border: 1px dashed var(--palette-border);
+  background: var(--palette-button-bg);
+}
+
 .nodal-palette h3 {
   margin: 10px 0 6px;
   font: 700 12px/1 Arial, sans-serif;

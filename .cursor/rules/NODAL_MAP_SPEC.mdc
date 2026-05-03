@@ -3407,3 +3407,11 @@ questions ouvertes, captures pertinentes.)
   - UI : badge « Départ » + anneau ambre (`--node-start-*` clair/sombre) ;
     `startSceneId` invalide / absent : aucun badge (warnings existants inchangés).
   - Sync RF : dépendance `state.meta.startSceneId` sur l’effet Zustand → nodes.
+- 2026-05-02 — **C8.3 complément (choix départ + réconciliation suppression)** :
+  - Palette : bouton « Définir comme scène de départ » quand **une seule** scène
+    est sélectionnée sur la carte ; statut si déjà départ ; hint si ≥2 scènes
+    et départ non défini (`useOnSelectionChange` + `NodalMapSelectionSync`).
+  - Store : `setStartScene` ignoré si l’id n’existe pas ; après `removeNode`,
+    réalignement **R3** (1 scène restante → elle devient départ) + **R2**
+    (≥2 scènes et départ supprimé / invalide → `startSceneId` null).
+  - Warning `START_SCENE_UNSET` si ≥2 scènes et pas de départ valide.

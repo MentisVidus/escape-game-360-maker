@@ -151,6 +151,22 @@ const removeNodeFromIndexes = (state: NodalProjectStore, nodeId: AnyNodeId): voi
   state.meta.draftActionIds = state.meta.draftActionIds.filter((id) => id !== nodeId);
 };
 
+/** C8.3 — R3 + R2 : après suppression de scène(s), réaligne `meta.startSceneId`. */
+function reconcileStartSceneAfterScenesChange(state: NodalProjectStore): void {
+  const sceneIds = Object.keys(state.scenes) as SceneNodeId[];
+  if (sceneIds.length === 0) {
+    state.meta = { ...state.meta, startSceneId: null };
+    return;
+  }
+  if (sceneIds.length === 1) {
+    state.meta = { ...state.meta, startSceneId: sceneIds[0] };
+    return;
+  }
+  if (!state.meta.startSceneId || !(state.meta.startSceneId in state.scenes)) {
+    state.meta = { ...state.meta, startSceneId: null };
+  }
+}
+
 const defaultObjectEntry = (objectId: string): ObjectEntry => ({
   objectId,
   displayName: "",
@@ -328,6 +344,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       pruneOrphanSatellites(next);
       reconcileSceneBoxes(next);
       reconcileAutoSatellites(next, nextAutoId);
+      reconcileStartSceneAfterScenesChange(next);
       set(withWarnings(next));
     },
 
@@ -610,6 +627,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
 
     setStartScene: (sceneId) => {
       const state = get();
+      if (!(sceneId in state.scenes)) return;
       const next = { ...state, meta: { ...state.meta, startSceneId: sceneId } };
       set(withWarnings(next));
     },

@@ -9,6 +9,7 @@ export type WarningCode =
   | "REWARD_CHAIN"
   | "SELECTOR_EMPTY"
   | "SCENE_UNREACHABLE"
+  | "START_SCENE_UNSET"
   | "GOTO_ORPHAN"
   | "SELECTOR_CYCLE"
   | "OBJECT_UNDEFINED";
@@ -232,10 +233,22 @@ export function computeWarnings(state: NodalProject): Warning[] {
     }
   }
 
+  const sceneKeys = Object.keys(state.scenes) as SceneNodeId[];
   const startSceneId = state.meta.startSceneId;
-  if (startSceneId && startSceneId in state.scenes) {
+  const startValid = !!(startSceneId && startSceneId in state.scenes);
+
+  if (sceneKeys.length >= 2 && !startValid) {
+    const anchor = sceneKeys[0];
+    warnings.push({
+      code: "START_SCENE_UNSET",
+      nodeId: anchor,
+      label: "Definir une scene de depart (palette : scene selectionnee).",
+    });
+  }
+
+  if (startValid) {
     const reachable = collectReachableSceneIds(state);
-    for (const sceneId of Object.keys(state.scenes) as SceneNodeId[]) {
+    for (const sceneId of sceneKeys) {
       if (!reachable.has(sceneId)) {
         warnings.push({
           code: "SCENE_UNREACHABLE",
