@@ -25,6 +25,8 @@ import {
   type PlayerPopupTheme,
 } from "../view/popups/playerPopupDomRead";
 import { reanchorSBox as reanchorSBoxLayout } from "../view/nesting/containerBounds";
+import type { SBoxDisplacement } from "../view/nesting/sboxCollision";
+import { resolveSBoxOverlapsAfterUnfold, rewindSBoxOverlapPushes } from "../view/nesting/sboxCollision";
 import { attachMediaToMetaSource, detachMediaFromMetaSource } from "./mediaMetaLayout";
 import { reconcileSceneBoxes, sboxIdFromScene } from "./reconcileSceneBoxes";
 import { computeWarnings, type Warning } from "./computeWarnings";
@@ -33,6 +35,8 @@ import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 type NodePatch = Partial<ActionNode | SceneNode | SatelliteNode | MediaNode>;
 
 export type NodalProjectStore = NodalProject & {
+  /** Phase 2 (1.b.6) : trace des poussées anti-collision au dépli, par s-box origine — non persisté. */
+  sceneBoxOverlapMemory: Map<SceneBoxNodeId, SBoxDisplacement[]>;
   /** Thème des popups joueur — vérité UI nodale (C7.2-bis) ; persistance bundle = lot ultérieur. */
   playerPopupTheme: PlayerPopupTheme;
   setPlayerPopupTheme: (patch: Partial<PlayerPopupTheme>) => void;
@@ -208,6 +212,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
 
     return createStore<NodalProjectStore>((set, get) => ({
     ...createEmptyProject(),
+    sceneBoxOverlapMemory: new Map(),
     playerPopupTheme: { ...DEFAULT_PLAYER_POPUP_THEME },
     warnings: [],
 
@@ -576,13 +581,29 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       set((state) => {
         const current = state.layout[nodeId];
         if (!current) return state;
+        const wasCollapsed = !!current.collapsed;
+        const nextCollapsed = !wasCollapsed;
         const next: NodalProjectStore = {
           ...state,
-          layout: { ...state.layout, [nodeId]: { ...current, collapsed: !current.collapsed } },
+          layout: { ...state.layout, [nodeId]: { ...current, collapsed: nextCollapsed } },
           sceneBoxes: { ...state.sceneBoxes },
+          sceneBoxOverlapMemory: new Map(state.sceneBoxOverlapMemory),
         };
         reconcileSceneBoxes(next);
         reconcileAutoSatellites(next, nextAutoId);
+
+        if (nodeId in next.sceneBoxes) {
+          const bid = nodeId as SceneBoxNodeId;
+          if (wasCollapsed && !nextCollapsed) {
+            const trace = resolveSBoxOverlapsAfterUnfold(next, bid);
+            if (trace.length > 0) next.sceneBoxOverlapMemory.set(bid, trace);
+          } else if (!wasCollapsed && nextCollapsed) {
+            const trace = next.sceneBoxOverlapMemory.get(bid);
+            if (trace?.length) rewindSBoxOverlapPushes(next, trace);
+            next.sceneBoxOverlapMemory.delete(bid);
+          }
+        }
+
         return withWarnings(next);
       });
     },
@@ -657,6 +678,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         media: { ...base.media },
         edges: [...base.edges],
         layout: { ...base.layout },
+        sceneBoxOverlapMemory: new Map(),
       };
       reconcileSceneBoxes(next);
       reconcileAutoSatellites(next, nextAutoId);

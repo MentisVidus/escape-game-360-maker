@@ -2630,6 +2630,180 @@ Tout déplacement = détachement.
 - Pas de régression sur les SMK satellite / repli selector / repli
   s-box précédents.
 
+##### Étape 1.b.6 — Anti-collision des s-box (au dépli / repli) *(phase 1 + 2 livrées)*
+
+> Inspiré de
+> https://reactflow.dev/examples/layout/node-collisions
+> mais limité à la résolution de chevauchement **entre s-box
+> uniquement**. Les autres nœuds (actions, media, satellites) gardent
+> leur liberté de placement.
+>
+> Livraison en **deux phases** : phase 1 (anti-overlap au dépli)
+> autonome ; phase 2 (rewind au repli) en polish optionnel.
+
+**Problème UX** :
+
+Quand l'utilisateur déplie une scène (`s-box.collapsed` passe de
+`true` à `false`), le s-box grossit pour englober scène + actions.
+Si une autre scène est positionnée à proximité, son propre s-box
+chevauche celui qui vient d'être déplié, ce qui rend la lecture
+illisible.
+
+L'utilisateur veut deux comportements :
+
+1. **Au dépli** : aucune autre s-box ne chevauche celle qu'on est
+   en train de déplier — pousser les voisines hors de la zone.
+2. **Au repli** *(idéal — phase 2)* : ramener les voisines à leur
+   position d'avant-dépli, modulo les déplacements manuels que
+   l'utilisateur aurait faits entre temps.
+
+**Phase 1 — Résolution d'overlap au dépli**
+
+*Algorithme* (one-shot, max 5 itérations pour gérer les cascades) :
+
+1. Calculer les bornes du s-box origine `O` (celui qu'on vient de
+   déplier).
+2. Pour chaque autre s-box `B` :
+   - Tester l'overlap AABB entre `O.rect` et `B.rect`.
+   - S'il y a overlap, calculer le **push de min-déplacement** :
+     déterminer l'axe (horizontal ou vertical) où le déplacement
+     pour résoudre l'overlap est le plus court ; appliquer ce
+     déplacement à `B` dans la direction qui éloigne du centre de
+     `O`.
+3. Re-checker les chevauchements créés par les déplacements (`B`
+   poussé peut maintenant chevaucher `C`). Re-itérer jusqu'à
+   stabilité ou limite atteinte.
+
+*Pseudo-code* :
+
+```ts
+function resolveSBoxOverlapsAfterUnfold(
+  state: NodalProject,
+  originId: SceneBoxNodeId
+): Displacement[] {
+  const trace: Displacement[] = [];
+  const maxIter = 5;
+  for (let iter = 0; iter < maxIter; iter++) {
+    let moved = false;
+    const originRect = sboxRect(state, originId);
+    for (const otherId of Object.keys(state.sceneBoxes) as SceneBoxNodeId[]) {
+      if (otherId === originId) continue;
+      const otherRect = sboxRect(state, otherId);
+      if (!rectsOverlap(originRect, otherRect)) continue;
+      const push = computeMinPush(originRect, otherRect);
+      // Mémoriser dans `trace` la position avant/après pour la phase 2.
+      trace.push({
+        id: otherId,
+        from: { x: state.layout[otherId].x, y: state.layout[otherId].y },
+        to: {
+          x: state.layout[otherId].x + push.dx,
+          y: state.layout[otherId].y + push.dy,
+        },
+      });
+      state.layout[otherId] = {
+        ...state.layout[otherId],
+        x: state.layout[otherId].x + push.dx,
+        y: state.layout[otherId].y + push.dy,
+      };
+      moved = true;
+    }
+    // Cascade : itérer jusqu'à stabilité (pour les overlap entre
+    // s-box poussées, sans rapport direct avec l'origine).
+    if (!moved) break;
+    // Note : les itérations 2..N traitent aussi les overlap
+    // « non-origine ↔ non-origine » nés des push initiaux.
+  }
+  return trace;
+}
+```
+
+*Helpers à fournir* (nouveau fichier
+`xflow/react/src/view/nesting/sboxCollision.ts`) :
+
+- `sboxRect(state, sboxId): Rect` — combine
+  `state.layout[sboxId].{x,y}` + `computeContainerBounds(state, sboxId)`.
+- `rectsOverlap(a, b): boolean` — AABB classique avec une marge de
+  `SBOX_GAP = 24` (espace blanc minimal entre s-box pour aération).
+- `computeMinPush(originRect, otherRect): { dx, dy }` — pour l'axe
+  du chevauchement le plus court, retourne le déplacement signé
+  qui éloigne `other` de `origin`. L'autre axe = 0.
+
+*Branchement* dans le store :
+
+- Dans `toggleNodeCollapsed`
+  ([store/nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts)) :
+  - Détecter le cas `nodeId in state.sceneBoxes` ET transition
+    `collapsed: true → false`.
+  - Après le flip du flag, appeler `resolveSBoxOverlapsAfterUnfold(state, nodeId)`.
+
+- Garde-fou : ne rien faire si le s-box origine n'a aucun
+  descendant visible (cas vide — pas de raison de pousser).
+
+*Tests* (nouveau `sboxCollision.test.ts`) :
+- Deux s-box adjacentes, repli/dépli de la première : la seconde
+  est poussée sur l'axe le plus court (vertical ou horizontal selon
+  la géométrie).
+- Trois s-box en ligne : dépli de A pousse B, B pousse C en
+  cascade.
+- S-box origine avec marge suffisante : aucun déplacement.
+- Push de min-déplacement : si l'overlap horizontal est de 30 px et
+  l'overlap vertical de 80 px, push horizontal.
+- Marge `SBOX_GAP` respectée : les s-box ne se touchent pas
+  exactement, il reste l'écart.
+
+**Phase 2 — Rewind au repli (polish optionnel)**
+
+*Idée* : la `trace` retournée par `resolveSBoxOverlapsAfterUnfold`
+décrit chaque déplacement appliqué (`{ id, from, to }`). Si on la
+mémorise quelque part associée au s-box origine, on peut la
+rejouer en sens inverse au prochain repli.
+
+*Mémoire (non persistée)* :
+
+- Ajouter `state.sceneBoxOverlapMemory: Map<SceneBoxNodeId, Displacement[]>`
+  (au store, hors layout — pas sérialisé en `map-layout.json`).
+- Au dépli de `O` : `state.sceneBoxOverlapMemory.set(O, trace)`.
+- Au repli de `O` :
+  - Pour chaque `{ id, from, to }` dans la trace :
+    - Lire la position actuelle de `id` (`current = state.layout[id]`).
+    - Si `current` ≈ `to` (à epsilon près = `5 px`) → l'utilisateur
+      n'a pas bougé cette s-box → **rewind** : remettre à `from`.
+    - Sinon → l'utilisateur l'a déplacée manuellement → **garder
+      sa position** (ne pas écraser).
+  - Effacer `state.sceneBoxOverlapMemory.delete(O)`.
+
+*Rationale du seuil epsilon* : un drag manuel dépasse largement
+5 px. L'utilisateur ne peut pas accidentellement laisser une s-box
+exactement à `to.x ± 4 px`.
+
+*Hydrate / save* : la mémoire est purement runtime. Si l'utilisateur
+recharge le projet pendant qu'une s-box est dépliée, la mémoire est
+perdue → un repli ultérieur ne fait pas de rewind. Acceptable
+(comportement dégradé propre).
+
+*Tests phase 2* :
+- Dépli A → B poussée à `to` ; repli A → B revient à `from`. ✓
+- Dépli A → B poussée à `to` ; user déplace B manuellement ;
+  repli A → B reste à sa nouvelle position (pas de rewind écrasant
+  l'intention utilisateur).
+- Dépli A puis dépli C avant repli A → traces séparées par
+  s-box origine, pas de mélange.
+
+**Critère de fin (phase 1 minimum)** *(implémenté : `sboxCollision.ts`, `toggleNodeCollapsed`, tests `sboxCollision.test.ts`)* :
+- Smoke : projet à 3 s-box adjacentes ; replier la centrale
+  rapproche les voisines (pas de phase 2, mais pas de mauvaise
+  surprise) ; déplier une s-box collée à une autre la pousse
+  visiblement, ne crée pas de chevauchement.
+- Smoke : déplier une s-box isolée ne déplace rien.
+- Vitest vert (suite + cas anti-collision).
+- Pas de régression sur le repli / dépli simple (sans voisin).
+
+**Critère de fin (phase 2)** *(implémenté : `sceneBoxOverlapMemory`, `rewindSBoxOverlapPushes` au repli)* :
+- Smoke : dépli A déplace B ; repli A → B revient à sa position
+  d'avant-dépli.
+- Smoke : dépli A déplace B ; user drag B ailleurs ; repli A →
+  B reste là où l'utilisateur l'a mise.
+
 ##### Étape 1.b.4 — Polish + meta/satellites (étape finale)
 
 > Adapté pour le modèle s-box (étape 1.b.2.x). **Vient après 1.b.5
@@ -2866,3 +3040,30 @@ questions ouvertes, captures pertinentes.)
   - Tests existants 1.b.5 inversant l'attente sur les cas « media
     direct du conteneur replié reste visible » → doit être
     `hidden:true`.
+- 2026-05-XX — **1.b.5-fix livré, smoke OK**. Plus de
+  drag-detach intempestif sur les media ; le repli masque
+  correctement les media liés directement au s-box replié ou
+  au selector replié. 1.b.4 confirmé applicable tel quel
+  (le filtrage `s-box ≠ candidate parent` dans `onNodeDragStop`
+  est implicitement assuré par `state.actions[candidate.id]
+  === undefined` pour les s-box).
+- 2026-05-XX — **Demande utilisateur : anti-collision des s-box**.
+  Au dépli d'une scène, l'agrandissement du s-box peut chevaucher
+  les s-box voisines. Souhaité :
+  1. Au dépli, pousser les voisines pour qu'aucune ne chevauche
+     (cf. https://reactflow.dev/examples/layout/node-collisions
+     en mode one-shot, sans simulation continue).
+  2. *(Idéal — polish)* Au repli, ramener les voisines à leur
+     position d'avant-dépli, sauf si l'utilisateur les a
+     déplacées manuellement entre temps.
+  Plan détaillé sous **Étape 1.b.6** (insérée avant le polish
+  final 1.b.4) :
+  - Phase 1 : helper `resolveSBoxOverlapsAfterUnfold` + appel
+    dans `toggleNodeCollapsed`. Algorithme push de min-déplacement
+    avec marge `SBOX_GAP = 24 px`, max 5 itérations pour
+    cascades.
+  - Phase 2 (optionnelle) : mémoire runtime
+    `state.sceneBoxOverlapMemory: Map<SceneBoxNodeId, Displacement[]>`
+    pour rejouer en sens inverse au repli, avec garde
+    « l'utilisateur n'a pas bougé la s-box manuellement »
+    (epsilon = 5 px).
