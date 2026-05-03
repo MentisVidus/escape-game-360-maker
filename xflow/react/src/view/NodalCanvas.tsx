@@ -66,7 +66,7 @@ import { NodalUiContext } from "./nodalUiContext";
 import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X } from "./nesting/constants";
 import { SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
-import { isEditingContext } from "./keyboard/isEditingContext";
+import { useNodalKeyboard } from "./keyboard/useNodalKeyboard";
 import { NodePalette } from "./palette/NodePalette";
 import type { NodalSearchFieldHandle } from "./palette/NodalSearchField";
 import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
@@ -256,18 +256,22 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     ]
   );
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (anyPopupOpen) return;
-      if (isEditingContext(e.target)) return;
-      if (!(e.ctrlKey || e.metaKey)) return;
-      if (e.key !== "f" && e.key !== "F") return;
-      e.preventDefault();
+  const deselectAllRf = useCallback(() => {
+    reactFlow.setNodes((nodes) => nodes.map((n) => ({ ...n, selected: false })));
+    reactFlow.setEdges((edges) => edges.map((e) => ({ ...e, selected: false })));
+  }, [reactFlow]);
+
+  /** C8.5.3 — duplication clavier ; no-op jusqu’à branchement copier-coller. */
+  const duplicateSelectionStub = useCallback(() => {}, []);
+
+  useNodalKeyboard({
+    anyPopupOpen,
+    deselectAll: deselectAllRf,
+    duplicateSelection: duplicateSelectionStub,
+    focusSearchField: () => {
       nodalSearchFieldRef.current?.focus();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [anyPopupOpen]);
+    },
+  });
 
   useEffect(() => {
     if (!msgEditorActionId) return;

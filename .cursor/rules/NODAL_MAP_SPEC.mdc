@@ -3555,7 +3555,7 @@ le même.
 > Les raccourcis liés à la copie (`Ctrl+C` / `Ctrl+V`) sont traités en
 > C8.5 avec la logique correspondante.
 
-##### Étape C8.2.1 — Infrastructure raccourcis + Échap + touche `D`
+##### Étape C8.2.1 — Infrastructure raccourcis + Échap + touche `D` *(livrée 2026-05-02)*
 
 **Contexte technique** :
 - React Flow gère nativement `Backspace` / `Delete` (suppression des
@@ -4643,10 +4643,20 @@ questions ouvertes, captures pertinentes.)
     [NodalSearchField.tsx](xflow/react/src/view/palette/NodalSearchField.tsx)
     en tête de palette ; compteur k/N, ◀ ▶, Entrée / Maj+Entrée ;
     `fitView` + sélection nœud cible.
-  - [isEditingContext.ts](xflow/react/src/view/keyboard/isEditingContext.ts) +
-    raccourci **Ctrl+F** / **Cmd+F** dans `NodalCanvas` (désactivé si popup
-    ou contexte édition).
+  - [isEditingContext.ts](xflow/react/src/view/keyboard/isEditingContext.ts) ;
+    **Ctrl+F** / **Cmd+F** branché via [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts)
+    (C8.2.1, désactivé si popup ou contexte édition).
   - Tests : `searchNodes.test.ts`.
+- 2026-05-02 — **C8.2.1 livré** — infrastructure raccourcis + **Échap** + **`D`** :
+  - [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts) :
+    `nodalKeyboardHandleKeyDown` + hook ; **Échap** = désélection nœuds/arêtes RF
+    (hors popup) ; **`D`** sans modificateur = `duplicateSelection` (**stub**
+    jusqu’à C8.5.3, no-op) ; **Ctrl/Cmd+F** = focus champ recherche (cf. C8.4.1).
+  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `deselectAllRf` +
+    stub duplication ; un seul listener `window` « keydown ».
+  - DevDependency **jsdom** + tests **`@vitest-environment jsdom`** :
+    `src/__tests__/keyboard/isEditingContext.test.ts`,
+    `src/__tests__/keyboard/nodalKeyboard.test.ts`.
 - 2026-05-XX — **Cadrage C8.4 / C8.2 / C8.5 / C8.6 — réponses utilisateur**.
   Décisions clés pour la suite des chantiers C8 :
   - **C8.4** (recherche de nœud) : palette latérale + champ Ctrl+F + champs

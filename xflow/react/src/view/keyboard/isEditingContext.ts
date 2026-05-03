@@ -4,5 +4,6 @@ export function isEditingContext(target: EventTarget | null): boolean {
   const tag = target.tagName.toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select") return true;
   if (target.isContentEditable) return true;
+  // Quill : .ql-editor a contenteditable — déjà couvert. Popup : pas détectée ici (cf. anyPopupOpen).
   return false;
 }
