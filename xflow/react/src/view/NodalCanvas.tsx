@@ -20,7 +20,15 @@ import {
   type OnConnect,
   type OnMove,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import type { StoreApi } from "zustand/vanilla";
 
 import {
@@ -49,6 +57,7 @@ import type {
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
+import { isNodalClipboardEmpty } from "../store/nodalClipboard";
 import { isValidConnection } from "./connectionPolicy";
 import {
   HANDLE_FLOW_IN,
@@ -87,6 +96,12 @@ import { PwdContentPopup } from "./popups/PwdContentPopup";
 import { SelectorContentPopup } from "./popups/SelectorContentPopup";
 import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
 import { DeleteConfirmDialog } from "./popups/DeleteConfirmDialog";
+import {
+  buildNodalContextMenuItems,
+  contextMenuParentTarget,
+  type NodalContextMenuAction,
+} from "./contextMenu/nodalContextMenuModel";
+import { NodalContextMenu } from "./contextMenu/NodalContextMenu";
 import { PopupThemeCustomizationPopup } from "./popups/PopupThemeCustomizationPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
 import { toReactFlowEdges, toReactFlowNodes, type NodalRFData } from "./nodalReactFlowProjection";
@@ -155,6 +170,12 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const pendingDeleteFlowRef = useRef<{
     resolve: (value: boolean | { nodes: RFNode<NodalRFData>[]; edges: RFEdge[] }) => void;
     pendingStoreIds: AnyNodeId[];
+  } | null>(null);
+  /** C8.5.1 — menu contextuel (position viewport + cible store sous le curseur). */
+  const [contextMenu, setContextMenu] = useState<{
+    clientX: number;
+    clientY: number;
+    targetId: AnyNodeId | null;
   } | null>(null);
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
     setObjectEditorSatelliteId(null);
@@ -263,7 +284,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       !!selectorEditorActionId ||
       globalSettingsHubOpen ||
       popupThemeCustomizationOpen ||
-      deleteConfirm != null,
+      deleteConfirm != null ||
+      contextMenu != null,
     [
       objectEditorSatelliteId,
       coordsEditorSatelliteId,
@@ -278,6 +300,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       globalSettingsHubOpen,
       popupThemeCustomizationOpen,
       deleteConfirm,
+      contextMenu,
     ]
   );
 
@@ -344,6 +367,114 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   // State React Flow pour nodes et edges (permet à RF de gérer drag, sélection, mesures)
   const [rfNodes, setRfNodes, onNodesChangeRF] = useNodesState<RFNode<NodalRFData>>([]);
   const [rfEdges, setRfEdges, onEdgesChangeRF] = useEdgesState<RFEdge>([]);
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const contextMenuItems = useMemo(() => {
+    if (!contextMenu) return [];
+    const snap = store.getState();
+    const selected = reactFlow.getNodes().filter((n) => n.selected).map((n) => n.id);
+    return buildNodalContextMenuItems(
+      snap,
+      detectNodalLocale(),
+      contextMenu.targetId,
+      selected,
+      isNodalClipboardEmpty()
+    );
+  }, [contextMenu, store, reactFlow]);
+
+  const onNodeContextMenu = useCallback((e: ReactMouseEvent, node: RFNode<NodalRFData>) => {
+    e.preventDefault();
+    setContextMenu({ clientX: e.clientX, clientY: e.clientY, targetId: node.id as AnyNodeId });
+  }, []);
+
+  const onPaneContextMenu = useCallback(
+    (e: ReactMouseEvent) => {
+      e.preventDefault();
+      const snap = store.getState();
+      const selected = reactFlow.getNodes().filter((n) => n.selected).map((n) => n.id);
+      const items = buildNodalContextMenuItems(
+        snap,
+        detectNodalLocale(),
+        null,
+        selected,
+        isNodalClipboardEmpty()
+      );
+      if (items.length === 0) return;
+      setContextMenu({ clientX: e.clientX, clientY: e.clientY, targetId: null });
+    },
+    [store, reactFlow]
+  );
+
+  const handleContextMenuAction = useCallback(
+    (action: NodalContextMenuAction) => {
+      const cm = contextMenu;
+      if (!cm) return;
+      const tid = cm.targetId;
+      closeContextMenu();
+      const snap = store.getState();
+
+      if (action === "paste") {
+        return;
+      }
+      if (tid == null) return;
+
+      if (action === "open") {
+        if (tid in snap.actions) {
+          const a = snap.actions[tid as ActionNodeId];
+          if (a.actionType === "pick") openPickContentEditor(a.id);
+          else if (a.actionType === "goto") openGotoContentEditor(a.id);
+          else if (a.actionType === "req") openReqContentEditor(a.id);
+          else if (a.actionType === "pwd") openPwdContentEditor(a.id);
+          else if (a.actionType === "selector") openSelectorContentEditor(a.id);
+          else openMsgContentEditor(a.id);
+        } else if (tid in snap.media) {
+          setMediaEditorMediaId(tid as MediaNodeId);
+        }
+        return;
+      }
+      if (action === "copy-target" || action === "copy-selection") return;
+      if (action === "delete") {
+        const rfNode = reactFlow.getNode(String(tid));
+        if (rfNode) void reactFlow.deleteElements({ nodes: [rfNode] });
+        return;
+      }
+      if (action === "set-start-scene" && tid in snap.scenes) {
+        store.getState().setStartScene(tid as SceneNodeId);
+        return;
+      }
+      if (action === "duplicate-scene") return;
+      if (action === "toggle-fold") {
+        if (tid in snap.sceneBoxes) {
+          store.getState().toggleNodeCollapsed(tid as SceneBoxNodeId);
+        } else if (tid in snap.actions && snap.actions[tid as ActionNodeId].actionType === "selector") {
+          store.getState().toggleNodeCollapsed(tid as ActionNodeId);
+        }
+        return;
+      }
+      if (action === "go-parent") {
+        const p = contextMenuParentTarget(snap, tid);
+        if (p != null) {
+          const pid = String(p);
+          reactFlow.setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === pid })));
+          reactFlow.fitView({ nodes: [{ id: pid }], duration: 220, padding: 0.2 });
+        }
+      }
+    },
+    [
+      contextMenu,
+      closeContextMenu,
+      store,
+      reactFlow,
+      openPickContentEditor,
+      openGotoContentEditor,
+      openReqContentEditor,
+      openPwdContentEditor,
+      openSelectorContentEditor,
+      openMsgContentEditor,
+      setMediaEditorMediaId,
+    ]
+  );
 
   // Synchronise le state Zustand → React Flow quand le store change
   // (ajout/suppression de nœuds, edges — pas les changements de position
@@ -824,6 +955,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           }
           onMoveEnd={onMoveEnd}
           onNodeDragStop={onNodeDragStop}
+          onNodeContextMenu={onNodeContextMenu}
+          onPaneContextMenu={onPaneContextMenu}
           fitView
         >
           <NodalMapSelectionSync onSelectedSceneId={setPaletteSelectedSceneId} />
@@ -831,6 +964,14 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           <MiniMap />
           <Controls />
         </ReactFlow>
+        {contextMenu ? (
+          <NodalContextMenu
+            items={contextMenuItems}
+            position={{ x: contextMenu.clientX, y: contextMenu.clientY }}
+            onClose={closeContextMenu}
+            onSelect={handleContextMenuAction}
+          />
+        ) : null}
         <WarningsPanel warnings={state.warnings} />
         <DeleteConfirmDialog
           open={deleteConfirm != null}

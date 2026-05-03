@@ -78,7 +78,6 @@ export function SceneNodeView({ id, data }: NodeProps) {
   return (
     <div
       className={`nodal-node scene${containerCollapsed ? " nodal-node--scene-sbox-collapsed" : ""}${isStartScene ? " nodal-node--start-scene" : ""}`}
-      onClick={startEditingTitle}
     >
       {isStartScene ? (
         <span className="nodal-node-start-badge" title="Scène de départ (joueur)" role="status">
@@ -98,7 +97,9 @@ export function SceneNodeView({ id, data }: NodeProps) {
           aria-label="Scene title"
         />
       ) : (
-        <div className="title">{node.label}</div>
+        <div className="title" onDoubleClick={startEditingTitle}>
+          {node.label}
+        </div>
       )}
       {showFoldChevron ? (
         <button

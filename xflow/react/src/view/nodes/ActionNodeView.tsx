@@ -124,7 +124,7 @@ export function ActionNodeView({ id, data }: NodeProps) {
   return (
     <div
       className={`nodal-node action action-${node.actionType}${showDetach ? " action-child-reward" : ""}${stateClass}${textEditable ? " action-msg--clickable" : ""}${collapsedClass}`}
-      onClick={textEditable ? openTextEditor : undefined}
+      onDoubleClick={textEditable ? openTextEditor : undefined}
       onKeyDown={textEditable ? onTextKeyDown : undefined}
       role={textEditable ? "button" : undefined}
       tabIndex={textEditable ? 0 : undefined}

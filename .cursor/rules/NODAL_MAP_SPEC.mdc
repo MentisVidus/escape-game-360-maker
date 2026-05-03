@@ -3787,7 +3787,9 @@ le même.
 > copy/paste (store + raccourcis Ctrl+C/V), (3) duplication scène
 > complète depuis le clic-droit s-box.
 
-##### Étape C8.5.1 — Comportements clic + menu contextuel
+##### Étape C8.5.1 — Comportements clic + menu contextuel *(livrée partiellement 2026-05-02)*
+
+**Livré dans cette itération** : double-clic pour ouvrir les popups d’édition (actions, média, satellite) et l’édition du titre de scène ; `NodalContextMenu` + `onNodeContextMenu` / `onPaneContextMenu` ; entrées **Copier** / **Coller** / **Dupliquer la scène** désactivées ou no-op en attendant C8.5.2 / C8.5.3 ; tests `nodalContextMenuModel.test.ts`.
 
 **Décisions design (validées)** :
 - **Clic simple** sur un nœud → sélection seulement (plus
@@ -4673,6 +4675,19 @@ questions ouvertes, captures pertinentes.)
     lot RF inchangé si pas de confirmation ; `onNodesDelete` : un `removeNode` par nœud RF supprimé,
     satellites ignorés.
   - Tests : `describeNodeForDeletion.test.ts` (REQ + récompense orpheline, chaîne REQ + `orderedDeleteChain`).
+- 2026-05-02 — **C8.5.1 partiel** — double-clic édition + menu contextuel :
+  - Vues : [ActionNodeView.tsx](xflow/react/src/view/nodes/ActionNodeView.tsx),
+    [SceneNodeView.tsx](xflow/react/src/view/nodes/SceneNodeView.tsx),
+    [MediaNodeView.tsx](xflow/react/src/view/nodes/MediaNodeView.tsx),
+    [SatelliteNodeView.tsx](xflow/react/src/view/nodes/SatelliteNodeView.tsx) ;
+  - [NodalContextMenu.tsx](xflow/react/src/view/contextMenu/NodalContextMenu.tsx) +
+    [nodalContextMenuModel.ts](xflow/react/src/view/contextMenu/nodalContextMenuModel.ts) +
+    [NodalContextMenu.css](xflow/react/src/view/contextMenu/NodalContextMenu.css) ;
+  - [nodalClipboard.ts](xflow/react/src/store/nodalClipboard.ts) (stub vide, C8.5.2) ;
+  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `onNodeContextMenu` / `onPaneContextMenu`,
+    actions **Ouvrir** / **Supprimer** / **Définir départ** / **Replier** / **Aller au parent** ;
+    **Copier** / **Coller** / **Dupliquer scène** en attente C8.5.2–C8.5.3.
+  - Tests : `nodalContextMenuModel.test.ts`.
 - 2026-05-02 — **C8.2.1 livré** — infrastructure raccourcis + **Échap** + **`D`** :
   - [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts) :
     `nodalKeyboardHandleKeyDown` + hook ; **Échap** = désélection nœuds/arêtes RF
