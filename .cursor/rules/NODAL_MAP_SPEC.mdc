@@ -3656,7 +3656,7 @@ le même.
 - Pas de régression sur `Backspace` / `Delete` (suppression toujours
   active).
 
-##### Étape C8.2.2 — Confirmations de suppression contextuelles
+##### Étape C8.2.2 — Confirmations de suppression contextuelles *(livrée 2026-05-02)*
 
 **Décisions design (validées)** :
 
@@ -4647,6 +4647,16 @@ questions ouvertes, captures pertinentes.)
     **Ctrl+F** / **Cmd+F** branché via [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts)
     (C8.2.1, désactivé si popup ou contexte édition).
   - Tests : `searchNodes.test.ts`.
+- 2026-05-02 — **C8.2.2 livré** — confirmations suppression (scène avec actions, selector avec choix) :
+  - [describeNodeForDeletion.ts](xflow/react/src/view/deletion/describeNodeForDeletion.ts) :
+    `describeNodeForDeletion`, `normalizeDeletionTarget`, `orderedDeleteChainForStoreNode`,
+    `flattenDeleteChains`, `topoDeleteOrder` ; choix selector = **actions** enfants directes
+    (satellites exclus du compte de confirmation).
+  - [DeleteConfirmDialog.tsx](xflow/react/src/view/popups/DeleteConfirmDialog.tsx) : focus **Annuler**,
+    **Échap** / **Entrée** ; styles `NodalCanvas.css`.
+  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : interception `onNodesChange` (`type === "remove"`),
+    satellites ignorés ; après confirmation : chaîne de `removeNode` (scène / selector avec sous-arbre).
+  - Tests : `describeNodeForDeletion.test.ts` (REQ + récompense orpheline).
 - 2026-05-02 — **C8.2.1 livré** — infrastructure raccourcis + **Échap** + **`D`** :
   - [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts) :
     `nodalKeyboardHandleKeyDown` + hook ; **Échap** = désélection nœuds/arêtes RF

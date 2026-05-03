@@ -66,6 +66,11 @@ import { NodalUiContext } from "./nodalUiContext";
 import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X } from "./nesting/constants";
 import { SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
+import {
+  describeNodeForDeletion,
+  flattenDeleteChains,
+  normalizeDeletionTarget,
+} from "./deletion/describeNodeForDeletion";
 import { useNodalKeyboard } from "./keyboard/useNodalKeyboard";
 import { NodePalette } from "./palette/NodePalette";
 import type { NodalSearchFieldHandle } from "./palette/NodalSearchField";
@@ -80,6 +85,7 @@ import { ReqContentPopup } from "./popups/ReqContentPopup";
 import { PwdContentPopup } from "./popups/PwdContentPopup";
 import { SelectorContentPopup } from "./popups/SelectorContentPopup";
 import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
+import { DeleteConfirmDialog } from "./popups/DeleteConfirmDialog";
 import { PopupThemeCustomizationPopup } from "./popups/PopupThemeCustomizationPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
 import { toReactFlowEdges, toReactFlowNodes, type NodalRFData } from "./nodalReactFlowProjection";
@@ -92,6 +98,11 @@ const nodeTypes: NodeTypes = {
   satelliteNode: SatelliteNodeView,
   mediaNode: MediaNodeView,
 };
+
+function detectNodalLocale(): "fr" | "en" {
+  if (typeof document === "undefined") return "fr";
+  return document.documentElement.lang?.toLowerCase().startsWith("en") ? "en" : "fr";
+}
 
 function detectFamily(connection: Connection): "flow" | "transition" | "meta" | null {
   if (connection.sourceHandle === HANDLE_FLOW_OUT && connection.targetHandle === HANDLE_FLOW_IN) return "flow";
@@ -133,6 +144,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [selectorEditorActionId, setSelectorEditorActionId] = useState<ActionNodeId | null>(null);
   const [globalSettingsHubOpen, setGlobalSettingsHubOpen] = useState(false);
   const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    title: string;
+    body: string;
+    confirmLabel: string;
+    cancelLabel: string;
+    pendingStoreIds: AnyNodeId[];
+  } | null>(null);
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
@@ -239,7 +257,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       !!pwdEditorActionId ||
       !!selectorEditorActionId ||
       globalSettingsHubOpen ||
-      popupThemeCustomizationOpen,
+      popupThemeCustomizationOpen ||
+      deleteConfirm != null,
     [
       objectEditorSatelliteId,
       coordsEditorSatelliteId,
@@ -253,6 +272,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       selectorEditorActionId,
       globalSettingsHubOpen,
       popupThemeCustomizationOpen,
+      deleteConfirm,
     ]
   );
 
@@ -411,20 +431,93 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setRfEdges(toReactFlowEdges(state));
   }, [state.edges, state.layout, state.actions, state.scenes, setRfEdges]);
 
-  // Wrap onNodesChange pour persister les positions finales vers Zustand
+  // Wrap onNodesChange : persistance positions + C8.2.2 interception suppressions à confirmer
   const onNodesChange = useCallback(
     (changes: NodeChange<RFNode<NodalRFData>>[]) => {
-      onNodesChangeRF(changes);
-      for (const change of changes) {
-        if (change.type === "position" && change.position && !change.dragging) {
-          state.updateNodeLayout(change.id as AnyNodeId, {
-            x: change.position.x,
-            y: change.position.y,
-          });
+      const snap = store.getState();
+      const locale = detectNodalLocale();
+
+      const removeChanges = changes.filter((c) => c.type === "remove");
+      const otherChanges = changes.filter((c) => c.type !== "remove");
+
+      const applyPositionPatches = (ch: NodeChange<RFNode<NodalRFData>>[]) => {
+        for (const change of ch) {
+          if (change.type === "position" && change.position && !change.dragging) {
+            snap.updateNodeLayout(change.id as AnyNodeId, {
+              x: change.position.x,
+              y: change.position.y,
+            });
+          }
         }
+      };
+
+      if (removeChanges.length === 0) {
+        onNodesChangeRF(changes);
+        applyPositionPatches(changes);
+        return;
       }
+
+      const allowedRemoves = removeChanges.filter((c) => !(c.id in snap.satellites));
+      if (allowedRemoves.length === 0) {
+        if (otherChanges.length) onNodesChangeRF(otherChanges);
+        applyPositionPatches(otherChanges);
+        return;
+      }
+
+      const targetIds: AnyNodeId[] = [];
+      const seen = new Set<string>();
+      for (const c of allowedRemoves) {
+        const normalized = normalizeDeletionTarget(snap, c.id as AnyNodeId);
+        if (normalized == null) continue;
+        if (seen.has(normalized)) continue;
+        seen.add(normalized);
+        targetIds.push(normalized);
+      }
+
+      if (targetIds.length === 0) {
+        if (otherChanges.length) onNodesChangeRF(otherChanges);
+        applyPositionPatches(otherChanges);
+        return;
+      }
+
+      const pairs: { target: AnyNodeId; desc: NonNullable<ReturnType<typeof describeNodeForDeletion>> }[] = [];
+      for (const tid of targetIds) {
+        const d = describeNodeForDeletion(snap, tid, locale);
+        if (d) pairs.push({ target: d.storeTargetId, desc: d });
+      }
+      if (pairs.length === 0) {
+        if (otherChanges.length) onNodesChangeRF(otherChanges);
+        applyPositionPatches(otherChanges);
+        return;
+      }
+
+      const needConfirm = pairs.some((p) => p.desc.needsConfirm);
+      if (needConfirm) {
+        const bodies = pairs.filter((p) => p.desc.needsConfirm).map((p) => p.desc.body);
+        const titles = pairs.filter((p) => p.desc.needsConfirm).map((p) => p.desc.title);
+        const title =
+          titles.length === 1
+            ? titles[0]!
+            : locale === "fr"
+              ? "Confirmer la suppression"
+              : "Confirm deletion";
+        const body = bodies.join("\n\n");
+        setDeleteConfirm({
+          title,
+          body,
+          confirmLabel: locale === "fr" ? "Supprimer" : "Delete",
+          cancelLabel: locale === "fr" ? "Annuler" : "Cancel",
+          pendingStoreIds: pairs.map((p) => p.target),
+        });
+        if (otherChanges.length) onNodesChangeRF(otherChanges);
+        applyPositionPatches(otherChanges);
+        return;
+      }
+
+      onNodesChangeRF([...otherChanges, ...allowedRemoves]);
+      applyPositionPatches([...otherChanges, ...allowedRemoves]);
     },
-    [onNodesChangeRF, state]
+    [onNodesChangeRF, store]
   );
 
   // Wrap onEdgesChange pour passer à React Flow
@@ -715,7 +808,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           onConnect={onConnect}
           deleteKeyCode={["Delete", "Backspace"]}
           onNodesDelete={(deleted) => {
-            for (const n of deleted) state.removeNode(n.id as AnyNodeId);
+            for (const n of deleted) {
+              if (n.id in state.satellites) continue;
+              state.removeNode(n.id as AnyNodeId);
+            }
           }}
           onEdgesDelete={(deleted) => {
             for (const e of deleted) state.disconnect(e.id as EdgeId);
@@ -741,6 +837,26 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           <Controls />
         </ReactFlow>
         <WarningsPanel warnings={state.warnings} />
+        <DeleteConfirmDialog
+          open={deleteConfirm != null}
+          title={deleteConfirm?.title ?? ""}
+          body={deleteConfirm?.body ?? ""}
+          confirmLabel={deleteConfirm?.confirmLabel ?? ""}
+          cancelLabel={deleteConfirm?.cancelLabel ?? ""}
+          onCancel={() => setDeleteConfirm(null)}
+          onConfirm={() => {
+            if (!deleteConfirm) return;
+            const snap = store.getState();
+            const chain = flattenDeleteChains(snap, deleteConfirm.pendingStoreIds);
+            setDeleteConfirm(null);
+            for (const step of chain) {
+              const s = store.getState();
+              if (step in s.scenes || step in s.actions || step in s.media) {
+                store.getState().removeNode(step);
+              }
+            }
+          }}
+        />
         <ObjectEditorPopup
           satellite={objectSatellite}
           objectEntry={objectEntry}

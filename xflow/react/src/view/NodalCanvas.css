@@ -587,6 +587,32 @@
   gap: 10px;
 }
 
+.nodal-canvas-layout .nodal-popup-panel--delete-confirm {
+  max-width: min(440px, 92vw);
+}
+
+.nodal-canvas-layout .nodal-delete-confirm-body {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--node-text);
+  white-space: pre-wrap;
+}
+
+.nodal-canvas-layout .nodal-delete-confirm-btn-danger {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #b91c1c;
+  background: #991b1b;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.nodal-canvas-layout .nodal-delete-confirm-btn-danger:hover {
+  background: #b91c1c;
+}
+
 .nodal-canvas-layout .nodal-ha-btn-secondary {
   background: transparent;
 }
