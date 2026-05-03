@@ -129,14 +129,6 @@
   },
   "layout": {
     "positions": {
-      "scn__scene_a": {
-        "x": 0,
-        "y": 0
-      },
-      "scn__scene_b": {
-        "x": 500,
-        "y": 0
-      },
       "act__scene_a_h_0": {
         "x": 150,
         "y": 50
@@ -162,7 +154,17 @@
         "y": 100
       }
     },
+    "nodalSceneLayoutByExternalId": {
+      "scene-a": { "x": 0, "y": 0, "collapsed": false },
+      "scene-b": { "x": 500, "y": 0, "collapsed": false }
+    },
+    "nodalSceneBoxLayoutByExternalId": {
+      "scene-a": { "x": 0, "y": 0, "collapsed": false },
+      "scene-b": { "x": 500, "y": 0, "collapsed": false }
+    },
     "parentId": {
+      "scn__scene_a": "sbox-scn__scene_a",
+      "scn__scene_b": "sbox-scn__scene_b",
       "act__scene_a_h_0_r": "act__scene_a_h_0",
       "act__scene_b_h_0_c_1": "act__scene_b_h_0",
       "act__scene_b_h_0_c_0": "act__scene_b_h_0"

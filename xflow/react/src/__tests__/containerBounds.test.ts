@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
 import type { NodalProject } from "../model/project";
+import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import {
   computeContainerBounds,
   positionRelativeToContainer,
-  reanchorSceneContainer,
+  reanchorSBox,
   SCENE_PADDING_BOTTOM,
   SCENE_PADDING_TOP,
   SCENE_PADDING_X,
@@ -35,6 +36,7 @@ describe("computeContainerBounds (C8.1.b)", () => {
       sfx: { ...sfx },
       visibility: { ...visibility },
     };
+    const bid = sboxIdFromScene(scene.id);
     const state = {
       meta: {
         title: "T",
@@ -44,6 +46,7 @@ describe("computeContainerBounds (C8.1.b)", () => {
         objects: {},
       },
       scenes: { [scene.id]: scene },
+      sceneBoxes: { [bid]: { id: bid, nodeType: "sceneBox" as const, sceneId: scene.id } },
       actions: { [act.id]: act },
       satellites: {},
       media: {},
@@ -51,15 +54,16 @@ describe("computeContainerBounds (C8.1.b)", () => {
         { id: asEdgeId("e"), family: "flow" as const, sourceId: scene.id, targetId: act.id },
       ],
       layout: {
-        [scene.id]: { x: 0, y: 0, parentId: null, collapsed: false },
-        [act.id]: { x: 50, y: 30, parentId: scene.id, collapsed: false },
+        [bid]: { x: 0, y: 0, parentId: null, collapsed: false },
+        [scene.id]: { x: SCENE_PADDING_X, y: SCENE_PADDING_TOP, parentId: bid, collapsed: false },
+        [act.id]: { x: 50, y: 30, parentId: bid, collapsed: false },
       },
     } satisfies NodalProject;
 
-    const { width, height } = computeContainerBounds(state, scene.id);
+    const { width, height } = computeContainerBounds(state, bid);
     /* maxRight = 230 → innerW 230, + padX ; maxBottom = 100 → + padBottom */
     expect(width).toBe(230 + SCENE_PADDING_X);
-    expect(height).toBe(100 + SCENE_PADDING_BOTTOM);
+    expect(height).toBe(102 + SCENE_PADDING_BOTTOM);
   });
 
   it("computeContainerBounds : enfant (500,50) taille 180×70", () => {
@@ -79,6 +83,7 @@ describe("computeContainerBounds (C8.1.b)", () => {
       sfx: { ...sfx },
       visibility: { ...visibility },
     };
+    const bid = sboxIdFromScene(scene.id);
     const state = {
       meta: {
         title: "T",
@@ -88,16 +93,18 @@ describe("computeContainerBounds (C8.1.b)", () => {
         objects: {},
       },
       scenes: { [scene.id]: scene },
+      sceneBoxes: { [bid]: { id: bid, nodeType: "sceneBox" as const, sceneId: scene.id } },
       actions: { [act.id]: act },
       satellites: {},
       media: {},
       edges: [{ id: asEdgeId("ew"), family: "flow" as const, sourceId: scene.id, targetId: act.id }],
       layout: {
-        [scene.id]: { x: 0, y: 0, parentId: null, collapsed: false },
-        [act.id]: { x: 500, y: 50, parentId: scene.id, collapsed: false },
+        [bid]: { x: 0, y: 0, parentId: null, collapsed: false },
+        [scene.id]: { x: SCENE_PADDING_X, y: SCENE_PADDING_TOP, parentId: bid, collapsed: false },
+        [act.id]: { x: 500, y: 50, parentId: bid, collapsed: false },
       },
     } satisfies NodalProject;
-    const { width, height } = computeContainerBounds(state, scene.id);
+    const { width, height } = computeContainerBounds(state, bid);
     expect(width).toBe(500 + 180 + SCENE_PADDING_X);
     expect(height).toBe(50 + 70 + SCENE_PADDING_BOTTOM);
   });
@@ -119,6 +126,7 @@ describe("computeContainerBounds (C8.1.b)", () => {
       sfx: { ...sfx },
       visibility: { ...visibility },
     };
+    const bid = sboxIdFromScene(scene.id);
     const state = {
       meta: {
         title: "T",
@@ -128,21 +136,23 @@ describe("computeContainerBounds (C8.1.b)", () => {
         objects: {},
       },
       scenes: { [scene.id]: scene },
+      sceneBoxes: { [bid]: { id: bid, nodeType: "sceneBox" as const, sceneId: scene.id } },
       actions: { [act.id]: act },
       satellites: {},
       media: {},
       edges: [{ id: asEdgeId("ev"), family: "flow" as const, sourceId: scene.id, targetId: act.id }],
       layout: {
-        [scene.id]: { x: 0, y: 0, parentId: null, collapsed: false },
-        [act.id]: { x: 20, y: 40, parentId: scene.id, collapsed: false },
+        [bid]: { x: 0, y: 0, parentId: null, collapsed: false },
+        [scene.id]: { x: SCENE_PADDING_X, y: SCENE_PADDING_TOP, parentId: bid, collapsed: false },
+        [act.id]: { x: 20, y: 40, parentId: bid, collapsed: false },
       },
     } satisfies NodalProject;
-    const { width, height } = computeContainerBounds(state, scene.id);
+    const { width, height } = computeContainerBounds(state, bid);
     expect(width).toBe(20 + 180 + SCENE_PADDING_X);
     expect(height).toBe(40 + 70 + SCENE_PADDING_BOTTOM);
   });
 
-  it("reanchorSceneContainer : relatif négatif → pad + absolu enfant inchangé", () => {
+  it("reanchorSBox : relatif négatif → pad + absolu enfant inchangé", () => {
     const scene: SceneNode = {
       id: asSceneNodeId("scn-r"),
       nodeType: "scene",
@@ -159,6 +169,7 @@ describe("computeContainerBounds (C8.1.b)", () => {
       sfx: { ...sfx },
       visibility: { ...visibility },
     };
+    const bid = sboxIdFromScene(scene.id);
     const state = {
       meta: {
         title: "T",
@@ -168,33 +179,35 @@ describe("computeContainerBounds (C8.1.b)", () => {
         objects: {},
       },
       scenes: { [scene.id]: scene },
+      sceneBoxes: { [bid]: { id: bid, nodeType: "sceneBox" as const, sceneId: scene.id } },
       actions: { [act.id]: act },
       satellites: {},
       media: {},
       edges: [],
       layout: {
-        [scene.id]: { x: 200, y: 200, parentId: null, collapsed: false },
-        [act.id]: { x: -50, y: -10, parentId: scene.id, collapsed: false },
+        [bid]: { x: 200, y: 200, parentId: null, collapsed: false },
+        [scene.id]: { x: 0, y: 0, parentId: bid, collapsed: false },
+        [act.id]: { x: -50, y: -10, parentId: bid, collapsed: false },
       },
     } satisfies NodalProject;
 
     const absBefore = { x: 200 + -50, y: 200 + -10 };
-    reanchorSceneContainer(state, scene.id);
+    reanchorSBox(state, bid);
     expect(state.layout[act.id]?.x).toBe(SCENE_PADDING_X);
     expect(state.layout[act.id]?.y).toBe(SCENE_PADDING_TOP);
     const absAfter = {
-      x: (state.layout[scene.id]?.x ?? 0) + (state.layout[act.id]?.x ?? 0),
-      y: (state.layout[scene.id]?.y ?? 0) + (state.layout[act.id]?.y ?? 0),
+      x: (state.layout[bid]?.x ?? 0) + (state.layout[act.id]?.x ?? 0),
+      y: (state.layout[bid]?.y ?? 0) + (state.layout[act.id]?.y ?? 0),
     };
     expect(absAfter.x).toBeCloseTo(absBefore.x, 5);
     expect(absAfter.y).toBeCloseTo(absBefore.y, 5);
 
-    reanchorSceneContainer(state, scene.id);
+    reanchorSBox(state, bid);
     expect(state.layout[act.id]?.x).toBe(SCENE_PADDING_X);
     expect(state.layout[act.id]?.y).toBe(SCENE_PADDING_TOP);
   });
 
-  it("reanchorSceneContainer : deux enfants directs partagent le même décalage", () => {
+  it("reanchorSBox : deux enfants directs partagent le même décalage", () => {
     const scene: SceneNode = {
       id: asSceneNodeId("scn-2c"),
       nodeType: "scene",
@@ -220,6 +233,7 @@ describe("computeContainerBounds (C8.1.b)", () => {
       sfx: { ...sfx },
       visibility: { ...visibility },
     };
+    const bid = sboxIdFromScene(scene.id);
     const state = {
       meta: {
         title: "T",
@@ -229,27 +243,29 @@ describe("computeContainerBounds (C8.1.b)", () => {
         objects: {},
       },
       scenes: { [scene.id]: scene },
+      sceneBoxes: { [bid]: { id: bid, nodeType: "sceneBox" as const, sceneId: scene.id } },
       actions: { [a.id]: a, [b.id]: b },
       satellites: {},
       media: {},
       edges: [],
       layout: {
-        [scene.id]: { x: 0, y: 0, parentId: null, collapsed: false },
-        [a.id]: { x: 0, y: 20, parentId: scene.id, collapsed: false },
-        [b.id]: { x: 200, y: 25, parentId: scene.id, collapsed: false },
+        [bid]: { x: 0, y: 0, parentId: null, collapsed: false },
+        [scene.id]: { x: SCENE_PADDING_X, y: SCENE_PADDING_TOP, parentId: bid, collapsed: false },
+        [a.id]: { x: 0, y: 20, parentId: bid, collapsed: false },
+        [b.id]: { x: 200, y: 25, parentId: bid, collapsed: false },
       },
     } satisfies NodalProject;
     const absA = { x: 0 + 0, y: 0 + 20 };
     const absB = { x: 0 + 200, y: 0 + 25 };
-    reanchorSceneContainer(state, scene.id);
+    reanchorSBox(state, bid);
     expect(state.layout[a.id]?.x).toBe(SCENE_PADDING_X);
     expect(state.layout[a.id]?.y).toBe(SCENE_PADDING_TOP);
     expect(state.layout[b.id]?.x).toBe(216);
     expect(state.layout[b.id]?.y).toBe(37);
-    expect((state.layout[scene.id]?.x ?? 0) + (state.layout[a.id]?.x ?? 0)).toBeCloseTo(absA.x, 5);
-    expect((state.layout[scene.id]?.y ?? 0) + (state.layout[a.id]?.y ?? 0)).toBeCloseTo(absA.y, 5);
-    expect((state.layout[scene.id]?.x ?? 0) + (state.layout[b.id]?.x ?? 0)).toBeCloseTo(absB.x, 5);
-    expect((state.layout[scene.id]?.y ?? 0) + (state.layout[b.id]?.y ?? 0)).toBeCloseTo(absB.y, 5);
+    expect((state.layout[bid]?.x ?? 0) + (state.layout[a.id]?.x ?? 0)).toBeCloseTo(absA.x, 5);
+    expect((state.layout[bid]?.y ?? 0) + (state.layout[a.id]?.y ?? 0)).toBeCloseTo(absA.y, 5);
+    expect((state.layout[bid]?.x ?? 0) + (state.layout[b.id]?.x ?? 0)).toBeCloseTo(absB.x, 5);
+    expect((state.layout[bid]?.y ?? 0) + (state.layout[b.id]?.y ?? 0)).toBeCloseTo(absB.y, 5);
   });
 
   it("positionRelativeToContainer somme la chaîne parentId", () => {
@@ -273,6 +289,7 @@ describe("computeContainerBounds (C8.1.b)", () => {
           panoramaUrl: "",
         },
       },
+      sceneBoxes: {},
       actions: {
         [selId]: {
           id: selId,
@@ -337,10 +354,14 @@ describe("computeContainerBounds (C8.1.b)", () => {
     s.connect({ id: asEdgeId("f2"), family: "flow", sourceId: scene.id, targetId: a2.id });
 
     const nodes = toReactFlowNodes(store.getState());
+    const bid = sboxIdFromScene(scene.id);
+    const sboxRf = nodes.find((n) => n.id === bid);
     const sceneRf = nodes.find((n) => n.id === scene.id);
-    expect(sceneRf?.data.sceneFrame).toBe(true);
-    const w = Number(sceneRf?.style?.width);
-    const h = Number(sceneRf?.style?.height);
+    expect(sboxRf?.type).toBe("sceneBoxNode");
+    expect(sceneRf?.parentId).toBe(bid);
+    expect(sceneRf?.extent).toBe("parent");
+    const w = Number(sboxRf?.style?.width);
+    const h = Number(sboxRf?.style?.height);
     /* 3 × 180 de large, alignés en x=0,200,400 → inner 580 + 2×padX */
     expect(w).toBe(580 + SCENE_PADDING_X * 2);
     expect(h).toBeGreaterThan(SCENE_PADDING_TOP + 70 + SCENE_PADDING_BOTTOM - 1);

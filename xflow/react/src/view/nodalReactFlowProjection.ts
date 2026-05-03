@@ -7,6 +7,7 @@ import type { Edge as RFEdge, Node as RFNode } from "@xyflow/react";
 import type { ActionNodeId, AnyNodeId, SceneNodeId } from "../model/ids";
 import type { NodalProject } from "../model/project";
 import { getActionContextualState } from "../store/reconcileAutoSatellites";
+import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import {
   HANDLE_FLOW_IN,
   HANDLE_FLOW_OUT,
@@ -23,7 +24,7 @@ import {
 } from "./nesting/containerBounds";
 
 export type NodalRFData = {
-  nodeType: "scene" | "action" | "satellite" | "media";
+  nodeType: "scene" | "action" | "satellite" | "media" | "sceneBox";
   node: unknown;
   isRewardChild?: boolean;
   rewardParentType?: "req" | "pwd" | null;
@@ -34,8 +35,8 @@ export type NodalRFData = {
   selectorChildCount?: number;
   /** Nombre de scènes cibles distinctes via goto internes (selector replié, C8.1.a). */
   synthGotoTargetCount?: number;
-  /** C8.1.b — scène avec ≥1 descendant : rendu cadre auto-dimensionné. */
-  sceneFrame?: boolean;
+  /** Titre scène pour l’étiquette discrète du s-box. */
+  label?: string;
 };
 
 function getCollapsedSelectorIds(state: NodalProject): Set<AnyNodeId> {
@@ -174,19 +175,30 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
   const childrenByParent = buildChildrenByParent(state);
   const { hiddenIds, synthGotoTargets } = computeSelectorFoldProjection(state, childrenByParent);
 
+  for (const box of Object.values(state.sceneBoxes)) {
+    const bl = state.layout[box.id];
+    if (!bl) continue;
+    const scene = state.scenes[box.sceneId];
+    const bounds = computeContainerBounds(state, box.id, { excludeIds: hiddenIds });
+    nodes.push({
+      id: box.id,
+      type: "sceneBoxNode",
+      position: { x: bl.x, y: bl.y },
+      data: { nodeType: "sceneBox", node: box, label: scene?.label },
+      style: { width: bounds.width, height: bounds.height },
+    });
+  }
   for (const scene of Object.values(state.scenes)) {
     const layout = state.layout[scene.id];
     if (!layout) continue;
-    const descendantIds = collectDescendantNodeIds(scene.id, childrenByParent);
-    const visibleDescendants = descendantIds.filter((id) => !hiddenIds.has(id));
-    const hasFrame = visibleDescendants.length > 0 && !layout.collapsed;
-    const bounds = hasFrame ? computeContainerBounds(state, scene.id, { excludeIds: hiddenIds }) : null;
+    const bid = sboxIdFromScene(scene.id);
     nodes.push({
       id: scene.id,
       type: "sceneNode",
+      parentId: bid,
       position: { x: layout.x, y: layout.y },
-      data: { nodeType: "scene", node: scene, sceneFrame: hasFrame },
-      ...(bounds ? { style: { width: bounds.width, height: bounds.height } } : {}),
+      extent: "parent",
+      data: { nodeType: "scene", node: scene },
     });
   }
   for (const action of Object.values(state.actions)) {

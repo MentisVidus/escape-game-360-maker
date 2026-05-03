@@ -7,6 +7,7 @@ import type {
   EdgeId,
   MediaNodeId,
   SatelliteNodeId,
+  SceneBoxNodeId,
   SceneNodeId,
 } from "../model/ids";
 import type { NodeLayout, Viewport } from "../model/layout";
@@ -22,7 +23,8 @@ import {
   readPlayerPopupFieldsFromDom,
   type PlayerPopupTheme,
 } from "../view/popups/playerPopupDomRead";
-import { reanchorSceneContainer as reanchorSceneLayout } from "../view/nesting/containerBounds";
+import { reanchorSBox as reanchorSBoxLayout } from "../view/nesting/containerBounds";
+import { reconcileSceneBoxes, sboxIdFromScene } from "./reconcileSceneBoxes";
 import { computeWarnings, type Warning } from "./computeWarnings";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 
@@ -53,8 +55,8 @@ export type NodalProjectStore = NodalProject & {
   removeObject: (objectId: string) => void;
   /** Remplace tout le projet (ZIP / brouillon) : même schéma que `removeNode` — copie + reconcile + withWarnings. */
   hydrateFromProject: (projectJson: ProjectJsonV2, layoutJson: MapLayoutJson) => void;
-  /** C8.1.b.2-fix — enfants directs de scène : coords relatives ≥ (padX, padTop). */
-  reanchorSceneContainer: (sceneId: SceneNodeId) => void;
+  /** C8.1.b.2.x — re-ancrage du conteneur s-box (coords directes ≥ pad). */
+  reanchorSBox: (sboxId: SceneBoxNodeId) => void;
 };
 
 export type NodalProjectStoreApi = StoreApi<NodalProjectStore>;
@@ -85,6 +87,7 @@ const createEmptyProject = (): NodalProject => ({
   },
   actions: {},
   scenes: {},
+  sceneBoxes: {},
   satellites: {},
   media: {},
   edges: [],
@@ -135,6 +138,7 @@ const pruneOrphanSatellites = (state: NodalProjectStore): void => {
 const removeNodeFromIndexes = (state: NodalProjectStore, nodeId: AnyNodeId): void => {
   if (nodeId in state.actions) delete state.actions[nodeId as ActionNodeId];
   if (nodeId in state.scenes) delete state.scenes[nodeId as SceneNodeId];
+  if (nodeId in state.sceneBoxes) delete state.sceneBoxes[nodeId as SceneBoxNodeId];
   if (nodeId in state.satellites) delete state.satellites[nodeId as SatelliteNodeId];
   if (nodeId in state.media) delete state.media[nodeId as MediaNodeId];
   delete state.layout[nodeId];
@@ -224,44 +228,44 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     },
 
     addScene: (node, layout) => {
-      const state = get();
-      set({
-        ...state,
-        scenes: { ...state.scenes, [node.id]: node },
-        layout: { ...state.layout, [node.id]: defaultLayout(layout) },
-        warnings: computeWarnings({
+      set((state) => {
+        const next: NodalProjectStore = {
           ...state,
           scenes: { ...state.scenes, [node.id]: node },
           layout: { ...state.layout, [node.id]: defaultLayout(layout) },
-        }),
+          sceneBoxes: { ...state.sceneBoxes },
+        };
+        reconcileSceneBoxes(next);
+        reconcileAutoSatellites(next, nextAutoId);
+        return withWarnings(next);
       });
     },
 
     addAction: (node, layout) => {
-      const state = get();
-      set({
-        ...state,
-        actions: { ...state.actions, [node.id]: node },
-        layout: { ...state.layout, [node.id]: defaultLayout(layout) },
-        warnings: computeWarnings({
+      set((state) => {
+        const next: NodalProjectStore = {
           ...state,
           actions: { ...state.actions, [node.id]: node },
           layout: { ...state.layout, [node.id]: defaultLayout(layout) },
-        }),
+          sceneBoxes: { ...state.sceneBoxes },
+        };
+        reconcileSceneBoxes(next);
+        reconcileAutoSatellites(next, nextAutoId);
+        return withWarnings(next);
       });
     },
 
     addMedia: (node, layout) => {
-      const state = get();
-      set({
-        ...state,
-        media: { ...state.media, [node.id]: node },
-        layout: { ...state.layout, [node.id]: defaultLayout(layout) },
-        warnings: computeWarnings({
+      set((state) => {
+        const next: NodalProjectStore = {
           ...state,
           media: { ...state.media, [node.id]: node },
           layout: { ...state.layout, [node.id]: defaultLayout(layout) },
-        }),
+          sceneBoxes: { ...state.sceneBoxes },
+        };
+        reconcileSceneBoxes(next);
+        reconcileAutoSatellites(next, nextAutoId);
+        return withWarnings(next);
       });
     },
 
@@ -276,11 +280,30 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         },
         actions: { ...state.actions },
         scenes: { ...state.scenes },
+        sceneBoxes: { ...state.sceneBoxes },
         satellites: { ...state.satellites },
         media: { ...state.media },
         edges: [...state.edges],
         layout: { ...state.layout },
       };
+      if (nodeId in next.scenes) {
+        const bid = sboxIdFromScene(nodeId as SceneNodeId);
+        const bl = next.layout[bid];
+        if (bl && next.sceneBoxes[bid]) {
+          for (const [nid, lo] of Object.entries(next.layout)) {
+            const id = nid as AnyNodeId;
+            if (id === bid || id === nodeId || lo.parentId !== bid) continue;
+            next.layout[id] = {
+              ...lo,
+              x: lo.x + bl.x,
+              y: lo.y + bl.y,
+              parentId: null,
+            };
+          }
+          delete next.sceneBoxes[bid];
+          delete next.layout[bid];
+        }
+      }
       removeNodeFromIndexes(next, nodeId);
       removeRelatedEdges(next, nodeId);
       for (const action of Object.values(next.actions)) {
@@ -290,6 +313,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         if (layout.parentId === nodeId) layout.parentId = null;
       }
       pruneOrphanSatellites(next);
+      reconcileSceneBoxes(next);
       reconcileAutoSatellites(next, nextAutoId);
       set(withWarnings(next));
     },
@@ -298,48 +322,42 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       set((state) => {
         if (state.edges.some((existing) => existing.id === edge.id)) return state;
 
-        if (
-          edge.family === "flow" &&
-          edge.sourceId in state.scenes &&
-          edge.targetId in state.actions
-        ) {
-          const childLayout = state.layout[edge.targetId as AnyNodeId];
-          const sceneLayout = state.layout[edge.sourceId as AnyNodeId];
-          if (childLayout && sceneLayout && childLayout.parentId == null) {
-            if (wouldCreateCycle(state.layout, edge.sourceId as string, edge.targetId as string)) {
-              console.warn(
-                `[connect] flow scène→action refusé : cycle parentId (${String(edge.sourceId)} → ${String(edge.targetId)})`
-              );
-              return state;
-            }
-          }
-        }
-
         const next: NodalProjectStore = {
           ...state,
           edges: [...state.edges, edge],
           layout: { ...state.layout },
+          sceneBoxes: { ...state.sceneBoxes },
         };
+
+        reconcileSceneBoxes(next);
 
         if (
           edge.family === "flow" &&
           edge.sourceId in state.scenes &&
           edge.targetId in state.actions
         ) {
+          const bid = sboxIdFromScene(edge.sourceId as SceneNodeId);
           const childLayout = next.layout[edge.targetId as AnyNodeId];
-          const sceneLayout = next.layout[edge.sourceId as AnyNodeId];
-          if (childLayout && sceneLayout && childLayout.parentId == null) {
+          const boxLayout = next.layout[bid];
+          if (childLayout && boxLayout && childLayout.parentId == null) {
+            if (wouldCreateCycle(next.layout, bid as string, edge.targetId as string)) {
+              console.warn(
+                `[connect] flow scène→action refusé : cycle parentId (${String(bid)} → ${String(edge.targetId)})`
+              );
+              return state;
+            }
             next.layout[edge.targetId as AnyNodeId] = {
               ...childLayout,
-              x: childLayout.x - sceneLayout.x,
-              y: childLayout.y - sceneLayout.y,
-              parentId: edge.sourceId as AnyNodeId,
+              x: childLayout.x - boxLayout.x,
+              y: childLayout.y - boxLayout.y,
+              parentId: bid,
             };
-            reanchorSceneLayout(next, edge.sourceId as SceneNodeId);
+            reanchorSBoxLayout(next, bid);
           }
         }
 
         syncGotoTargetFromTransitionEdge(next, edge);
+        reconcileSceneBoxes(next);
         reconcileAutoSatellites(next, nextAutoId);
         return withWarnings(next);
       });
@@ -352,6 +370,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           ...state,
           edges: state.edges.filter((edge) => edge.id !== edgeId),
           layout: { ...state.layout },
+          sceneBoxes: { ...state.sceneBoxes },
         };
 
         if (
@@ -359,36 +378,37 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           removed.sourceId in state.scenes &&
           removed.targetId in state.actions
         ) {
+          const bid = sboxIdFromScene(removed.sourceId as SceneNodeId);
           const stillHasSceneFlow = next.edges.some(
             (e) => e.family === "flow" && e.targetId === removed.targetId && e.sourceId in next.scenes
           );
           const layout = next.layout[removed.targetId as AnyNodeId];
-          if (!stillHasSceneFlow && layout?.parentId === removed.sourceId) {
-            const sceneLayout = next.layout[removed.sourceId as AnyNodeId];
-            if (sceneLayout) {
-              next.layout[removed.targetId as AnyNodeId] = {
-                ...layout,
-                x: layout.x + sceneLayout.x,
-                y: layout.y + sceneLayout.y,
-                parentId: null,
-              };
-            }
+          const boxLayout = next.layout[bid];
+          if (!stillHasSceneFlow && boxLayout && (layout?.parentId === bid || layout?.parentId === removed.sourceId)) {
+            next.layout[removed.targetId as AnyNodeId] = {
+              ...layout!,
+              x: layout!.x + boxLayout.x,
+              y: layout!.y + boxLayout.y,
+              parentId: null,
+            };
           }
           if (removed.sourceId in next.scenes) {
-            reanchorSceneLayout(next, removed.sourceId as SceneNodeId);
+            reanchorSBoxLayout(next, bid);
           }
         }
 
         if (removed) clearGotoTargetIfNoTransition(next, removed);
+        reconcileSceneBoxes(next);
         reconcileAutoSatellites(next, nextAutoId);
         return withWarnings(next);
       });
     },
 
-    reanchorSceneContainer: (sceneId) => {
+    reanchorSBox: (sboxId) => {
       set((state) => {
-        const next = { ...state, layout: { ...state.layout } };
-        reanchorSceneLayout(next, sceneId);
+        const next: NodalProjectStore = { ...state, layout: { ...state.layout }, sceneBoxes: { ...state.sceneBoxes } };
+        reanchorSBoxLayout(next, sboxId);
+        reconcileSceneBoxes(next);
         reconcileAutoSatellites(next, nextAutoId);
         return withWarnings(next);
       });
@@ -412,19 +432,22 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       if (parent && isReqOrPwd(parent) && childId in state.actions) {
         // C3b : uniquement des actions orphelines peuvent devenir récompense.
         if (hasIncomingFlowFromScene(state, childActionId)) return;
-        const next = {
+        const next: NodalProjectStore = {
           ...state,
           layout: nextLayout,
+          sceneBoxes: { ...state.sceneBoxes },
           actions: {
             ...state.actions,
             [parent.id]: { ...parent, rewardActionId: childId as ActionNodeId },
           },
         };
+        reconcileSceneBoxes(next);
         reconcileAutoSatellites(next, nextAutoId);
         set(withWarnings(next));
         return;
       }
-      const next = { ...state, layout: nextLayout };
+      const next: NodalProjectStore = { ...state, layout: nextLayout, sceneBoxes: { ...state.sceneBoxes } };
+      reconcileSceneBoxes(next);
       reconcileAutoSatellites(next, nextAutoId);
       set(withWarnings(next));
     },
@@ -444,23 +467,27 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         },
       };
       if (!parentId) {
-        const next = { ...state, layout: nextLayout };
+        const next: NodalProjectStore = { ...state, layout: nextLayout, sceneBoxes: { ...state.sceneBoxes } };
+        reconcileSceneBoxes(next);
         reconcileAutoSatellites(next, nextAutoId);
         set(withWarnings(next));
         return;
       }
       const parent = state.actions[parentId as ActionNodeId];
       if (parent && isReqOrPwd(parent) && parent.rewardActionId === childId) {
-        const next = {
+        const next: NodalProjectStore = {
           ...state,
           layout: nextLayout,
+          sceneBoxes: { ...state.sceneBoxes },
           actions: { ...state.actions, [parent.id]: { ...parent, rewardActionId: null } },
         };
+        reconcileSceneBoxes(next);
         reconcileAutoSatellites(next, nextAutoId);
         set(withWarnings(next));
         return;
       }
-      const next = { ...state, layout: nextLayout };
+      const next: NodalProjectStore = { ...state, layout: nextLayout, sceneBoxes: { ...state.sceneBoxes } };
+      reconcileSceneBoxes(next);
       reconcileAutoSatellites(next, nextAutoId);
       set(withWarnings(next));
     },
@@ -517,22 +544,17 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     },
 
     updateNodeLayout: (nodeId, patch) => {
-      const state = get();
-      const current = state.layout[nodeId];
-      if (!current) return;
-      set({
-        ...state,
-        layout: {
-          ...state.layout,
-          [nodeId]: { ...current, ...patch },
-        },
-        warnings: computeWarnings({
+      set((state) => {
+        const current = state.layout[nodeId];
+        if (!current) return state;
+        const next: NodalProjectStore = {
           ...state,
-          layout: {
-            ...state.layout,
-            [nodeId]: { ...current, ...patch },
-          },
-        }),
+          layout: { ...state.layout, [nodeId]: { ...current, ...patch } },
+          sceneBoxes: { ...state.sceneBoxes },
+        };
+        reconcileSceneBoxes(next);
+        reconcileAutoSatellites(next, nextAutoId);
+        return withWarnings(next);
       });
     },
 
@@ -612,11 +634,13 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         },
         actions: { ...base.actions },
         scenes: { ...base.scenes },
+        sceneBoxes: { ...base.sceneBoxes },
         satellites: { ...base.satellites },
         media: { ...base.media },
         edges: [...base.edges],
         layout: { ...base.layout },
       };
+      reconcileSceneBoxes(next);
       reconcileAutoSatellites(next, nextAutoId);
       applyNodalAutoSatelliteData(next, layoutJson.nodalAutoSatelliteData);
       applyMetaMediaLinks(next, layoutJson.nodalMetaMediaLinks);

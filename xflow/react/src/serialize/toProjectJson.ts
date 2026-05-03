@@ -1,6 +1,7 @@
 import type { ActionNodeId, SceneNodeId } from "../model/ids";
 import type { ActionNode, ReqActionNode, PwdActionNode, SelectorActionNode } from "../model/nodes";
 import type { NodalProject } from "../model/project";
+import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import { INTERNAL_TO_V2_ACTION_TYPE } from "./v2TypeMap";
 
 export type ProjectJsonV2Action = {
@@ -90,14 +91,16 @@ const serializeAction = (state: NodalProject, actionId: ActionNodeId): ProjectJs
   };
 };
 
-export const getHotspotActionIdsForScene = (state: NodalProject, sceneId: SceneNodeId): ActionNodeId[] =>
-  state.edges
+export const getHotspotActionIdsForScene = (state: NodalProject, sceneId: SceneNodeId): ActionNodeId[] => {
+  const bid = sboxIdFromScene(sceneId);
+  return state.edges
     .filter((edge) => {
       if (edge.family !== "flow" || edge.sourceId !== sceneId || !(edge.targetId in state.actions)) return false;
       const p = state.layout[edge.targetId]?.parentId;
-      return p == null || p === sceneId;
+      return p == null || p === bid;
     })
     .map((edge) => edge.targetId as ActionNodeId);
+};
 
 export const serializeToProjectJson = (state: NodalProject): ProjectJsonV2 => {
   const startSceneExternalId = state.meta.startSceneId ? state.scenes[state.meta.startSceneId]?.sceneId ?? null : null;

@@ -117,19 +117,19 @@ export function computeContainerBounds(
 }
 
 /**
- * Garantit que chaque enfant **direct** de la scène a `x ≥ SCENE_PADDING_X` et `y ≥ SCENE_PADDING_TOP`.
- * Sinon décale la scène en absolu et translate les enfants directs en relatif inverse (monde inchangé).
+ * Garantit que chaque enfant **direct** du conteneur (s-box ou legacy) a `x ≥ SCENE_PADDING_X` et `y ≥ SCENE_PADDING_TOP`.
+ * Sinon décale le conteneur en absolu et translate les enfants directs en relatif inverse (monde inchangé).
  * Idempotent. Ne modifie pas les petits-enfants (coords déjà relatives au parent intermédiaire).
  */
-export function reanchorSceneContainer(state: NodalProject, sceneId: AnyNodeId): void {
-  const sceneLayout = state.layout[sceneId];
+export function reanchorSBox(state: NodalProject, containerId: AnyNodeId): void {
+  const sceneLayout = state.layout[containerId];
   if (!sceneLayout) return;
 
   const directChildren: Array<[AnyNodeId, NonNullable<NodalProject["layout"][AnyNodeId]>]> = [];
   for (const [id, l] of Object.entries(state.layout) as Array<
     [AnyNodeId, NodalProject["layout"][AnyNodeId]]
   >) {
-    if (l?.parentId === sceneId) directChildren.push([id, l]);
+    if (l?.parentId === containerId) directChildren.push([id, l]);
   }
   if (directChildren.length === 0) return;
 
@@ -144,8 +144,11 @@ export function reanchorSceneContainer(state: NodalProject, sceneId: AnyNodeId):
   const shiftY = minRelY < SCENE_PADDING_TOP ? SCENE_PADDING_TOP - minRelY : 0;
   if (shiftX === 0 && shiftY === 0) return;
 
-  state.layout[sceneId] = { ...sceneLayout, x: sceneLayout.x - shiftX, y: sceneLayout.y - shiftY };
+  state.layout[containerId] = { ...sceneLayout, x: sceneLayout.x - shiftX, y: sceneLayout.y - shiftY };
   for (const [childId, l] of directChildren) {
     state.layout[childId] = { ...l, x: l.x + shiftX, y: l.y + shiftY };
   }
 }
+
+/** @deprecated utiliser `reanchorSBox` (1.b.2.x). */
+export const reanchorSceneContainer = reanchorSBox;

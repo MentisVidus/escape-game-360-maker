@@ -28,7 +28,7 @@ import {
   type EdgeId,
   type MediaNodeId,
   type SatelliteNodeId,
-  type SceneNodeId,
+  type SceneBoxNodeId,
 } from "../model/ids";
 import type {
   ActionNode,
@@ -58,6 +58,7 @@ import {
 import { ActionNodeView } from "./nodes/ActionNodeView";
 import { MediaNodeView } from "./nodes/MediaNodeView";
 import { SatelliteNodeView } from "./nodes/SatelliteNodeView";
+import { SceneBoxNodeView } from "./nodes/SceneBoxNodeView";
 import { SceneNodeView } from "./nodes/SceneNodeView";
 import { NodalUiContext } from "./nodalUiContext";
 import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X } from "./nesting/constants";
@@ -81,6 +82,7 @@ import { toReactFlowEdges, toReactFlowNodes, type NodalRFData } from "./nodalRea
 import "./NodalCanvas.css";
 
 const nodeTypes: NodeTypes = {
+  sceneBoxNode: SceneBoxNodeView,
   sceneNode: SceneNodeView,
   actionNode: ActionNodeView,
   satelliteNode: SatelliteNodeView,
@@ -392,7 +394,23 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       const draggedLayout = state.layout[draggedNode.id as AnyNodeId];
       if (!draggedLayout) return;
 
-      if (draggedLayout.parentId && draggedLayout.parentId in state.actions) {
+      if (draggedLayout.parentId && draggedLayout.parentId in state.sceneBoxes) {
+        const parentNode = nodesById.get(draggedLayout.parentId);
+        if (parentNode) {
+          const parentRect = toAbsoluteRect(parentNode, nodesById);
+          const overlap = overlapRatioByChild(childRect, parentRect);
+          if (overlap < DETACH_OVERLAP_THRESHOLD) {
+            state.detachChild(draggedNode.id as AnyNodeId, { x: childRect.x, y: childRect.y });
+            return;
+          }
+        }
+        const live = store.getState();
+        const pl = live.layout[draggedNode.id as AnyNodeId];
+        const bid = draggedLayout.parentId as SceneBoxNodeId;
+        if (pl && (pl.x < SCENE_PADDING_X || pl.y < SCENE_PADDING_TOP)) {
+          live.reanchorSBox(bid);
+        }
+      } else if (draggedLayout.parentId && draggedLayout.parentId in state.actions) {
         const parentNode = nodesById.get(draggedLayout.parentId);
         if (!parentNode) return;
         const parentRect = toAbsoluteRect(parentNode, nodesById);
@@ -404,19 +422,6 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       }
 
       const live = store.getState();
-      const postDragLayout = live.layout[draggedNode.id as AnyNodeId];
-      const sceneParentId: SceneNodeId | undefined =
-        postDragLayout?.parentId && postDragLayout.parentId in live.scenes
-          ? (postDragLayout.parentId as SceneNodeId)
-          : undefined;
-      if (
-        sceneParentId &&
-        postDragLayout &&
-        (postDragLayout.x < SCENE_PADDING_X || postDragLayout.y < SCENE_PADDING_TOP)
-      ) {
-        live.reanchorSceneContainer(sceneParentId);
-      }
-
       const hasFlowInFromScene = live.edges.some(
         (edge) => edge.family === "flow" && edge.targetId === draggedNode.id && edge.sourceId in live.scenes
       );

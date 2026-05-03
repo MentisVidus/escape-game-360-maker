@@ -14,6 +14,7 @@ import {
 import { serializeToProjectJson } from "../serialize/toProjectJson";
 import { reconcileAutoSatellites } from "../store/reconcileAutoSatellites";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
+import { SCENE_PADDING_X } from "../view/nesting/containerBounds";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -105,7 +106,7 @@ describe("nodal model C1 roundtrip", () => {
     reconcileAutoSatellites(roundtripState);
 
     expect(roundtripState.layout[stableActionNodeIdFromPathKey("scene-a:h:0")]?.x).toBe(150);
-    expect(roundtripState.layout[stableSceneNodeIdFromExternal("scene-a")]?.x).toBe(0);
+    expect(roundtripState.layout[stableSceneNodeIdFromExternal("scene-a")]?.x).toBe(SCENE_PADDING_X);
 
     const projectJsonAgain = serializeToProjectJson(roundtripState);
     expect(projectJsonAgain).toEqual(projectJson);

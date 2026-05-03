@@ -1,19 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
+import { asActionNodeId, asEdgeId, asSceneNodeId, type SceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
 import { applyHydratedLayout } from "../serialize/mapLayoutJson";
 import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
-import { migrateSceneParentIds } from "../serialize/migrateSceneParentIds";
+import { migrateSceneToSBoxParenting } from "../serialize/migrateSceneToSBoxParenting";
 import { getHotspotActionIdsForScene, type ProjectJsonV2 } from "../serialize/toProjectJson";
+import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import { SCENE_PADDING_TOP, SCENE_PADDING_X } from "../view/nesting/containerBounds";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 
 const sfx = { url: "", volume: 1 };
 const visibility = { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true };
 
-describe("C8.1.b — scène comme conteneur (parentId + coords relatives)", () => {
-  it("migrateSceneParentIds convertit une fois puis est idempotent", () => {
+describe("C8.1.b.2.x — s-box (conteneur groupe) + hotspots sous le s-box", () => {
+  it("migrateSceneToSBoxParenting est idempotent", () => {
     const scene: SceneNode = {
       id: asSceneNodeId("scn-x"),
       nodeType: "scene",
@@ -36,16 +37,17 @@ describe("C8.1.b — scène comme conteneur (parentId + coords relatives)", () =
     s.addAction(act, { x: 110, y: 70 });
     s.connect({ id: asEdgeId("e1"), family: "flow", sourceId: scene.id, targetId: act.id });
     const after = store.getState();
-    expect(after.layout[act.id]?.parentId).toBe(scene.id);
+    const bid = sboxIdFromScene(scene.id);
+    expect(after.layout[act.id]?.parentId).toBe(bid);
     expect(after.layout[act.id]?.x).toBe(100);
     expect(after.layout[act.id]?.y).toBe(50);
     expect(after.layout[act.id]?.x).toBeGreaterThanOrEqual(SCENE_PADDING_X);
     expect(after.layout[act.id]?.y).toBeGreaterThanOrEqual(SCENE_PADDING_TOP);
 
-    migrateSceneParentIds(after);
+    migrateSceneToSBoxParenting(after);
     expect(after.layout[act.id]?.x).toBe(100);
     expect(after.layout[act.id]?.y).toBe(50);
-    migrateSceneParentIds(after);
+    migrateSceneToSBoxParenting(after);
     expect(after.layout[act.id]?.x).toBe(100);
   });
 
@@ -72,7 +74,7 @@ describe("C8.1.b — scène comme conteneur (parentId + coords relatives)", () =
     s.addAction(act, { x: 105, y: 55 });
     const edgeId = asEdgeId("e-flow-y");
     s.connect({ id: edgeId, family: "flow", sourceId: scene.id, targetId: act.id });
-    expect(store.getState().layout[act.id]?.parentId).toBe(scene.id);
+    expect(store.getState().layout[act.id]?.parentId).toBe(sboxIdFromScene(scene.id));
 
     s.disconnect(edgeId);
     const after = store.getState();
@@ -81,7 +83,7 @@ describe("C8.1.b — scène comme conteneur (parentId + coords relatives)", () =
     expect(after.layout[act.id]?.y).toBe(55);
   });
 
-  it("getHotspotActionIdsForScene inclut parentId null ou égal à la scène", () => {
+  it("getHotspotActionIdsForScene inclut parentId null ou égal au s-box", () => {
     const scene: SceneNode = {
       id: asSceneNodeId("scn-z"),
       nodeType: "scene",
@@ -111,7 +113,8 @@ describe("C8.1.b — scène comme conteneur (parentId + coords relatives)", () =
     const s = store.getState();
     s.addScene(scene, { x: 0, y: 0 });
     s.addAction(a1, { x: 1, y: 1 });
-    s.addAction(a2, { x: 2, y: 2, parentId: scene.id });
+    const bid = sboxIdFromScene(scene.id);
+    s.addAction(a2, { x: 2, y: 2, parentId: bid });
     s.connect({ id: asEdgeId("ez1"), family: "flow", sourceId: scene.id, targetId: a1.id });
     s.connect({ id: asEdgeId("ez2"), family: "flow", sourceId: scene.id, targetId: a2.id });
     const st = store.getState();
@@ -146,13 +149,14 @@ describe("C8.1.b — scène comme conteneur (parentId + coords relatives)", () =
     const after = store.getState();
     const lx = after.layout[act.id];
     const ls = after.layout[scene.id];
+    const lb = after.layout[sboxIdFromScene(scene.id)];
     expect(lx?.x).toBeGreaterThanOrEqual(SCENE_PADDING_X);
     expect(lx?.y).toBeGreaterThanOrEqual(SCENE_PADDING_TOP);
-    expect((ls?.x ?? 0) + (lx?.x ?? 0)).toBeCloseTo(absX, 5);
-    expect((ls?.y ?? 0) + (lx?.y ?? 0)).toBeCloseTo(absY, 5);
+    expect((lb?.x ?? 0) + (lx?.x ?? 0)).toBeCloseTo(absX, 5);
+    expect((lb?.y ?? 0) + (lx?.y ?? 0)).toBeCloseTo(absY, 5);
   });
 
-  it("migrateSceneParentIds re-ancre une action déjà parentId scène avec coords relatives négatives", () => {
+  it("migrateSceneToSBoxParenting re-ancre une action legacy parentId scène", () => {
     const scene: SceneNode = {
       id: asSceneNodeId("scn-contam"),
       nodeType: "scene",
@@ -178,6 +182,7 @@ describe("C8.1.b — scène comme conteneur (parentId + coords relatives)", () =
         objects: {},
       },
       scenes: { [scene.id]: scene },
+      sceneBoxes: {},
       actions: { [act.id]: act },
       satellites: {},
       media: {},
@@ -189,11 +194,13 @@ describe("C8.1.b — scène comme conteneur (parentId + coords relatives)", () =
     };
     const absX = 50 + -20;
     const absY = 60 + -5;
-    migrateSceneParentIds(state);
+    migrateSceneToSBoxParenting(state);
+    const bid = sboxIdFromScene(scene.id);
+    expect(state.layout[act.id]?.parentId).toBe(bid);
     expect(state.layout[act.id]?.x).toBe(SCENE_PADDING_X);
     expect(state.layout[act.id]?.y).toBe(SCENE_PADDING_TOP);
-    expect((state.layout[scene.id]?.x ?? 0) + (state.layout[act.id]?.x ?? 0)).toBeCloseTo(absX, 5);
-    expect((state.layout[scene.id]?.y ?? 0) + (state.layout[act.id]?.y ?? 0)).toBeCloseTo(absY, 5);
+    expect((state.layout[bid]?.x ?? 0) + (state.layout[act.id]?.x ?? 0)).toBeCloseTo(absX, 5);
+    expect((state.layout[bid]?.y ?? 0) + (state.layout[act.id]?.y ?? 0)).toBeCloseTo(absY, 5);
   });
 
   it("hydrate : migrate après layout stable conserve les positions monde pour un hotspot", () => {
@@ -222,18 +229,26 @@ describe("C8.1.b — scène comme conteneur (parentId + coords relatives)", () =
     const state = deserializeFromProjectJson(projectJson);
     const sceneId = Object.keys(state.scenes)[0]!;
     const actionId = Object.keys(state.actions)[0]!;
+    const bid = sboxIdFromScene(sceneId as SceneNodeId);
     const layoutJson = {
       positions: {
-        [sceneId]: { x: 100, y: 200 },
         [actionId]: { x: 250, y: 320 },
       },
-      parentId: {},
+      parentId: {
+        [sceneId]: bid,
+      },
+      nodalSceneLayoutByExternalId: {
+        s1: { x: 100, y: 200, collapsed: false },
+      },
+      nodalSceneBoxLayoutByExternalId: {
+        s1: { x: 100, y: 200, collapsed: false },
+      },
       collapsed: { [sceneId]: false, [actionId]: false },
       drafts: [] as string[],
       viewport: { x: 0, y: 0, zoom: 1 },
     };
     applyHydratedLayout(state, layoutJson, projectJson);
-    expect(state.layout[actionId]?.parentId).toBe(sceneId);
+    expect(state.layout[actionId]?.parentId).toBe(bid);
     expect(state.layout[actionId]?.x).toBe(150);
     expect(state.layout[actionId]?.y).toBe(120);
   });

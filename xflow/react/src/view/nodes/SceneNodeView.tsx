@@ -16,7 +16,6 @@ import "./nodes.css";
 export function SceneNodeView({ data }: NodeProps) {
   const rf = data as NodalRFData;
   const node = rf.node as SceneNode;
-  const sceneFrame = !!rf.sceneFrame;
   const ui = useNodalUi();
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(node.label);
@@ -57,7 +56,7 @@ export function SceneNodeView({ data }: NodeProps) {
 
   return (
     <div
-      className={`nodal-node scene${sceneFrame ? " nodal-node--scene-frame" : ""}`}
+      className="nodal-node scene"
       onClick={startEditingTitle}
     >
       {editingTitle ? (

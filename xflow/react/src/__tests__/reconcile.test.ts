@@ -6,6 +6,7 @@ import { serializeToProjectJson } from "../serialize/toProjectJson";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 import { getActionContextualState } from "../store/reconcileAutoSatellites";
+import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import {
   ATTACH_OVERLAP_THRESHOLD,
   DETACH_OVERLAP_THRESHOLD,
@@ -524,8 +525,8 @@ describe("C3a reconcileAutoSatellites + meta.objects", () => {
 
     state.attachChild(req.id, msg.id);
     const next = store.getState();
-    /* C8.1.b : le msg reste enfant de la scène (hotspot) ; attachChild récompense est refusé. */
-    expect(next.layout[msg.id]?.parentId).toBe(scene.id);
+    /* C8.1.b.2.x : le msg reste sous le s-box (hotspot) ; attachChild récompense est refusé. */
+    expect(next.layout[msg.id]?.parentId).toBe(sboxIdFromScene(scene.id));
     const reqAfter = next.actions[req.id];
     expect(reqAfter).toBeDefined();
     if (!reqAfter) throw new Error("reqAfter absent");

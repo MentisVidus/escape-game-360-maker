@@ -57,6 +57,13 @@ export type SceneNode = {
   panoramaUrl: string;
 };
 
+/** Cadre RF auto (1.b.2.x) — un par scène, réconcilié comme les satellites. */
+export type SceneBoxNode = {
+  id: import("./ids").SceneBoxNodeId;
+  nodeType: "sceneBox";
+  sceneId: import("./ids").SceneNodeId;
+};
+
 export type CoordsOptionsSatelliteNode = {
   id: SatelliteNodeId;
   nodeType: "satellite";

@@ -1,4 +1,4 @@
-import type { ActionNodeId, AnyNodeId, SceneNodeId } from "../model/ids";
+import type { ActionNodeId, AnyNodeId, SceneBoxNodeId, SceneNodeId } from "../model/ids";
 import type { ActionNode } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import { getActionContextualState } from "./reconcileAutoSatellites";
@@ -100,6 +100,10 @@ const collectReachableSceneIds = (state: NodalProject): Set<SceneNodeId> => {
       }
       if (parentId in state.scenes) {
         return reachableScenes.has(parentId as SceneNodeId);
+      }
+      if (parentId in state.sceneBoxes) {
+        const sid = state.sceneBoxes[parentId as SceneBoxNodeId]?.sceneId;
+        return sid ? reachableScenes.has(sid) : false;
       }
       return false;
     }

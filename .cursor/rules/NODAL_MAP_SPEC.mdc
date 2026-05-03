@@ -1953,82 +1953,355 @@ L'implémentation actuelle viole les deux :
 - Round-trip serialize / deserialize d'un projet déjà migré sans bug
   reste idempotent (pas de drift de positions).
 
-##### Étape 1.b.3 — Repli de la scène (chevron + handles synthétiques)
+##### Étape 1.b.2.x — Pivot architectural : s-box (group node) auto-managé
 
-**Contexte technique** :
-- Étapes 1.b.1 et 1.b.2 livrées : la scène est un cadre auto-resize.
-- L'infrastructure de repli existe déjà via C8.1.a
-  (`toggleNodeCollapsed`, `collectHidden…`, synth-goto-out).
-  Il s'agit d'**élargir** les fonctions existantes aux scènes, pas
-  de réécrire.
+> **Pivot validé 2026-05-XX** après smoke des étapes 1.b.1 + 1.b.2 +
+> 1.b.2-fix. Bug visuel résiduel : la scène faisait office de cadre,
+> donc ses handles (`flow-out`, `goto-in`, `meta-out`) étaient rendus
+> aux **bords du cadre** (= bords des actions) → les edges
+> scène→action partaient de l'extrémité droite du cadre et revenaient
+> vers la gauche. Lecture cassée.
+>
+> Le pattern correct est celui décrit dans
+> https://reactflow.dev/learn/layouting/sub-flows : un nœud parent
+> de type `group` **sans handles, sans contenu sémantique**, qui
+> sert uniquement de conteneur visuel et logique. La scène redevient
+> un nœud normal avec ses handles à elle, et un nouveau nœud auto-managé
+> **s-box** englobe scène + actions.
+>
+> Auto-managé = pendant des satellites : créé / supprimé / dimensionné
+> par le store, jamais directement par l'utilisateur, jamais sérialisé
+> dans `project.json`.
+
+**Modèle final** :
+
+```
+s-box (groupNode, parentId: null)          ← géré par le store comme un satellite
+ ├── scene  (parentId: sboxId, extent: 'parent')   ← handles + contenu sémantique
+ ├── action top-level n°1 (parentId: sboxId)
+ ├── action top-level n°2 (parentId: sboxId)
+ └── selector top-level (parentId: sboxId)
+      └── choice (parentId: selectorId)
+           └── (sous-arbre selector inchangé)
+```
+
+- **Type RF** : `groupNode` (custom). Pas de handles. Bordure +
+  fond translucide. Composant minimal — étiquette discrète facultative
+  (ex. `Scene: Hall`) en haut à gauche, sinon rien.
+- **Position du nœud scène** : à l'intérieur du s-box, coords
+  relatives initiales `(SCENE_PADDING_X, SCENE_PADDING_TOP)`. La scène
+  est draggable **dans** le s-box (`extent: 'parent'`) ; elle ne peut
+  pas en sortir.
+- **Position des actions top-level** : coords relatives au s-box (et
+  pas à la scène). Drag libre (les actions peuvent sortir du s-box →
+  détachement habituel via `onNodeDragStop`).
+- **Position du s-box** : drag libre (c'est ce qui permet à
+  l'utilisateur de déplacer scène + actions ensemble).
+- **Auto-resize du s-box** : `computeContainerBounds(state, sboxId)`
+  (le helper de l'étape 1.b.2-fix, juste recâblé sur le s-box).
+- **Re-ancrage** : `reanchorSceneContainer` bascule en
+  `reanchorSBox(state, sboxId)`. Logique identique : si min relative
+  des enfants < `(padX, padTop)`, décaler le s-box et translater tous
+  ses enfants directs (scène + actions top-level).
 
 **Directive** :
 
-1. **Renommage** :
+1. **Modèle** ([model/ids.ts](xflow/react/src/model/ids.ts) +
+   [model/nodes.ts](xflow/react/src/model/nodes.ts)) :
+   - Nouveau brand `SceneBoxNodeId`.
+   - Nouveau type :
+     ```ts
+     export type SceneBoxNode = {
+       id: SceneBoxNodeId;
+       nodeType: "sceneBox";
+       sceneId: SceneNodeId; // back-reference
+     };
+     ```
+   - Étendre `AnyNodeId` et `model/project.ts` avec
+     `sceneBoxes: Record<SceneBoxNodeId, SceneBoxNode>`.
+
+2. **Helper de réconciliation** — nouveau fichier
+   `xflow/react/src/store/reconcileSceneBoxes.ts` (pendant de
+   `reconcileAutoSatellites`) :
+   - `sboxIdFromScene(sceneId): SceneBoxNodeId` — id déterministe,
+     préfixe `sbox-` + id de la scène.
+   - `reconcileSceneBoxes(state)` :
+     - Pour chaque scène dans `state.scenes` sans s-box correspondant,
+       crée le s-box et son `state.layout` initial
+       `{ x: scene.x, y: scene.y, parentId: null, collapsed: false }`,
+       puis reparente la scène (`scene.layout.parentId = sboxId`,
+       position relative `(padX, padTop)`, scène en `extent: 'parent'`
+       côté projection).
+     - Pour chaque s-box sans scène associée (orphelin), supprime le
+       s-box et son layout.
+   - **Idempotent** — appelé après chaque mutation du store
+     (équivalent du `reconcileAutoSatellites`).
+
+3. **Store mutations** ([store/nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts)) :
+   - `addScene(node, layout)` :
+     - Pose la scène, puis appelle `reconcileSceneBoxes`. Le s-box
+       associé est créé automatiquement.
+   - `removeNode(sceneId)` quand `nodeId` est une scène :
+     - Supprime aussi le s-box (via `reconcileSceneBoxes` post-mutation
+       qui détecte l'orphelin).
+   - `connect()` flow scene→action :
+     - Au lieu de `child.parentId = sceneId`, mettre
+       `child.parentId = sboxIdFromScene(sceneId)`.
+     - Conversion absolu → relatif au s-box (et non plus à la scène) :
+       `child.x -= sboxLayout.x; child.y -= sboxLayout.y`.
+     - Appel de `reanchorSBox(state, sboxId)` après l'attachement.
+   - `disconnect()` flow scene→action :
+     - Conversion relative → absolue par rapport au s-box.
+     - `child.parentId = null`.
+   - `hydrateFromProject` :
+     - Après `migrateSceneToSBoxParenting` (point 4) puis
+       `reconcileSceneBoxes`.
+
+4. **Migration** — renommer/réécrire
+   [serialize/migrateSceneParentIds.ts](xflow/react/src/serialize/migrateSceneParentIds.ts)
+   en `migrateSceneToSBoxParenting.ts` :
+   - Pour chaque scène, créer le s-box (s'il n'existe pas).
+   - Reparenter la **scène elle-même** vers le s-box (parentId =
+     sboxId, position relative `(padX, padTop)`).
+   - Reparenter les **actions top-level** (cibles directes de
+     `flow scene→action`) vers le s-box (au lieu de la scène).
+   - Recalculer toutes les coords relatives en fonction du s-box.
+   - Appeler `reanchorSBox` à la fin pour normaliser.
+   - **Idempotent** : un projet déjà migré reste inchangé.
+   - **Fix de l'état actuel cassé** : un projet où des actions ont
+     `parentId === sceneId` (étape 1.b.1 actuelle) est détecté et
+     converti en `parentId === sboxId`.
+
+5. **Composant `SceneBoxNodeView.tsx`** (nouveau) :
+   ```tsx
+   import { type NodeProps } from "@xyflow/react";
+   import "./nodes.css";
+
+   export function SceneBoxNodeView({ data }: NodeProps) {
+     // Pas de handles. Pas de logique sémantique. Juste un conteneur visuel.
+     // Étiquette discrète optionnelle : data.label (= scene.label).
+     return (
+       <div className="nodal-node-sbox">
+         {/* éventuel header très discret avec le nom de la scène */}
+       </div>
+     );
+   }
+   ```
+   Enregistrer dans `nodeTypes` de
+   [view/NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) :
+   `sceneBoxNode: SceneBoxNodeView`.
+
+6. **`SceneNodeView.tsx`** : **revert** à l'état pré-1.b.2.
+   - Retirer la classe `nodal-node--scene-frame`.
+   - Retirer le flag `sceneFrame` dans `NodalRFData`.
+   - Pas de `style.width/height` injecté par la projection sur la
+     scène — elle redevient un nœud compact normal.
+
+7. **Projection** ([view/nodalReactFlowProjection.ts](xflow/react/src/view/nodalReactFlowProjection.ts)) :
+   - Émettre les **s-box d'abord** (parent-first). Pour chaque s-box :
+     - `position = { x: sboxLayout.x, y: sboxLayout.y }` (absolu).
+     - `style = computeContainerBounds(state, sboxId, { excludeIds: hiddenIds })`.
+     - `parentId` non défini (s-box est top-level).
+   - La scène : émettre avec `parentId = sboxId`, position relative
+     telle quelle.
+   - Les actions top-level : `parentId = sboxId` (déjà cohérent côté
+     store si les mutations + migration ont fait leur travail —
+     vérifier dans la projection sans corriger).
+   - Plus de calcul `style.width/height` sur la scène.
+   - **Important** — `extent: 'parent'` doit être posé sur la scène
+     dans la projection (pas dans le store) :
+     `if (parentId === sboxId of nodeType scene) sceneNode.extent = 'parent';`
+
+8. **Sérialisation `toProjectJson.ts`** :
+   - `getHotspotActionIdsForScene` : remplacer la condition
+     `parentId === sceneId` par
+     `parentId === sboxIdFromScene(sceneId)`.
+   - Vérifier qu'aucun `state.sceneBoxes` ne fuit dans `project.json`
+     (pas de sérialisation par défaut tant qu'on ne les ajoute pas
+     à `serializeToProjectJson`).
+
+9. **Sérialisation `mapLayoutJson.ts`** :
+   - Étendre `serializeLayout` / `applyLayout` pour
+     `nodalSceneBoxLayoutByExternalId` : clé = `scene.sceneId` externe,
+     valeur = `{ x, y, collapsed }`.
+   - Reconstruction au load : `applyLayout` restaure les positions
+     des s-box, puis `reconcileSceneBoxes` complète les manquants.
+
+10. **CSS** ([view/nodes/nodes.css](xflow/react/src/view/nodes/nodes.css)) :
+    - Nouvelle classe `.nodal-node-sbox` :
+      ```css
+      .nodal-node-sbox {
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        background: color-mix(in srgb, var(--node-scene-bg) 60%, transparent);
+        border: 2px solid var(--node-scene-border);
+        border-radius: 12px;
+        pointer-events: all;
+      }
+      ```
+    - Supprimer `.nodal-node.scene.nodal-node--scene-frame` et tout
+      style associé.
+
+11. **`onNodeDragStop`** ([view/NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx)) :
+    - Aucun changement structurel requis pour le drag « action vers
+      sélecteur » ou « action sortie de scène ». Le s-box ne doit
+      **pas** apparaître comme candidat parent dans la détection
+      d'overlap (filtrer par `nodeType !== 'sceneBox'`).
+    - Si une action est draguée hors du s-box (overlap < threshold) :
+      détachement + `parentId = null` + position absolue. Scène et
+      s-box ne sont pas concernés.
+    - `extent: 'parent'` posé sur la scène empêche RF de laisser la
+      scène quitter le s-box pendant le drag → aucun cas spécial à
+      gérer dans le code.
+
+12. **Tests à mettre à jour** :
+    - Renommer `sceneAsContainer.test.ts` →
+      `sceneSBoxContainer.test.ts`.
+    - Cas : `addScene` crée automatiquement le s-box.
+    - Cas : `removeNode(sceneId)` supprime le s-box associé.
+    - Cas : `connect flow scene→action` parente l'action sous le
+      s-box (parentId === sboxId), pas sous la scène.
+    - Cas : sérialisation → s-box absent de `project.json`, présent
+      dans `map-layout.json` (`nodalSceneBoxLayoutByExternalId`).
+    - Cas : round-trip projet legacy (sans s-box) → s-box auto-créé
+      à l'hydrate.
+    - Cas : projet "cassé" 1.b.1 actuel (action.parentId === sceneId) →
+      migration corrige en parentId === sboxId.
+    - Cas : `reanchorSBox` (équivalent des tests
+      `reanchorSceneContainer`).
+
+**Critère de fin** :
+
+- Smoke `Hall + Read Note + Go To Lab + SELECTOR(2 MSG) → Lab` :
+  - Le **s-box** entoure visuellement la scène + les actions.
+  - Le **flow-out** de la scène part de la scène elle-même
+    (handle au bord droit du *petit* nœud scène, pas au bord droit du
+    s-box) → edges courtes vers Read Note / Go To Lab / SELECTOR.
+  - Le **goto-out** de Go To Lab pointe vers Lab (à l'extérieur du
+    s-box) sans détour.
+  - Drag du s-box → scène + actions suivent.
+  - Drag de la scène dans le s-box → scène se déplace mais ne sort
+    pas (extent constraint).
+  - Drag d'une action hors du s-box → l'action se détache (parentId
+    null, position absolue restaurée).
+- `project.json` reste identique avant/après bascule sur les
+  fixtures connues.
+
+##### Étape 1.b.3 — Repli du s-box (chevron + handles synthétiques)
+
+> Adapté pour le modèle **s-box** (étape 1.b.2.x). Le `collapsed`
+> bascule sur le s-box, pas sur la scène. Quand le s-box est replié,
+> les actions sont cachées ; la scène reste visible (avec ses
+> handles) à l'intérieur d'un s-box compact (taille = juste de quoi
+> contenir la scène + padding).
+
+**Contexte technique** :
+- Étape 1.b.2.x livrée : la scène est enfant du s-box. Le s-box est
+  auto-managé. La scène a ses propres handles.
+- L'infrastructure de repli existe déjà via C8.1.a
+  (`toggleNodeCollapsed`, `collectHidden…`, synth-goto-out). Il
+  s'agit d'**élargir** les fonctions existantes pour traiter aussi
+  les s-box repliés, pas de réécrire.
+
+**Directive** :
+
+1. **Cible du `collapsed`** :
+   - Le flag `collapsed` est porté par le **s-box**
+     (`state.layout[sboxId].collapsed`), pas par la scène.
+   - `toggleNodeCollapsed(sboxId)` (déjà générique).
+   - Persistance : étendre `nodalSceneBoxLayoutByExternalId.collapsed`
+     dans `map-layout.json` (déjà prévu par 1.b.2.x point 9).
+
+2. **Détection des conteneurs repliés** :
    - `collectHiddenIdsFromCollapsedSelectors` →
-     `collectHiddenIdsFromCollapsedContainers` (étendre la liste des
-     conteneurs détectés : selectors **et** scènes avec
-     `layout.collapsed === true`).
-   - `selectorChildCount` → `containerChildCount` (ou ajouter un
-     champ parallèle `sceneChildCount` selon la lisibilité).
-   - `collectSynthGotoTargets` (étape 1.a.1) doit accepter aussi les
-     scènes en entrée.
+     `collectHiddenIdsFromCollapsedContainers`. Étendre la liste des
+     conteneurs détectés :
+     - **selectors** avec `layout.collapsed === true` (déjà OK) ;
+     - **s-box** avec `layout.collapsed === true` (nouveau).
+   - Pour un s-box replié, masquer **tous ses descendants sauf la
+     scène** (la scène reste visible). Concrètement : ajouter à
+     `hiddenIds` tous les descendants du s-box dont `nodeType !==
+     "scene"`.
+   - `collectSynthGotoTargets` doit accepter aussi les s-box en
+     entrée (collecte des goto internes au sous-arbre s-box).
 
-2. **Composant `SceneNodeView.tsx`** :
-   - Réutiliser le composant `CollapseToggle` (extrait de
-     `ActionNodeView.tsx` — petite refacto à faire au passage si pas
-     déjà factorisé).
-   - Quand `collapsed === true` :
-     - Header seulement (titre + subtitle = « Scène — N action(s)
-       masquée(s) »).
-     - `flow-out` masqué (`display: none` via classe
-       `nodal-node--collapsed`) — toutes les cibles internes sont
-       cachées, le handle perd son sens.
-     - `goto-in` et `meta-out` **conservés actifs** (handles
-       toujours rendus, isConnectable inchangé).
-     - `synth-goto-out` ajouté **conditionnellement** (uniquement si
-       au moins un goto interne avec cible définie).
-   - Quand `collapsed === false` : rendu cadre normal (étape 1.b.2).
+3. **Position du chevron de repli** :
+   - **Pas sur le s-box** (qui n'a pas de header). À mettre **sur la
+     scène elle-même** (composant `SceneNodeView.tsx`).
+   - Le clic sur le chevron de la scène appelle
+     `toggleNodeCollapsed(sboxIdFromScene(sceneId))` (pas
+     `toggleNodeCollapsed(sceneId)`).
+   - Cohérence ergonomique : l'utilisateur clique sur la scène pour
+     plier/déplier sa zone, comme on cliquerait sur un selector
+     pour plier ses choix.
 
-3. **Persistance `collapsed` côté scène** — vérifier que
-   [mapLayoutJson.ts](xflow/react/src/serialize/mapLayoutJson.ts)
-   sérialise `collapsed` dans `nodalSceneLayoutByExternalId`
-   (probablement déjà supporté par `serializeLayout` / `applyLayout`,
-   sinon étendre — voir le fixture C8.1 existant qui inclut déjà
-   `collapsed: false` côté scène).
+4. **Composant `SceneNodeView.tsx`** :
+   - Ajouter un chevron `▾/▸` (réutiliser le `CollapseToggle` du
+     selector — factoriser si pas déjà fait).
+   - Lire l'état `collapsed` du s-box parent via la projection
+     (nouveau champ `NodalRFData.containerCollapsed?: boolean` posé
+     en projection sur les scènes dont le s-box parent est replié).
+   - Quand `containerCollapsed === true` :
+     - Subtitle = « Scène — N action(s) masquée(s) ».
+     - `flow-out` masqué (`display: none`) — toutes les cibles
+       internes sont cachées, le handle perd son sens.
+     - `goto-in` et `meta-out` **conservés actifs**.
+     - `synth-goto-out` **ajouté conditionnellement** sur la scène
+       (uniquement si au moins un goto interne avec cible définie),
+       même règle que pour le selector (étape 1.a.1).
+   - Quand `containerCollapsed === false` : rendu compact normal,
+     pas de synth-goto-out.
 
-4. **Tests** — étendre `selectorCollapsed.test.ts` (ou nouveau
+5. **Composant `SceneBoxNodeView.tsx`** :
+   - Quand le s-box est replié, sa taille via `computeContainerBounds`
+     doit être réduite — la fonction reçoit déjà `excludeIds:
+     hiddenIds`, donc avec les actions cachées le s-box rétrécit
+     automatiquement autour de la seule scène.
+   - Visuellement : aucun changement de rendu propre — c'est juste
+     un cadre plus petit autour de la scène. Optionnellement,
+     atténuer le fond / la bordure quand replié pour signaler l'état.
+
+6. **Tests** — étendre `selectorCollapsed.test.ts` (ou nouveau
    `sceneCollapsed.test.ts`) :
-   - Pliage scène avec ≥1 action : descendants `hidden`, scène
-     visible, synth-goto-out présent si goto interne pointant vers
-     une scène externe.
-   - Cas E2E reproduit l'exemple utilisateur :
+   - Pliage s-box avec ≥1 action : descendants `hidden` SAUF la
+     scène ; scène visible avec ses handles ; `synth-goto-out`
+     présent sur la scène si goto interne pointe vers une scène
+     externe.
+   - Cas E2E utilisateur :
      `Scene1 → Selector(Choix1, Selector(SousChoix1, SousChoix2 →
-     goto Scene2))` puis pli de Scene1 → la projection contient
-     **uniquement** Scene1 et Scene2 visibles + edge synthétique
-     `Scene1 → Scene2` (sourceHandle = `synth-goto-out`).
-   - Pliage scène vide (0 enfant) : aucun effet (`collapsed` ignoré
-     ou pas de chevron rendu).
-   - Round-trip collapsed scene (sérialize → reload).
+     goto Scene2))` puis pli du **s-box de Scene1** → la projection
+     contient Scene1, son s-box (compact), Scene2 (et son s-box) ;
+     edge synthétique `Scene1 → Scene2` avec
+     `sourceHandle = synth-goto-out` sur la scène.
+   - Pliage s-box d'une scène sans action : pas d'effet visible
+     (s-box déjà compact).
+   - Round-trip `collapsed` du s-box (sérialize → reload).
 
 **Critère de fin** :
 - Vitest vert.
 - Smoke E2E exemple ci-dessus.
-- Smoke « legacy » : un projet sans aucune scène repliée doit se
-  comporter exactement comme avant.
+- Smoke « legacy » (projet sans aucun s-box replié) : comportement
+  identique au précédent (à part la présence des s-box auto-créés).
 
 ##### Étape 1.b.4 — Polish + meta/satellites
 
+> Adapté pour le modèle s-box (étape 1.b.2.x).
+
 **Directive** :
 
-1. **Cadre vide** : si une scène n'a aucune action enfant
-   (transitif), pas de chevron rendu, pas de classe
-   `nodal-node--scene-frame`, dimension par défaut.
+1. **S-box d'une scène sans action** :
+   - Le s-box reste créé (auto-managé) mais sa taille est minimale —
+     juste de quoi contenir la scène + padding interne.
+   - Pas de chevron rendu sur la scène (rien à plier).
+   - Visuellement : le s-box peut être atténué ou rendu invisible
+     (bordure transparente) pour ne pas polluer l'affichage —
+     **décision UX à confirmer avec l'utilisateur** lors du polish.
 
 2. **Meta / satellites** :
    - Comportement par défaut **conservé** : un satellite dont la
-     source meta est cachée (descendant de conteneur replié) est
-     marqué `hidden:true` (déjà géré par
+     source meta est cachée (descendant de conteneur replié = s-box
+     ou selector) est marqué `hidden:true` (géré par
      `collectHiddenIdsFromCollapsedContainers`).
    - **Cas multi-source** (1 satellite avec plusieurs `meta-in`
      depuis des conteneurs différents) : aujourd'hui le modèle V2
@@ -2036,16 +2309,30 @@ L'implémentation actuelle viole les deux :
      documenter dans le journal comme report.
 
 3. **Style final** :
-   - Variables CSS pour le cadre scène (clair/sombre).
-   - Cohérence visuelle : le cadre scène doit être nettement
-     identifiable mais ne pas écraser les actions internes.
+   - Variables CSS pour le s-box (clair/sombre).
+   - Cohérence visuelle : le s-box doit être nettement identifiable
+     comme regroupement, sans écraser la scène ni les actions
+     internes.
+   - État `collapsed` du s-box : style légèrement différencié
+     (bordure plus discrète, fond moins marqué) pour signaler que
+     le contenu est masqué.
 
-4. Mise à jour journal Annexe D + ouverture des tickets de report
+4. **Filtrage du s-box dans la palette de détection d'attachement**
+   ([view/NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx)
+   `onNodeDragStop`) :
+   - S'assurer que le s-box n'est jamais candidat parent dans la
+     boucle de détection d'overlap (ni pour les rewards REQ/PWD ni
+     pour les choix de selector). Filtrer par
+     `nodeType !== 'sceneBox'` à l'entrée de la boucle.
+
+5. Mise à jour journal Annexe D + ouverture des tickets de report
    (multi-meta, etc.).
 
 **Critère de fin** :
 - Visual QA validé par l'utilisateur.
 - Tous les SMK-C8.1-* passent (à définir lors de cette étape).
+- Pas de régression sur les tests existants
+  (selector/REQ/PWD attachement non perturbé par le s-box).
 
 
 
@@ -2145,3 +2432,38 @@ questions ouvertes, captures pertinentes.)
   dans migration / connect / disconnect / drag. Tests étendus.
   Référence design : exemple sub-flow React Flow
   `reactflow.dev/examples/grouping/sub-flows`.
+- 2026-05-02 — **Étape 1.b.2-fix livrée** (en local). Symptômes
+  initiaux résolus pour la box (formule + re-ancrage), MAIS bug
+  ergonomique résiduel : la scène servant de cadre, ses handles
+  (`flow-out`, `goto-in`, `meta-out`) sont rendus aux **bords du
+  cadre** = bords des actions → les edges scène→action partent du
+  bord droit du cadre et reviennent en arrière vers les actions.
+  Lecture cassée.
+- 2026-05-02 — **Pivot architectural validé** (étape **1.b.2.x**).
+  Bascule vers le pattern `type: 'group'` du sub-flow React Flow
+  (https://reactflow.dev/learn/layouting/sub-flows) :
+  - Nouveau type de nœud **`sceneBoxNode`** (= s-box), conteneur
+    visuel sans handles, sans contenu sémantique.
+  - **Auto-managé** comme les satellites : créé / supprimé /
+    dimensionné par le store, jamais saisi par l'utilisateur,
+    jamais sérialisé dans `project.json` (uniquement layout).
+  - Chaîne parentId : `s-box (top-level) → scene + actions
+    top-level → sous-arbres selector/REQ`. La scène **redevient
+    un nœud normal** avec ses handles à elle ; le frame est porté
+    par le s-box.
+  - `extent: 'parent'` posé sur la scène pour qu'elle ne sorte
+    pas de son s-box.
+  - Le `collapsed` bascule sur le s-box (au lieu de la scène) ;
+    quand replié, les actions sont cachées mais la scène reste
+    visible (avec ses handles + `synth-goto-out` agrégeant les
+    goto internes).
+  - Migration : ré-écriture de `migrateSceneParentIds` en
+    `migrateSceneToSBoxParenting` ; les actions actuellement
+    parentées `sceneId` sont reparentées vers `sboxIdFromScene
+    (sceneId)`.
+  - Nouveau helper `reconcileSceneBoxes(state)` (pendant de
+    `reconcileAutoSatellites`).
+  - Sérialisation : nouveau slot
+    `nodalSceneBoxLayoutByExternalId` dans `map-layout.json`.
+  - Plan détaillé complet sous **Étape 1.b.2.x** ; étapes 1.b.3
+    (repli) et 1.b.4 (polish) adaptées en conséquence.
