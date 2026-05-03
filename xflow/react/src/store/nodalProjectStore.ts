@@ -24,7 +24,11 @@ import {
   readPlayerPopupFieldsFromDom,
   type PlayerPopupTheme,
 } from "../view/popups/playerPopupDomRead";
-import { absoluteFlowPositionInPane, reanchorSBox as reanchorSBoxLayout } from "../view/nesting/containerBounds";
+import {
+  absoluteFlowPositionInPane,
+  computeContainerBounds,
+  reanchorSBox as reanchorSBoxLayout,
+} from "../view/nesting/containerBounds";
 import type { SBoxDisplacement } from "../view/nesting/sboxCollision";
 import { resolveSBoxOverlapsAfterUnfold, rewindSBoxOverlapPushes } from "../view/nesting/sboxCollision";
 import { attachMediaToMetaSource, detachMediaFromMetaSource } from "./mediaMetaLayout";
@@ -87,6 +91,37 @@ const defaultLayout = (override?: Partial<NodeLayout>): NodeLayout => {
 
 const isReqOrPwd = (node: ActionNode): node is Extract<ActionNode, { actionType: "req" | "pwd" }> =>
   node.actionType === "req" || node.actionType === "pwd";
+
+const isSelectorAction = (state: NodalProject, id: AnyNodeId): boolean => {
+  const a = state.actions[id as ActionNodeId];
+  return !!a && a.actionType === "selector";
+};
+
+/** C8.6.2 — enfant agrandi le contenu : passer en taille auto si la boîte calculée dépasse le format manuel. */
+function growSelectorIfContentOverflows(next: NodalProjectStore, selectorId: ActionNodeId): void {
+  const act = next.actions[selectorId];
+  const lo = next.layout[selectorId];
+  if (!act || act.actionType !== "selector" || !lo || lo.collapsed) return;
+  if (lo.width == null || lo.height == null) return;
+  const bounds = computeContainerBounds(next, selectorId);
+  if (bounds.width > lo.width || bounds.height > lo.height) {
+    const { width: _w, height: _h, ...rest } = lo;
+    next.layout[selectorId] = { ...rest };
+  }
+}
+
+/** C8.6.2 — après détachement : si la boîte manuelle est trop grande vs contenu, repasser en auto. */
+function shrinkSelectorIfLooseAfterDetach(next: NodalProjectStore, selectorId: ActionNodeId): void {
+  const act = next.actions[selectorId];
+  const lo = next.layout[selectorId];
+  if (!act || act.actionType !== "selector" || !lo || lo.collapsed) return;
+  if (lo.width == null || lo.height == null) return;
+  const bounds = computeContainerBounds(next, selectorId);
+  if (lo.width > bounds.width || lo.height > bounds.height) {
+    const { width: _w, height: _h, ...rest } = lo;
+    next.layout[selectorId] = { ...rest };
+  }
+}
 
 const createEmptyProject = (): NodalProject => ({
   meta: {
@@ -494,6 +529,9 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         return;
       }
       const next: NodalProjectStore = { ...state, layout: nextLayout, sceneBoxes: { ...state.sceneBoxes } };
+      if (isSelectorAction(next, parentId)) {
+        growSelectorIfContentOverflows(next, parentId as ActionNodeId);
+      }
       reconcileSceneBoxes(next);
       reconcileAutoSatellites(next, nextAutoId);
       set(withWarnings(next));
@@ -534,6 +572,9 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         return;
       }
       const next: NodalProjectStore = { ...state, layout: nextLayout, sceneBoxes: { ...state.sceneBoxes } };
+      if (isSelectorAction(next, parentId)) {
+        shrinkSelectorIfLooseAfterDetach(next, parentId as ActionNodeId);
+      }
       reconcileSceneBoxes(next);
       reconcileAutoSatellites(next, nextAutoId);
       set(withWarnings(next));

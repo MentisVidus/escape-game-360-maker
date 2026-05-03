@@ -72,7 +72,14 @@ import { SatelliteNodeView } from "./nodes/SatelliteNodeView";
 import { SceneBoxNodeView } from "./nodes/SceneBoxNodeView";
 import { SceneNodeView } from "./nodes/SceneNodeView";
 import { NodalUiContext } from "./nodalUiContext";
-import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X } from "./nesting/constants";
+import {
+  ATTACH_OVERLAP_THRESHOLD,
+  ATTACH_OVERLAP_THRESHOLD_SMALL_SELECTOR,
+  DETACH_OVERLAP_THRESHOLD,
+  REWARD_CHILD_GAP_X,
+  SELECTOR_SMALL_WIDTH_PX,
+} from "./nesting/constants";
+import { DEFAULT_NODE_WIDTH } from "./nesting/geometry";
 import { parentIdDepth, SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
 import {
@@ -845,16 +852,22 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
       /* C8.6.1 — sous-selector au premier plan : profondeur décroissante, puis overlap décroissant. */
       selectorCandidates.sort((a, b) => b.depth - a.depth || b.overlap - a.overlap);
-      const bestChoice = selectorCandidates.find((c) => c.overlap >= ATTACH_OVERLAP_THRESHOLD);
+      const attachThresholdForSelector = (cid: AnyNodeId): number => {
+        const n = nodesById.get(String(cid));
+        const w = n?.measured?.width ?? n?.width ?? DEFAULT_NODE_WIDTH;
+        return w < SELECTOR_SMALL_WIDTH_PX ? ATTACH_OVERLAP_THRESHOLD_SMALL_SELECTOR : ATTACH_OVERLAP_THRESHOLD;
+      };
+      const bestChoice = selectorCandidates.find((c) => c.overlap >= attachThresholdForSelector(c.id));
       const bestChoiceParentId = bestChoice?.id ?? null;
       const bestChoiceOverlap = bestChoice?.overlap ?? 0;
+      const bestChoiceAttachThreshold = bestChoice ? attachThresholdForSelector(bestChoice.id) : ATTACH_OVERLAP_THRESHOLD;
 
       const useRewardParent =
         bestRewardParentId !== null && bestRewardOverlap >= ATTACH_OVERLAP_THRESHOLD;
       const useChoiceParent =
         !useRewardParent &&
         bestChoiceParentId !== null &&
-        bestChoiceOverlap >= ATTACH_OVERLAP_THRESHOLD;
+        bestChoiceOverlap >= bestChoiceAttachThreshold;
 
       if (!useRewardParent && !useChoiceParent) return;
 

@@ -4119,6 +4119,8 @@ du sous-selector. Cause : la détection d'overlap dans
 
 ##### Étape C8.6.2 — Auto-resize hybride + repositionnement satellite
 
+> **Statut (2026-05-02) — livré** : `growSelectorIfContentOverflows` / `shrinkSelectorIfLooseAfterDetach` dans `nodalProjectStore` ; projection selector sans `width`/`height` explicites via `computeContainerBounds` ; `reconcileAutoSatellites` — pile sud + règle de repositionnement ; seuil d’accroche réduit pour selectors `< 200` px dans `NodalCanvas` ; tests `c862SelectorAutoResize.test.ts`.
+
 **Décisions design (validées)** :
 - **Mode hybride** : auto-grow quand un enfant ne rentre pas,
   shrink uniquement quand un enfant est dragué hors du selector.
@@ -4692,6 +4694,12 @@ questions ouvertes, captures pertinentes.)
     actions **Ouvrir** / **Supprimer** / **Définir départ** / **Replier** / **Aller au parent** ;
     **Copier** / **Coller** : **C8.5.2** ; **Dupliquer scène** (C8.5.3) **non poursuivie** (couvert par copier-coller du pod scène).
   - Tests : `nodalContextMenuModel.test.ts`.
+- 2026-05-02 — **C8.6.2 livré** — auto-resize selector + satellite sous bord sud + accroche petit selector :
+  - [nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts) : grow/shrink après `attachChild` / `detachChild` ;
+  - [nodalReactFlowProjection.ts](xflow/react/src/view/nodalReactFlowProjection.ts) : taille auto selector si pas de dimensions ;
+  - [reconcileAutoSatellites.ts](xflow/react/src/store/reconcileAutoSatellites.ts) : layout satellites sous selector ;
+  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) + [constants.ts](xflow/react/src/view/nesting/constants.ts) : seuil overlap 0,05 si largeur `< 200` px ;
+  - Tests : [c862SelectorAutoResize.test.ts](xflow/react/src/__tests__/c862SelectorAutoResize.test.ts).
 - 2026-05-02 — **C8.6.1 livré** — sous-selector au premier plan (S1) :
   - [containerBounds.ts](xflow/react/src/view/nesting/containerBounds.ts) : `parentIdDepth` ;
   - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : tri profondeur ↓ puis overlap ↓ avant choix REQ/PWD vs selector ;

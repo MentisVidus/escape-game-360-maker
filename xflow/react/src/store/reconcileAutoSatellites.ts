@@ -4,6 +4,8 @@ import type { NodeLayout } from "../model/layout";
 import type { ActionNode, SatelliteNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
+import { computeContainerBounds, SCENE_PADDING_X } from "../view/nesting/containerBounds";
+import { DEFAULT_NODE_HEIGHT } from "../view/nesting/geometry";
 
 type AutoSatelliteType = "coords-options" | "choice-options" | "object";
 
@@ -142,6 +144,49 @@ function layoutSouthOfAction(index: number): NodeLayout {
   };
 }
 
+/** C8.6.2 — marge pour considérer le satellite « sur la pile sud » (vs déplacé nettement plus bas par l’utilisateur). */
+const SAT_AUTO_TOLERANCE_PX = 30;
+const SAT_AUTO_GAP_SOUTH = 12;
+const SAT_AUTO_ROW_GAP = 88;
+
+function selectorActionContentHeight(state: NodalProject, actionId: ActionNodeId): number {
+  const act = state.actions[actionId];
+  const lo = state.layout[actionId];
+  if (!act || act.actionType !== "selector" || !lo || lo.collapsed) {
+    return lo?.height ?? DEFAULT_NODE_HEIGHT;
+  }
+  if (lo.width != null && lo.height != null) return lo.height;
+  return computeContainerBounds(state, actionId).height;
+}
+
+function autoSatelliteLayoutUnderParent(
+  state: NodalProject,
+  actionId: ActionNodeId,
+  slot: number,
+  _satType: AutoSatelliteType
+): NodeLayout {
+  const act = state.actions[actionId];
+  if (act?.actionType === "selector") {
+    const h = selectorActionContentHeight(state, actionId);
+    return {
+      x: SCENE_PADDING_X,
+      y: h + SAT_AUTO_GAP_SOUTH + slot * SAT_AUTO_ROW_GAP,
+      parentId: actionId,
+      collapsed: false,
+    };
+  }
+  const base = layoutSouthOfAction(slot);
+  return { ...base, parentId: actionId, collapsed: false };
+}
+
+function shouldRepositionSatelliteSouth(cur: NodeLayout, exp: { x: number; y: number }): boolean {
+  const near =
+    Math.abs(cur.x - exp.x) <= SAT_AUTO_TOLERANCE_PX && Math.abs(cur.y - exp.y) <= SAT_AUTO_TOLERANCE_PX;
+  const colAligned = Math.abs(cur.x - SCENE_PADDING_X) <= 12;
+  const stillAboveOrAtSouthRow = cur.y <= exp.y + SAT_AUTO_TOLERANCE_PX;
+  return near || (colAligned && stillAboveOrAtSouthRow);
+}
+
 const AUTO_ORDER: AutoSatelliteType[] = ["coords-options", "choice-options", "object"];
 type NextAutoId = (prefix: string) => string;
 
@@ -206,15 +251,20 @@ export function reconcileAutoSatellites(state: NodalProject, nextAutoId?: NextAu
             }
           }
         }
+        const par = state.actions[actionId];
+        if (par?.actionType === "selector") {
+          const exp = autoSatelliteLayoutUnderParent(state, actionId, slot, satType);
+          const curLo = state.layout[existingId];
+          if (curLo && shouldRepositionSatelliteSouth(curLo, exp)) {
+            state.layout[existingId] = { ...curLo, x: exp.x, y: exp.y };
+          }
+        }
         slot++;
         continue;
       }
       const sid = nextSatId(actionId, satType);
       state.satellites[sid] = createAutoSatelliteNode(state, sid, satType, actionId);
-      state.layout[sid] = {
-        ...layoutSouthOfAction(slot),
-        parentId: actionId,
-      };
+      state.layout[sid] = autoSatelliteLayoutUnderParent(state, actionId, slot, satType);
       slot++;
       const edge: Edge = {
         id: nextMetaEdgeId(),

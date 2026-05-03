@@ -49,9 +49,13 @@ export function collectDescendantNodeIds(
   childrenByParent: Map<AnyNodeId, AnyNodeId[]>
 ): AnyNodeId[] {
   const out: AnyNodeId[] = [];
+  const seen = new Set<string>();
   const stack = [...(childrenByParent.get(rootId) ?? [])];
   while (stack.length > 0) {
     const id = stack.pop()!;
+    const k = String(id);
+    if (seen.has(k)) continue;
+    seen.add(k);
     out.push(id);
     const ch = childrenByParent.get(id);
     if (ch) for (const c of ch) stack.push(c);

@@ -334,15 +334,22 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
           : {}),
       },
     };
-    if (action.actionType === "selector" && layout.width && layout.height && !layout.collapsed) {
-      actionNode.style = { width: layout.width, height: layout.height };
-    }
     if (layout.parentId) {
       actionNode.parentId = layout.parentId;
     }
     if (action.actionType === "selector") {
       const depth = parentIdDepth(state, action.id);
-      actionNode.style = { ...(actionNode.style ?? {}), zIndex: depth };
+      if (!layout.collapsed) {
+        const explicit = layout.width != null && layout.height != null;
+        const bounds = computeContainerBounds(state, action.id);
+        actionNode.style = {
+          width: explicit ? layout.width : bounds.width,
+          height: explicit ? layout.height : bounds.height,
+          zIndex: depth,
+        };
+      } else {
+        actionNode.style = { ...(actionNode.style ?? {}), zIndex: depth };
+      }
     }
     if (hiddenIds.has(action.id)) {
       actionNode.hidden = true;
