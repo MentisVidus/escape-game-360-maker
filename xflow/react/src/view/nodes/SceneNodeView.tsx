@@ -15,7 +15,8 @@ import type { NodalRFData } from "../nodalReactFlowProjection";
 import "../handles/handles.css";
 import "./nodes.css";
 
-export function SceneNodeView({ data }: NodeProps) {
+export function SceneNodeView({ id, data }: NodeProps) {
+  const updateNodeInternals = useUpdateNodeInternals();
   const rf = data as NodalRFData;
   const node = rf.node as SceneNode;
   const ui = useNodalUi();
