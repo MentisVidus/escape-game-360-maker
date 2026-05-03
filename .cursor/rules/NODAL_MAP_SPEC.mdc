@@ -2322,21 +2322,17 @@ chaîne `parentId` transitive existante.
   (`collectHiddenIdsFromCollapsedContainers`) prend automatiquement
   en charge le masquage. Aucun cas spécial à ajouter.
 
-**Comportement final attendu** :
+**Comportement final attendu** *(tableau corrigé par **1.b.5-fix** ; tout media sous un conteneur replié est caché, sauf la scène comme poignée s-box)* :
 
-| Cas | Avant (smoke 1.b.3) | Après 1.b.5 |
+| Cas | Avant (smoke 1.b.3) | Après 1.b.5 + 1.b.5-fix |
 |---|---|---|
 | Media lié à scène (s-box **non replié**) | media + edge visibles | identique |
-| Media lié à scène (s-box **replié**) | media + edge visibles | media + edge **visibles** (la scène elle-même reste visible) |
-| Media lié à un **selector replié** | media visible, edge cachée | media + edge **visibles** (le selector lui-même reste visible) |
+| Media lié à scène (s-box **replié**) | media + edge visibles | media + edge **cachés** (scène seule visible) |
+| Media lié à un **selector replié** | media visible, edge cachée | media + edge **cachés** (selector seul visible) |
 | Media lié à un **choix** d'un selector replié | media visible, edge cachée | media + edge **cachés** ✓ |
 | Media lié à une action interne d'un s-box replié | media visible, edge cachée | media + edge **cachés** ✓ |
 
-Justification de la cohérence : `hiddenIds` n'inclut **jamais** les
-conteneurs eux-mêmes (s-box, selector replié), uniquement leurs
-descendants. Donc un media dont le parent direct est le conteneur
-reste visible ; un media dont le parent direct est un descendant
-caché du conteneur devient caché.
+Justification : `hiddenIds` n’inclut pas les conteneurs racines repliés (s-box, selector) ni la **scène** dans le s-box replié ; tout le reste du sous-arbre (actions, media liés scène ou action, choix, etc.) est masqué transitivement.
 
 **Directive** :
 
@@ -2418,26 +2414,11 @@ caché du conteneur devient caché.
 
 6. **`extent`** :
    Ne **pas** poser `extent: 'parent'` sur les media (contrairement
-   à la scène dans son s-box). L'utilisateur doit pouvoir traîner
-   un media hors de son parent — ce qui déclenche le détachement
-   (point 7).
+   à la scène dans son s-box). Le détachement meta ne se fait **pas**
+   par drag (voir **1.b.5-fix** : suppression edge explicite ou futur
+   menu contextuel C8.2).
 
-7. **`onNodeDragStop`** ([view/NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx)) :
-
-   Étendre la logique de détachement existante pour les media :
-   - Si un media est draggué et son `overlap` avec son parent direct
-     tombe sous `DETACH_OVERLAP_THRESHOLD` : appeler `disconnect`
-     sur son edge meta entrante. Le `disconnect` étendu (point 2)
-     se charge de clear `parentId` + position absolue.
-   - Filtrer le s-box dans la détection de candidat parent
-     (déjà prévu en 1.b.4 — point 4 — mais à anticiper ici si pas
-     encore fait).
-
-   **Optionnel — drag-attach** : si un media sans `parentId` est
-   draggué sur une scène/action candidate (overlap >
-   `ATTACH_OVERLAP_THRESHOLD`), créer une edge meta source → media.
-   À discuter avec l'utilisateur — peut être reporté si jugé moins
-   prioritaire que le drag par handle classique.
+7. ~~**`onNodeDragStop` — drag-detach media par overlap**~~ *(**invalidé par 1.b.5-fix***) : les media sont positionnés *à côté* du parent, pas *dans* sa box — l’overlap n’est pas un critère valable. Aucun détachement automatique au drag ; voir directive **1.b.5-fix** §1.
 
 8. **Tests** — créer
    `xflow/react/src/__tests__/mediaAutoParented.test.ts` :
@@ -2458,9 +2439,9 @@ caché du conteneur devient caché.
      première), media parenté à son source.
    - **Repli s-box** : media lié à une action top-level d'une scène
      dont le s-box est replié → `hidden:true`. Media lié à la
-     scène elle-même → reste visible.
+     scène elle-même → `hidden:true` *(1.b.5-fix ; la scène nœud reste visible)*.
    - **Repli selector** : media lié à un choix d'un selector replié
-     → `hidden:true`. Media lié au selector lui-même → reste visible.
+     → `hidden:true`. Media lié au selector lui-même → `hidden:true` *(1.b.5-fix)*.
    - **Round-trip serialize** : positions absolues préservées
      après save/reload.
 
@@ -2468,20 +2449,186 @@ caché du conteneur devient caché.
 
 - Smoke utilisateur : reproduire la capture (Hall + media liés à
   Hall + Read Note + selector imbriqué + media liés au selector
-  et à ses choix). Replier le s-box Hall :
-  - Media de Hall **restent visibles** (parent = scène, scène
-    visible) ;
+  et à ses choix). Replier le s-box Hall *(comportement **1.b.5-fix**)* :
+  - Media de Hall **disparaissent** (parent = scène, conteneur replié) ;
   - Media de Read Note (action top-level cachée) **disparaissent** ;
-  - Media du selector lui-même restent visibles (parent = selector,
-    selector visible si non replié indépendamment) ;
+  - Media du selector lui-même **disparaissent** ;
   - Media des choix internes du selector **disparaissent**.
 - Replier seulement le selector (sans replier le s-box) : media
-  liés au selector restent ; media liés aux choix disparaissent.
+  liés au selector **disparaissent** ; media liés aux choix disparaissent.
 - Tentative de drag d'une 2ᵉ meta sur un media déjà connecté :
   refusée silencieusement (handle reste idle au drop).
 - Round-trip serialize/deserialize d'un projet avec media
   auto-parentés : aucun drift de position.
 - Vitest vert (suite complète + nouveaux cas).
+
+##### Étape 1.b.5-fix — Drag-detach inadapté + média direct du conteneur replié *(livré)*
+
+> Suite au commit `ce874f8` (1.b.5 livrée), deux bugs identifiés au
+> smoke utilisateur. Origine : **deux directives de 1.b.5 étaient
+> incorrectes** (ma faute, pas Cursor) :
+>
+> - 1.b.5 point 7 imposait un drag-detach par seuil d'overlap ; ce
+>   critère est valable pour les choix de selector ou les actions
+>   sous s-box (l'enfant est *dans* la box du parent), pas pour les
+>   media qui sont positionnés *à côté* du parent (overlap nul ↔
+>   normal).
+> - Le tableau de comportement attendu en 1.b.5 listait « media lié
+>   à la scène (s-box replié) → visible » et « media lié au selector
+>   replié → visible ». L'utilisateur veut au contraire que **tout
+>   media rattaché à un conteneur replié (lui-même ou ses
+>   descendants) soit caché**, sauf le nœud scène qui sert de poignée
+>   d'accès au repli.
+
+**BUG 1 — Drag d'un media déclenche `disconnect` immédiatement**
+
+*Cause* : dans
+[view/NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx)
+(`onNodeDragStop`, branche `if (draggedMedia)`), le test
+`overlap < DETACH_OVERLAP_THRESHOLD` détache le media. Or un media
+parenté a sa position relative posée par
+`attachMediaToMetaSource` à `(mAbs - sAbs)` — donc juste là où
+l'utilisateur l'avait posé en absolu, *typiquement à côté* du
+parent (placement satellite-like : sud, est…). L'overlap entre la
+box du media et celle du parent direct est presque toujours nul.
+Tout déplacement = détachement.
+
+**BUG 2 — Media lié directement au conteneur replié reste visible**
+
+*Cause* : dans
+[view/nodalReactFlowProjection.ts](xflow/react/src/view/nodalReactFlowProjection.ts) :
+
+- Ligne ~87 :
+  ```ts
+  if (collapsedSelectorIds.has(parent) && child in state.media) continue;
+  ```
+  Cette exception (issue de la table que j'avais écrite en 1.b.5)
+  empêche les media enfants directs d'un selector replié de passer
+  en `hidden`.
+- Lignes ~109-110, branche s-box :
+  ```ts
+  for (const child of roots) {
+    if (child === sceneId) continue;
+    // pile DFS uniquement si on n'a pas continue
+  ```
+  Le `continue` saute la scène **et son sous-arbre** : les media
+  enfants directs de la scène ne sont jamais visités, donc jamais
+  ajoutés à `hidden`.
+
+**Comportement final attendu (corrige le tableau de 1.b.5)** :
+
+| Cas | Souhaité |
+|---|---|
+| S-box replié → scène elle-même | **visible** (poignée d'accès) |
+| S-box replié → media direct enfant de la scène | **caché** ✗ aujourd'hui visible |
+| S-box replié → action top-level | caché (déjà OK) |
+| S-box replié → media enfant d'action | caché (déjà OK) |
+| Selector replié → selector lui-même | **visible** (poignée d'accès) |
+| Selector replié → media direct enfant du selector | **caché** ✗ aujourd'hui visible |
+| Selector replié → choix | caché (déjà OK) |
+| Selector replié → media enfant de choix | caché (déjà OK) |
+
+**Directive** :
+
+1. **Fix BUG 1 — supprimer le drag-detach pour les media**
+   ([view/NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx),
+   `onNodeDragStop`) :
+   - **Retirer** le bloc `if (draggedMedia) { ... }` qui appelle
+     `disconnect` sur la base de l'overlap.
+   - Conserver simplement un `if (draggedMedia) return;` après
+     l'extraction de `draggedLayout` — un media draggué ne déclenche
+     **aucune** logique d'attachement / détachement automatique.
+     RF persiste juste sa nouvelle position relative via
+     `onNodesChange` (déjà branché), c'est tout.
+   - **Justification UX** : le détachement passe désormais
+     uniquement par la suppression explicite de l'edge meta (clic
+     sur l'edge + Suppr / Backspace, ou via le futur menu contextuel
+     C8.2). Cohérent avec le modèle satellite : on ne « détache »
+     pas un satellite par drag, il est lié à son action.
+
+2. **Fix BUG 2a — selector replié : retirer l'exception media**
+   ([view/nodalReactFlowProjection.ts](xflow/react/src/view/nodalReactFlowProjection.ts),
+   `collectHiddenIdsUnderCollapsedSelectors`) :
+   ```ts
+   for (const child of children) {
+     if (hidden.has(child)) continue;
+     // RETIRER : if (collapsedSelectorIds.has(parent) && child in state.media) continue;
+     hidden.add(child);
+     stack.push(child);
+   }
+   ```
+   Le commentaire au-dessus de la fonction (« 1.b.5 : les media…
+   restent visibles ») doit aussi être supprimé / ajusté.
+
+3. **Fix BUG 2b — s-box replié : descendre dans le sous-arbre de la
+   scène**
+   ([view/nodalReactFlowProjection.ts](xflow/react/src/view/nodalReactFlowProjection.ts),
+   `collectHiddenIdsUnderCollapsedSceneBoxes`) :
+   - Restructurer la double boucle : on traverse **tout** le
+     sous-arbre du s-box, on ajoute à `hidden` chaque nœud visité
+     **sauf la scène**, et on continue toujours la descente.
+   ```ts
+   for (const bid of collapsedSBoxIds) {
+     const box = state.sceneBoxes[bid];
+     if (!box) continue;
+     const sceneId = box.sceneId;
+     const stack: AnyNodeId[] = [];
+     const roots = childrenByParent.get(bid);
+     if (!roots) continue;
+     for (const r of roots) stack.push(r);
+     while (stack.length > 0) {
+       const id = stack.pop()!;
+       if (hidden.has(id)) continue;
+       // La scène elle-même reste visible mais on traverse quand même
+       // ses descendants pour les masquer (media, satellites, etc.).
+       if (id !== sceneId) hidden.add(id);
+       const ch = childrenByParent.get(id);
+       if (!ch) continue;
+       for (const c of ch) stack.push(c);
+     }
+   }
+   ```
+
+4. **Tests** — étendre / corriger `mediaAutoParented.test.ts` :
+   - **Cas existants à mettre à jour** :
+     - Test « media lié au selector replié reste visible » → renverser
+       l'attente : doit être `hidden:true`.
+     - Test « media lié à scène, s-box replié, reste visible » →
+       renverser l'attente : doit être `hidden:true`.
+     - Test « scène repliée, scène reste visible » → garder cette
+       assertion intacte (la scène n'est pas dans `hiddenIds`).
+   - **Nouveaux cas** :
+     - Drag d'un media : `disconnect` n'est **pas** appelé,
+       `parentId` reste set, l'edge meta reste dans `state.edges`.
+     - Drag d'un media très loin de son parent : idem (pas de
+       détachement).
+   - **Cas conservés** :
+     - Repli s-box / selector → media des descendants reste caché
+       (régression à éviter).
+
+5. **Mise à jour Annexe D** :
+   - Le tableau « Comportement final attendu » de 1.b.5 doit être
+     remplacé par celui ci-dessus (4 lignes par conteneur, deux
+     conteneurs). *(Fait : section 1.b.5 + point 7 barré.)*
+   - Point 7 de 1.b.5 (drag-detach) : barré / annoté
+     « invalidé par 1.b.5-fix — voir critère structurel : media
+     positionnés *à côté*, pas *dans*, le parent ».
+
+**Critère de fin** *(implémenté dans le code + tests `mediaAutoParented`)* :
+
+- Smoke utilisateur : reproduire le cas signalé.
+  - Connect media à scène/action → edge visible.
+  - Drag du media (court ou long) → edge **toujours visible**, media
+    suit la souris, parentId préservé.
+  - Suppression manuelle de l'edge meta → media revient en
+    `parentId: null`, position absolue restaurée.
+- Repli s-box d'une scène ayant 2 media liés directement à elle +
+  des actions → media + actions cachés ; scène visible seule.
+- Repli selector ayant 1 media lié directement à lui + des choix →
+  media + choix cachés ; selector visible seul.
+- Vitest vert (suite complète, tests 1.b.5 ajustés).
+- Pas de régression sur les SMK satellite / repli selector / repli
+  s-box précédents.
 
 ##### Étape 1.b.4 — Polish + meta/satellites (étape finale)
 
@@ -2695,3 +2842,27 @@ questions ouvertes, captures pertinentes.)
   - Bibliothèque / copie media (équivalent du système d'objets
     pour permettre de référencer le même media depuis plusieurs
     actions) — à inscrire dans §7 « Reports en attente ».
+- 2026-05-XX — **1.b.5 livrée (commit `ce874f8`), deux bugs au
+  smoke** — origine = directives 1.b.5 incorrectes (ma faute) :
+  - **BUG 1** : drag d'un media déclenche `disconnect` immédiat.
+    Cause : critère `overlap < threshold` invalide pour les media
+    qui sont positionnés *à côté* du parent (overlap nul ↔ normal),
+    contrairement aux choix de selector ou aux actions sous s-box.
+  - **BUG 2** : un media lié **directement** au conteneur replié
+    (selector ou scène) reste visible — alors que l'utilisateur veut
+    qu'il soit caché comme tout autre descendant. Cause : le tableau
+    de comportement attendu que j'avais écrit en 1.b.5 conservait à
+    tort « visible » dans ce cas, et Cursor a posé deux exceptions
+    cohérentes (ligne `child in state.media` côté selector ; absence
+    de descente dans le sous-arbre scène côté s-box).
+  Plan correctif sous **Étape 1.b.5-fix** :
+  - Suppression du drag-detach pour les media (détachement
+    désormais réservé à la suppression explicite de l'edge meta).
+  - Réécriture des deux fonctions de masquage :
+    `collectHiddenIdsUnderCollapsedSelectors` (retrait de
+    l'exception media) et `collectHiddenIdsUnderCollapsedSceneBoxes`
+    (descente dans le sous-arbre de la scène, scène elle-même
+    exclue de `hidden`).
+  - Tests existants 1.b.5 inversant l'attente sur les cas « media
+    direct du conteneur replié reste visible » → doit être
+    `hidden:true`.

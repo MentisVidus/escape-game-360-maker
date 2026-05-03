@@ -396,24 +396,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       const draggedLayout = live.layout[draggedNode.id as AnyNodeId];
       if (!draggedLayout) return;
 
-      if (draggedMedia) {
-        const parentId = draggedLayout.parentId;
-        if (!parentId) return;
-        if (parentId in live.sceneBoxes) return;
-        if (!(parentId in live.scenes) && !(parentId in live.actions)) return;
-        const parentNode = nodesById.get(parentId);
-        if (!parentNode) return;
-        const childRect = toAbsoluteRect(latestDragged as unknown as NestedNodeLike, nodesById);
-        const parentRect = toAbsoluteRect(parentNode, nodesById);
-        const overlap = overlapRatioByChild(childRect, parentRect);
-        if (overlap < DETACH_OVERLAP_THRESHOLD) {
-          const meta = live.edges.find(
-            (e) => e.family === "meta" && e.sourceId === parentId && e.targetId === draggedNode.id
-          );
-          if (meta) live.disconnect(meta.id);
-        }
-        return;
-      }
+      /* C8.1.b.5-fix : pas de drag-detach pour les media (overlap nul = placement normal à côté du parent). */
+      if (draggedMedia) return;
 
       if (!draggedAction) return;
       const childRect = toAbsoluteRect(latestDragged as unknown as NestedNodeLike, nodesById);

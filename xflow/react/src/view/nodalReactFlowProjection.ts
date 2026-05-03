@@ -67,10 +67,9 @@ function getCollapsedSceneBoxIds(state: NodalProject): Set<SceneBoxNodeId> {
 
 /**
  * Descendants (transitifs) des selectors repliés — le selector racine n’est pas inclus.
- * C8.1.b.5 : les **media** enfant **direct** du selector replié restent visibles (comme le selector).
+ * C8.1.b.5-fix : media enfant direct du selector replié inclus (caché comme les choix).
  */
 function collectHiddenIdsUnderCollapsedSelectors(
-  state: NodalProject,
   collapsedSelectorIds: Set<AnyNodeId>,
   childrenByParent: Map<AnyNodeId, AnyNodeId[]>
 ): Set<AnyNodeId> {
@@ -84,7 +83,6 @@ function collectHiddenIdsUnderCollapsedSelectors(
     if (!children) continue;
     for (const child of children) {
       if (hidden.has(child)) continue;
-      if (collapsedSelectorIds.has(parent) && child in state.media) continue;
       hidden.add(child);
       stack.push(child);
     }
@@ -92,7 +90,7 @@ function collectHiddenIdsUnderCollapsedSelectors(
   return hidden;
 }
 
-/** S-box replié : masquer tout sauf la scène (1.b.3). */
+/** S-box replié : masquer tout sauf la scène (1.b.3) ; C8.1.b.5-fix : descendre sous la scène (media directs, etc.). */
 function collectHiddenIdsUnderCollapsedSceneBoxes(
   state: NodalProject,
   collapsedSBoxIds: Set<SceneBoxNodeId>,
@@ -106,17 +104,15 @@ function collectHiddenIdsUnderCollapsedSceneBoxes(
     const sceneId = box.sceneId;
     const roots = childrenByParent.get(bid);
     if (!roots) continue;
-    for (const child of roots) {
-      if (child === sceneId) continue;
-      const stack: AnyNodeId[] = [child];
-      while (stack.length > 0) {
-        const id = stack.pop()!;
-        if (hidden.has(id)) continue;
-        hidden.add(id);
-        const ch = childrenByParent.get(id);
-        if (!ch) continue;
-        for (const c of ch) stack.push(c);
-      }
+    const stack: AnyNodeId[] = [];
+    for (const r of roots) stack.push(r);
+    while (stack.length > 0) {
+      const id = stack.pop()!;
+      if (hidden.has(id)) continue;
+      if (id !== sceneId) hidden.add(id);
+      const ch = childrenByParent.get(id);
+      if (!ch) continue;
+      for (const c of ch) stack.push(c);
     }
   }
   return hidden;
@@ -127,7 +123,7 @@ export function collectHiddenIdsFromCollapsedContainers(
   state: NodalProject,
   childrenByParent: Map<AnyNodeId, AnyNodeId[]>
 ): Set<AnyNodeId> {
-  const fromSelectors = collectHiddenIdsUnderCollapsedSelectors(state, getCollapsedSelectorIds(state), childrenByParent);
+  const fromSelectors = collectHiddenIdsUnderCollapsedSelectors(getCollapsedSelectorIds(state), childrenByParent);
   const fromBoxes = collectHiddenIdsUnderCollapsedSceneBoxes(state, getCollapsedSceneBoxIds(state), childrenByParent);
   const out = new Set<AnyNodeId>(fromSelectors);
   for (const id of fromBoxes) out.add(id);

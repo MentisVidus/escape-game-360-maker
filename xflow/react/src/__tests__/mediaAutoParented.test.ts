@@ -222,7 +222,7 @@ describe("C8.1.b.5 — media auto-parentés (meta)", () => {
     expect(st.layout[media.id]?.parentId).toBe(scene.id);
   });
 
-  it("repli s-box : media lié à l’action → hidden ; media lié à la scène → visible", () => {
+  it("repli s-box : scène visible ; media lié scène ou action → hidden (1.b.5-fix)", () => {
     const scene: SceneNode = {
       id: asSceneNodeId("scn-m7"),
       nodeType: "scene",
@@ -253,11 +253,12 @@ describe("C8.1.b.5 — media auto-parentés (meta)", () => {
     const bid = sboxIdFromScene(scene.id);
     s.toggleNodeCollapsed(bid);
     const nodes = toReactFlowNodes(store.getState());
+    expect(nodes.find((n) => n.id === scene.id)?.hidden).toBeFalsy();
     expect(nodes.find((n) => n.id === medAct.id)?.hidden).toBe(true);
-    expect(nodes.find((n) => n.id === medScene.id)?.hidden).toBeFalsy();
+    expect(nodes.find((n) => n.id === medScene.id)?.hidden).toBe(true);
   });
 
-  it("repli selector : media sur le selector visible ; media sur choix caché", () => {
+  it("repli selector : selector visible ; media sur selector ou choix → hidden (1.b.5-fix)", () => {
     const scene: SceneNode = {
       id: asSceneNodeId("scn-m8"),
       nodeType: "scene",
@@ -299,8 +300,30 @@ describe("C8.1.b.5 — media auto-parentés (meta)", () => {
     s.connect({ id: asEdgeId("mc"), family: "meta", sourceId: choice.id, targetId: medCh.id });
     s.toggleNodeCollapsed(sel.id);
     const nodes = toReactFlowNodes(store.getState());
+    expect(nodes.find((n) => n.id === sel.id)?.hidden).toBeFalsy();
     expect(nodes.find((n) => n.id === medCh.id)?.hidden).toBe(true);
-    expect(nodes.find((n) => n.id === medSel.id)?.hidden).toBeFalsy();
+    expect(nodes.find((n) => n.id === medSel.id)?.hidden).toBe(true);
+  });
+
+  it("1.b.5-fix : déplacement layout du media (loin) ne retire pas l’edge meta ni le parentId", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-md"),
+      nodeType: "scene",
+      sceneId: "ext-md",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const media = img(asMediaNodeId("med-drag"), "M");
+    const store = createNodalProjectStore();
+    const s = store.getState();
+    s.addScene(scene, { x: 0, y: 0 });
+    s.addMedia(media, { x: 100, y: 100 });
+    const eid = asEdgeId("e-meta-drag");
+    s.connect({ id: eid, family: "meta", sourceId: scene.id, targetId: media.id });
+    s.updateNodeLayout(media.id, { x: 9000, y: -4000 });
+    const st = store.getState();
+    expect(st.edges.some((e) => e.id === eid && e.family === "meta")).toBe(true);
+    expect(st.layout[media.id]?.parentId).toBe(scene.id);
   });
 
   it("round-trip serialize/deserialize : positions monde media inchangées", () => {
