@@ -3666,10 +3666,18 @@ le même.
 | `scene` | avec ≥1 action attachée | **confirmation** (« supprimer scène X et N actions internes ? ») |
 | `selector` | aucun choix | suppression silencieuse |
 | `selector` | avec ≥1 choix | **confirmation** (« supprimer selector et N choix ? ») |
-| `req` / `pwd` | avec ou sans récompense | suppression silencieuse — la récompense devient orpheline (`parentId = null`, position absolue restaurée) |
+| `req` / `pwd` | sans action ni média imbriqué(e) en `layout` | suppression silencieuse |
+| `req` / `pwd` | avec ≥1 action ou média imbriqué(e) en `layout` (chaîne résultat / suite, etc.) | **confirmation** (satellites auto exclus du **compte** du message, inclus dans la chaîne de suppression après validation) |
 | `msg` / `pick` / `goto` | — | suppression silencieuse |
 | `media` | — | suppression silencieuse (l'edge meta est retirée, pas de cascade) |
 | `satellite` (auto) | — | non supprimable directement (auto-managé) |
+
+**Note — écarts par rapport au plan initial (C8.2.2)** :
+
+- **Point d’accroche RF** : le plan évoquait surtout `onNodesDelete` / interception clavier ; la livraison s’appuie sur **`onBeforeDelete`** (API React Flow v12), promesse async + dialogue, puis `resolve` — pas de réinjection manuelle des nœuds RF après annulation.
+- **REQ / PWD** : le tableau d’origine prévoyait une **suppression toujours silencieuse** (récompense orpheline). En pratique, dès qu’il existe une **chaîne** sous le REQ ou le PWD (descendants `layout` actions / médias), le comportement est aligné sur **scène / selector** : confirmation + **`orderedDeleteChainForStoreNode`** pour retirer toute la sous-arborescence si l’utilisateur confirme ; sans enfant « métier », la suppression reste silencieuse et `removeNode` conserve le comportement d’orphelinage déjà décrit dans le store.
+- **Lot multi-sélection** : pas de réduction du lot type « racines RF uniquement » (piste abandonnée : conflit boîte de sélection vs cascade). Le dialogue n’affiche **qu’un seul** texte d’avertissement (**le premier** parmi les nœuds qui exigent une confirmation) pour éviter la redondance ; la confirmation applique toutefois **`flattenDeleteChains`** sur **toutes** les cibles du lot.
+- **Arêtes seules** : `onBeforeDelete` reçoit aussi les arêtes à supprimer ; il ne faut **pas** renvoyer `false` lorsque la sélection ne contient **aucun** nœud non-satellite mais contient des arêtes — sinon la suppression d’arêtes au clavier est bloquée.
 
 **Directive** :
 
@@ -3688,24 +3696,28 @@ le même.
    - Pour scène : compte les actions descendantes (transitif via
      parentId). Si > 0 → confirm.
    - Pour selector : compte les choix directs. Si > 0 → confirm.
+   - Pour `req` / `pwd` : compte les descendants `layout` (actions +
+     médias uniquement pour le **message**). Si > 0 → confirm.
    - Sinon → `needsConfirm: false` (suppression directe).
 
 3. **Wrapper UI dans `NodalCanvas`** :
-   - Intercepter `onNodesDelete` (callback RF) : pour chaque nœud
-     marqué pour suppression, vérifier `describeNodeForDeletion`.
-     Si confirm requis pour au moins un, ouvrir le dialog.
+   - Livré : **`onBeforeDelete`** (plutôt que seulement `onNodesDelete`) :
+     avant suppression clavier, évaluer `describeNodeForDeletion` pour
+     le lot ; si confirm requis pour au moins un nœud, ouvrir le dialogue.
+   - (Variante texte d’origine : intercepter `onNodesDelete` pour chaque
+     nœud — voir note « écarts » ci-dessus.)
    - Les nœuds ne sont effectivement retirés du store qu'**après**
      confirmation (ou immédiatement si silencieux).
-   - Si l'utilisateur annule → reposer les nœuds dans `rfNodes`
-     (RF les avait déjà retirés visuellement à la prop `onNodesDelete`).
-     Plus simple : intercepter en amont via un wrapper sur la touche
-     `Delete` qui demande confirmation **avant** d'appeler
-     `removeNode`.
+   - Annulation : le dialogue résout la promesse `onBeforeDelete` sans
+     mutation store (pas de parcours « réinjecter dans `rfNodes` »).
+   - *(Brouillon initial : annulation après coup sur `onNodesDelete` ou
+     wrap clavier `Delete` — non retenu, cf. note « écarts ».)*
 
-4. **Préserver le comportement REQ/PWD** : `removeNode` du store
-   réinitialise déjà `parentId` des enfants à `null` (cf.
-   `nodalProjectStore.ts:286`). Vérifier que la récompense d'un REQ
-   supprimé devient bien orpheline (test à ajouter si manquant).
+4. **REQ / PWD** : suppression silencieuse si pas de chaîne ; sinon
+   confirmation + ordre topologique des suppressions (cf.
+   `orderedDeleteChainForStoreNode`). Hors confirmation, `removeNode`
+   du store réinitialise déjà `parentId` des enfants à `null` (cf.
+   `nodalProjectStore`).
 
 5. **Tests** :
    - `describeNodeForDeletion` :
@@ -3713,7 +3725,7 @@ le même.
      - scène avec actions → confirm + message correct
      - selector vide → no-confirm
      - selector avec choix → confirm
-     - REQ avec/sans récompense → no-confirm
+     - REQ seul sans enfant layout → no-confirm ; REQ avec chaîne → confirm
      - msg/goto/pick → no-confirm
    - Smoke : suppression d'une scène avec actions → dialog ; clic
      « Annuler » → rien ne change ; clic « Confirmer » → suppression.
@@ -3722,8 +3734,9 @@ le même.
 - Smoke : Delete sur scène pleine → dialog avec compte d'actions ;
   Annuler restaure ; Confirmer supprime tout.
 - Smoke : Delete sur selector vide → suppression directe.
-- Smoke : Delete sur REQ avec récompense → REQ supprimé, récompense
-  reste sur la carte avec `parentId: null`.
+- Smoke : Delete sur REQ **sans** dialogue (pas de chaîne) → enfants
+  orphelins si présents ; avec dialogue (chaîne) → confirmer supprime
+  tout le sous-arbre décrit.
 
 ##### Étape C8.2.3 — Centre d'aide raccourcis
 
