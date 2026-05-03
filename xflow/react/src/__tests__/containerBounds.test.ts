@@ -6,6 +6,7 @@ import type { NodalProject } from "../model/project";
 import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import {
   computeContainerBounds,
+  parentIdDepth,
   positionRelativeToContainer,
   reanchorSBox,
   SCENE_PADDING_BOTTOM,
@@ -366,5 +367,73 @@ describe("computeContainerBounds (C8.1.b)", () => {
     expect(w).toBe(580 + SCENE_PADDING_X * 2);
     expect(h).toBeGreaterThan(SCENE_PADDING_TOP + 70 + SCENE_PADDING_BOTTOM - 1);
     expect(h).toBeLessThan(SCENE_PADDING_TOP + 200);
+  });
+});
+
+describe("parentIdDepth + z-index selector (C8.6.1)", () => {
+  it("selector imbriqué : profondeur supérieure au parent", () => {
+    const sceneId = asSceneNodeId("scn-depth");
+    const bid = sboxIdFromScene(sceneId);
+    const outer = asActionNodeId("act-out");
+    const inner = asActionNodeId("act-in");
+    const state = {
+      meta: {
+        title: "T",
+        startSceneId: sceneId,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        draftActionIds: [],
+        objects: {},
+      },
+      scenes: {
+        [sceneId]: {
+          id: sceneId,
+          nodeType: "scene" as const,
+          sceneId: "ext-d",
+          label: "S",
+          panoramaUrl: "",
+        },
+      },
+      sceneBoxes: {
+        [bid]: { id: bid, nodeType: "sceneBox" as const, sceneId: sceneId },
+      },
+      actions: {
+        [outer]: {
+          id: outer,
+          nodeType: "action" as const,
+          actionType: "selector" as const,
+          label: "Out",
+          payload: { nested: { title: "", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" } },
+          sfx: { ...sfx },
+          visibility: { ...visibility },
+        },
+        [inner]: {
+          id: inner,
+          nodeType: "action" as const,
+          actionType: "selector" as const,
+          label: "In",
+          payload: { nested: { title: "", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" } },
+          sfx: { ...sfx },
+          visibility: { ...visibility },
+        },
+      },
+      satellites: {},
+      media: {},
+      edges: [],
+      layout: {
+        [bid]: { x: 0, y: 0, parentId: null, collapsed: false },
+        [sceneId]: { x: SCENE_PADDING_X, y: SCENE_PADDING_TOP, parentId: bid, collapsed: false },
+        [outer]: { x: 20, y: 40, parentId: sceneId, collapsed: false, width: 400, height: 300 },
+        [inner]: { x: 30, y: 50, parentId: outer, collapsed: false, width: 200, height: 120 },
+      },
+    } satisfies NodalProject;
+
+    expect(parentIdDepth(state, outer)).toBe(2);
+    expect(parentIdDepth(state, inner)).toBe(3);
+    expect(parentIdDepth(state, sceneId)).toBe(1);
+
+    const nodes = toReactFlowNodes(state);
+    const zOuter = nodes.find((n) => n.id === outer)?.style?.zIndex as number;
+    const zInner = nodes.find((n) => n.id === inner)?.style?.zIndex as number;
+    expect(zInner).toBeGreaterThan(zOuter);
   });
 });

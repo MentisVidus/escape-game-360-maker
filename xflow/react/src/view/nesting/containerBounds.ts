@@ -23,6 +23,26 @@ export function buildChildrenByParent(state: NodalProject): Map<AnyNodeId, AnyNo
   return childrenByParent;
 }
 
+/**
+ * C8.6.1 — profondeur d’imbrication : nombre de sauts `parentId` depuis `nodeId` jusqu’à un nœud sans parent.
+ * Utilisé pour prioriser le sous-selector au drop et pour le `z-index` visuel.
+ */
+export function parentIdDepth(state: NodalProject, nodeId: AnyNodeId): number {
+  let d = 0;
+  let cur: AnyNodeId | null | undefined = nodeId;
+  const seen = new Set<string>();
+  while (true) {
+    const pid = state.layout[cur]?.parentId as AnyNodeId | null | undefined;
+    if (pid == null) break;
+    const k = String(pid);
+    if (seen.has(k)) break;
+    seen.add(k);
+    d += 1;
+    cur = pid;
+  }
+  return d;
+}
+
 /** Tous les nœuds du graphe `parentId` dont l’ancêtre racine est `rootId` (sans inclure `rootId`). */
 export function collectDescendantNodeIds(
   rootId: AnyNodeId,

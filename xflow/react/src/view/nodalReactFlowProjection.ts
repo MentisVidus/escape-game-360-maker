@@ -21,6 +21,7 @@ import {
   buildChildrenByParent,
   collectDescendantNodeIds,
   computeContainerBounds,
+  parentIdDepth,
 } from "./nesting/containerBounds";
 
 export type NodalRFData = {
@@ -338,6 +339,10 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
     }
     if (layout.parentId) {
       actionNode.parentId = layout.parentId;
+    }
+    if (action.actionType === "selector") {
+      const depth = parentIdDepth(state, action.id);
+      actionNode.style = { ...(actionNode.style ?? {}), zIndex: depth };
     }
     if (hiddenIds.has(action.id)) {
       actionNode.hidden = true;

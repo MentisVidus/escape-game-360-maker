@@ -4060,7 +4060,9 @@ en un seul geste — équivalent à une « Save as » de scène.
 
 ##### Étape C8.6.1 — Sous-selector au premier plan (S1)
 
-**Symptôme actuel** : drop d'un nœud sur un sous-selector imbriqué
+> **Statut (2026-05-02) — livré** : `parentIdDepth` + tri des candidats selector dans `NodalCanvas` `onNodeDragStop` ; `zIndex` par profondeur sur les nœuds selector dans `toReactFlowNodes` ; tests `containerBounds.test.ts`.
+
+**Symptôme (résolu)** : drop d'un nœud sur un sous-selector imbriqué
 dans un selector parent → le nœud est attaché au parent au lieu
 du sous-selector. Cause : la détection d'overlap dans
 `onNodeDragStop` itère sans ordonner par profondeur d'imbrication.
@@ -4690,6 +4692,11 @@ questions ouvertes, captures pertinentes.)
     actions **Ouvrir** / **Supprimer** / **Définir départ** / **Replier** / **Aller au parent** ;
     **Copier** / **Coller** : **C8.5.2** ; **Dupliquer scène** (C8.5.3) **non poursuivie** (couvert par copier-coller du pod scène).
   - Tests : `nodalContextMenuModel.test.ts`.
+- 2026-05-02 — **C8.6.1 livré** — sous-selector au premier plan (S1) :
+  - [containerBounds.ts](xflow/react/src/view/nesting/containerBounds.ts) : `parentIdDepth` ;
+  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : tri profondeur ↓ puis overlap ↓ avant choix REQ/PWD vs selector ;
+  - [nodalReactFlowProjection.ts](xflow/react/src/view/nodalReactFlowProjection.ts) : `style.zIndex` sur les selectors ;
+  - Tests : `containerBounds.test.ts` (profondeur + z-index RF).
 - 2026-05-02 — **C8.5.2 livré** — presse-papiers nodal + **C8.5.3 écartée** (doublon : copier une scène embarque le pod complet) :
   - [clipboard.ts](xflow/react/src/store/clipboard.ts), [nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts) (`copyNodesToClipboard`, `pasteClipboardAt`) ; suppression du stub `nodalClipboard.ts` ;
   - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `Ctrl/Cmd+C`·`V`, `onSelectionContextMenu` (rectangle Maj+drag), menu fond de carte avec sélection (copier / supprimer sélection, coller) ;

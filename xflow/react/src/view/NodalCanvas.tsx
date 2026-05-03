@@ -74,7 +74,7 @@ import { SceneBoxNodeView } from "./nodes/SceneBoxNodeView";
 import { SceneNodeView } from "./nodes/SceneNodeView";
 import { NodalUiContext } from "./nodalUiContext";
 import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X } from "./nesting/constants";
-import { SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
+import { parentIdDepth, SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
 import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
 import {
   describeNodeForDeletion,
@@ -833,8 +833,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
       let bestRewardParentId: AnyNodeId | null = null;
       let bestRewardOverlap = 0;
-      let bestChoiceParentId: AnyNodeId | null = null;
-      let bestChoiceOverlap = 0;
+      const selectorCandidates: { id: AnyNodeId; depth: number; overlap: number }[] = [];
 
       for (const candidate of allNodes) {
         if (candidate.id === draggedNode.id) continue;
@@ -855,12 +854,19 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           const draggedAncestors = getAncestors(draggedNode.id);
           if (candidateAncestors.has(draggedNode.id)) continue;
           if (draggedAncestors.has(candidate.id)) continue;
-          if (overlap > bestChoiceOverlap) {
-            bestChoiceOverlap = overlap;
-            bestChoiceParentId = candidate.id as AnyNodeId;
-          }
+          selectorCandidates.push({
+            id: candidate.id as AnyNodeId,
+            depth: parentIdDepth(live, candidate.id as AnyNodeId),
+            overlap,
+          });
         }
       }
+
+      /* C8.6.1 — sous-selector au premier plan : profondeur décroissante, puis overlap décroissant. */
+      selectorCandidates.sort((a, b) => b.depth - a.depth || b.overlap - a.overlap);
+      const bestChoice = selectorCandidates.find((c) => c.overlap >= ATTACH_OVERLAP_THRESHOLD);
+      const bestChoiceParentId = bestChoice?.id ?? null;
+      const bestChoiceOverlap = bestChoice?.overlap ?? 0;
 
       const useRewardParent =
         bestRewardParentId !== null && bestRewardOverlap >= ATTACH_OVERLAP_THRESHOLD;
