@@ -34,6 +34,8 @@ import { resolveSBoxOverlapsAfterUnfold, rewindSBoxOverlapPushes } from "../view
 import { attachMediaToMetaSource, detachMediaFromMetaSource } from "./mediaMetaLayout";
 import { reconcileSceneBoxes, sboxIdFromScene } from "./reconcileSceneBoxes";
 import { buildClipboard, getNodalClipboard, pasteClipboard, setNodalClipboard } from "./clipboard";
+import type { InsertNodeAtAbsoluteOpts, PaletteInsertSpec } from "./insertNodeAtAbsolute";
+import { insertNodeAtAbsolute as mergeInsertNodeAtAbsolute } from "./insertNodeAtAbsolute";
 import { computeWarnings, type Warning } from "./computeWarnings";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 
@@ -81,6 +83,12 @@ export type NodalProjectStore = NodalProject & {
   copyNodesToClipboard: (nodeIds: AnyNodeId[]) => void;
   /** C8.5.2 — collage en coordonnées flow ; ids des nœuds créés. */
   pasteClipboardAt: (pasteAbs: { x: number; y: number }) => AnyNodeId[];
+  /** C9.1 — création top-level orphelin à une position flow absolue (palette drag / clic centre). */
+  insertNodeAtAbsolute: (
+    spec: PaletteInsertSpec,
+    position: { x: number; y: number },
+    opts?: InsertNodeAtAbsoluteOpts
+  ) => AnyNodeId[];
 };
 
 export type NodalProjectStoreApi = StoreApi<NodalProjectStore>;
@@ -130,6 +138,19 @@ function shrinkSelectorIfLooseAfterDetach(next: NodalProjectStore, selectorId: A
     const { width: _w, height: _h, ...rest } = lo;
     next.layout[selectorId] = { ...rest };
   }
+}
+
+function projectDataFromStore(state: NodalProjectStore): NodalProject {
+  return {
+    meta: state.meta,
+    scenes: state.scenes,
+    sceneBoxes: state.sceneBoxes,
+    actions: state.actions,
+    satellites: state.satellites,
+    media: state.media,
+    edges: state.edges,
+    layout: state.layout,
+  };
 }
 
 const createEmptyProject = (): NodalProject => ({
@@ -707,7 +728,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       if (!clip) return [];
       let newIds: AnyNodeId[] = [];
       set((state) => {
-        const merged = pasteClipboard(state, clip, pasteAbs, nextAutoId);
+        const merged = pasteClipboard(projectDataFromStore(state), clip, pasteAbs, nextAutoId);
         newIds = merged.newIds;
         const next: NodalProjectStore = {
           ...merged.project,
@@ -722,6 +743,32 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         return withWarnings(next);
       });
       return newIds;
+    },
+
+    insertNodeAtAbsolute: (spec, position, opts) => {
+      let newRootIds: AnyNodeId[] = [];
+      set((state) => {
+        const { next, newRootIds: ids } = mergeInsertNodeAtAbsolute(
+          projectDataFromStore(state),
+          spec,
+          position,
+          opts ?? { source: "palette" },
+          nextAutoId
+        );
+        newRootIds = ids;
+        return withWarnings({
+          ...state,
+          meta: next.meta,
+          scenes: next.scenes,
+          sceneBoxes: next.sceneBoxes,
+          actions: next.actions,
+          satellites: next.satellites,
+          media: next.media,
+          edges: next.edges,
+          layout: next.layout,
+        });
+      });
+      return newRootIds;
     },
 
     setViewport: (viewport) => {

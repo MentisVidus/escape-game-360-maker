@@ -1,19 +1,19 @@
 import { useReactFlow } from "@xyflow/react";
-import type { RefObject } from "react";
+import type { DragEvent as ReactDragEvent, RefObject } from "react";
 import type { NodalSearchFieldHandle } from "./NodalSearchField";
 import { useCallback } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import { asActionNodeId, asMediaNodeId } from "../../model/ids";
-import type { ActionNode, MediaNode, SceneNode } from "../../model/nodes";
-import { stableSceneNodeIdFromExternal } from "../../serialize/fromProjectJson";
+import type { ActionNode, MediaNode } from "../../model/nodes";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
+import {
+  encodePaletteDragPayload,
+  PALETTE_DRAG_MIME,
+  type PaletteInsertSpec,
+} from "../../store/insertNodeAtAbsolute";
 import { useNodalUi } from "../nodalUiContext";
 import { NodalSearchField } from "./NodalSearchField";
 import "./palette.css";
-
-let counter = 0;
-const nextId = (prefix: string) => `${prefix}-${Date.now()}-${++counter}`;
 
 type PaletteProps = {
   store: StoreApi<NodalProjectStore>;
@@ -29,6 +29,16 @@ function paletteLocale(): "fr" | "en" {
 
 function nodalChrome() {
   return typeof window !== "undefined" ? window.__escape360NodalChrome : undefined;
+}
+
+function onPaletteDragStart(e: ReactDragEvent, spec: PaletteInsertSpec) {
+  e.dataTransfer.effectAllowed = "copy";
+  e.dataTransfer.setData(PALETTE_DRAG_MIME, encodePaletteDragPayload(spec));
+  try {
+    e.dataTransfer.setData("text/plain", spec.kind);
+  } catch {
+    /* certains navigateurs restreignent setData */
+  }
 }
 
 export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) {
@@ -69,7 +79,7 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           shortcutsHint: "Raccourcis (?)",
         };
 
-  const getCenterPosition = () => {
+  const getCenterPosition = useCallback(() => {
     const host = canvasRef.current;
     if (!host) return { x: 0, y: 0 };
     const rect = host.getBoundingClientRect();
@@ -77,66 +87,15 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height / 2,
     });
-  };
+  }, [canvasRef, reactFlow]);
 
-  const addScene = () => {
-    const sceneId = nextId("scene");
-    const id = stableSceneNodeIdFromExternal(sceneId);
-    const node: SceneNode = {
-      id,
-      nodeType: "scene",
-      sceneId,
-      label: "New Scene",
-      panoramaUrl: "",
-    };
-    const center = getCenterPosition();
-    store.getState().addScene(node, { x: center.x, y: center.y });
-  };
-
-  const addAction = (actionType: ActionNode["actionType"]) => {
-    const id = asActionNodeId(nextId("action"));
-    const base = {
-      id,
-      nodeType: "action" as const,
-      actionType,
-      label: actionType.toUpperCase(),
-      sfx: { url: "", volume: 1 },
-      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
-    };
-    const node: ActionNode =
-      actionType === "msg"
-        ? { ...base, actionType, payload: { copy: { bodyHtml: "", buttonLabel: "" } } }
-        : actionType === "pick"
-          ? { ...base, actionType, payload: { itemId: "", itemName: "", copy: { bodyHtml: "", buttonLabel: "" } } }
-          : actionType === "goto"
-            ? { ...base, actionType, payload: { target: "", copy: { bodyHtml: "", buttonLabel: "" } } }
-            : actionType === "selector"
-              ? {
-                  ...base,
-                  actionType,
-                  payload: { nested: { title: "", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" } },
-                }
-              : actionType === "req"
-                ? { ...base, actionType, payload: { itemId: "", copy: { bodyHtml: "", buttonLabel: "" } }, rewardActionId: null }
-                : {
-                    ...base,
-                    actionType: "pwd",
-                    payload: { answer: "", rememberSuccess: false, copy: { bodyHtml: "", buttonLabel: "" } },
-                    rewardActionId: null,
-                  };
-    const center = getCenterPosition();
-    store.getState().addAction(node, { x: center.x, y: center.y });
-  };
-
-  const addMedia = (mediaType: MediaNode["mediaType"]) => {
-    const id = asMediaNodeId(nextId("media"));
-    const node: MediaNode =
-      mediaType === "media-image"
-        ? { id, nodeType: "media", mediaType, label: "Media", data: { url: "" } }
-        : { id, nodeType: "media", mediaType: "media-audio", label: "Media", data: { url: "", volume: 1 } };
-    const center = getCenterPosition();
-    store.getState().addMedia(node, { x: center.x, y: center.y });
-  };
+  const insertAtCenter = useCallback(
+    (spec: PaletteInsertSpec) => {
+      const center = getCenterPosition();
+      store.getState().insertNodeAtAbsolute(spec, center, { source: "palette" });
+    },
+    [store, getCenterPosition]
+  );
 
   const runChrome = useCallback((fn: (c: NonNullable<typeof window.__escape360NodalChrome>) => void) => {
     const c = nodalChrome();
@@ -177,35 +136,56 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
       </button>
 
       <h3>{labels.scene}</h3>
-      <button type="button" onClick={addScene}>
+      <button
+        type="button"
+        className="nodal-palette-draggable"
+        draggable
+        onDragStart={(e) => onPaletteDragStart(e, { kind: "scene" })}
+        onClick={() => insertAtCenter({ kind: "scene" })}
+      >
         {labels.addScene}
       </button>
 
       <h3>{labels.actions}</h3>
-      <button type="button" onClick={() => addAction("msg")}>
-        Msg
-      </button>
-      <button type="button" onClick={() => addAction("pick")}>
-        Pick
-      </button>
-      <button type="button" onClick={() => addAction("goto")}>
-        Goto
-      </button>
-      <button type="button" onClick={() => addAction("selector")}>
-        Selector
-      </button>
-      <button type="button" onClick={() => addAction("req")}>
-        Req
-      </button>
-      <button type="button" onClick={() => addAction("pwd")}>
-        Pwd
-      </button>
+      {(
+        [
+          ["msg", "Msg"],
+          ["pick", "Pick"],
+          ["goto", "Goto"],
+          ["selector", "Selector"],
+          ["req", "Req"],
+          ["pwd", "Pwd"],
+        ] as const
+      ).map(([actionType, label]) => (
+        <button
+          key={actionType}
+          type="button"
+          className="nodal-palette-draggable"
+          draggable
+          onDragStart={(e) => onPaletteDragStart(e, { kind: "action", actionType })}
+          onClick={() => insertAtCenter({ kind: "action", actionType })}
+        >
+          {label}
+        </button>
+      ))}
 
       <h3>{labels.media}</h3>
-      <button type="button" onClick={() => addMedia("media-image")}>
+      <button
+        type="button"
+        className="nodal-palette-draggable"
+        draggable
+        onDragStart={(e) => onPaletteDragStart(e, { kind: "media", mediaType: "media-image" })}
+        onClick={() => insertAtCenter({ kind: "media", mediaType: "media-image" })}
+      >
         Image
       </button>
-      <button type="button" onClick={() => addMedia("media-audio")}>
+      <button
+        type="button"
+        className="nodal-palette-draggable"
+        draggable
+        onDragStart={(e) => onPaletteDragStart(e, { kind: "media", mediaType: "media-audio" })}
+        onClick={() => insertAtCenter({ kind: "media", mediaType: "media-audio" })}
+      >
         Audio
       </button>
 

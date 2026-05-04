@@ -1446,7 +1446,8 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_8.md`.
 
 **Date d’ouverture** : 2026-05-05.
 **Branche** : `feat/c9-palette-dnd` (depuis `feat/nodal-map`).
-**Statut** : cadrage validé (Q-C9-1 à 7 + bis) — démarrage C9.0 imminent.
+**Statut** : cadrage validé (Q-C9-1 à 7 + bis) — **C9.0 + C9.1 livrés** sur
+  `feat/c9-palette-dnd` ; suite C9.2–C9.4.
 
 ### Scope figé
 
@@ -1796,4 +1797,6 @@ cours de déplacement). Pas de tracking de validité par cible
   être livrés à Cursor sous-chantier par sous-chantier.
 - 2026-05-05 — **C9.0 livré** : `onEdgeContextMenu` → `disconnect` **sans menu**
   (clic droit = suppression immédiate sur arête métier ; `synth-trans-*` ignorées).
+- 2026-05-05 — **C9.1 livré** : palette `draggable` + MIME JSON, `onDrop` canvas,
+  `store/insertNodeAtAbsolute.ts`, collage via `computeTranslatedAbsolutePositions`.
 

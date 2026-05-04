@@ -26,6 +26,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import type { StoreApi } from "zustand/vanilla";
@@ -57,6 +58,7 @@ import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
 import { isNodalClipboardEmpty } from "../store/clipboard";
+import { decodePaletteDragPayload, PALETTE_DRAG_MIME } from "../store/insertNodeAtAbsolute";
 import { isValidConnection } from "./connectionPolicy";
 import {
   HANDLE_FLOW_IN,
@@ -568,6 +570,25 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       store.getState().disconnect(eid);
     },
     [store]
+  );
+
+  /** C9.1 — autoriser le drop palette sur le graphe React Flow. */
+  const onCanvasDragOver = useCallback((e: ReactDragEvent) => {
+    if (!Array.from(e.dataTransfer.types as unknown as Iterable<string>).includes(PALETTE_DRAG_MIME)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const onCanvasDrop = useCallback(
+    (e: ReactDragEvent) => {
+      e.preventDefault();
+      const raw = e.dataTransfer.getData(PALETTE_DRAG_MIME);
+      const spec = decodePaletteDragPayload(raw);
+      if (!spec) return;
+      const pos = reactFlow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      store.getState().insertNodeAtAbsolute(spec, pos, { source: "palette" });
+    },
+    [reactFlow, store]
   );
 
   const onPaneContextMenu = useCallback(
@@ -1221,6 +1242,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           nodes={rfNodes}
           edges={rfEdges}
           nodeTypes={nodeTypes}
+          onDragOver={onCanvasDragOver}
+          onDrop={onCanvasDrop}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
