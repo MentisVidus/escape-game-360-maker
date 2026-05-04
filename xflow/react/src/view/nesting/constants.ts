@@ -4,3 +4,5 @@ export const ATTACH_OVERLAP_THRESHOLD_SMALL_SELECTOR = 0.05;
 export const SELECTOR_SMALL_WIDTH_PX = 200;
 export const DETACH_OVERLAP_THRESHOLD = 0.1;
 export const REWARD_CHILD_GAP_X = 8;
+/** C8.6.3 — fraction minimale de la zone DOM « récompense » recouverte par le nœud dragué (repère flow). */
+export const REWARD_ZONE_OVERLAP_MIN = 0.01;

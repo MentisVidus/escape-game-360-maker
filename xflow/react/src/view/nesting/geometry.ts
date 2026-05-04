@@ -59,6 +59,13 @@ export function overlapRatioByChild(child: Rect, candidateParent: Rect): number 
   return rectIntersectionArea(child, candidateParent) / childArea;
 }
 
+/** Fraction de la zone `zone` recouverte par `child` (repère flow) — pour l’accroche REQ/PWD (C8.6.3). */
+export function overlapRatioOfZone(zone: Rect, child: Rect): number {
+  const zoneArea = zone.width * zone.height;
+  if (zoneArea <= 0) return 0;
+  return rectIntersectionArea(zone, child) / zoneArea;
+}
+
 /** C8.6.3 — conversion `getBoundingClientRect` → repère flow (via `screenToFlowPosition`). */
 export type ScreenToFlowFn = (p: { x: number; y: number }) => XYPosition;
 

@@ -77,6 +77,7 @@ import {
   ATTACH_OVERLAP_THRESHOLD_SMALL_SELECTOR,
   DETACH_OVERLAP_THRESHOLD,
   REWARD_CHILD_GAP_X,
+  REWARD_ZONE_OVERLAP_MIN,
   SELECTOR_SMALL_WIDTH_PX,
 } from "./nesting/constants";
 import { parentIdDepth, SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
@@ -85,6 +86,7 @@ import {
   domRectToFlowBounds,
   flowPointInRect,
   overlapRatioByChild,
+  overlapRatioOfZone,
   toAbsoluteRect,
   type NestedNodeLike,
 } from "./nesting/geometry";
@@ -828,10 +830,12 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       );
       if (hasFlowInFromScene) return;
 
-      /* C8.6.3 — priorité : centre du nœud dragué dans la zone DOM `data-attach-zone="reward"`. */
+      /* C8.6.3 — priorité : zone DOM « récompense » (centre dedans OU recouvrement surfacique), puis meilleur score. */
       const childCenterFlowX = childRect.x + childRect.width / 2;
       const childCenterFlowY = childRect.y + childRect.height / 2;
       const screenToFlow = (p: { x: number; y: number }) => reactFlow.screenToFlowPosition(p);
+      let bestZoneParentId: AnyNodeId | null = null;
+      let bestZoneScore = 0;
       for (const el of document.querySelectorAll("[data-attach-zone=\"reward\"]")) {
         const parentId = el.getAttribute("data-reward-parent-id");
         if (!parentId || parentId === draggedNode.id) continue;
@@ -841,15 +845,25 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         const dom = el.getBoundingClientRect();
         const flowBounds = domRectToFlowBounds(screenToFlow, dom);
         if (flowBounds.width <= 0 || flowBounds.height <= 0) continue;
-        if (!flowPointInRect(childCenterFlowX, childCenterFlowY, flowBounds)) continue;
-        const parentRf = nodesById.get(parentId);
-        if (!parentRf) continue;
-        const parentSize = parentRf.measured?.width ?? parentRf.width ?? DEFAULT_NODE_WIDTH;
-        live.attachChild(parentId as AnyNodeId, draggedNode.id as AnyNodeId, {
-          x: parentSize + REWARD_CHILD_GAP_X,
-          y: 0,
-        });
-        return;
+        const zoneCover = overlapRatioOfZone(flowBounds, childRect);
+        const centerInZone = flowPointInRect(childCenterFlowX, childCenterFlowY, flowBounds);
+        if (!centerInZone && zoneCover < REWARD_ZONE_OVERLAP_MIN) continue;
+        const score = Math.max(zoneCover, centerInZone ? 1 : 0);
+        if (score > bestZoneScore) {
+          bestZoneScore = score;
+          bestZoneParentId = parentId as AnyNodeId;
+        }
+      }
+      if (bestZoneParentId) {
+        const parentRf = nodesById.get(bestZoneParentId);
+        if (parentRf) {
+          const parentSize = parentRf.measured?.width ?? parentRf.width ?? DEFAULT_NODE_WIDTH;
+          live.attachChild(bestZoneParentId, draggedNode.id as AnyNodeId, {
+            x: parentSize + REWARD_CHILD_GAP_X,
+            y: 0,
+          });
+          return;
+        }
       }
 
       // Chaîne parentId lue sur le store à jour (getState) : plusieurs onNodeDragStop
@@ -882,8 +896,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         const overlap = overlapRatioByChild(childRect, parentRect);
 
         if (candidateAction.actionType === "req" || candidateAction.actionType === "pwd") {
-          if (overlap > bestRewardOverlap) {
-            bestRewardOverlap = overlap;
+          /* Gros nœud vs petit REQ/PWD : `overlapRatioByChild(child, req)` reste minuscule ; on prend aussi la part du REQ recouverte. */
+          const overlapReward = Math.max(
+            overlap,
+            overlapRatioByChild(parentRect, childRect)
+          );
+          if (overlapReward > bestRewardOverlap) {
+            bestRewardOverlap = overlapReward;
             bestRewardParentId = candidate.id as AnyNodeId;
           }
         } else if (candidateAction.actionType === "selector") {

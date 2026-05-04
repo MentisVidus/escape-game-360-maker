@@ -4324,10 +4324,11 @@ dédiée** sur la pince REQ/PWD. Plus déterministe que la piste A
 
 **Statut (2026-05-02)** : **livré** — `<div class="nodal-attach-zone-reward">` avec
 `data-attach-zone="reward"` / `data-reward-parent-id` dans `ActionNodeView` ;
-`onNodeDragStop` teste en priorité le centre du nœud dragué dans la zone
-(`domRectToFlowBounds` + `flowPointInRect` dans `geometry.ts`) puis garde
-l’overlap REQ/PWD / selector ; `onNodeDragStart` → `.attach-zone--active` ;
-tests unitaires `geometryRewardZone.test.ts` ; smoke drag manuel pour le reste.
+`onNodeDragStop` : priorité zone en **repère flow** — centre dans la zone **ou**
+recouvrement surfacique (`overlapRatioOfZone` ≥ `REWARD_ZONE_OVERLAP_MIN`) ;
+overlap de secours REQ/PWD : `max(overlap enfant, overlap « part du REQ
+recouverte »)` pour les gros selectors ; `onNodeDragStart` →
+`.attach-zone--active` ; tests `geometryRewardZone.test.ts`.
 
 **Critère de fin** :
 - Smoke : créer un REQ + une action `msg` à côté ; drag de la
@@ -4719,10 +4720,11 @@ questions ouvertes, captures pertinentes.)
     actions **Ouvrir** / **Supprimer** / **Définir départ** / **Replier** / **Aller au parent** ;
     **Copier** / **Coller** : **C8.5.2** ; **Dupliquer scène** (C8.5.3) **non poursuivie** (couvert par copier-coller du pod scène).
   - Tests : `nodalContextMenuModel.test.ts`.
-- 2026-05-02 — **C8.6.3 livré** — zone d’accroche REQ/PWD (piste B) :
+- 2026-05-02 — **C8.6.3 livré** — zone d’accroche REQ/PWD (piste B), ajustement gros selectors :
   - [ActionNodeView.tsx](xflow/react/src/view/nodes/ActionNodeView.tsx) + [nodes.css](xflow/react/src/view/nodes/nodes.css) ;
-  - [geometry.ts](xflow/react/src/view/nesting/geometry.ts) (`domRectToFlowBounds`, `flowPointInRect`) ;
-  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `onNodeDragStart` / priorité zone dans `onNodeDragStop` ;
+  - [geometry.ts](xflow/react/src/view/nesting/geometry.ts) (`domRectToFlowBounds`, `flowPointInRect`, `overlapRatioOfZone`) ;
+  - [constants.ts](xflow/react/src/view/nesting/constants.ts) : `REWARD_ZONE_OVERLAP_MIN` ;
+  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : zone par recouvrement + overlap REQ symétrique ;
   - Tests : [geometryRewardZone.test.ts](xflow/react/src/__tests__/geometryRewardZone.test.ts).
 - 2026-05-02 — **C8.6.2 livré** — auto-resize selector + satellite sous bord sud + accroche petit selector :
   - [nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts) : grow/shrink après `attachChild` / `detachChild` ;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { domRectToFlowBounds, flowPointInRect } from "../view/nesting/geometry";
+import { domRectToFlowBounds, flowPointInRect, overlapRatioOfZone } from "../view/nesting/geometry";
 
 describe("C8.6.3 — domRectToFlowBounds + flowPointInRect", () => {
   it("identity screenToFlow : rect écran → mêmes limites flow", () => {
@@ -24,5 +24,19 @@ describe("C8.6.3 — domRectToFlowBounds + flowPointInRect", () => {
     const r = { x: 0, y: 0, width: 10, height: 10 };
     expect(flowPointInRect(0, 0, r)).toBe(true);
     expect(flowPointInRect(10, 10, r)).toBe(true);
+  });
+
+  it("overlapRatioOfZone : gros child recouvrant une petite zone → proche de 1", () => {
+    const zone = { x: 100, y: 0, width: 10, height: 10 };
+    const child = { x: 0, y: 0, width: 200, height: 200 };
+    expect(overlapRatioOfZone(zone, child)).toBeCloseTo(1, 5);
+  });
+
+  it("overlapRatioOfZone : centre du child hors zone mais coin qui intersecte", () => {
+    const zone = { x: 50, y: 50, width: 20, height: 20 };
+    const child = { x: 60, y: 60, width: 100, height: 100 };
+    const r = overlapRatioOfZone(zone, child);
+    expect(r).toBeGreaterThan(0);
+    expect(r).toBeLessThan(1);
   });
 });
