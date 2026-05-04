@@ -1375,9 +1375,9 @@ détaillé** : **Annexe D — Chantier C8** (archive conservée dans ce fichier)
   état `keyboardShortcutsOpen` dans `NodalUiContext`).
 - **C8.3** + **C8.3.x** — Badge départ + chaîne nodal → DOM → `startSceneId` → `generateGame`.
 - **C8.4.1** — Recherche nœuds (palette + `searchNodes`, `NodalSearchField`).
-- **C8.5.1** (partiel) + **C8.5.2** — Menu contextuel, double-clic édition, **Ctrl+C/V**,
+- **C8.5.1** + **C8.5.2** — Menu contextuel, double-clic édition, **Ctrl+C/V**,
   presse-papiers nodal (`clipboard.ts`, `pasteClipboardAt`). **C8.5.3** écartée
-  (doublon copier-coller scène).
+  (doublon copier-coller scène) ; entrée menu s-box **dupliquer** retirée (2026-05-04).
 - **C8.6.1 → C8.6.3** — Selector UX : z-index sous-selector, fond semi-opaque,
   auto-resize + satellite, **zone d’accroche REQ/PWD** + overlap symétrique +
   `REWARD_ZONE_OVERLAP_MIN`. **C8.6.4 / S4** (*drag bloqué selector-récompense*)
@@ -3833,9 +3833,9 @@ et la popup d’aide sont livrées en **C8.2.3**.
 > copy/paste (store + raccourcis Ctrl+C/V), (3) duplication scène
 > complète depuis le clic-droit s-box.
 
-##### Étape C8.5.1 — Comportements clic + menu contextuel *(livrée partiellement 2026-05-02)*
+##### Étape C8.5.1 — Comportements clic + menu contextuel *(livrée 2026-05-02 ; affinage menu 2026-05-04)*
 
-**Livré dans cette itération** : double-clic pour ouvrir les popups d’édition (actions, média, satellite) et l’édition du titre de scène ; `NodalContextMenu` + `onNodeContextMenu` / `onPaneContextMenu` ; **Copier** / **Coller** : voir **C8.5.2** ; entrée **Dupliquer la scène** (s-box) restée désactivée — **C8.5.3** ignorée (couvert par copier-coller scène) ; tests `nodalContextMenuModel.test.ts`.
+**Livré** : double-clic pour ouvrir les popups d’édition (actions, média, satellite) et l’édition du titre de scène ; `NodalContextMenu` + `onNodeContextMenu` / `onPaneContextMenu` ; **Copier** / **Coller** : voir **C8.5.2** ; menu **s-box** : **Replier / Déplier** uniquement (pas d’entrée « Dupliquer la scène », **C8.5.3** hors menu — couvert par copier-coller) ; tests `nodalContextMenuModel.test.ts`.
 
 **Décisions design (validées)** :
 - **Clic simple** sur un nœud → sélection seulement (plus
@@ -3876,7 +3876,7 @@ et la popup d’aide sont livrées en **C8.2.3**.
    | Type | Options |
    |---|---|
    | `scene` | « Définir comme scène de départ » *(si pas déjà)* / « Copier » / « Copier la sélection » *(si selectedIds > 1)* / « Supprimer » |
-   | `sceneBox` (s-box) | « Dupliquer la scène complète » / « Replier » ou « Déplier » |
+   | `sceneBox` (s-box) | « Replier » ou « Déplier » *(« Dupliquer la scène » : hors menu — C8.5.3 / copier-coller)* |
    | `action` (msg/pick/goto/req/pwd) | « Ouvrir » *(double-clic alt)* / « Copier » / « Copier la sélection » / « Supprimer » |
    | `action` (selector) | « Ouvrir » / « Copier » / « Copier la sélection » / « Replier » ou « Déplier » / « Supprimer » |
    | `media` | « Ouvrir » / « Copier » / « Copier la sélection » / « Supprimer » |
@@ -4045,7 +4045,7 @@ sous-graphe sérialisé. Au collage :
 
 ##### Étape C8.5.3 — Dupliquer scène complète (s-box)
 
-> **Statut (2026-05-02) — non réalisée, volontairement ignorée** : le besoin est **couvert par C8.5.2** (copier une scène ou le pod s-box + contenu via `buildClipboard` / `pasteClipboard`). Pas d’entrée dédiée « Dupliquer la scène complète » nécessaire pour l’instant ; le texte ci-dessous reste une **référence** si l’on souhaite plus tard un raccourci one-click (ex. suffixe de label, offset fixe) sans repasser par le presse-papiers.
+> **Statut (2026-05-02) — non réalisée, volontairement ignorée** ; **2026-05-04** : l’entrée menu s-box a été **retirée** (plus d’action grisée). Le besoin reste **couvert par C8.5.2** (copier une scène ou le pod s-box + contenu). Le texte ci-dessous reste une **référence** pour un éventuel raccourci one-click (store `duplicateSceneFull`, etc.).
 
 **Décision** *(historique)* : option spécifique au clic-droit sur s-box,
 dédiée à la **duplication d'une scène et de tout son contenu**
@@ -4067,9 +4067,9 @@ en un seul geste — équivalent à une « Save as » de scène.
      avec N incrémenté pour éviter les collisions.
    - Retourne le nouveau `SceneNodeId` interne.
 
-2. **Branchement** :
-   - Menu contextuel s-box → « Dupliquer la scène complète » →
-     appel de `duplicateSceneFull(sboxIdToSceneId(sboxId))`.
+2. **Branchement** *(si un jour réactivé)* :
+   - Ex. menu contextuel s-box ou bouton palette → appel de
+     `duplicateSceneFull(sboxIdToSceneId(sboxId))`.
    - Sélectionner la scène clone après duplication (visualisation
      immédiate).
 
@@ -4086,11 +4086,10 @@ en un seul geste — équivalent à une « Save as » de scène.
    - Test : si la scène contient un goto vers elle-même → le clone
      a un goto vers son propre clone, pas vers l'original.
 
-**Critère de fin** :
-- Smoke : clic-droit sur s-box → « Dupliquer la scène complète » →
-  une scène jumelle apparaît avec son propre s-box, tous les
-  enfants clonés, edges internes intactes (goto interne pointe vers
-  la scène clone).
+**Critère de fin** *(si implémentation C8.5.3 un jour)* :
+- Smoke : déclenchement one-click → une scène jumelle avec son propre
+  s-box, enfants clonés, edges internes intactes (goto interne vers la
+  scène clone).
 - Smoke : si la scène d'origine était la scène de départ, la
   scène clone n'est **pas** marquée comme départ (logique
   R3+R2 reste figée — il n'y a qu'une seule scène de départ).
@@ -4729,7 +4728,9 @@ entrée de clôture en fin de liste.
   (`KeyboardShortcutsPopup` + CSS), bouton palette + `?` (`openShortcutsHelp`),
   `keyboardShortcutsOpen` dans `NodalUiContext` ; fermeture auto si autre modale ;
   suppression `duplicateSelection` ; tests `nodalKeyboard.test.ts`.
-- 2026-05-02 — **C8.5.1 partiel** — double-clic édition + menu contextuel :
+- 2026-05-04 — **C8.5.1 affinage menu** — retrait entrée s-box « Dupliquer la scène complète »
+  (`nodalContextMenuModel.ts`) ; test s-box `toggle-fold` seul.
+- 2026-05-02 — **C8.5.1** — double-clic édition + menu contextuel :
   - Vues : [ActionNodeView.tsx](xflow/react/src/view/nodes/ActionNodeView.tsx),
     [SceneNodeView.tsx](xflow/react/src/view/nodes/SceneNodeView.tsx),
     [MediaNodeView.tsx](xflow/react/src/view/nodes/MediaNodeView.tsx),
@@ -4740,7 +4741,7 @@ entrée de clôture en fin de liste.
   - [clipboard.ts](xflow/react/src/store/clipboard.ts) (presse-papiers runtime C8.5.2) ;
   - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `onNodeContextMenu` / `onPaneContextMenu`,
     actions **Ouvrir** / **Supprimer** / **Définir départ** / **Replier** / **Aller au parent** ;
-    **Copier** / **Coller** : **C8.5.2** ; **Dupliquer scène** (C8.5.3) **non poursuivie** (couvert par copier-coller du pod scène).
+    **Copier** / **Coller** : **C8.5.2** ; **C8.5.3** (dupliquer scène one-click) **non poursuivie** (copier-coller du pod scène).
   - Tests : `nodalContextMenuModel.test.ts`.
 - 2026-05-02 — **C8.6.3 livré** — zone d’accroche REQ/PWD (piste B), ajustement gros selectors :
   - [ActionNodeView.tsx](xflow/react/src/view/nodes/ActionNodeView.tsx) + [nodes.css](xflow/react/src/view/nodes/nodes.css) ;

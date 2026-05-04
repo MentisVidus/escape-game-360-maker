@@ -654,7 +654,6 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         store.getState().setStartScene(tid as SceneNodeId);
         return;
       }
-      if (action === "duplicate-scene") return;
       if (action === "toggle-fold") {
         if (tid in snap.sceneBoxes) {
           store.getState().toggleNodeCollapsed(tid as SceneBoxNodeId);

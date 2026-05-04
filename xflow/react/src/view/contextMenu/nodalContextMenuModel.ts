@@ -11,7 +11,6 @@ export type NodalContextMenuAction =
   /** Fond de carte / rectangle de sélection RF : supprime tous les nœuds sélectionnés (hors flux satellite seul géré par RF). */
   | "delete-selection"
   | "set-start-scene"
-  | "duplicate-scene"
   | "toggle-fold"
   | "go-parent";
 
@@ -31,7 +30,6 @@ function labels(locale: "fr" | "en") {
     delete: L ? "Delete" : "Supprimer",
     deleteSelection: L ? "Delete selection" : "Supprimer la sélection",
     setStart: L ? "Set as start scene" : "Définir comme scène de départ",
-    duplicateScene: L ? "Duplicate entire scene" : "Dupliquer la scène complète",
     fold: L ? "Collapse" : "Replier",
     unfold: L ? "Expand" : "Déplier",
     goParent: L ? "Go to parent" : "Aller au parent",
@@ -40,7 +38,7 @@ function labels(locale: "fr" | "en") {
 
 /**
  * Construit les entrées du menu contextuel (C8.5.1 + C8.5.2 copier/coller).
- * Entrée s-box « Dupliquer la scène complète » : désactivée ; C8.5.3 ignorée (couvert par C8.5.2).
+ * s-box : pas d’entrée « Dupliquer la scène » (C8.5.3 écartée ; copier-coller C8.5.2).
  */
 export function buildNodalContextMenuItems(
   snap: NodalProjectStore,
@@ -51,7 +49,6 @@ export function buildNodalContextMenuItems(
 ): NodalContextMenuItem[] {
   const t = labels(locale);
   const out: NodalContextMenuItem[] = [];
-  const dupDisabled = true;
 
   if (targetId == null) {
     const storeSelectable = selectedIds.filter((id) => {
@@ -90,7 +87,6 @@ export function buildNodalContextMenuItems(
   }
 
   if (targetId in snap.sceneBoxes) {
-    out.push({ action: "duplicate-scene", label: t.duplicateScene, disabled: dupDisabled });
     const collapsed = !!snap.layout[targetId as SceneBoxNodeId]?.collapsed;
     out.push({
       action: "toggle-fold",

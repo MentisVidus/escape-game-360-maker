@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
+import { asActionNodeId, asEdgeId, type AnyNodeId, asSceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 import { buildNodalContextMenuItems } from "../view/contextMenu/nodalContextMenuModel";
@@ -94,5 +94,23 @@ describe("buildNodalContextMenuItems (C8.5.1)", () => {
     s.connect({ id: asEdgeId("e1"), family: "flow", sourceId: scene.id, targetId: msg.id });
     const items = buildNodalContextMenuItems(store.getState(), "fr", msg.id, [String(msg.id)], true);
     expect(items.map((i) => i.action)).toEqual(["open", "copy-target", "delete"]);
+  });
+
+  it("s-box : repli / dépli uniquement (pas d’entrée dupliquer scène)", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-sbox"),
+      nodeType: "scene",
+      sceneId: "ext-sbox",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const store = createNodalProjectStore();
+    store.getState().addScene(scene, { x: 0, y: 0 });
+    const snap = store.getState();
+    const sboxIds = Object.keys(snap.sceneBoxes);
+    expect(sboxIds.length).toBeGreaterThan(0);
+    const sboxId = sboxIds[0]!;
+    const items = buildNodalContextMenuItems(snap, "fr", sboxId as AnyNodeId, [sboxId], true);
+    expect(items.map((i) => i.action)).toEqual(["toggle-fold"]);
   });
 });
