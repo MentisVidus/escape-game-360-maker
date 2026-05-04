@@ -11,8 +11,9 @@ export type NestedNodeLike = {
 
 type Rect = { x: number; y: number; width: number; height: number };
 
-const DEFAULT_NODE_WIDTH = 180;
-const DEFAULT_NODE_HEIGHT = 70;
+/** Fallbacks alignés sur la projection RF / `computeContainerBounds`. */
+export const DEFAULT_NODE_WIDTH = 180;
+export const DEFAULT_NODE_HEIGHT = 70;
 
 function getNodeSize(node: NestedNodeLike): { width: number; height: number } {
   return {
@@ -56,5 +57,33 @@ export function overlapRatioByChild(child: Rect, candidateParent: Rect): number 
   const childArea = child.width * child.height;
   if (childArea <= 0) return 0;
   return rectIntersectionArea(child, candidateParent) / childArea;
+}
+
+/** Fraction de la zone `zone` recouverte par `child` (repère flow) — pour l’accroche REQ/PWD (C8.6.3). */
+export function overlapRatioOfZone(zone: Rect, child: Rect): number {
+  const zoneArea = zone.width * zone.height;
+  if (zoneArea <= 0) return 0;
+  return rectIntersectionArea(zone, child) / zoneArea;
+}
+
+/** C8.6.3 — conversion `getBoundingClientRect` → repère flow (via `screenToFlowPosition`). */
+export type ScreenToFlowFn = (p: { x: number; y: number }) => XYPosition;
+
+export function domRectToFlowBounds(screenToFlow: ScreenToFlowFn, dom: DOMRect | DOMRectReadOnly): Rect {
+  const p1 = screenToFlow({ x: dom.left, y: dom.top });
+  const p2 = screenToFlow({ x: dom.right, y: dom.bottom });
+  const x = Math.min(p1.x, p2.x);
+  const y = Math.min(p1.y, p2.y);
+  return {
+    x,
+    y,
+    width: Math.abs(p2.x - p1.x),
+    height: Math.abs(p2.y - p1.y),
+  };
+}
+
+/** Point (repère flow) dans un rectangle axis-aligned (inclus bord). */
+export function flowPointInRect(px: number, py: number, r: Rect): boolean {
+  return px >= r.x && py >= r.y && px <= r.x + r.width && py <= r.y + r.height;
 }
 

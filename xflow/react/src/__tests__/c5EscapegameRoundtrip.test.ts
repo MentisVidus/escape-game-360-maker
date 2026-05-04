@@ -36,8 +36,9 @@ describe("C5 — ZIP .escapegame + hydrate", () => {
     const s = storeB.getState();
     const layout = s.layout;
     const msgId = stableActionNodeIdFromPathKey("scene-a:h:0");
-    expect(layout[msgId]?.x).toBe(350);
-    expect(layout[msgId]?.y).toBe(80);
+    /* C8.1.b + 1.b.2-fix : relatif à la scène (80,120), puis re-ancrage ≥ (padX, padTop). */
+    expect(layout[msgId]?.x).toBe(270);
+    expect(layout[msgId]?.y).toBe(32);
     for (const id of Object.keys(s.scenes)) {
       expect(layout[id as AnyNodeId]).toBeDefined();
     }

@@ -2,13 +2,36 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.6 (1ᵉʳ mai 2026)
+> **Version** : 1.7 (4 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+
+> **Changelog v1.7** : clôture **chantier C8** — ajustements UX carte
+> nodale. Découpage livré : **C8.1.a** selector replié (chevron, `hidden`
+> descendants/edges, **`synth-goto-out`** + edges `synth-trans-*`) ;
+> **C8.1.b** scène en **scene box** (`sceneBoxNode`, parentage actions,
+> repli, anti-collision dépli, media sous repli, `reconcileSceneBoxes`,
+> `nodalSceneBoxLayoutByExternalId`) ; **C8.2** raccourcis clavier (hook
+> `isEditingContext`, **Échap**, **Ctrl/Cmd+F**, **`?`**, popup
+> **Raccourcis**, confirmations suppression `onBeforeDelete` /
+> `describeNodeForDeletion`) ; **C8.3** + **C8.3.x** badge scène de
+> départ + propagation nodal → DOM → `startSceneId` → `generateGame()` ;
+> **C8.4.1** recherche de nœuds (`searchNodes`, `NodalSearchField`,
+> palette + `Ctrl+F`) ; **C8.5.1** + **C8.5.2** menu contextuel +
+> double-clic édition + **Ctrl+C/V** + presse-papiers nodal
+> (`clipboard.ts`, `pasteClipboardAt`) ; **C8.6.1 → C8.6.3** selector UX
+> (z-index sous-selector, auto-resize + satellite sud, **zone d’accroche
+> REQ/PWD** + overlap symétrique + `REWARD_ZONE_OVERLAP_MIN`).
 >
+> **Écartés** : **C8.5.3** (doublon copier-coller scène) ; **C8.6.4 / S4**
+> (drag bloqué selector-récompense — objectif UX déjà couvert par C8.6.3).
+>
+> Détail fichiers : **Annexe B — C8**. Journal de chantier (plans détaillés
+> + décisions de design) : `docs/archives/chantier_8.md`.
+
 > **Changelog v1.6** : clôture **chantier C7** — popups d’édition de
 > contenu sur la carte nodale + chaînes REQ/PWD multi-paliers + persistance
 > étendue. Contrat **unidirectionnel** `V2 → DOM → generateGame` (le sens
@@ -587,7 +610,7 @@ Conséquences concrètes pour Cursor :
 - **En C1** (modèle en mémoire) : les types TypeScript prévoient **dès
   le départ** les deux modes — `rewardActionId` dans `req`/`pwd` et
   champ `parentId` dans le layout. L'API du store supporte à la fois
-  `connect(edge)` et `attachChild(parentId, childId)`. Les sérialiseurs
+  `connect(edge)` et `attachChild(parentId, childId [, { x, y } relatif])`. Les sérialiseurs
   V2 lisent les deux sources pour construire `payload.rewardAction` et
   `payload.nested.choices[]`.
 - **En C2** (rendu de base) : on expose un `flow-out` temporaire sur
@@ -855,12 +878,13 @@ absorption opportuniste. Cocher / déplacer dès qu’un item est traité.
 
 ### C8 — Ajustements UX
 
-Scope finalisé (voir **Annexe D — Chantier C8**) :
+Scope finalisé (journal **Annexe D — Chantier C8**, synthèse **Annexe B — C8**) :
 
 - **Nœuds repliables** (état `collapsed` déjà réservé en `map-layout.json`).
-- **Raccourcis clavier** : `Delete`/`Backspace` (suppression), `Ctrl+D`
-  (duplication), `Ctrl+C` / `Ctrl+V` (copier/coller), `Échap` (fermer
-  popup), `Ctrl+A` (tout sélectionner).
+- **Raccourcis clavier** : `Delete`/`Backspace` (suppression), `Ctrl+C` /
+  `Ctrl+V` (copier/coller), `Ctrl+F` (recherche), `?` (aide raccourcis),
+  `Échap` (désélection / fermer popup). **`Ctrl+A`** : à coordonner avec
+  la sélection RF si repris plus tard.
 - **Indicateur visuel de la scène initiale** (badge / couleur / icône
   dédiés sur le nœud `scene` qui correspond au `firstScene`).
 - **Recherche de nœud** (`Ctrl+F`) par titre / id, avec navigation
@@ -869,16 +893,15 @@ Scope finalisé (voir **Annexe D — Chantier C8**) :
   copies indépendantes (nouveaux IDs, satellites recréés via
   `reconcileAutoSatellites`), références objets (`objectId`) conservées,
   cas selector (sous-graphe complet).
-- **Rework UX selector** (S1–S4 du `DEV-C8-Selector-UX.md`) :
-  - **S1.** Sous-selector au premier plan (`z-index` élevé).
-  - **S2.** Fond selector non transparent (semi-transparent ou coloré).
-  - **S3.** Seuil d’accrochage REQ/PWD basé sur la surface du **plus
-    petit** des deux nœuds (ou zone d’accrochage dédiée sur la pince
-    REQ/PWD).
-  - **S4.** Selector enfant de REQ/PWD : drag indépendant **bloqué**
-    (suit le parent ; détachement via bouton uniquement). Distinction
-    explicite avec le sous-selector (selector enfant d’un selector)
-    qui garde son drag libre pour réordonner.
+- **Rework UX selector** (chantier `DEV-C8-Selector-UX.md`) :
+  - **S1.** Sous-selector au premier plan (`z-index` élevé) — **livré**.
+  - **S2.** Fond selector non transparent (semi-transparent ou coloré) — **livré**.
+  - **S3.** Accroche REQ/PWD : zone DOM dédiée + recouvrement + overlap
+    symétrique (piste B, ajustement gros selectors) — **livré** (C8.6.3).
+  - **S4.** *(Écarté 2026-05-02.)* Anciennement : drag bloqué sur le
+    selector-récompense d’un REQ/PWD — **non retenu** : l’accroche S3
+    suffit ; le drag libre reste préférable. Voir **Annexe D** (étape
+    C8.6.4 annulée) et **Annexe B — C8**.
 
 **Hors scope C8** : zoom auto sur sélection, mini-map, validation
 visuelle des chaînes incomplètes, undo/redo (voir Reports en attente
@@ -1017,7 +1040,7 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
 ### C3b — Emboîtement REQ/PWD (bloc Scratch)
 
 - `xflow/react/src/view/NodalCanvas.tsx` — détection d’intersection
-  au `onNodeDragStop`, attache (`attachChild`) seuil
+  au `onNodeDragStop`, attache (`attachChild` + coords relatives **dans le même** `set` via 3ᵉ argument) seuil
   `ATTACH_OVERLAP_THRESHOLD`, détache (`detachChild`) seuil
   `DETACH_OVERLAP_THRESHOLD`, conversion absolu/relatif et position
   d’accueil (gap pince).
@@ -1037,6 +1060,8 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
   branche `flow-out` pour REQ/PWD (selector seul conserve `flow-out`).
 - `xflow/react/src/store/nodalProjectStore.ts` — garde métier
   `attachChild` (refus hotspot/enfant déjà rattaché ailleurs) ;
+  3ᵉ argument optionnel `{ x, y }` relatifs appliqués avec `parentId`
+  en un commit (évite bounds selector fantômes avant `updateNodeLayout`) ;
   `detachChild` avec position absolue optionnelle.
 - `xflow/react/src/serialize/toProjectJson.ts` — suppression du
   fallback legacy `flow` pour `rewardActionId` (pas de rétrocompat).
@@ -1355,6 +1380,43 @@ pour la liste vivante (médias portables nodaux, ménage `!important`
 Quill/CSS, pont `updatePreview()` legacy `C7.2-bis-04`, durcissement
 `SELECTOR_SPEC`, zoom auto sur sélection).
 
+### C8 — Ajustements UX carte nodale *(clôture chantier 2026-05-02)*
+
+**Branche** : `feat/c8-ux-adjustments` (depuis `feat/nodal-map`). **Journal
+détaillé** (plans + décisions de design) : `docs/archives/chantier_8.md`.
+
+**Périmètre livré (synthèse)** :
+
+- **C8.1.a** — Selector replié : chevron, `hidden` descendants/edges,
+  handle **`synth-goto-out`** + edges `synth-trans-*` (goto agrégés).
+- **C8.1.b** — Scène en **scene box** (`sceneBoxNode`), parentage actions,
+  repli, anti-collision dépli (1.b.6 / fix), media sous repli (1.b.5-fix),
+  polish cadre (`nodalSceneBoxLayoutByExternalId`, `reconcileSceneBoxes`, …).
+- **C8.2.1** — Hook clavier (`isEditingContext`), **Échap**, **Ctrl/Cmd+F** → recherche.
+- **C8.2.2** — Confirmations suppression (`onBeforeDelete`, `describeNodeForDeletion`, …).
+- **C8.2.3** — Popup **Raccourcis** (`KeyboardShortcutsPopup`, bouton palette, touche **`?`**,
+  état `keyboardShortcutsOpen` dans `NodalUiContext`).
+- **C8.3** + **C8.3.x** — Badge départ + chaîne nodal → DOM → `startSceneId` → `generateGame`.
+- **C8.4.1** — Recherche nœuds (palette + `searchNodes`, `NodalSearchField`).
+- **C8.5.1** + **C8.5.2** — Menu contextuel, double-clic édition, **Ctrl+C/V**,
+  presse-papiers nodal (`clipboard.ts`, `pasteClipboardAt`). **C8.5.3** écartée
+  (doublon copier-coller scène) ; entrée menu s-box **dupliquer** retirée (2026-05-04).
+- **C8.6.1 → C8.6.3** — Selector UX : z-index sous-selector, fond semi-opaque,
+  auto-resize + satellite, **zone d’accroche REQ/PWD** + overlap symétrique +
+  `REWARD_ZONE_OVERLAP_MIN`. **C8.6.4 / S4** (*drag bloqué selector-récompense*)
+  **écarté** — inutile après C8.6.3 ; voir étape C8.6.4 dans le journal archivé.
+- **C8.7-fix** — Round-trip layout `.escapegame` : reparentage hotspot racine
+  fiable via `sceneBoxParentIdFromRootHotspotPathKey` (`mapLayoutJson.ts`) +
+  `reconcileSceneBoxes` couvre le cas « scène déjà sous s-box » (branche
+  `if (sl.parentId === bid)`). Tests `c8EscapegameLayoutRoundtrip` +
+  `c8RoundtripReal` (lecture fixture réel).
+
+**Reste éventuel (hors clôture stricte C8)** :
+
+- **Smoke dédié `SMK-C8-*`** — jamais formalisé en suite automatisée ; la recette
+  C7 `SMK-01…10` reste la base ; extensions manuelles possibles.
+- **Reports §7** — inchangés (zoom auto sélection, undo/redo, `updatePreview` thème, …).
+
 ## Annexe C — Glossaire
 
 - **Action** : unité métier éditable. Types `msg`, `pick`, `goto`,
@@ -1376,123 +1438,3 @@ Quill/CSS, pont `updatePreview()` legacy `C7.2-bis-04`, durcissement
 - **Transition** (famille handle) : nouvelle famille dédiée au `goto` —
   couleur bleu vif, forme triangle, edge pointillé animé.
 
-## Annexe D — Chantier C8 (en cours)
-
-> Annexe vivante (§8.4) — temporaire pendant le chantier C8. Sera
-> condensée dans **Annexe B — C8** à la clôture, puis supprimée.
-
-**Date d’ouverture** : 2026-05-02.
-**Branche** : `feat/c8-ux-adjustments` (à créer depuis `feat/nodal-map`).
-**Statut** : cadrage validé, implémentation à démarrer.
-
-### Scope figé
-
-Voir §7 → C8. Rappel synthétique :
-
-- **C8.1** Nœuds repliables (`collapsed` déjà dans `map-layout.json`).
-- **C8.2** Raccourcis clavier (`Delete`, `Ctrl+D`, `Ctrl+C/V`, `Échap`,
-  `Ctrl+A`).
-- **C8.3** Indicateur visuel de la scène initiale.
-- **C8.4** Recherche de nœud (`Ctrl+F`).
-- **C8.5** Copier/coller de nœuds (full version : sélection multiple,
-  satellites recréés, IDs nouveaux, sous-graphes selector).
-- **C8.6** Rework UX selector (S1 z-index sous-selector / S2 fond non
-  transparent / S3 seuil d’accrochage REQ/PWD / S4 drag bloqué quand
-  selector enfant de REQ/PWD).
-
-**Hors scope** : zoom auto sur sélection (reporté), mini-map,
-validation visuelle des chaînes, undo/redo.
-
-### Décisions de design provisoires
-
-À ajuster pendant le chantier — la phase « questions d’abord » (§8.1)
-reste obligatoire pour chaque sous-item non trivial.
-
-- **C8.1 — Nœuds repliables**
-  - État `collapsed` lu/écrit dans `map-layout.json` (champ déjà prévu).
-  - Affichage replié = en-tête seulement (titre + handles essentiels) ;
-    interactions de connexion conservées sur les handles visibles.
-  - Aucun impact sur `project.json` (purement layout).
-
-- **C8.2 — Raccourcis clavier**
-  - `Delete` / `Backspace` : suppression du / des nœuds sélectionnés
-    (avec confirmation si la sélection casse une chaîne REQ/PWD ?).
-  - `Ctrl+D` : duplication immédiate du nœud sélectionné (offset
-    visuel, nouveaux IDs, satellites recréés).
-  - `Ctrl+C` / `Ctrl+V` : copier/coller (cf. C8.5).
-  - `Échap` : ferme la popup d’édition active.
-  - `Ctrl+A` : sélection multiple (à coordonner avec C8.5).
-  - **Désactivation** des raccourcis quand un input / Quill / popup a
-    le focus.
-
-- **C8.3 — Indicateur scène initiale**
-  - Badge ou icône dédiée sur le nœud `scene` correspondant à
-    `firstScene` (slot prévu en `meta`).
-  - Couleur ou bordure spécifique pour distinguer immédiatement.
-  - Comportement si `firstScene` invalide / absent : warning existant
-    suffit, pas de double signal.
-
-- **C8.4 — Recherche de nœud**
-  - Champ dans la palette latérale ou modal `Ctrl+F`.
-  - Cherche dans : titre / id de scène, label d’action, titre selector,
-    nom d’objet.
-  - Navigation : Entrée = nœud suivant ; Maj+Entrée = précédent ; clic
-    = centrage immédiat (réutiliser la logique « centrage panel
-    warnings » C4).
-
-- **C8.5 — Copier/coller de nœuds**
-  - Buffer interne (pas presse-papier OS, pour éviter conflits).
-  - Coller = duplication décalée + nouveaux IDs stables.
-  - Satellites auto recréés via `reconcileAutoSatellites` (même
-    logique que la désérialisation).
-  - Références objets (`objectId`) **non dupliquées** (l’objet reste
-    unique dans `meta.objects`).
-  - Sélection multiple : copie un sous-graphe complet (selector + ses
-    choix, REQ/PWD + récompense imbriquée).
-  - Hors périmètre initial : copier-coller entre projets / sessions.
-
-- **C8.6 — Rework UX selector** (cf. `DEV-C8-Selector-UX.md` local)
-  - **S1.** Sous-selector au premier plan : `z-index` plus élevé que
-    le selector parent, peut-être basé sur la profondeur d’imbrication.
-  - **S2.** Fond du selector : `rgba(...)` semi-transparent (à
-    accorder avec dark/light mode), conserver la lisibilité des
-    enfants.
-  - **S3.** Seuil d’accrochage REQ/PWD :
-    - **Piste A** : calcul du seuil sur la surface du **plus petit**
-      des deux nœuds (souvent le REQ/PWD).
-    - **Piste B** : zone d’accrochage **dédiée** sur la pince REQ/PWD
-      (rectangle invisible avec son propre seuil).
-    - Choix à valider en début de C8.6 selon faisabilité React Flow.
-  - **S4.** Selector enfant de REQ/PWD : drag indépendant **bloqué**
-    (option React Flow `draggable: false` ou contrôle dans
-    `onNodeDragStart`). Détachement via le bouton dédié uniquement.
-    Sous-selector (selector enfant d’un selector) : drag conservé
-    libre pour permettre le réordonnancement Y des choix.
-
-### Stratégie de découpage
-
-Un sous-chantier = un commit (cf. §8.2). Ordre indicatif (du plus
-isolé au plus transverse) :
-
-1. **C8.1** Nœuds repliables (changement layout-only, peu de risque).
-2. **C8.3** Indicateur scène initiale (style + 1 prop).
-3. **C8.4** Recherche de nœud (composant nouveau, peu invasif).
-4. **C8.2** Raccourcis clavier (transverse, à brancher proprement
-   sans casser les inputs Quill).
-5. **C8.6** Rework UX selector (touche au cœur du moteur de
-   connexion ; à isoler).
-6. **C8.5** Copier/coller (dépend des raccourcis et bénéficie du
-   rework selector pour les sous-graphes).
-
-### Smoke C8 (à compléter)
-
-À définir en fin de chantier — base : la suite SMK-01 → SMK-10 reste
-valable, ajout de SMK-C8-* pour valider chaque sous-item (replier /
-déplier, raccourcis, recherche, copier/coller, drag selector parenté).
-
-### Journal de chantier
-
-(À remplir au fil des sessions Cursor — décisions, points bloquants,
-questions ouvertes, captures pertinentes.)
-
-- 2026-05-02 — Cadrage initial (présent document).

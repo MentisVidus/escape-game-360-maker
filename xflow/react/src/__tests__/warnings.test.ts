@@ -165,6 +165,7 @@ describe("computeWarnings (C4)", () => {
         [reqId]: makeReq("act-obj-und"),
       },
       scenes: {},
+      sceneBoxes: {},
       satellites: {
         [satId]: {
           id: satId,

@@ -1,4 +1,4 @@
-import type { ActionNodeId, AnyNodeId } from "../model/ids";
+import type { ActionNodeId, AnyNodeId, SceneBoxNodeId, SceneNodeId } from "../model/ids";
 import type { NodeLayout } from "../model/layout";
 import type { MediaNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
@@ -17,6 +17,9 @@ import {
   type NodalMetaMediaLink,
   type NodalSceneMetaMediaLink,
 } from "./nodalMapExtras";
+import { migrateMediaParenting } from "./migrateMediaParenting";
+import { migrateSceneToSBoxParenting } from "./migrateSceneToSBoxParenting";
+import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 
 export type MapLayoutJson = {
   positions: Record<string, { x: number; y: number }>;
@@ -39,13 +42,16 @@ export type MapLayoutJson = {
   nodalSceneMetaMediaLinks?: NodalSceneMetaMediaLink[];
   /** Thème popup joueur stocké côté nodal (phase B C7.2-bis). */
   nodalPlayerPopupTheme?: PlayerPopupTheme;
+  /** Position monde du conteneur s-box (1.b.2.x) — clé = scene.id V2 métier. */
+  nodalSceneBoxLayoutByExternalId?: Record<string, { x: number; y: number; collapsed: boolean }>;
 };
 
 /** Clés de layout des satellites auto (recréés par `reconcileAutoSatellites`) — ne pas persister ni réappliquer telles quelles. */
 export const AUTO_SATELLITE_LAYOUT_KEY_RE = /^sat-(coords-options|choice-options|object)-/;
+const SBOX_LAYOUT_KEY_RE = /^sbox-/;
 
 export function stripAutoSatelliteLayoutFromMap(layout: MapLayoutJson): MapLayoutJson {
-  const keep = (id: string) => !AUTO_SATELLITE_LAYOUT_KEY_RE.test(id);
+  const keep = (id: string) => !AUTO_SATELLITE_LAYOUT_KEY_RE.test(id) && !SBOX_LAYOUT_KEY_RE.test(id);
   const positions = Object.fromEntries(Object.entries(layout.positions).filter(([k]) => keep(k)));
   const parentId = Object.fromEntries(Object.entries(layout.parentId).filter(([k]) => keep(k)));
   const collapsed = Object.fromEntries(Object.entries(layout.collapsed).filter(([k]) => keep(k)));
@@ -88,6 +94,9 @@ export function stripAutoSatelliteLayoutFromMap(layout: MapLayoutJson): MapLayou
   if (layout.nodalPlayerPopupTheme) {
     out.nodalPlayerPopupTheme = { ...layout.nodalPlayerPopupTheme };
   }
+  if (layout.nodalSceneBoxLayoutByExternalId && Object.keys(layout.nodalSceneBoxLayoutByExternalId).length > 0) {
+    out.nodalSceneBoxLayoutByExternalId = { ...layout.nodalSceneBoxLayoutByExternalId };
+  }
   return out;
 }
 
@@ -103,6 +112,9 @@ export function ensureGraphNodeLayoutsAfterHydrate(state: NodalProject): void {
   for (const id of Object.keys(state.media) as AnyNodeId[]) {
     if (!state.layout[id]) state.layout[id] = { ...fallback };
   }
+  for (const id of Object.keys(state.sceneBoxes) as AnyNodeId[]) {
+    if (!state.layout[id]) state.layout[id] = { ...fallback };
+  }
 }
 
 /** Applique le layout carte en ignorant les entrées satellites auto + complète les nœuds manquants. */
@@ -116,10 +128,34 @@ export function applyHydratedLayout(state: NodalProject, layout: MapLayoutJson, 
     ) as NodalProject["media"];
   }
   applyLayout(state, stripAutoSatelliteLayoutFromMap(layout));
+  applyStableSceneBoxLayout(state, layout);
   applyStableSceneAndActionLayout(state, layout, buildActionIdByPathKeyMapFromProjectJson(projectJson));
+  migrateSceneToSBoxParenting(state);
   stripSelectorChoiceFlowEdgesAfterParentRestore(state);
   applySceneMetaMediaLinks(state, layout.nodalSceneMetaMediaLinks);
   ensureGraphNodeLayoutsAfterHydrate(state);
+  migrateMediaParenting(state);
+}
+
+/** Positions monde des s-box depuis `map-layout.json` (1.b.2.x). */
+function applyStableSceneBoxLayout(state: NodalProject, layout: MapLayoutJson): void {
+  const boxStable = layout.nodalSceneBoxLayoutByExternalId;
+  if (!boxStable || Object.keys(boxStable).length === 0) return;
+  const sceneIdByExternal = new Map<string, AnyNodeId>();
+  for (const s of Object.values(state.scenes)) sceneIdByExternal.set(s.sceneId, s.id);
+  for (const [externalId, l] of Object.entries(boxStable)) {
+    const sceneId = sceneIdByExternal.get(externalId);
+    if (!sceneId) continue;
+    const bid = sboxIdFromScene(sceneId as SceneNodeId);
+    const existingBox = state.layout[bid];
+    state.layout[bid] = {
+      ...existingBox,
+      x: l.x,
+      y: l.y,
+      parentId: null,
+      collapsed: l.collapsed,
+    };
+  }
 }
 
 function deriveParentPathKey(pathKey: string): string | null {
@@ -128,22 +164,36 @@ function deriveParentPathKey(pathKey: string): string | null {
   return m?.[1] ?? null;
 }
 
+/** Hotspot racine `extId:h:i` (sans suffixe `:r` / `:c:j`) → s-box du graphe courant (C8.7-fix.3). */
+function sceneBoxParentIdFromRootHotspotPathKey(state: NodalProject, pathKey: string): SceneBoxNodeId | null {
+  const m = pathKey.match(/^([^:]+):h:\d+$/);
+  if (!m) return null;
+  const ext = m[1];
+  for (const s of Object.values(state.scenes)) {
+    if (s.sceneId === ext) return sboxIdFromScene(s.id);
+  }
+  return null;
+}
+
 /** Applique le layout stable (indépendant des ids internes) pour scènes + actions. */
 function applyStableSceneAndActionLayout(
   state: NodalProject,
   layout: MapLayoutJson,
   actionIdByPathFromJson: Map<string, AnyNodeId>
 ): void {
+  const boxByExt = layout.nodalSceneBoxLayoutByExternalId;
   const sceneStable = layout.nodalSceneLayoutByExternalId;
   if (sceneStable && Object.keys(sceneStable).length > 0) {
     const sceneIdByExternal = new Map<string, AnyNodeId>();
     for (const s of Object.values(state.scenes)) sceneIdByExternal.set(s.sceneId, s.id);
     for (const [externalId, l] of Object.entries(sceneStable)) {
+      if (boxByExt && externalId in boxByExt) continue;
       const sceneId = sceneIdByExternal.get(externalId);
       if (!sceneId) continue;
-      const existing = state.layout[sceneId];
-      state.layout[sceneId] = {
-        ...existing,
+      const bid = sboxIdFromScene(sceneId as SceneNodeId);
+      const existingBox = state.layout[bid];
+      state.layout[bid] = {
+        ...existingBox,
         x: l.x,
         y: l.y,
         parentId: null,
@@ -162,8 +212,14 @@ function applyStableSceneAndActionLayout(
     const existing = state.layout[actionId];
     const parentPath = deriveParentPathKey(pathKey);
     const mappedParent = parentPath !== null ? actionIdByPathFromJson.get(parentPath) ?? null : null;
-    const parentId =
-      parentPath === null ? null : (mappedParent ?? (existing?.parentId as AnyNodeId | null | undefined) ?? null);
+    let parentId: AnyNodeId | null;
+    if (parentPath !== null) {
+      parentId = (mappedParent ?? (existing?.parentId as AnyNodeId | null | undefined) ?? null) as AnyNodeId | null;
+    } else {
+      /* Anciens map-layout : `parentId` indexé par ids `action-…` Drawflow — absents après désérialisation (`act__…`). */
+      const fromRootPath = sceneBoxParentIdFromRootHotspotPathKey(state, pathKey);
+      parentId = (fromRootPath ?? (existing?.parentId as AnyNodeId | null | undefined) ?? null) as AnyNodeId | null;
+    }
     state.layout[actionId] = {
       ...existing,
       x: l.x,
@@ -216,12 +272,20 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
 
   for (const [nodeId, layout] of Object.entries(state.layout) as Array<[AnyNodeId, NodalProject["layout"][AnyNodeId]]>) {
     if (AUTO_SATELLITE_LAYOUT_KEY_RE.test(String(nodeId))) continue;
-    positions[nodeId] = { x: layout.x, y: layout.y };
+    const isSbox = SBOX_LAYOUT_KEY_RE.test(String(nodeId));
+    if (!isSbox) {
+      const parentPid = layout.parentId;
+      const skipSceneWorldPos =
+        nodeId in state.scenes && parentPid != null && parentPid in state.sceneBoxes;
+      if (!skipSceneWorldPos) {
+        positions[nodeId] = { x: layout.x, y: layout.y };
+        if (layout.width != null && layout.height != null) {
+          dimensions[nodeId] = { width: layout.width, height: layout.height };
+        }
+      }
+    }
     collapsed[nodeId] = layout.collapsed;
     if (layout.parentId) parentId[nodeId] = layout.parentId;
-    if (layout.width != null && layout.height != null) {
-      dimensions[nodeId] = { width: layout.width, height: layout.height };
-    }
   }
 
   const draftSet = new Set<string>(state.meta.draftActionIds);
@@ -238,18 +302,24 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
     inventoryObjects: { ...state.meta.objects },
   };
 
+  /** Monde du s-box : `nodalSceneLayoutByExternalId` reste l’ancrage legacy (cadre ≈ scène). */
   const sceneStable: NonNullable<MapLayoutJson["nodalSceneLayoutByExternalId"]> = {};
+  const boxStable: NonNullable<MapLayoutJson["nodalSceneBoxLayoutByExternalId"]> = {};
   for (const scene of Object.values(state.scenes)) {
-    const l = state.layout[scene.id];
-    if (!l) continue;
-    sceneStable[scene.sceneId] = {
-      x: l.x,
-      y: l.y,
-      collapsed: l.collapsed,
-      ...(l.width != null && l.height != null ? { width: l.width, height: l.height } : {}),
+    const bid = sboxIdFromScene(scene.id);
+    const bl = state.layout[bid];
+    if (!bl) continue;
+    const world = {
+      x: bl.x,
+      y: bl.y,
+      collapsed: bl.collapsed,
+      ...(bl.width != null && bl.height != null ? { width: bl.width, height: bl.height } : {}),
     };
+    sceneStable[scene.sceneId] = { ...world };
+    boxStable[scene.sceneId] = { x: bl.x, y: bl.y, collapsed: bl.collapsed };
   }
   if (Object.keys(sceneStable).length > 0) out.nodalSceneLayoutByExternalId = sceneStable;
+  if (Object.keys(boxStable).length > 0) out.nodalSceneBoxLayoutByExternalId = boxStable;
 
   const actionStable: NonNullable<MapLayoutJson["nodalActionLayoutByPathKey"]> = {};
   const actionLabels: NonNullable<MapLayoutJson["nodalActionLabelByPathKey"]> = {};
@@ -307,6 +377,20 @@ export const applyLayout = (state: NodalProject, layout: MapLayoutJson): void =>
       collapsed: layout.collapsed[nodeId] ?? existing?.collapsed ?? false,
       ...(dim ? { width: dim.width, height: dim.height } : {}),
     };
+  }
+  for (const [nodeId, pid] of Object.entries(layout.parentId)) {
+    const id = nodeId as AnyNodeId;
+    if (nodeId in layout.positions) continue;
+    const existing = state.layout[id];
+    if (!existing) continue;
+    state.layout[id] = { ...existing, parentId: (pid as AnyNodeId) ?? null };
+  }
+  for (const [nodeId, col] of Object.entries(layout.collapsed)) {
+    const id = nodeId as AnyNodeId;
+    if (nodeId in layout.positions) continue;
+    const existing = state.layout[id];
+    if (!existing) continue;
+    state.layout[id] = { ...existing, collapsed: !!col };
   }
   state.meta.draftActionIds = layout.drafts as ActionNodeId[];
   state.meta.viewport = { ...layout.viewport };

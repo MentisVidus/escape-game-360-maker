@@ -1,0 +1,14 @@
+---
+description: Ignorer le dossier local .claude (sessions / sorties Claude Code hors périmètre repo)
+alwaysApply: true
+---
+
+# Dossier `.claude/`
+
+- **Ne pas** lire, ouvrir, citer, résumer ni intégrer le contenu de `.claude/` (fichiers, sous-dossiers, transcripts, settings) dans les réponses ou les commits, **sauf** si l’utilisateur demande **explicitement** d’utiliser un chemin sous `.claude/` (fichier nommé, action ponctuelle).
+
+- **Ne pas** proposer d’explorer `.claude/` pour « comprendre le projet » ; la source de vérité reste le dépôt versionné (code, `docs/`, `.cursor/rules/*.mdc`, etc.).
+
+- Si une tâche semble dépendre d’informations uniquement présentes sous `.claude/`, **demander** à l’utilisateur de recopier ou de déplacer l’information dans un fichier versionné (ex. `docs/`, spec) plutôt que d’ouvrir `.claude/`.
+
+> Limite : cette règle lie **l’agent** ; elle ne remplace pas une suppression manuelle du dossier si vous voulez garantir l’absence totale de fichiers locaux. L’exclusion du contexte est renforcée par `.cursorignore` à la racine.

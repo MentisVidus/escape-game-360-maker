@@ -1,4 +1,5 @@
 import { asActionNodeId, asEdgeId, asSceneNodeId, type ActionNodeId, type SceneNodeId } from "../model/ids";
+import { migrateSceneToSBoxParenting } from "./migrateSceneToSBoxParenting";
 import type { ActionNode, CopyPayload } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import type { ProjectJsonV2, ProjectJsonV2Action } from "./toProjectJson";
@@ -70,6 +71,7 @@ const emptyProject = (): NodalProject => ({
   },
   actions: {},
   scenes: {},
+  sceneBoxes: {},
   satellites: {},
   media: {},
   edges: [],
@@ -219,6 +221,7 @@ export const deserializeFromProjectJson = (json: ProjectJsonV2): NodalProject =>
     });
   }
   wireGotoTransitions(state);
+  migrateSceneToSBoxParenting(state);
   return state;
 };
 

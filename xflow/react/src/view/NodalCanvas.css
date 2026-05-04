@@ -40,6 +40,24 @@
   --theme-toggle-border: #c7ceda;
   --theme-toggle-color: #1f2937;
   --theme-toggle-hover-bg: #f1f5f9;
+
+  /* S-box (C8.1.b — 1.b.4) : cadre groupe scène + actions */
+  --sbox-frame-bg: color-mix(in srgb, var(--node-scene-bg) 58%, transparent);
+  --sbox-frame-border: var(--node-scene-border);
+  --sbox-frame-border-width: 2px;
+  --sbox-frame-radius: 12px;
+  --sbox-label-opacity: 0.65;
+  --sbox-collapsed-bg: color-mix(in srgb, var(--node-scene-bg) 42%, transparent);
+  --sbox-collapsed-border: color-mix(in srgb, var(--node-scene-border) 58%, transparent);
+  --sbox-collapsed-opacity: 0.86;
+  --sbox-empty-bg: color-mix(in srgb, var(--sbox-frame-bg) 55%, transparent);
+  --sbox-empty-border: color-mix(in srgb, var(--sbox-frame-border) 42%, transparent);
+
+  /* C8.3 — scène de départ (distinct du vert scène) */
+  --node-start-scene-ring: rgba(217, 119, 6, 0.38);
+  --node-start-badge-bg: #fef3c7;
+  --node-start-badge-border: #d97706;
+  --node-start-badge-text: #92400e;
 }
 
 .nodal-canvas-layout.dark-mode {
@@ -79,6 +97,19 @@
   --theme-toggle-border: #475569;
   --theme-toggle-color: #e5e7eb;
   --theme-toggle-hover-bg: #334155;
+
+  --sbox-frame-bg: color-mix(in srgb, var(--node-scene-bg) 52%, transparent);
+  --sbox-frame-border: var(--node-scene-border);
+  --sbox-collapsed-bg: color-mix(in srgb, var(--node-scene-bg) 36%, transparent);
+  --sbox-collapsed-border: color-mix(in srgb, var(--node-scene-border) 48%, transparent);
+  --sbox-collapsed-opacity: 0.82;
+  --sbox-empty-bg: color-mix(in srgb, var(--sbox-frame-bg) 48%, transparent);
+  --sbox-empty-border: color-mix(in srgb, var(--sbox-frame-border) 38%, transparent);
+
+  --node-start-scene-ring: rgba(245, 158, 11, 0.42);
+  --node-start-badge-bg: #422006;
+  --node-start-badge-border: #f59e0b;
+  --node-start-badge-text: #fde68a;
 }
 
 .nodal-canvas-pane {
@@ -554,6 +585,32 @@
 .nodal-canvas-layout .nodal-popup-actions--split {
   justify-content: space-between;
   gap: 10px;
+}
+
+.nodal-canvas-layout .nodal-popup-panel--delete-confirm {
+  max-width: min(440px, 92vw);
+}
+
+.nodal-canvas-layout .nodal-delete-confirm-body {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--node-text);
+  white-space: pre-wrap;
+}
+
+.nodal-canvas-layout .nodal-delete-confirm-btn-danger {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #b91c1c;
+  background: #991b1b;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+.nodal-canvas-layout .nodal-delete-confirm-btn-danger:hover {
+  background: #b91c1c;
 }
 
 .nodal-canvas-layout .nodal-ha-btn-secondary {

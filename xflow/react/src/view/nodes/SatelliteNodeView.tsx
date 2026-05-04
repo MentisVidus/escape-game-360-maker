@@ -36,7 +36,7 @@ export function SatelliteNodeView({ id, data }: NodeProps) {
   return (
     <div
       className="nodal-node satellite satellite--clickable"
-      onClick={openEditor}
+      onDoubleClick={openEditor}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();

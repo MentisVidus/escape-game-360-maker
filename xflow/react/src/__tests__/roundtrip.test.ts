@@ -14,6 +14,8 @@ import {
 import { serializeToProjectJson } from "../serialize/toProjectJson";
 import { reconcileAutoSatellites } from "../store/reconcileAutoSatellites";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
+import { SCENE_PADDING_X } from "../view/nesting/containerBounds";
+import { toReactFlowNodes } from "../view/nodalReactFlowProjection";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -105,9 +107,23 @@ describe("nodal model C1 roundtrip", () => {
     reconcileAutoSatellites(roundtripState);
 
     expect(roundtripState.layout[stableActionNodeIdFromPathKey("scene-a:h:0")]?.x).toBe(150);
-    expect(roundtripState.layout[stableSceneNodeIdFromExternal("scene-a")]?.x).toBe(0);
+    expect(roundtripState.layout[stableSceneNodeIdFromExternal("scene-a")]?.x).toBe(SCENE_PADDING_X);
 
     const projectJsonAgain = serializeToProjectJson(roundtripState);
     expect(projectJsonAgain).toEqual(projectJson);
+  });
+
+  it("C8.3 : toReactFlowNodes expose isStartScene sur la scène meta.startSceneId", () => {
+    const store = createNodalProjectStore();
+    const sceneA = makeScene("scene-a", "A");
+    const sceneB = makeScene("scene-b", "B");
+    store.getState().addScene(sceneA, { x: 0, y: 0 });
+    store.getState().addScene(sceneB, { x: 100, y: 0 });
+    store.getState().setStartScene(sceneB.id);
+    const nodes = toReactFlowNodes(store.getState());
+    const rfA = nodes.find((n) => n.id === sceneA.id);
+    const rfB = nodes.find((n) => n.id === sceneB.id);
+    expect((rfA?.data as { isStartScene?: boolean }).isStartScene).toBeFalsy();
+    expect((rfB?.data as { isStartScene?: boolean }).isStartScene).toBe(true);
   });
 });

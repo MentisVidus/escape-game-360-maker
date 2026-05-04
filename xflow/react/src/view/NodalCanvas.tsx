@@ -15,10 +15,19 @@ import {
   type Node as RFNode,
   type NodeChange,
   type NodeTypes,
+  type OnBeforeDelete,
   type OnConnect,
   type OnMove,
 } from "@xyflow/react";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import type { StoreApi } from "zustand/vanilla";
 
 import {
@@ -28,6 +37,8 @@ import {
   type EdgeId,
   type MediaNodeId,
   type SatelliteNodeId,
+  type SceneBoxNodeId,
+  type SceneNodeId,
 } from "../model/ids";
 import type {
   ActionNode,
@@ -45,6 +56,7 @@ import type {
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
+import { isNodalClipboardEmpty } from "../store/clipboard";
 import { isValidConnection } from "./connectionPolicy";
 import {
   HANDLE_FLOW_IN,
@@ -57,11 +69,35 @@ import {
 import { ActionNodeView } from "./nodes/ActionNodeView";
 import { MediaNodeView } from "./nodes/MediaNodeView";
 import { SatelliteNodeView } from "./nodes/SatelliteNodeView";
+import { SceneBoxNodeView } from "./nodes/SceneBoxNodeView";
 import { SceneNodeView } from "./nodes/SceneNodeView";
 import { NodalUiContext } from "./nodalUiContext";
-import { ATTACH_OVERLAP_THRESHOLD, DETACH_OVERLAP_THRESHOLD, REWARD_CHILD_GAP_X } from "./nesting/constants";
-import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
+import {
+  ATTACH_OVERLAP_THRESHOLD,
+  ATTACH_OVERLAP_THRESHOLD_SMALL_SELECTOR,
+  DETACH_OVERLAP_THRESHOLD,
+  REWARD_CHILD_GAP_X,
+  REWARD_ZONE_OVERLAP_MIN,
+  SELECTOR_SMALL_WIDTH_PX,
+} from "./nesting/constants";
+import { parentIdDepth, SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
+import {
+  DEFAULT_NODE_WIDTH,
+  domRectToFlowBounds,
+  flowPointInRect,
+  overlapRatioByChild,
+  overlapRatioOfZone,
+  toAbsoluteRect,
+  type NestedNodeLike,
+} from "./nesting/geometry";
+import {
+  describeNodeForDeletion,
+  flattenDeleteChains,
+  normalizeDeletionTarget,
+} from "./deletion/describeNodeForDeletion";
+import { useNodalKeyboard } from "./keyboard/useNodalKeyboard";
 import { NodePalette } from "./palette/NodePalette";
+import type { NodalSearchFieldHandle } from "./palette/NodalSearchField";
 import { ObjectEditorPopup } from "./popups/ObjectEditorPopup";
 import { CoordsOptionsPopup } from "./popups/CoordsOptionsPopup";
 import { ChoiceOptionsPopup } from "./popups/ChoiceOptionsPopup";
@@ -73,17 +109,31 @@ import { ReqContentPopup } from "./popups/ReqContentPopup";
 import { PwdContentPopup } from "./popups/PwdContentPopup";
 import { SelectorContentPopup } from "./popups/SelectorContentPopup";
 import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
+import { DeleteConfirmDialog } from "./popups/DeleteConfirmDialog";
+import { KeyboardShortcutsPopup } from "./popups/KeyboardShortcutsPopup";
+import {
+  buildNodalContextMenuItems,
+  contextMenuParentTarget,
+  type NodalContextMenuAction,
+} from "./contextMenu/nodalContextMenuModel";
+import { NodalContextMenu } from "./contextMenu/NodalContextMenu";
 import { PopupThemeCustomizationPopup } from "./popups/PopupThemeCustomizationPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
 import { toReactFlowEdges, toReactFlowNodes, type NodalRFData } from "./nodalReactFlowProjection";
 import "./NodalCanvas.css";
 
 const nodeTypes: NodeTypes = {
+  sceneBoxNode: SceneBoxNodeView,
   sceneNode: SceneNodeView,
   actionNode: ActionNodeView,
   satelliteNode: SatelliteNodeView,
   mediaNode: MediaNodeView,
 };
+
+function detectNodalLocale(): "fr" | "en" {
+  if (typeof document === "undefined") return "fr";
+  return document.documentElement.lang?.toLowerCase().startsWith("en") ? "en" : "fr";
+}
 
 function detectFamily(connection: Connection): "flow" | "transition" | "meta" | null {
   if (connection.sourceHandle === HANDLE_FLOW_OUT && connection.targetHandle === HANDLE_FLOW_IN) return "flow";
@@ -108,6 +158,27 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [selectorEditorActionId, setSelectorEditorActionId] = useState<ActionNodeId | null>(null);
   const [globalSettingsHubOpen, setGlobalSettingsHubOpen] = useState(false);
   const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
+  const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    title: string;
+    body: string;
+    confirmLabel: string;
+    cancelLabel: string;
+  } | null>(null);
+  /** Promise `onBeforeDelete` en attente de la réponse du dialogue (ids store + resolve). */
+  const pendingDeleteFlowRef = useRef<{
+    resolve: (value: boolean | { nodes: RFNode<NodalRFData>[]; edges: RFEdge[] }) => void;
+    pendingStoreIds: AnyNodeId[];
+  } | null>(null);
+  /** C8.5.1 — menu contextuel (position viewport + cible store sous le curseur). */
+  const [contextMenu, setContextMenu] = useState<{
+    clientX: number;
+    clientY: number;
+    /** C8.5.2 — ancrage collage (flow), même si la cible menu est un nœud. */
+    flowDrop: { x: number; y: number };
+    targetId: AnyNodeId | null;
+  } | null>(null);
+  const lastFlowPointerRef = useRef<{ x: number; y: number } | null>(null);
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
@@ -198,6 +269,213 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     store.getState
   );
   const canvasRef = useRef<HTMLDivElement>(null);
+  const nodalSearchFieldRef = useRef<NodalSearchFieldHandle | null>(null);
+
+  const anyPopupOpen = useMemo(
+    () =>
+      !!objectEditorSatelliteId ||
+      !!coordsEditorSatelliteId ||
+      !!choiceEditorSatelliteId ||
+      !!mediaEditorMediaId ||
+      !!msgEditorActionId ||
+      !!pickEditorActionId ||
+      !!gotoEditorActionId ||
+      !!reqEditorActionId ||
+      !!pwdEditorActionId ||
+      !!selectorEditorActionId ||
+      globalSettingsHubOpen ||
+      popupThemeCustomizationOpen ||
+      keyboardShortcutsOpen ||
+      deleteConfirm != null ||
+      contextMenu != null,
+    [
+      objectEditorSatelliteId,
+      coordsEditorSatelliteId,
+      choiceEditorSatelliteId,
+      mediaEditorMediaId,
+      msgEditorActionId,
+      pickEditorActionId,
+      gotoEditorActionId,
+      reqEditorActionId,
+      pwdEditorActionId,
+      selectorEditorActionId,
+      globalSettingsHubOpen,
+      popupThemeCustomizationOpen,
+      keyboardShortcutsOpen,
+      deleteConfirm,
+      contextMenu,
+    ]
+  );
+
+  /** Échap : une seule surface au premier plan — ordre de priorité explicite. */
+  const closeActiveModal = useCallback(() => {
+    if (deleteConfirm != null) {
+      const p = pendingDeleteFlowRef.current;
+      pendingDeleteFlowRef.current = null;
+      setDeleteConfirm(null);
+      p?.resolve(false);
+      return;
+    }
+    if (contextMenu != null) {
+      setContextMenu(null);
+      return;
+    }
+    if (keyboardShortcutsOpen) {
+      setKeyboardShortcutsOpen(false);
+      return;
+    }
+    if (popupThemeCustomizationOpen) {
+      setPopupThemeCustomizationOpen(false);
+      return;
+    }
+    if (globalSettingsHubOpen) {
+      setGlobalSettingsHubOpen(false);
+      return;
+    }
+    if (objectEditorSatelliteId) {
+      setObjectEditorSatelliteId(null);
+      return;
+    }
+    if (coordsEditorSatelliteId) {
+      setCoordsEditorSatelliteId(null);
+      return;
+    }
+    if (choiceEditorSatelliteId) {
+      setChoiceEditorSatelliteId(null);
+      return;
+    }
+    if (mediaEditorMediaId) {
+      setMediaEditorMediaId(null);
+      return;
+    }
+    if (msgEditorActionId) {
+      setMsgEditorActionId(null);
+      return;
+    }
+    if (pickEditorActionId) {
+      setPickEditorActionId(null);
+      return;
+    }
+    if (gotoEditorActionId) {
+      setGotoEditorActionId(null);
+      return;
+    }
+    if (reqEditorActionId) {
+      setReqEditorActionId(null);
+      return;
+    }
+    if (pwdEditorActionId) {
+      setPwdEditorActionId(null);
+      return;
+    }
+    if (selectorEditorActionId) {
+      setSelectorEditorActionId(null);
+      return;
+    }
+  }, [
+    deleteConfirm,
+    contextMenu,
+    keyboardShortcutsOpen,
+    popupThemeCustomizationOpen,
+    globalSettingsHubOpen,
+    objectEditorSatelliteId,
+    coordsEditorSatelliteId,
+    choiceEditorSatelliteId,
+    mediaEditorMediaId,
+    msgEditorActionId,
+    pickEditorActionId,
+    gotoEditorActionId,
+    reqEditorActionId,
+    pwdEditorActionId,
+    selectorEditorActionId,
+  ]);
+
+  /* Fermer l’aide raccourcis dès qu’une autre surface modale / éditeur s’ouvre. */
+  useEffect(() => {
+    if (
+      objectEditorSatelliteId ||
+      coordsEditorSatelliteId ||
+      choiceEditorSatelliteId ||
+      mediaEditorMediaId ||
+      msgEditorActionId ||
+      pickEditorActionId ||
+      gotoEditorActionId ||
+      reqEditorActionId ||
+      pwdEditorActionId ||
+      selectorEditorActionId ||
+      globalSettingsHubOpen ||
+      popupThemeCustomizationOpen ||
+      deleteConfirm != null ||
+      contextMenu != null
+    ) {
+      setKeyboardShortcutsOpen(false);
+    }
+  }, [
+    objectEditorSatelliteId,
+    coordsEditorSatelliteId,
+    choiceEditorSatelliteId,
+    mediaEditorMediaId,
+    msgEditorActionId,
+    pickEditorActionId,
+    gotoEditorActionId,
+    reqEditorActionId,
+    pwdEditorActionId,
+    selectorEditorActionId,
+    globalSettingsHubOpen,
+    popupThemeCustomizationOpen,
+    deleteConfirm,
+    contextMenu,
+  ]);
+
+  const deselectAllRf = useCallback(() => {
+    reactFlow.setNodes((nodes) => nodes.map((n) => ({ ...n, selected: false })));
+    reactFlow.setEdges((edges) => edges.map((e) => ({ ...e, selected: false })));
+  }, [reactFlow]);
+
+  const getPasteFlowPosition = useCallback((): { x: number; y: number } => {
+    if (lastFlowPointerRef.current) return lastFlowPointerRef.current;
+    const wrap = canvasRef.current?.querySelector(".react-flow") ?? canvasRef.current;
+    if (wrap) {
+      const r = wrap.getBoundingClientRect();
+      return reactFlow.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    }
+    return { x: 0, y: 0 };
+  }, [reactFlow]);
+
+  const applyPasteSelection = useCallback(
+    (newIds: AnyNodeId[]) => {
+      if (newIds.length === 0) return;
+      const idSet = new Set(newIds.map(String));
+      reactFlow.setNodes((ns) => ns.map((n) => ({ ...n, selected: idSet.has(n.id) })));
+      reactFlow.setEdges((es) => es.map((e) => ({ ...e, selected: false })));
+    },
+    [reactFlow]
+  );
+
+  const copyRfSelectionToClipboard = useCallback(() => {
+    const ids = reactFlow.getNodes().filter((n) => n.selected).map((n) => n.id as AnyNodeId);
+    if (ids.length > 0) store.getState().copyNodesToClipboard(ids);
+  }, [reactFlow, store]);
+
+  const pasteAtPointerOrCenter = useCallback(() => {
+    const pasteAbs = getPasteFlowPosition();
+    const newIds = store.getState().pasteClipboardAt(pasteAbs);
+    applyPasteSelection(newIds);
+  }, [getPasteFlowPosition, store, applyPasteSelection]);
+
+  useNodalKeyboard({
+    anyPopupOpen,
+    closeActiveModal,
+    deselectAll: deselectAllRf,
+    focusSearchField: () => {
+      nodalSearchFieldRef.current?.focus();
+    },
+    copySelection: copyRfSelectionToClipboard,
+    pasteFromClipboard: pasteAtPointerOrCenter,
+    openShortcutsHelp: () => {
+      setKeyboardShortcutsOpen(true);
+    },
+  });
 
   useEffect(() => {
     if (!msgEditorActionId) return;
@@ -245,6 +523,170 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   // State React Flow pour nodes et edges (permet à RF de gérer drag, sélection, mesures)
   const [rfNodes, setRfNodes, onNodesChangeRF] = useNodesState<RFNode<NodalRFData>>([]);
   const [rfEdges, setRfEdges, onEdgesChangeRF] = useEdgesState<RFEdge>([]);
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const contextMenuItems = useMemo(() => {
+    if (!contextMenu) return [];
+    const snap = store.getState();
+    const selected = reactFlow.getNodes().filter((n) => n.selected).map((n) => n.id);
+    return buildNodalContextMenuItems(
+      snap,
+      detectNodalLocale(),
+      contextMenu.targetId,
+      selected,
+      isNodalClipboardEmpty()
+    );
+  }, [contextMenu, store, reactFlow]);
+
+  const onNodeContextMenu = useCallback(
+    (e: ReactMouseEvent, node: RFNode<NodalRFData>) => {
+      e.preventDefault();
+      setContextMenu({
+        clientX: e.clientX,
+        clientY: e.clientY,
+        flowDrop: reactFlow.screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+        targetId: node.id as AnyNodeId,
+      });
+    },
+    [reactFlow]
+  );
+
+  const onPaneContextMenu = useCallback(
+    (e: ReactMouseEvent) => {
+      e.preventDefault();
+      const snap = store.getState();
+      const selected = reactFlow.getNodes().filter((n) => n.selected).map((n) => n.id);
+      const items = buildNodalContextMenuItems(
+        snap,
+        detectNodalLocale(),
+        null,
+        selected,
+        isNodalClipboardEmpty()
+      );
+      if (items.length === 0) return;
+      setContextMenu({
+        clientX: e.clientX,
+        clientY: e.clientY,
+        flowDrop: reactFlow.screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+        targetId: null,
+      });
+    },
+    [store, reactFlow]
+  );
+
+  /** Clic droit sur le rectangle de sélection RF (Maj + drag) : `onPaneContextMenu` ne reçoit pas l’événement. */
+  const onSelectionContextMenu = useCallback(
+    (e: MouseEvent | ReactMouseEvent, selectedNodes: RFNode<NodalRFData>[]) => {
+      e.preventDefault();
+      if (selectedNodes.length === 0) return;
+      const snap = store.getState();
+      const selected = selectedNodes.map((n) => n.id);
+      const items = buildNodalContextMenuItems(
+        snap,
+        detectNodalLocale(),
+        null,
+        selected,
+        isNodalClipboardEmpty()
+      );
+      if (items.length === 0) return;
+      setContextMenu({
+        clientX: e.clientX,
+        clientY: e.clientY,
+        flowDrop: reactFlow.screenToFlowPosition({ x: e.clientX, y: e.clientY }),
+        targetId: null,
+      });
+    },
+    [store, reactFlow]
+  );
+
+  const handleContextMenuAction = useCallback(
+    (action: NodalContextMenuAction) => {
+      const cm = contextMenu;
+      if (!cm) return;
+      const tid = cm.targetId;
+      closeContextMenu();
+      const snap = store.getState();
+
+      if (action === "paste") {
+        const pasteAbs = cm.flowDrop ?? getPasteFlowPosition();
+        const newIds = store.getState().pasteClipboardAt(pasteAbs);
+        applyPasteSelection(newIds);
+        return;
+      }
+      if (action === "copy-selection") {
+        const ids = reactFlow.getNodes().filter((n) => n.selected).map((n) => n.id as AnyNodeId);
+        if (ids.length > 0) store.getState().copyNodesToClipboard(ids);
+        return;
+      }
+      if (action === "delete-selection") {
+        const nodes = reactFlow.getNodes().filter((n) => n.selected);
+        if (nodes.length > 0) void reactFlow.deleteElements({ nodes });
+        return;
+      }
+      if (tid == null) return;
+
+      if (action === "copy-target") {
+        store.getState().copyNodesToClipboard([tid]);
+        return;
+      }
+
+      if (action === "open") {
+        if (tid in snap.actions) {
+          const a = snap.actions[tid as ActionNodeId];
+          if (a.actionType === "pick") openPickContentEditor(a.id);
+          else if (a.actionType === "goto") openGotoContentEditor(a.id);
+          else if (a.actionType === "req") openReqContentEditor(a.id);
+          else if (a.actionType === "pwd") openPwdContentEditor(a.id);
+          else if (a.actionType === "selector") openSelectorContentEditor(a.id);
+          else openMsgContentEditor(a.id);
+        } else if (tid in snap.media) {
+          setMediaEditorMediaId(tid as MediaNodeId);
+        }
+        return;
+      }
+      if (action === "delete") {
+        const rfNode = reactFlow.getNode(String(tid));
+        if (rfNode) void reactFlow.deleteElements({ nodes: [rfNode] });
+        return;
+      }
+      if (action === "set-start-scene" && tid in snap.scenes) {
+        store.getState().setStartScene(tid as SceneNodeId);
+        return;
+      }
+      if (action === "toggle-fold") {
+        if (tid in snap.sceneBoxes) {
+          store.getState().toggleNodeCollapsed(tid as SceneBoxNodeId);
+        } else if (tid in snap.actions && snap.actions[tid as ActionNodeId].actionType === "selector") {
+          store.getState().toggleNodeCollapsed(tid as ActionNodeId);
+        }
+        return;
+      }
+      if (action === "go-parent") {
+        const p = contextMenuParentTarget(snap, tid);
+        if (p != null) {
+          const pid = String(p);
+          reactFlow.setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === pid })));
+          reactFlow.fitView({ nodes: [{ id: pid }], duration: 220, padding: 0.2 });
+        }
+      }
+    },
+    [
+      contextMenu,
+      closeContextMenu,
+      store,
+      reactFlow,
+      getPasteFlowPosition,
+      applyPasteSelection,
+      openPickContentEditor,
+      openGotoContentEditor,
+      openReqContentEditor,
+      openPwdContentEditor,
+      openSelectorContentEditor,
+      openMsgContentEditor,
+      setMediaEditorMediaId,
+    ]
+  );
 
   // Synchronise le state Zustand → React Flow quand le store change
   // (ajout/suppression de nœuds, edges — pas les changements de position
@@ -295,6 +737,17 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         }
         if (existing.selected !== undefined) merged.selected = existing.selected;
         if (existing.measured !== undefined) merged.measured = existing.measured;
+        const prevD = existing.data as NodalRFData | undefined;
+        const nextD = merged.data as NodalRFData;
+        if (
+          prevD?.collapsed !== nextD?.collapsed ||
+          prevD?.synthGotoTargetCount !== nextD?.synthGotoTargetCount ||
+          prevD?.containerCollapsed !== nextD?.containerCollapsed ||
+          prevD?.sceneBoxSynthGotoTargetCount !== nextD?.sceneBoxSynthGotoTargetCount ||
+          prevD?.sceneBoxActionCount !== nextD?.sceneBoxActionCount
+        ) {
+          nodesToUpdate.push(merged.id);
+        }
         return merged;
       });
 
@@ -317,28 +770,90 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     state.satellites,
     state.media,
     state.layout,
+    state.meta.startSceneId,
     setRfNodes,
     updateNodeInternals,
   ]);
 
   useEffect(() => {
     setRfEdges(toReactFlowEdges(state));
-  }, [state.edges, setRfEdges]);
+  }, [state.edges, state.layout, state.actions, state.scenes, setRfEdges]);
 
-  // Wrap onNodesChange pour persister les positions finales vers Zustand
+  // Persistance des positions + passage des changements RF (suppression gérée par `onBeforeDelete` C8.2.2).
   const onNodesChange = useCallback(
     (changes: NodeChange<RFNode<NodalRFData>>[]) => {
       onNodesChangeRF(changes);
+      const snap = store.getState();
       for (const change of changes) {
         if (change.type === "position" && change.position && !change.dragging) {
-          state.updateNodeLayout(change.id as AnyNodeId, {
+          snap.updateNodeLayout(change.id as AnyNodeId, {
             x: change.position.x,
             y: change.position.y,
           });
         }
       }
     },
-    [onNodesChangeRF, state]
+    [onNodesChangeRF, store]
+  );
+
+  /**
+   * RF v12 : appelé **avant** la suppression clavier — retourner `false` annule ;
+   * C8.2.2 : dialogue si scène / selector / chaîne REQ·PWD imbriquée ; sinon lot inchangé.
+   */
+  const onBeforeDelete = useCallback<OnBeforeDelete<RFNode<NodalRFData>, RFEdge>>(
+    async ({ nodes: deletedNodes, edges: deletedEdges }) => {
+      const snap = store.getState();
+      const locale = detectNodalLocale();
+
+      const nonSat = deletedNodes.filter((n) => !(n.id in snap.satellites));
+      /* `onBeforeDelete` couvre aussi les arêtes : si aucun nœud store à traiter, ne pas annuler la suppression des seules arêtes (return `false` bloquait tout). */
+      if (nonSat.length === 0) {
+        if (deletedEdges.length === 0) return false;
+        return { nodes: deletedNodes, edges: deletedEdges };
+      }
+
+      const storeTargets: AnyNodeId[] = [];
+      const seen = new Set<string>();
+      for (const n of nonSat) {
+        const t = normalizeDeletionTarget(snap, n.id as AnyNodeId);
+        if (t == null) continue;
+        if (seen.has(t)) continue;
+        seen.add(t);
+        storeTargets.push(t);
+      }
+
+      const pairs: { target: AnyNodeId; desc: NonNullable<ReturnType<typeof describeNodeForDeletion>> }[] = [];
+      for (const tid of storeTargets) {
+        const d = describeNodeForDeletion(snap, tid, locale);
+        if (d) pairs.push({ target: d.storeTargetId, desc: d });
+      }
+      if (pairs.length === 0) return { nodes: nonSat, edges: deletedEdges };
+
+      const needConfirm = pairs.some((p) => p.desc.needsConfirm);
+      if (!needConfirm) {
+        return { nodes: nonSat, edges: deletedEdges };
+      }
+
+      /* Un seul libellé : évite la redondance (ex. PWD>PWD>PWD ou selectors imbriqués dans une scène). */
+      const confirmingPairs = pairs.filter((p) => p.desc.needsConfirm);
+      const first = confirmingPairs[0]!;
+      const title = first.desc.title;
+      const body = first.desc.body;
+
+      return await new Promise<boolean | { nodes: RFNode<NodalRFData>[]; edges: RFEdge[] }>((resolve) => {
+        pendingDeleteFlowRef.current = {
+          resolve,
+          pendingStoreIds: pairs.map((p) => p.target),
+        };
+        setDeleteConfirm({
+          title,
+          body,
+          confirmLabel: locale === "fr" ? "Supprimer" : "Delete",
+          cancelLabel: locale === "fr" ? "Annuler" : "Cancel",
+        });
+      });
+    },
+    [store]
   );
 
   // Wrap onEdgesChange pour passer à React Flow
@@ -371,32 +886,108 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     [state]
   );
 
+  const onNodeDragStart: OnNodeDrag<RFNode<NodalRFData>> = useCallback(
+    (_event, params) => {
+      const live = store.getState();
+      const id = params.id as ActionNodeId;
+      if (!(id in live.actions)) return;
+      const rewardFlowInBlocked = live.edges.some(
+        (edge) => edge.family === "flow" && edge.targetId === id && edge.sourceId in live.scenes
+      );
+      if (rewardFlowInBlocked) return;
+      document.querySelectorAll(".nodal-attach-zone-reward").forEach((el) => {
+        el.classList.add("attach-zone--active");
+      });
+    },
+    [store]
+  );
+
   const onNodeDragStop: OnNodeDrag<RFNode<NodalRFData>> = useCallback(
     (_event, draggedNode) => {
+      document.querySelectorAll(".nodal-attach-zone-reward.attach-zone--active").forEach((el) => {
+        el.classList.remove("attach-zone--active");
+      });
       const allNodes = reactFlow.getNodes();
       const latestDragged = allNodes.find((n) => n.id === draggedNode.id) ?? draggedNode;
-      const draggedAction = state.actions[draggedNode.id as keyof typeof state.actions];
-      if (!draggedAction) return;
+      const live = store.getState();
+      const draggedMedia = live.media[draggedNode.id as MediaNodeId];
+      const draggedAction = live.actions[draggedNode.id as keyof typeof live.actions];
       const nodesById = new Map(allNodes.map((n) => [n.id, n as unknown as NestedNodeLike]));
-      const childRect = toAbsoluteRect(latestDragged as unknown as NestedNodeLike, nodesById);
-      const draggedLayout = state.layout[draggedNode.id as AnyNodeId];
+      const draggedLayout = live.layout[draggedNode.id as AnyNodeId];
       if (!draggedLayout) return;
 
-      if (draggedLayout.parentId && draggedLayout.parentId in state.actions) {
+      /* C8.1.b.5-fix : pas de drag-detach pour les media (overlap nul = placement normal à côté du parent). */
+      if (draggedMedia) return;
+
+      if (!draggedAction) return;
+      const childRect = toAbsoluteRect(latestDragged as unknown as NestedNodeLike, nodesById);
+
+      if (draggedLayout.parentId && draggedLayout.parentId in live.sceneBoxes) {
+        const parentNode = nodesById.get(draggedLayout.parentId);
+        if (parentNode) {
+          const parentRect = toAbsoluteRect(parentNode, nodesById);
+          const overlap = overlapRatioByChild(childRect, parentRect);
+          if (overlap < DETACH_OVERLAP_THRESHOLD) {
+            live.detachChild(draggedNode.id as AnyNodeId, { x: childRect.x, y: childRect.y });
+            return;
+          }
+        }
+        const pl = store.getState().layout[draggedNode.id as AnyNodeId];
+        const bid = draggedLayout.parentId as SceneBoxNodeId;
+        if (pl && (pl.x < SCENE_PADDING_X || pl.y < SCENE_PADDING_TOP)) {
+          store.getState().reanchorSBox(bid);
+        }
+      } else if (draggedLayout.parentId && draggedLayout.parentId in live.actions) {
         const parentNode = nodesById.get(draggedLayout.parentId);
         if (!parentNode) return;
         const parentRect = toAbsoluteRect(parentNode, nodesById);
         const overlap = overlapRatioByChild(childRect, parentRect);
         if (overlap < DETACH_OVERLAP_THRESHOLD) {
-          state.detachChild(draggedNode.id as AnyNodeId, { x: childRect.x, y: childRect.y });
+          live.detachChild(draggedNode.id as AnyNodeId, { x: childRect.x, y: childRect.y });
         }
         return;
       }
 
-      const hasFlowInFromScene = state.edges.some(
-        (edge) => edge.family === "flow" && edge.targetId === draggedNode.id && edge.sourceId in state.scenes
+      const hasFlowInFromScene = live.edges.some(
+        (edge) => edge.family === "flow" && edge.targetId === draggedNode.id && edge.sourceId in live.scenes
       );
       if (hasFlowInFromScene) return;
+
+      /* C8.6.3 — priorité : zone DOM « récompense » (centre dedans OU recouvrement surfacique), puis meilleur score. */
+      const childCenterFlowX = childRect.x + childRect.width / 2;
+      const childCenterFlowY = childRect.y + childRect.height / 2;
+      const screenToFlow = (p: { x: number; y: number }) => reactFlow.screenToFlowPosition(p);
+      let bestZoneParentId: AnyNodeId | null = null;
+      let bestZoneScore = 0;
+      for (const el of document.querySelectorAll("[data-attach-zone=\"reward\"]")) {
+        const parentId = el.getAttribute("data-reward-parent-id");
+        if (!parentId || parentId === draggedNode.id) continue;
+        const parentAct = live.actions[parentId as ActionNodeId];
+        if (!parentAct || (parentAct.actionType !== "req" && parentAct.actionType !== "pwd")) continue;
+        if ("rewardActionId" in parentAct && parentAct.rewardActionId) continue;
+        const dom = el.getBoundingClientRect();
+        const flowBounds = domRectToFlowBounds(screenToFlow, dom);
+        if (flowBounds.width <= 0 || flowBounds.height <= 0) continue;
+        const zoneCover = overlapRatioOfZone(flowBounds, childRect);
+        const centerInZone = flowPointInRect(childCenterFlowX, childCenterFlowY, flowBounds);
+        if (!centerInZone && zoneCover < REWARD_ZONE_OVERLAP_MIN) continue;
+        const score = Math.max(zoneCover, centerInZone ? 1 : 0);
+        if (score > bestZoneScore) {
+          bestZoneScore = score;
+          bestZoneParentId = parentId as AnyNodeId;
+        }
+      }
+      if (bestZoneParentId) {
+        const parentRf = nodesById.get(bestZoneParentId);
+        if (parentRf) {
+          const parentSize = parentRf.measured?.width ?? parentRf.width ?? DEFAULT_NODE_WIDTH;
+          live.attachChild(bestZoneParentId, draggedNode.id as AnyNodeId, {
+            x: parentSize + REWARD_CHILD_GAP_X,
+            y: 0,
+          });
+          return;
+        }
+      }
 
       // Chaîne parentId lue sur le store à jour (getState) : plusieurs onNodeDragStop
       // peuvent s'enchaîner avant re-render React ; state.layout du closure serait obsolète.
@@ -416,19 +1007,25 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
       let bestRewardParentId: AnyNodeId | null = null;
       let bestRewardOverlap = 0;
-      let bestChoiceParentId: AnyNodeId | null = null;
-      let bestChoiceOverlap = 0;
+      const selectorCandidates: { id: AnyNodeId; depth: number; overlap: number }[] = [];
 
       for (const candidate of allNodes) {
         if (candidate.id === draggedNode.id) continue;
-        const candidateAction = state.actions[candidate.id as keyof typeof state.actions];
+        if (candidate.type === "sceneBoxNode") continue;
+        if (candidate.id in live.sceneBoxes) continue;
+        const candidateAction = live.actions[candidate.id as keyof typeof live.actions];
         if (!candidateAction) continue;
         const parentRect = toAbsoluteRect(candidate as unknown as NestedNodeLike, nodesById);
         const overlap = overlapRatioByChild(childRect, parentRect);
 
         if (candidateAction.actionType === "req" || candidateAction.actionType === "pwd") {
-          if (overlap > bestRewardOverlap) {
-            bestRewardOverlap = overlap;
+          /* Gros nœud vs petit REQ/PWD : `overlapRatioByChild(child, req)` reste minuscule ; on prend aussi la part du REQ recouverte. */
+          const overlapReward = Math.max(
+            overlap,
+            overlapRatioByChild(parentRect, childRect)
+          );
+          if (overlapReward > bestRewardOverlap) {
+            bestRewardOverlap = overlapReward;
             bestRewardParentId = candidate.id as AnyNodeId;
           }
         } else if (candidateAction.actionType === "selector") {
@@ -436,40 +1033,48 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           const draggedAncestors = getAncestors(draggedNode.id);
           if (candidateAncestors.has(draggedNode.id)) continue;
           if (draggedAncestors.has(candidate.id)) continue;
-          if (overlap > bestChoiceOverlap) {
-            bestChoiceOverlap = overlap;
-            bestChoiceParentId = candidate.id as AnyNodeId;
-          }
+          selectorCandidates.push({
+            id: candidate.id as AnyNodeId,
+            depth: parentIdDepth(live, candidate.id as AnyNodeId),
+            overlap,
+          });
         }
       }
+
+      /* C8.6.1 — sous-selector au premier plan : profondeur décroissante, puis overlap décroissant. */
+      selectorCandidates.sort((a, b) => b.depth - a.depth || b.overlap - a.overlap);
+      const attachThresholdForSelector = (cid: AnyNodeId): number => {
+        const n = nodesById.get(String(cid));
+        const w = n?.measured?.width ?? n?.width ?? DEFAULT_NODE_WIDTH;
+        return w < SELECTOR_SMALL_WIDTH_PX ? ATTACH_OVERLAP_THRESHOLD_SMALL_SELECTOR : ATTACH_OVERLAP_THRESHOLD;
+      };
+      const bestChoice = selectorCandidates.find((c) => c.overlap >= attachThresholdForSelector(c.id));
+      const bestChoiceParentId = bestChoice?.id ?? null;
+      const bestChoiceOverlap = bestChoice?.overlap ?? 0;
+      const bestChoiceAttachThreshold = bestChoice ? attachThresholdForSelector(bestChoice.id) : ATTACH_OVERLAP_THRESHOLD;
 
       const useRewardParent =
         bestRewardParentId !== null && bestRewardOverlap >= ATTACH_OVERLAP_THRESHOLD;
       const useChoiceParent =
         !useRewardParent &&
         bestChoiceParentId !== null &&
-        bestChoiceOverlap >= ATTACH_OVERLAP_THRESHOLD;
+        bestChoiceOverlap >= bestChoiceAttachThreshold;
 
       if (!useRewardParent && !useChoiceParent) return;
 
       const bestParentId = useRewardParent ? bestRewardParentId! : bestChoiceParentId!;
-      state.attachChild(bestParentId, draggedNode.id as AnyNodeId);
+      const parentNode = nodesById.get(bestParentId);
+      if (!parentNode) return;
 
       if (useRewardParent) {
-        const parentNode = nodesById.get(bestParentId);
-        if (!parentNode) return;
         const parentSize = parentNode.measured?.width ?? parentNode.width ?? 180;
-        state.updateNodeLayout(draggedNode.id as AnyNodeId, {
-          parentId: bestParentId,
+        live.attachChild(bestParentId, draggedNode.id as AnyNodeId, {
           x: parentSize + REWARD_CHILD_GAP_X,
           y: 0,
         });
       } else {
-        const parentNode = nodesById.get(bestParentId);
-        if (!parentNode) return;
         const parentAbsRect = toAbsoluteRect(parentNode, nodesById);
-        state.updateNodeLayout(draggedNode.id as AnyNodeId, {
-          parentId: bestParentId,
+        live.attachChild(bestParentId, draggedNode.id as AnyNodeId, {
           x: childRect.x - parentAbsRect.x,
           y: childRect.y - parentAbsRect.y,
         });
@@ -577,10 +1182,12 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         setGlobalSettingsHubOpen,
         popupThemeCustomizationOpen,
         setPopupThemeCustomizationOpen,
+        keyboardShortcutsOpen,
+        setKeyboardShortcutsOpen,
       }}
     >
       <div className={layoutClassName} ref={canvasRef}>
-        <NodePalette store={store} canvasRef={canvasRef} />
+        <NodePalette store={store} canvasRef={canvasRef} searchFieldRef={nodalSearchFieldRef} />
         <div className="nodal-canvas-pane">
         <button
           type="button"
@@ -600,8 +1207,13 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           deleteKeyCode={["Delete", "Backspace"]}
+          onBeforeDelete={onBeforeDelete}
           onNodesDelete={(deleted) => {
-            for (const n of deleted) state.removeNode(n.id as AnyNodeId);
+            for (const n of deleted) {
+              const snap = store.getState();
+              if (n.id in snap.satellites) continue;
+              snap.removeNode(n.id as AnyNodeId);
+            }
           }}
           onEdgesDelete={(deleted) => {
             for (const e of deleted) state.disconnect(e.id as EdgeId);
@@ -618,14 +1230,61 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             )
           }
           onMoveEnd={onMoveEnd}
+          onNodeDragStart={onNodeDragStart}
           onNodeDragStop={onNodeDragStop}
+          onPaneMouseMove={(e) => {
+            lastFlowPointerRef.current = reactFlow.screenToFlowPosition({
+              x: e.clientX,
+              y: e.clientY,
+            });
+          }}
+          onNodeContextMenu={onNodeContextMenu}
+          onPaneContextMenu={onPaneContextMenu}
+          onSelectionContextMenu={onSelectionContextMenu}
           fitView
         >
           <Background />
           <MiniMap />
           <Controls />
         </ReactFlow>
+        {contextMenu ? (
+          <NodalContextMenu
+            items={contextMenuItems}
+            position={{ x: contextMenu.clientX, y: contextMenu.clientY }}
+            onClose={closeContextMenu}
+            onSelect={handleContextMenuAction}
+          />
+        ) : null}
         <WarningsPanel warnings={state.warnings} />
+        <KeyboardShortcutsPopup open={keyboardShortcutsOpen} onClose={() => setKeyboardShortcutsOpen(false)} />
+        <DeleteConfirmDialog
+          open={deleteConfirm != null}
+          title={deleteConfirm?.title ?? ""}
+          body={deleteConfirm?.body ?? ""}
+          confirmLabel={deleteConfirm?.confirmLabel ?? ""}
+          cancelLabel={deleteConfirm?.cancelLabel ?? ""}
+          onCancel={() => {
+            const p = pendingDeleteFlowRef.current;
+            pendingDeleteFlowRef.current = null;
+            setDeleteConfirm(null);
+            p?.resolve(false);
+          }}
+          onConfirm={() => {
+            const p = pendingDeleteFlowRef.current;
+            if (p) {
+              const chain = flattenDeleteChains(store.getState(), p.pendingStoreIds);
+              for (const step of chain) {
+                const s = store.getState();
+                if (step in s.scenes || step in s.actions || step in s.media) {
+                  store.getState().removeNode(step);
+                }
+              }
+              pendingDeleteFlowRef.current = null;
+              p.resolve(false);
+            }
+            setDeleteConfirm(null);
+          }}
+        />
         <ObjectEditorPopup
           satellite={objectSatellite}
           objectEntry={objectEntry}

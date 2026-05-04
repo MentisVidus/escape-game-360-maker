@@ -21,11 +21,43 @@
     return !!(wrap && wrap.classList.contains("project-map-engine-nodal"));
   }
 
-  function flushNodalProjectionToDom() {
+  /** C8.3.x — flush immédiat quand `meta.startSceneId` change (hors intervalle 8 s). */
+  var startSceneHookStore = null;
+  var startSceneHookUnsub = null;
+
+  function ensureStartSceneChangeFlushHook() {
+    var st = window.__ESCAPE360_NODAL_STORE__;
+    if (!st || typeof st.subscribe !== "function") return;
+    if (startSceneHookStore === st) return;
+    if (typeof startSceneHookUnsub === "function") {
+      try {
+        startSceneHookUnsub();
+      } catch (e) {
+        /* ignore */
+      }
+      startSceneHookUnsub = null;
+    }
+    startSceneHookStore = st;
+    var prevStart = (st.getState().meta && st.getState().meta.startSceneId) || null;
+    startSceneHookUnsub = st.subscribe(function (state) {
+      var nextStart = (state.meta && state.meta.startSceneId) || null;
+      if (nextStart !== prevStart) {
+        prevStart = nextStart;
+        flushNodalProjectionToDomInner();
+      }
+    });
+  }
+
+  function flushNodalProjectionToDomInner() {
     var st = window.__ESCAPE360_NODAL_STORE__;
     var Ex = window.EditorSharedNodalToDom;
     if (!st || !Ex || typeof Ex.applyFromStore !== "function") return;
     Ex.applyFromStore(st);
+  }
+
+  function flushNodalProjectionToDom() {
+    ensureStartSceneChangeFlushHook();
+    flushNodalProjectionToDomInner();
   }
 
   function clearNodalDomInterval() {

@@ -1,5 +1,6 @@
 import { useReactFlow } from "@xyflow/react";
 import type { RefObject } from "react";
+import type { NodalSearchFieldHandle } from "./NodalSearchField";
 import { useCallback } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
@@ -8,6 +9,7 @@ import type { ActionNode, MediaNode, SceneNode } from "../../model/nodes";
 import { stableSceneNodeIdFromExternal } from "../../serialize/fromProjectJson";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
 import { useNodalUi } from "../nodalUiContext";
+import { NodalSearchField } from "./NodalSearchField";
 import "./palette.css";
 
 let counter = 0;
@@ -16,6 +18,8 @@ const nextId = (prefix: string) => `${prefix}-${Date.now()}-${++counter}`;
 type PaletteProps = {
   store: StoreApi<NodalProjectStore>;
   canvasRef: RefObject<HTMLDivElement | null>;
+  /** C8.4.1 — focus depuis Ctrl+F dans `NodalCanvas`. */
+  searchFieldRef: RefObject<NodalSearchFieldHandle | null>;
 };
 
 function paletteLocale(): "fr" | "en" {
@@ -27,7 +31,7 @@ function nodalChrome() {
   return typeof window !== "undefined" ? window.__escape360NodalChrome : undefined;
 }
 
-export function NodePalette({ store, canvasRef }: PaletteProps) {
+export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) {
   const reactFlow = useReactFlow();
   const ui = useNodalUi();
   const L = paletteLocale();
@@ -46,6 +50,8 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
           saveJson: "Save .json",
           load: "Load…",
           form: "Form editor",
+          shortcuts: "Shortcuts",
+          shortcutsHint: "Shortcuts (?)",
         }
       : {
           settings: "Paramètres globaux",
@@ -59,6 +65,8 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
           saveJson: "Sauver .json",
           load: "Charger…",
           form: "Formulaire",
+          shortcuts: "Raccourcis",
+          shortcutsHint: "Raccourcis (?)",
         };
 
   const getCenterPosition = () => {
@@ -144,6 +152,7 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
   }, [L]);
 
   const openSettingsHub = () => {
+    ui.setKeyboardShortcutsOpen(false);
     ui.setObjectEditorSatelliteId(null);
     ui.setCoordsEditorSatelliteId(null);
     ui.setChoiceEditorSatelliteId(null);
@@ -159,6 +168,7 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
 
   return (
     <aside className="nodal-palette">
+      <NodalSearchField ref={searchFieldRef} store={store} locale={L} />
       <button type="button" className="nodal-palette-gear" onClick={openSettingsHub} title={labels.settings}>
         <span className="nodal-palette-gear-icon" aria-hidden>
           ⚙
@@ -200,6 +210,17 @@ export function NodePalette({ store, canvasRef }: PaletteProps) {
       </button>
 
       <div className="nodal-palette-footer">
+        <button
+          type="button"
+          className="nodal-palette-btn-shortcuts"
+          onClick={() => ui.setKeyboardShortcutsOpen(true)}
+          title={labels.shortcutsHint}
+        >
+          <span className="nodal-palette-shortcuts-icon" aria-hidden>
+            ⌨
+          </span>
+          {labels.shortcuts}
+        </button>
         <button
           type="button"
           className="nodal-palette-btn-primary"

@@ -20,6 +20,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "jsdom": "^26.1.0",
     "@types/node": "^24.8.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

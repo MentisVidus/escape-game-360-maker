@@ -9,6 +9,7 @@ import {
   HANDLE_GOTO_OUT,
   HANDLE_META_IN,
   HANDLE_META_OUT,
+  HANDLE_SYNTH_GOTO_OUT,
 } from "./handles/handleIds";
 
 type NodeKind = "scene" | "action" | "satellite" | "media" | "unknown";
@@ -33,6 +34,9 @@ function getNodeKind(node: ReturnType<typeof getNodeById>): NodeKind {
 }
 
 export function isValidConnection(connection: Connection, state: NodalProject): boolean {
+  if (connection.sourceHandle === HANDLE_SYNTH_GOTO_OUT || connection.targetHandle === HANDLE_SYNTH_GOTO_OUT) {
+    return false;
+  }
   const source = getNodeById(state, connection.source);
   const target = getNodeById(state, connection.target);
   const sourceKind = getNodeKind(source);
@@ -61,8 +65,12 @@ export function isValidConnection(connection: Connection, state: NodalProject): 
 
   if (connection.sourceHandle === HANDLE_META_OUT && connection.targetHandle === HANDLE_META_IN) {
     if (sourceKind !== "scene" && sourceKind !== "action") return false;
-    /* C3a : les satellites sont exclusivement auto-réconciliés ; seuls les médias restent connectables à la main. */
-    return targetKind === "media";
+    if (targetKind !== "media") return false;
+    /* C8.1.b.5 : un seul meta-in par media (satellites exclus — pas de media sur cette branche). */
+    const hasIncomingMeta = state.edges.some(
+      (e) => e.family === "meta" && e.targetId === connection.target
+    );
+    return !hasIncomingMeta;
   }
 
   return false;

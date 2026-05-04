@@ -430,12 +430,18 @@ function buildPlayerHtmlTemplate() {
         return args;
     }
 
-    // 2. Parcourt des scènes v2 pour construire la config Pannellum
+    // 2. Parcourt des scènes v2 pour construire la config Pannellum (C8.3.x : firstSceneId = startSceneId si valide)
+    const sceneIdsOrdered = (project.scenes || []).map((s, i) => s.id || ("scene_" + (i + 1)));
+    const explicitStart = project.startSceneId ? String(project.startSceneId).trim() : "";
+    firstSceneId =
+        explicitStart && sceneIdsOrdered.indexOf(explicitStart) >= 0
+            ? explicitStart
+            : sceneIdsOrdered[0] || "";
+
     (project.scenes || []).forEach((scene, index) => {
         const scId = scene.id || ("scene_" + (index + 1));
         let scImg = (scene.media && scene.media.panoramaUrl) ? scene.media.panoramaUrl : "";
         scImg = playerRelMediaPathIfLocal(scImg);
-        if(index === 0) firstSceneId = scId;
 
         var amb = scene.media && scene.media.ambiance;
         var scAudioRaw =

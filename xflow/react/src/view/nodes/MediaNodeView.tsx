@@ -27,7 +27,7 @@ export function MediaNodeView({ id, data }: NodeProps) {
   return (
     <div
       className="nodal-node media media--clickable"
-      onClick={openEditor}
+      onDoubleClick={openEditor}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();

@@ -1,0 +1,68 @@
+.nodal-canvas-layout .nodal-popup-panel--keyboard-shortcuts {
+  max-width: 420px;
+  max-height: min(80vh, 520px);
+  display: flex;
+  flex-direction: column;
+}
+
+.nodal-kbd-shortcuts-body {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  margin: 0 0 12px;
+}
+
+.nodal-kbd-shortcuts-section {
+  margin-bottom: 14px;
+}
+
+.nodal-kbd-shortcuts-section:last-child {
+  margin-bottom: 0;
+}
+
+.nodal-kbd-shortcuts-section-title {
+  margin: 0 0 6px;
+  font: 700 11px/1.2 Arial, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--palette-heading, #333);
+  opacity: 0.9;
+}
+
+.dark-mode .nodal-kbd-shortcuts-section-title {
+  color: var(--palette-heading, #e8e8e8);
+}
+
+.nodal-kbd-shortcuts-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nodal-kbd-shortcuts-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+  font: 12px/1.35 Arial, sans-serif;
+  color: var(--node-text, #222);
+}
+
+.dark-mode .nodal-kbd-shortcuts-list li {
+  color: var(--node-text, #eee);
+}
+
+.nodal-kbd-shortcuts-kbd {
+  flex-shrink: 0;
+  min-width: 7.5em;
+  padding: 3px 6px;
+  border: 1px solid var(--palette-button-border, #ccc);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--palette-button-bg, #f4f4f4) 90%, transparent);
+  font: 11px/1.2 ui-monospace, monospace;
+  text-align: center;
+}
+
+.nodal-kbd-shortcuts-desc {
+  padding-top: 2px;
+}

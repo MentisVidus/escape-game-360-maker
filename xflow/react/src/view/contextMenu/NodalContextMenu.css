@@ -1,0 +1,37 @@
+.nodal-context-menu {
+  position: fixed;
+  z-index: 10050;
+  min-width: 11rem;
+  padding: 0.25rem 0;
+  margin: 0;
+  list-style: none;
+  background: var(--nodal-cm-bg, #fff);
+  border: 1px solid var(--nodal-cm-border, #c8c8c8);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.nodal-context-menu__item {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.85rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  color: var(--nodal-cm-fg, #1a1a1a);
+}
+
+.nodal-context-menu__item:hover:not(:disabled) {
+  background: var(--nodal-cm-hover, #f0f4f8);
+}
+
+.nodal-context-menu__item--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nodal-context-menu__item--danger:not(:disabled) {
+  color: #b42318;
+}
