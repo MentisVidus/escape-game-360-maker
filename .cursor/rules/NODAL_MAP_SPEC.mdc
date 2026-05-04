@@ -1446,8 +1446,8 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_8.md`.
 
 **Date d’ouverture** : 2026-05-05.
 **Branche** : `feat/c9-palette-dnd` (depuis `feat/nodal-map`).
-**Statut** : cadrage validé (Q-C9-1 à 7 + bis) — **C9.0 + C9.1 livrés** sur
-  `feat/c9-palette-dnd` ; suite C9.2–C9.4.
+**Statut** : cadrage validé (Q-C9-1 à 7 + bis) — **C9.0 → C9.2 livrés** sur
+  `feat/c9-palette-dnd` ; suite C9.3–C9.4.
 
 ### Scope figé
 
@@ -1639,18 +1639,15 @@ automatiquement.
 - `xflow/react/src/view/handles/handleIds.ts`
 - `xflow/react/src/store/nodalProjectStore.ts` (`addEdge` ou équivalent)
 
-**Phase questions (workflow §8.1)** :
-- **Q-C9.2-1** — Détection s-box à position : ré-utiliser
-  `findContainerAt(position)` ou équivalent existant (cf. ce qu’utilise
-  `onNodeDragStop` pour drag interne) ? Si oui : nom + signature.
-  Sinon : nouveau helper `findSceneBoxAt(position)`.
-- **Q-C9.2-2** — Ids handle exact pour l’edge auto : `flow-out` du
-  scene-node, `flow-in` de l’action. Confirmer via `handleIds.ts`.
-- **Q-C9.2-3** — Cas particuliers :
-  - drop d’un type sans `flow-in` (média, scene) sur s-box → fallback
-    top-level (cf. décision Q-C9-3-bis).
-  - drop `goto` sur s-box → confirmer que `goto` accepte un `flow-in`
-    entrant (scène→goto). Si oui : OK. Si non : exclure.
+**Phase questions (workflow §8.1)** — *réalisé* :
+- **Q-C9.2-1** — Nouveau helper **`findSceneBoxAtFlowPoint(state, position)`**
+  : `absoluteFlowPositionInPane` + `computeContainerBounds` +
+  `flowPointInRect` ; chevauchement → scène la plus profonde
+  (`parentIdDepth`).
+- **Q-C9.2-2** — Edge store `{ family: "flow", sourceId: sceneId, targetId: actionId }`
+  (équivalent handles `FLOW_OUT` / `FLOW_IN` en projection RF).
+- **Q-C9.2-3** — Scène / média sur s-box : branche inchangée (top-level).
+  **`goto`** : flow scène→action validé (`connectionPolicy` + test Vitest).
 
 **Périmètre** :
 - Étendre `insertNodeAtAbsolute` :
@@ -1799,4 +1796,7 @@ cours de déplacement). Pas de tracking de validité par cible
   (clic droit = suppression immédiate sur arête métier ; `synth-trans-*` ignorées).
 - 2026-05-05 — **C9.1 livré** : palette `draggable` + MIME JSON, `onDrop` canvas,
   `store/insertNodeAtAbsolute.ts`, collage via `computeTranslatedAbsolutePositions`.
+- 2026-05-05 — **C9.2 livré** : `findSceneBoxAtFlowPoint` + drop action sur s-box
+  → `parentId` s-box + edge flow scène→action ; scène/média → fallback top-level.
+  Tests Vitest ; `c8RoundtripReal` + `c8EscapegameLayoutRoundtrip` OK.
 

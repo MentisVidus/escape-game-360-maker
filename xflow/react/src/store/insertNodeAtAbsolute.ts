@@ -1,10 +1,26 @@
-import { asActionNodeId, asMediaNodeId, type ActionNodeId, type AnyNodeId, type MediaNodeId } from "../model/ids";
+import {
+  asActionNodeId,
+  asEdgeId,
+  asMediaNodeId,
+  type ActionNodeId,
+  type AnyNodeId,
+  type MediaNodeId,
+  type SceneBoxNodeId,
+  type SceneNodeId,
+} from "../model/ids";
+import type { FlowEdge } from "../model/edges";
 import type { ActionNode, MediaNode, SceneNode } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import { stableSceneNodeIdFromExternal } from "../serialize/fromProjectJson";
-import { absoluteFlowPositionInPane } from "../view/nesting/containerBounds";
+import {
+  absoluteFlowPositionInPane,
+  computeContainerBounds,
+  parentIdDepth,
+  reanchorSBox,
+} from "../view/nesting/containerBounds";
+import { flowPointInRect } from "../view/nesting/geometry";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
-import { reconcileSceneBoxes } from "./reconcileSceneBoxes";
+import { reconcileSceneBoxes, sboxIdFromScene } from "./reconcileSceneBoxes";
 
 /** MIME JSON palette → canvas (C9.1, Q-C9.1-1). */
 export const PALETTE_DRAG_MIME = "application/escape360-nodal-palette+json";
@@ -92,9 +108,70 @@ function orphanLayout(x: number, y: number) {
   return { x, y, parentId: null as const, collapsed: false };
 }
 
+/** Copie minimale de `nodalProjectStore.wouldCreateCycle` (évite import circulaire store ↔ insert). */
+function wouldCreateCycle(
+  layout: Record<string, { parentId?: AnyNodeId | null }>,
+  parentId: string,
+  childId: string
+): boolean {
+  let current: string | null | undefined = parentId;
+  const seen = new Set<string>();
+  while (current) {
+    if (seen.has(current)) return true;
+    if (current === childId) return true;
+    seen.add(current);
+    const parentNext: AnyNodeId | null | undefined = layout[current]?.parentId;
+    current = parentNext ?? undefined;
+  }
+  return false;
+}
+
+/**
+ * S-box dont le cadre (bounds conteneur) contient `position` en flow absolu.
+ * Chevauchement : priorité au s-box dont la scène est la plus profonde (C8.6.1 analogue).
+ */
+export function findSceneBoxAtFlowPoint(state: NodalProject, position: { x: number; y: number }): SceneBoxNodeId | null {
+  const hits: SceneBoxNodeId[] = [];
+  for (const bid of Object.keys(state.sceneBoxes) as SceneBoxNodeId[]) {
+    const box = state.sceneBoxes[bid];
+    if (!box || !(box.sceneId in state.scenes)) continue;
+    const abs = absoluteFlowPositionInPane(state, bid);
+    const { width, height } = computeContainerBounds(state, bid);
+    const rect = { x: abs.x, y: abs.y, width, height };
+    if (flowPointInRect(position.x, position.y, rect)) hits.push(bid);
+  }
+  if (hits.length === 0) return null;
+  if (hits.length === 1) return hits[0]!;
+  hits.sort(
+    (a, b) =>
+      parentIdDepth(state, state.sceneBoxes[a]!.sceneId) - parentIdDepth(state, state.sceneBoxes[b]!.sceneId)
+  );
+  return hits[hits.length - 1]!;
+}
+
+/** Effets layout d’un edge flow scène→action (aligné sur `nodalProjectStore.connect`). */
+function applyFlowEdgeSceneToAction(next: NodalProject, edge: FlowEdge): boolean {
+  if (!(edge.sourceId in next.scenes) || !(edge.targetId in next.actions)) return false;
+  const bid = sboxIdFromScene(edge.sourceId as SceneNodeId);
+  const childLayout = next.layout[edge.targetId as AnyNodeId];
+  const boxLayout = next.layout[bid];
+  if (!childLayout || !boxLayout || childLayout.parentId != null) return false;
+  if (wouldCreateCycle(next.layout as Record<string, { parentId?: AnyNodeId | null }>, String(bid), String(edge.targetId))) {
+    return false;
+  }
+  next.layout[edge.targetId as AnyNodeId] = {
+    ...childLayout,
+    x: childLayout.x - boxLayout.x,
+    y: childLayout.y - boxLayout.y,
+    parentId: bid,
+  };
+  reanchorSBox(next, bid);
+  return true;
+}
+
 /**
  * C9.1 — insertion top-level à une position flow absolue (`parentId` null après reconcile scène).
- * C9.2+ : étendre avec résolution de conteneur sous le point.
+ * C9.2 — drop d’action sur s-box : hotspot + edge flow scène→action.
  */
 export function insertNodeAtAbsolute(
   state: NodalProject,
@@ -135,8 +212,25 @@ export function insertNodeAtAbsolute(
   if (spec.kind === "action") {
     const id = asActionNodeId(nextAutoId("act"));
     const node = buildActionNode(id, spec.actionType);
-    next.actions[id] = node;
-    next.layout[id] = orphanLayout(position.x, position.y);
+    const bid = findSceneBoxAtFlowPoint(next, position);
+    const sceneId = bid ? (next.sceneBoxes[bid]?.sceneId as SceneNodeId | undefined) : undefined;
+
+    if (bid != null && sceneId != null) {
+      next.actions[id] = node;
+      next.layout[id] = orphanLayout(position.x, position.y);
+      const edge: FlowEdge = {
+        id: asEdgeId(nextAutoId("edge")),
+        family: "flow",
+        sourceId: sceneId,
+        targetId: id,
+      };
+      if (applyFlowEdgeSceneToAction(next, edge)) {
+        next.edges.push(edge);
+      }
+    } else {
+      next.actions[id] = node;
+      next.layout[id] = orphanLayout(position.x, position.y);
+    }
     reconcileSceneBoxes(next);
     reconcileAutoSatellites(next, nextAutoId);
     return { next, newRootIds: [id] };

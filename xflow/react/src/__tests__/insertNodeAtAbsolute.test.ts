@@ -6,10 +6,11 @@ import {
   computeTranslatedAbsolutePositions,
   decodePaletteDragPayload,
   encodePaletteDragPayload,
+  findSceneBoxAtFlowPoint,
 } from "../store/insertNodeAtAbsolute";
 import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
-import { absoluteFlowPositionInPane } from "../view/nesting/containerBounds";
+import { absoluteFlowPositionInPane, SCENE_PADDING_TOP, SCENE_PADDING_X } from "../view/nesting/containerBounds";
 
 describe("insertNodeAtAbsolute + palette D&D (C9.1)", () => {
   it("encode / decode JSON payload (Q-C9.1-1)", () => {
@@ -67,5 +68,53 @@ describe("insertNodeAtAbsolute + palette D&D (C9.1)", () => {
     const abs0 = absoluteFlowPositionInPane(snap, scene.id);
     const m = computeTranslatedAbsolutePositions(clipState, ids, { x: abs0.x + 100, y: abs0.y + 200 }, abs0);
     expect(m.get(scene.id)).toEqual({ x: abs0.x + 100, y: abs0.y + 200 });
+  });
+
+  it("C9.2 — drop action sur s-box → parent s-box + edge flow scène→action", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-drop"),
+      nodeType: "scene",
+      sceneId: "ext-drop",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const store = createNodalProjectStore();
+    store.getState().addScene(scene, { x: 400, y: 300 });
+    const snap = store.getState();
+    const bid = sboxIdFromScene(scene.id);
+    const absBox = absoluteFlowPositionInPane(snap, bid);
+    const drop = { x: absBox.x + SCENE_PADDING_X + 20, y: absBox.y + SCENE_PADDING_TOP + 20 };
+    expect(findSceneBoxAtFlowPoint(snap, drop)).toBe(bid);
+
+    store.getState().insertNodeAtAbsolute({ kind: "action", actionType: "goto" }, drop, { source: "palette" });
+    const after = store.getState();
+    const newAct = Object.values(after.actions).find((a) => a.actionType === "goto");
+    expect(newAct).toBeTruthy();
+    const aid = newAct!.id;
+    expect(after.layout[aid]?.parentId).toBe(bid);
+    const flow = after.edges.find((e) => e.family === "flow" && e.sourceId === scene.id && e.targetId === aid);
+    expect(flow).toBeTruthy();
+  });
+
+  it("C9.2 — drop média sur s-box → orphelin (pas d’edge flow)", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-m"),
+      nodeType: "scene",
+      sceneId: "ext-m",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const store = createNodalProjectStore();
+    store.getState().addScene(scene, { x: 200, y: 200 });
+    const snap = store.getState();
+    const bid = sboxIdFromScene(scene.id);
+    const absBox = absoluteFlowPositionInPane(snap, bid);
+    const drop = { x: absBox.x + SCENE_PADDING_X + 5, y: absBox.y + SCENE_PADDING_TOP + 5 };
+    store.getState().insertNodeAtAbsolute({ kind: "media", mediaType: "media-image" }, drop, { source: "palette" });
+    const after = store.getState();
+    const med = Object.values(after.media)[0];
+    expect(med).toBeTruthy();
+    expect(after.layout[med!.id]?.parentId ?? null).toBeNull();
+    expect(after.edges.some((e) => e.family === "flow" && e.targetId === med!.id)).toBe(false);
   });
 });
