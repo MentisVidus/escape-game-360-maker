@@ -66,13 +66,16 @@ describe("nodalKeyboardHandleKeyDown", () => {
     div.remove();
   });
 
-  it("Échap ignoré si popup ouverte (la popup gère)", () => {
+  it("Échap ferme la modale si popup ouverte (closeActiveModal)", () => {
     const div = document.createElement("div");
-    const h = handlers({ anyPopupOpen: true });
+    const closeActiveModal = vi.fn();
+    const h = handlers({ anyPopupOpen: true, closeActiveModal });
     const ev = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
     div.dispatchEvent(ev);
-    expect(nodalKeyboardHandleKeyDown(ev, h)).toBe(false);
+    expect(nodalKeyboardHandleKeyDown(ev, h)).toBe(true);
+    expect(closeActiveModal).toHaveBeenCalledTimes(1);
     expect(h.deselectAll).not.toHaveBeenCalled();
+    expect(ev.defaultPrevented).toBe(true);
   });
 
   it("Ctrl+F focus recherche hors popup", () => {

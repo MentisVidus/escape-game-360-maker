@@ -5,6 +5,8 @@ import { isEditingContext } from "./isEditingContext";
 /** Handlers pour les raccourcis nodaux (C8.2.1+). */
 export type NodalKeyboardHandlers = {
   anyPopupOpen: boolean;
+  /** Ferme la modale / popup au premier plan (Échap — même depuis Quill). */
+  closeActiveModal?: () => void;
   deselectAll: () => void;
   focusSearchField: () => void;
   /** C8.5.2 — copier la sélection RF (optionnel si non branché). */
@@ -20,6 +22,14 @@ export type NodalKeyboardHandlers = {
  * @returns `true` si l’événement a été consommé (`preventDefault` appliqué quand pertinent).
  */
 export function nodalKeyboardHandleKeyDown(e: KeyboardEvent, h: NodalKeyboardHandlers): boolean {
+  /* Échap + surface modale : fermer en priorité (sinon RF consomme Échap et désélectionne). */
+  if (e.key === "Escape" && h.anyPopupOpen) {
+    e.preventDefault();
+    e.stopPropagation();
+    h.closeActiveModal?.();
+    return true;
+  }
+
   if (isEditingContext(e.target)) return false;
 
   const mod = e.ctrlKey || e.metaKey;
@@ -59,6 +69,7 @@ export function nodalKeyboardHandleKeyDown(e: KeyboardEvent, h: NodalKeyboardHan
 
   if (e.key === "Escape") {
     e.preventDefault();
+    e.stopPropagation();
     h.deselectAll();
     return true;
   }
@@ -74,7 +85,8 @@ export function useNodalKeyboard(handlers: NodalKeyboardHandlers): void {
     const onKeyDown = (e: KeyboardEvent) => {
       nodalKeyboardHandleKeyDown(e, ref.current);
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    /* Capture : Échap doit fermer les popups avant que RF / le pane ne désélectionne. */
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, []);
 }

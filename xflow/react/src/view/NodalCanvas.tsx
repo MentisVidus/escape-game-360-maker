@@ -307,6 +307,89 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     ]
   );
 
+  /** Échap : une seule surface au premier plan — ordre de priorité explicite. */
+  const closeActiveModal = useCallback(() => {
+    if (deleteConfirm != null) {
+      const p = pendingDeleteFlowRef.current;
+      pendingDeleteFlowRef.current = null;
+      setDeleteConfirm(null);
+      p?.resolve(false);
+      return;
+    }
+    if (contextMenu != null) {
+      setContextMenu(null);
+      return;
+    }
+    if (keyboardShortcutsOpen) {
+      setKeyboardShortcutsOpen(false);
+      return;
+    }
+    if (popupThemeCustomizationOpen) {
+      setPopupThemeCustomizationOpen(false);
+      return;
+    }
+    if (globalSettingsHubOpen) {
+      setGlobalSettingsHubOpen(false);
+      return;
+    }
+    if (objectEditorSatelliteId) {
+      setObjectEditorSatelliteId(null);
+      return;
+    }
+    if (coordsEditorSatelliteId) {
+      setCoordsEditorSatelliteId(null);
+      return;
+    }
+    if (choiceEditorSatelliteId) {
+      setChoiceEditorSatelliteId(null);
+      return;
+    }
+    if (mediaEditorMediaId) {
+      setMediaEditorMediaId(null);
+      return;
+    }
+    if (msgEditorActionId) {
+      setMsgEditorActionId(null);
+      return;
+    }
+    if (pickEditorActionId) {
+      setPickEditorActionId(null);
+      return;
+    }
+    if (gotoEditorActionId) {
+      setGotoEditorActionId(null);
+      return;
+    }
+    if (reqEditorActionId) {
+      setReqEditorActionId(null);
+      return;
+    }
+    if (pwdEditorActionId) {
+      setPwdEditorActionId(null);
+      return;
+    }
+    if (selectorEditorActionId) {
+      setSelectorEditorActionId(null);
+      return;
+    }
+  }, [
+    deleteConfirm,
+    contextMenu,
+    keyboardShortcutsOpen,
+    popupThemeCustomizationOpen,
+    globalSettingsHubOpen,
+    objectEditorSatelliteId,
+    coordsEditorSatelliteId,
+    choiceEditorSatelliteId,
+    mediaEditorMediaId,
+    msgEditorActionId,
+    pickEditorActionId,
+    gotoEditorActionId,
+    reqEditorActionId,
+    pwdEditorActionId,
+    selectorEditorActionId,
+  ]);
+
   /* Fermer l’aide raccourcis dès qu’une autre surface modale / éditeur s’ouvre. */
   useEffect(() => {
     if (
@@ -382,6 +465,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
 
   useNodalKeyboard({
     anyPopupOpen,
+    closeActiveModal,
     deselectAll: deselectAllRf,
     focusSearchField: () => {
       nodalSearchFieldRef.current?.focus();

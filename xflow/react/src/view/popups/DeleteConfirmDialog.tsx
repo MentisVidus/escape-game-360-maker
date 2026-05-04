@@ -30,11 +30,7 @@ export function DeleteConfirmDialog({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onCancel();
-        return;
-      }
+      /* Échap : géré globalement par `useNodalKeyboard` + `closeActiveModal` (NodalCanvas). */
       if (e.key === "Enter") {
         e.preventDefault();
         onConfirm();

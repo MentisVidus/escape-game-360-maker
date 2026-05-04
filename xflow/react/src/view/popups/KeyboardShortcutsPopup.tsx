@@ -78,17 +78,7 @@ export function KeyboardShortcutsPopup({ open, onClose }: Props) {
     closeRef.current?.focus();
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  /* Échap : `useNodalKeyboard` → `closeActiveModal` (NodalCanvas). */
 
   if (!open) return null;
 
