@@ -149,7 +149,12 @@ const SAT_AUTO_TOLERANCE_PX = 30;
 const SAT_AUTO_GAP_SOUTH = 12;
 const SAT_AUTO_ROW_GAP = 88;
 
-function selectorActionContentHeight(state: NodalProject, actionId: ActionNodeId): number {
+/**
+ * Bord bas du cadre selector pour empiler le satellite (C8.6.2).
+ * Taille auto : `computeContainerBounds` (satellites du sous-arbre exclus — pas d’emboîtement selector>selector qui gonfle le parent).
+ * Taille manuelle : `layout.height`.
+ */
+function selectorSatelliteAnchorBaseY(state: NodalProject, actionId: ActionNodeId): number {
   const act = state.actions[actionId];
   const lo = state.layout[actionId];
   if (!act || act.actionType !== "selector" || !lo || lo.collapsed) {
@@ -167,7 +172,7 @@ function autoSatelliteLayoutUnderParent(
 ): NodeLayout {
   const act = state.actions[actionId];
   if (act?.actionType === "selector") {
-    const h = selectorActionContentHeight(state, actionId);
+    const h = selectorSatelliteAnchorBaseY(state, actionId);
     return {
       x: SCENE_PADDING_X,
       y: h + SAT_AUTO_GAP_SOUTH + slot * SAT_AUTO_ROW_GAP,
@@ -184,7 +189,9 @@ function shouldRepositionSatelliteSouth(cur: NodeLayout, exp: { x: number; y: nu
     Math.abs(cur.x - exp.x) <= SAT_AUTO_TOLERANCE_PX && Math.abs(cur.y - exp.y) <= SAT_AUTO_TOLERANCE_PX;
   const colAligned = Math.abs(cur.x - SCENE_PADDING_X) <= 12;
   const stillAboveOrAtSouthRow = cur.y <= exp.y + SAT_AUTO_TOLERANCE_PX;
-  return near || (colAligned && stillAboveOrAtSouthRow);
+  /** Emplacement auto attendu bien au-dessus de la position actuelle (coords enfant corrigées après un attach non atomique, etc.). */
+  const expectedWellAboveCur = exp.y + SAT_AUTO_TOLERANCE_PX < cur.y;
+  return near || (colAligned && (stillAboveOrAtSouthRow || expectedWellAboveCur));
 }
 
 const AUTO_ORDER: AutoSatelliteType[] = ["coords-options", "choice-options", "object"];

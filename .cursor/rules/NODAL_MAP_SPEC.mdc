@@ -587,7 +587,7 @@ Conséquences concrètes pour Cursor :
 - **En C1** (modèle en mémoire) : les types TypeScript prévoient **dès
   le départ** les deux modes — `rewardActionId` dans `req`/`pwd` et
   champ `parentId` dans le layout. L'API du store supporte à la fois
-  `connect(edge)` et `attachChild(parentId, childId)`. Les sérialiseurs
+  `connect(edge)` et `attachChild(parentId, childId [, { x, y } relatif])`. Les sérialiseurs
   V2 lisent les deux sources pour construire `payload.rewardAction` et
   `payload.nested.choices[]`.
 - **En C2** (rendu de base) : on expose un `flow-out` temporaire sur
@@ -1017,7 +1017,7 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
 ### C3b — Emboîtement REQ/PWD (bloc Scratch)
 
 - `xflow/react/src/view/NodalCanvas.tsx` — détection d’intersection
-  au `onNodeDragStop`, attache (`attachChild`) seuil
+  au `onNodeDragStop`, attache (`attachChild` + coords relatives **dans le même** `set` via 3ᵉ argument) seuil
   `ATTACH_OVERLAP_THRESHOLD`, détache (`detachChild`) seuil
   `DETACH_OVERLAP_THRESHOLD`, conversion absolu/relatif et position
   d’accueil (gap pince).
@@ -1037,6 +1037,8 @@ Principaux fichiers `xflow/react/src/view/` : `NodalCanvas.tsx`,
   branche `flow-out` pour REQ/PWD (selector seul conserve `flow-out`).
 - `xflow/react/src/store/nodalProjectStore.ts` — garde métier
   `attachChild` (refus hotspot/enfant déjà rattaché ailleurs) ;
+  3ᵉ argument optionnel `{ x, y }` relatifs appliqués avec `parentId`
+  en un commit (évite bounds selector fantômes avant `updateNodeLayout`) ;
   `detachChild` avec position absolue optionnelle.
 - `xflow/react/src/serialize/toProjectJson.ts` — suppression du
   fallback legacy `flow` pour `rewardActionId` (pas de rétrocompat).
@@ -4119,22 +4121,28 @@ du sous-selector. Cause : la détection d'overlap dans
 
 ##### Étape C8.6.2 — Auto-resize hybride + repositionnement satellite
 
-> **Statut (2026-05-02) — livré** : `growSelectorIfContentOverflows` / `shrinkSelectorIfLooseAfterDetach` dans `nodalProjectStore` ; projection selector sans `width`/`height` explicites via `computeContainerBounds` ; `reconcileAutoSatellites` — pile sud + règle de repositionnement ; seuil d’accroche réduit pour selectors `< 200` px dans `NodalCanvas` ; tests `c862SelectorAutoResize.test.ts`.
+> **Statut (2026-05-02) — livré** : `growSelectorIfContentOverflows` / `shrinkSelectorIfLooseAfterDetach` dans `nodalProjectStore` ; projection selector sans `width`/`height` explicites via `computeContainerBounds` (exclusion **uniquement** du satellite dont `layout.parentId ===` le conteneur courant — le parent **englobe** le satellite d’un selector enfant ; l’enfant ne gonfle pas sur **son** propre satellite) ; `reconcileAutoSatellites` — pile sud + règle de repositionnement ; `attachChild` atomique (coords rel.) ; seuil d’accroche réduit pour selectors `< 200` px dans `NodalCanvas` ; tests `c862SelectorAutoResize.test.ts` + `containerBounds.test.ts`.
 
 **Décisions design (validées)** :
 - **Mode hybride** : auto-grow quand un enfant ne rentre pas,
   shrink uniquement quand un enfant est dragué hors du selector.
   Manuel via NodeResizer reste possible.
-- **Satellite auto du selector** (`coords-options`) suit
-  automatiquement le bord sud, sauf si l'utilisateur l'a
-  explicitement déplacé.
+- **Satellite auto du selector** (`choice-options`) : pile sud ;
+  en taille **auto**, bord bas = `computeContainerBounds` (exclut
+  seulement **son** satellite direct) puis gap sud (~12px) ;
+  taille **manuelle** : `layout.height` + gap. Repositions si
+  `shouldRepositionSatelliteSouth` (tolérance / alignement colonne).
 
 **Directive — auto-resize** :
 
 1. Réutiliser `computeContainerBounds` (déjà utilisé pour s-box) sur
    les selectors : si la boîte calculée est plus grande que la
    taille manuellement définie (`layout.width / height`), promouvoir
-   la boîte calculée.
+   la boîte calculée. Exclure du périmètre uniquement les satellites
+   dont `layout[satId].parentId === containerId` (**propre** chrome
+   sous ce nœud) : selector **parent** inclut le satellite d’un selector
+   **enfant** ; selector **enfant** n’inclut pas le sien (évite la
+   boucle grow/shrink). Même règle pour **s-box** / scène.
 
 2. Détection **shrink** : déclenché par `detachChild` (un enfant
    sort du selector). Recalculer `computeContainerBounds`.
@@ -4167,8 +4175,8 @@ du sous-selector. Cause : la détection d'overlap dans
    après attachement déborde de la box du selector (relative
    coords > current width/height), élargir le selector :
    ```ts
-   attachChild: (parentId, childId) => {
-     // ... logique existante ...
+   attachChild: (parentId, childId, childRelativeLayout?) => {
+     // ... `parentId` et optionnellement `x`/`y` relatifs en un seul commit ...
      if (parent.actionType === "selector") {
        const bounds = computeContainerBounds(next, parent.id);
        next.layout[parent.id] = {
@@ -4214,6 +4222,12 @@ du sous-selector. Cause : la détection d'overlap dans
 
    Mon vote : option 3 (sans flag) pour ne pas polluer le state ;
    le flag peut être ajouté plus tard si besoin.
+
+   Complément livré : `attachChild(parent, enfant, { x, y })` côté
+   canvas évite l’état intermédiaire ; `shouldRepositionSatelliteSouth`
+   resynchronise aussi quand `exp.y` est nettement **au-dessus** de
+   `cur.y` (colonne sud), pour rattraper d’anciennes coords abs encore
+   stockées comme relatif.
 
 4. **Tests** :
    - Auto-grow : attacher une action à un selector petit → le

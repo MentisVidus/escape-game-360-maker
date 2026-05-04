@@ -114,8 +114,56 @@ export type ComputeContainerBoundsOptions = {
 };
 
 /**
+ * Satellite RF **enfant direct** du conteneur : chrome sous ce cadre uniquement.
+ * Un selector parent **inclut** donc le satellite d’un selector enfant (`parentId` = enfant, pas le parent).
+ */
+function isSatelliteExcludedFromContainerBounds(
+  state: NodalProject,
+  containerId: AnyNodeId,
+  nodeId: AnyNodeId
+): boolean {
+  if (!(nodeId in state.satellites)) return false;
+  return state.layout[nodeId]?.parentId === containerId;
+}
+
+/** Descendants pour bounds / bas de contenu : excludeIds + règle satellites ci-dessus. */
+function collectDescendantIdsForBounds(
+  state: NodalProject,
+  containerId: AnyNodeId,
+  exclude?: ReadonlySet<AnyNodeId>
+): AnyNodeId[] {
+  const childrenByParent = buildChildrenByParent(state);
+  return collectDescendantNodeIds(containerId, childrenByParent).filter(
+    (id) => !exclude?.has(id) && !isSatelliteExcludedFromContainerBounds(state, containerId, id)
+  );
+}
+
+/**
+ * Bas du contenu (max rel.y + h des descendants), **sans** marges type scène.
+ * Utilisé pour ancrer le satellite `choice-options` sous le selector sans suivre un cadre auto trop grand (C8.6.2).
+ * Retourne `0` s’il n’y a aucun descendant à compter.
+ */
+export function computeContainerContentMaxBottom(
+  state: NodalProject,
+  containerId: AnyNodeId,
+  options?: ComputeContainerBoundsOptions
+): number {
+  const descendants = collectDescendantIdsForBounds(state, containerId, options?.excludeIds);
+  let maxBottom = 0;
+  for (const id of descendants) {
+    const rel = positionRelativeToContainer(state, id, containerId);
+    if (!rel) continue;
+    const { height } = nodeMeasuredSize(state, id);
+    maxBottom = Math.max(maxBottom, rel.y + height);
+  }
+  return maxBottom;
+}
+
+/**
  * Bounding box des descendants du conteneur + marges (Annexe D 1.b.2).
  * Sans descendant visible : taille minimale compacte.
+ * Exclut uniquement les satellites dont `layout.parentId === containerId`
+ * (propre chrome sous ce nœud) — le satellite d’un selector **enfant** gonfle le **parent**, pas l’enfant.
  */
 export function computeContainerBounds(
   state: NodalProject,
@@ -123,8 +171,7 @@ export function computeContainerBounds(
   options?: ComputeContainerBoundsOptions
 ): { width: number; height: number } {
   const exclude = options?.excludeIds;
-  const childrenByParent = buildChildrenByParent(state);
-  const descendants = collectDescendantNodeIds(containerId, childrenByParent).filter((id) => !exclude?.has(id));
+  const descendants = collectDescendantIdsForBounds(state, containerId, exclude);
 
   if (descendants.length === 0) {
     const innerW = Math.max(0, SCENE_MIN_INNER_WIDTH + SCENE_PADDING_X);

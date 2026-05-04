@@ -649,6 +649,37 @@ describe("C3c selector sub-flow + contextual state", () => {
     expect(choiceMeta).toBe(true);
   });
 
+  it("attachChild atomique (parentId + rel) : selector>selector>msg ne pousse pas le satellite du sous-selector à Y énorme", () => {
+    const store = createNodalProjectStore();
+    const state = store.getState();
+    const outer = makeSelector("act-c3c-out-at", "Out");
+    const inner = makeSelector("act-c3c-in-at", "In");
+    const msg: ActionNode = {
+      id: asActionNodeId("act-c3c-msg-at"),
+      nodeType: "action",
+      actionType: "msg",
+      label: "M",
+      payload: { copy: { bodyHtml: "x", buttonLabel: "OK" } },
+      sfx: { url: "", volume: 1 },
+      visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+    };
+    state.addAction(outer, { x: 0, y: 0 });
+    state.addAction(inner, { x: 40, y: 60 });
+    state.attachChild(outer.id, inner.id, { x: 40, y: 60 });
+    state.addAction(msg, { x: 9999, y: 8888 });
+    state.attachChild(inner.id, msg.id, { x: 10, y: 16 });
+
+    const snap = store.getState();
+    const innerSatId = (Object.keys(snap.satellites) as string[]).find((sid) => {
+      const e = snap.edges.find((ed) => ed.family === "meta" && ed.targetId === sid);
+      const sat = snap.satellites[sid as keyof typeof snap.satellites];
+      return e?.sourceId === inner.id && sat?.satelliteType === "choice-options";
+    });
+    expect(innerSatId).toBeDefined();
+    const satY = snap.layout[innerSatId as keyof typeof snap.layout]!.y;
+    expect(satY).toBeLessThan(220);
+  });
+
   it("attachChild auto-parentage : no-op", () => {
     const store = createNodalProjectStore();
     const state = store.getState();

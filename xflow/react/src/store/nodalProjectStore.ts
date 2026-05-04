@@ -54,7 +54,16 @@ export type NodalProjectStore = NodalProject & {
   removeNode: (nodeId: AnyNodeId) => void;
   connect: (edge: Edge) => void;
   disconnect: (edgeId: EdgeId) => void;
-  attachChild: (parentId: AnyNodeId, childId: AnyNodeId) => void;
+  /**
+   * Attache un enfant action au parent (selector / req / pwd).
+   * Passer `childRelativeLayout` pour appliquer `x`/`y` **dans le même commit** que `parentId`
+   * (évite un reconcile avec d’anciennes coords abs encore dans le store → bounds selector explosent).
+   */
+  attachChild: (
+    parentId: AnyNodeId,
+    childId: AnyNodeId,
+    childRelativeLayout?: { x: number; y: number }
+  ) => void;
   detachChild: (childId: AnyNodeId, absolutePosition?: { x: number; y: number }) => void;
   updateNodeData: (nodeId: AnyNodeId, patch: NodePatch) => void;
   updateNodeLayout: (nodeId: AnyNodeId, patch: Partial<NodeLayout>) => void;
@@ -496,7 +505,7 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       });
     },
 
-    attachChild: (parentId, childId) => {
+    attachChild: (parentId, childId, childRelativeLayout) => {
       const state = get();
       if (parentId === childId) return;
       if (wouldCreateCycle(state.layout, parentId as string, childId as string)) {
@@ -509,7 +518,10 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       if (!childLayout) return;
       if (!(childId in state.actions)) return;
       const childActionId = childId as ActionNodeId;
-      const nextLayout = { ...state.layout, [childId]: { ...childLayout, parentId } };
+      const mergedChildLayout = childRelativeLayout
+        ? { ...childLayout, parentId, x: childRelativeLayout.x, y: childRelativeLayout.y }
+        : { ...childLayout, parentId };
+      const nextLayout = { ...state.layout, [childId]: mergedChildLayout };
       const parent = state.actions[parentId as ActionNodeId];
       if (parent && isReqOrPwd(parent) && childId in state.actions) {
         // C3b : uniquement des actions orphelines peuvent devenir récompense.

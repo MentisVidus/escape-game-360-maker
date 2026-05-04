@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
+import { asActionNodeId, asEdgeId, asSatelliteNodeId, asSceneNodeId } from "../model/ids";
 import type { ActionNode, SceneNode } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import {
   computeContainerBounds,
+  computeContainerContentMaxBottom,
   parentIdDepth,
   positionRelativeToContainer,
   reanchorSBox,
@@ -367,6 +368,260 @@ describe("computeContainerBounds (C8.1.b)", () => {
     expect(w).toBe(580 + SCENE_PADDING_X * 2);
     expect(h).toBeGreaterThan(SCENE_PADDING_TOP + 70 + SCENE_PADDING_BOTTOM - 1);
     expect(h).toBeLessThan(SCENE_PADDING_TOP + 200);
+  });
+
+  it("computeContainerBounds : s-box inclut le satellite d’une action (parentId = action, pas le s-box)", () => {
+    const sceneId = asSceneNodeId("scn-sat-in-sbox");
+    const bid = sboxIdFromScene(sceneId);
+    const msgId = asActionNodeId("act-msg-sat-sbox");
+    const satId = asSatelliteNodeId("sat-msg-sbox");
+    const scene: SceneNode = {
+      id: sceneId,
+      nodeType: "scene",
+      sceneId: "ext-sbox-sat",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const msg: ActionNode = {
+      id: msgId,
+      nodeType: "action",
+      actionType: "msg",
+      label: "M",
+      payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const state = {
+      meta: {
+        title: "T",
+        startSceneId: sceneId,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        draftActionIds: [],
+        objects: {},
+      },
+      scenes: { [sceneId]: scene },
+      sceneBoxes: { [bid]: { id: bid, nodeType: "sceneBox" as const, sceneId: sceneId } },
+      actions: { [msgId]: msg },
+      satellites: {
+        [satId]: {
+          id: satId,
+          nodeType: "satellite" as const,
+          satelliteType: "coords-options" as const,
+          data: {
+            pitch: 0,
+            yaw: 0,
+            visibility: { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true },
+            sfx: { ...sfx },
+          },
+        },
+      },
+      media: {},
+      edges: [{ id: asEdgeId("e-sbox-sat"), family: "flow" as const, sourceId: sceneId, targetId: msgId }],
+      layout: {
+        [bid]: { x: 0, y: 0, parentId: null, collapsed: false },
+        [sceneId]: { x: SCENE_PADDING_X, y: SCENE_PADDING_TOP, parentId: bid, collapsed: false },
+        [msgId]: { x: 10, y: 40, parentId: sceneId, collapsed: false },
+        [satId]: { x: 0, y: 220, parentId: msgId, collapsed: false, width: 180, height: 90 },
+      },
+    } satisfies NodalProject;
+
+    const { height } = computeContainerBounds(state, bid);
+    /* msg + satellite sous msg : bas ~ 32+40+220+90 = 382 + padBottom ; sans satellite serait ~ 32+40+70 */
+    expect(height).toBeGreaterThan(300);
+  });
+
+  it("computeContainerContentMaxBottom : bas réel des descendants (sans marges scène)", () => {
+    const selId = asActionNodeId("act-sel-maxbot");
+    const msgId = asActionNodeId("act-msg-maxbot");
+    const satId = asSatelliteNodeId("sat-sel-maxbot");
+    const selector: ActionNode = {
+      id: selId,
+      nodeType: "action",
+      actionType: "selector",
+      label: "Sel",
+      payload: {
+        nested: { title: "T", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" },
+      },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const msg: ActionNode = {
+      id: msgId,
+      nodeType: "action",
+      actionType: "msg",
+      label: "M",
+      payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const state = {
+      meta: {
+        title: "T",
+        startSceneId: null,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        draftActionIds: [],
+        objects: {},
+      },
+      scenes: {},
+      sceneBoxes: {},
+      actions: { [selId]: selector, [msgId]: msg },
+      satellites: {
+        [satId]: {
+          id: satId,
+          nodeType: "satellite" as const,
+          satelliteType: "choice-options" as const,
+          data: {
+            visibility: { requiresItem: "", hiddenIfHasItem: "" },
+            sfx: { ...sfx },
+          },
+        },
+      },
+      media: {},
+      edges: [],
+      layout: {
+        [selId]: { x: 0, y: 0, parentId: null, collapsed: false },
+        [msgId]: { x: 10, y: 10, parentId: selId, collapsed: false },
+        [satId]: { x: 0, y: 500, parentId: selId, collapsed: false, width: 180, height: 100 },
+      },
+    } satisfies NodalProject;
+
+    expect(computeContainerContentMaxBottom(state, selId)).toBe(80);
+    const { height: boxH } = computeContainerBounds(state, selId);
+    expect(boxH).toBeGreaterThan(80);
+  });
+
+  it("computeContainerBounds : selector parent englobe le satellite du sous-selector (nested)", () => {
+    const outer = asActionNodeId("act-sel-out-nest");
+    const inner = asActionNodeId("act-sel-in-nest");
+    const msgId = asActionNodeId("act-msg-nest");
+    const satInner = asSatelliteNodeId("sat-in-nest");
+    const outerSel: ActionNode = {
+      id: outer,
+      nodeType: "action",
+      actionType: "selector",
+      label: "Out",
+      payload: {
+        nested: { title: "O", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" },
+      },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const innerSel: ActionNode = {
+      id: inner,
+      nodeType: "action",
+      actionType: "selector",
+      label: "In",
+      payload: {
+        nested: { title: "I", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" },
+      },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const msg: ActionNode = {
+      id: msgId,
+      nodeType: "action",
+      actionType: "msg",
+      label: "M",
+      payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const state = {
+      meta: {
+        title: "T",
+        startSceneId: null,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        draftActionIds: [],
+        objects: {},
+      },
+      scenes: {},
+      sceneBoxes: {},
+      actions: { [outer]: outerSel, [inner]: innerSel, [msgId]: msg },
+      satellites: {
+        [satInner]: {
+          id: satInner,
+          nodeType: "satellite" as const,
+          satelliteType: "choice-options" as const,
+          data: {
+            visibility: { requiresItem: "", hiddenIfHasItem: "" },
+            sfx: { ...sfx },
+          },
+        },
+      },
+      media: {},
+      edges: [],
+      layout: {
+        [outer]: { x: 0, y: 0, parentId: null, collapsed: false },
+        [inner]: { x: 12, y: 24, parentId: outer, collapsed: false },
+        [msgId]: { x: 8, y: 16, parentId: inner, collapsed: false },
+        [satInner]: { x: 0, y: 420, parentId: inner, collapsed: false, width: 180, height: 100 },
+      },
+    } satisfies NodalProject;
+
+    const { height } = computeContainerBounds(state, outer);
+    /* satInner rel. outer : y ≈ 24+420, h 100 → le cadre parent doit monter (seul le sat *direct* du outer est exclu) */
+    expect(height).toBeGreaterThan(350);
+  });
+
+  it("computeContainerBounds : selector exclut son propre satellite des bounds (C8.6.2)", () => {
+    const selId = asActionNodeId("act-sel-sat-ex");
+    const msgId = asActionNodeId("act-msg-sat-ex");
+    const satId = asSatelliteNodeId("sat-sel-ex");
+    const selector: ActionNode = {
+      id: selId,
+      nodeType: "action",
+      actionType: "selector",
+      label: "Sel",
+      payload: {
+        nested: { title: "T", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" },
+      },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const msg: ActionNode = {
+      id: msgId,
+      nodeType: "action",
+      actionType: "msg",
+      label: "M",
+      payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const state = {
+      meta: {
+        title: "T",
+        startSceneId: null,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        draftActionIds: [],
+        objects: {},
+      },
+      scenes: {},
+      sceneBoxes: {},
+      actions: { [selId]: selector, [msgId]: msg },
+      satellites: {
+        [satId]: {
+          id: satId,
+          nodeType: "satellite" as const,
+          satelliteType: "choice-options" as const,
+          data: {
+            visibility: { requiresItem: "", hiddenIfHasItem: "" },
+            sfx: { ...sfx },
+          },
+        },
+      },
+      media: {},
+      edges: [],
+      layout: {
+        [selId]: { x: 0, y: 0, parentId: null, collapsed: false },
+        [msgId]: { x: 10, y: 10, parentId: selId, collapsed: false },
+        [satId]: { x: 0, y: 500, parentId: selId, collapsed: false, width: 180, height: 100 },
+      },
+    } satisfies NodalProject;
+
+    const { width, height } = computeContainerBounds(state, selId);
+    /* msg seul : maxBottom 80 ; si le satellite comptait, height >> 600 */
+    expect(height).toBe(80 + SCENE_PADDING_BOTTOM);
+    expect(width).toBe(190 + SCENE_PADDING_X);
   });
 });
 

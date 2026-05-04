@@ -872,23 +872,18 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       if (!useRewardParent && !useChoiceParent) return;
 
       const bestParentId = useRewardParent ? bestRewardParentId! : bestChoiceParentId!;
-      live.attachChild(bestParentId, draggedNode.id as AnyNodeId);
+      const parentNode = nodesById.get(bestParentId);
+      if (!parentNode) return;
 
       if (useRewardParent) {
-        const parentNode = nodesById.get(bestParentId);
-        if (!parentNode) return;
         const parentSize = parentNode.measured?.width ?? parentNode.width ?? 180;
-        live.updateNodeLayout(draggedNode.id as AnyNodeId, {
-          parentId: bestParentId,
+        live.attachChild(bestParentId, draggedNode.id as AnyNodeId, {
           x: parentSize + REWARD_CHILD_GAP_X,
           y: 0,
         });
       } else {
-        const parentNode = nodesById.get(bestParentId);
-        if (!parentNode) return;
         const parentAbsRect = toAbsoluteRect(parentNode, nodesById);
-        live.updateNodeLayout(draggedNode.id as AnyNodeId, {
-          parentId: bestParentId,
+        live.attachChild(bestParentId, draggedNode.id as AnyNodeId, {
           x: childRect.x - parentAbsRect.x,
           y: childRect.y - parentAbsRect.y,
         });
