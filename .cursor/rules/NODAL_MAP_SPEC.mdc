@@ -1438,3 +1438,88 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_8.md`.
 - **Transition** (famille handle) : nouvelle famille dédiée au `goto` —
   couleur bleu vif, forme triangle, edge pointillé animé.
 
+## Annexe D — Chantier C9 (en cours)
+
+> **Vivante** (§8.4) — journal de décisions, plans détaillés, traces
+> de bugs et fixes. Sera synthétisée dans **Annexe B — C9** à la
+> clôture du chantier puis archivée sous `docs/archives/chantier_9.md`.
+
+**Date d’ouverture** : 2026-05-05.
+**Branche** : `feat/c9-palette-dnd` (depuis `feat/nodal-map`).
+**Statut** : cadrage validé (Q-C9-1 à 7 + bis) — démarrage C9.0 imminent.
+
+### Scope figé
+
+Voir §7 → C9. Précisions issues de la phase questions :
+
+- **Palette latérale** : items draggables **remplacent** les boutons
+  « Ajouter X ». Clic = create top-level au centre canvas (comportement
+  actuel préservé), drag = create à position drop.
+- **Cibles de drop valides** :
+  - **Canvas vide** → nœud orphelin (état 1) à la position du drop.
+  - **S-box** → action devient hotspot (état 2), auto-edge flow
+    scène→action généré.
+  - **Selector** → action devient choix (état 3), satellite
+    `choice-options` auto-créé. Résolution **topmost-first** pour
+    sous-selectors imbriqués (cohérence C8.6.1).
+  - **REQ/PWD** → action devient récompense (état 4), déposée dans
+    la pince (zone d’accroche C8.6.3).
+- **Drop incompatible** (ex. `scene` sur s-box, `media-*` n’importe
+  où) → fallback **silencieux** en top-level à la position du drop.
+  L’auto-parentage existant (médias) prend le relais ensuite.
+  - *Note future* : ouverture prévue d’un type « retour vers scène »
+    (référence par select, comme satellite `object`) pour éviter
+    les edges spaghetti vers scènes précédentes — **hors scope C9**.
+- **Ghost pendant drag** : apparence du nœud type cible (comme un
+  nœud déjà posé sur le canvas). Pas de tracking de validité par
+  zone (fallback silencieux rend les nuances inutiles).
+- **Exclusions palette** : `coords-options`, `choice-options`,
+  `object`, s-box restent auto-managés (hors palette).
+- **Pré-requis ergonomique** : la suppression d’edge devient
+  fastidieuse avec des edges auto-créés (drop s-box) → ajouter
+  **clic droit edge → Supprimer** (sous-chantier **C9.0**, livré
+  avant C9.2).
+
+### Stratégie de découpage
+
+Convention C8 reconduite : un commit par sous-chantier ; fixes
+numérotés (`C9.x.y-fix`) si correctifs en cours de chantier.
+
+| # | Périmètre | Dépend de |
+|---|---|---|
+| **C9.0** | Clic droit edge → menu « Supprimer » | — |
+| **C9.1** | Palette items draggables + drop canvas → orphelin + helper `insertNodeAtAbsolute` factorisé avec `pasteClipboardAt` | — |
+| **C9.2** | Drop sur s-box → hotspot état 2 + auto-edge flow | C9.0, C9.1 |
+| **C9.3** | Drop sur selector (état 3, résolution sous-selector) + REQ/PWD (état 4) | C9.1 |
+| **C9.4** | Ghost node pendant drag (apparence nœud canvas) | C9.1 |
+
+### Décisions de design
+
+- **Architecture commune insertion** : `pasteClipboardAt` (C8.5.2)
+  et le drop palette partagent un helper unique
+  `insertNodeAtAbsolute(type, payload, position, opts)` qui :
+  1. Crée le nœud via `addNode`.
+  2. Détecte le conteneur topmost compatible à `position` (selector,
+     REQ/PWD ou s-box) selon les règles d’overlap C8.6.
+  3. Si incompatible (`scene` sur conteneur, etc.) ou hors conteneur
+     → top-level à `position`.
+  4. Si conteneur valide → `attachChild` + (cas s-box) création edge
+     flow auto.
+- **Stack technique** : suivre l’exemple officiel React Flow
+  `dnd-flow` (https://reactflow.dev/examples/interaction/drag-and-drop).
+  HTML5 Drag-and-Drop API côté palette
+  (`onDragStart` + `dataTransfer.setData('application/...')`),
+  `onDrop` + `onDragOver` sur le wrapper canvas,
+  `useReactFlow().screenToFlowPosition` pour la conversion
+  écran → flow.
+
+### Plan détaillé C9.0 — directives pour Cursor
+
+*(À rédiger juste avant le démarrage du sous-chantier.)*
+
+### Journal de chantier
+
+- 2026-05-05 — Ouverture Annexe D. Cadrage validé en phase questions
+  (Q-C9-1 à 7 + Q-C9-3-bis). Découpage 5 sous-chantiers, branche
+  `feat/c9-palette-dnd` à créer depuis `feat/nodal-map`.
+
