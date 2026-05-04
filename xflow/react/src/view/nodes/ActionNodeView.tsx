@@ -183,7 +183,15 @@ export function ActionNodeView({ id, data }: NodeProps) {
         </button>
       ) : null}
       {(node.actionType === "req" || node.actionType === "pwd") && !node.rewardActionId ? (
-        <div className="nodal-reward-placeholder">Récompense</div>
+        <>
+          <div
+            className="nodal-attach-zone-reward"
+            data-attach-zone="reward"
+            data-reward-parent-id={node.id}
+            aria-hidden
+          />
+          <div className="nodal-reward-placeholder">Récompense</div>
+        </>
       ) : null}
     </div>
   );

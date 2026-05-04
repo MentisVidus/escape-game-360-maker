@@ -59,3 +59,24 @@ export function overlapRatioByChild(child: Rect, candidateParent: Rect): number 
   return rectIntersectionArea(child, candidateParent) / childArea;
 }
 
+/** C8.6.3 — conversion `getBoundingClientRect` → repère flow (via `screenToFlowPosition`). */
+export type ScreenToFlowFn = (p: { x: number; y: number }) => XYPosition;
+
+export function domRectToFlowBounds(screenToFlow: ScreenToFlowFn, dom: DOMRect | DOMRectReadOnly): Rect {
+  const p1 = screenToFlow({ x: dom.left, y: dom.top });
+  const p2 = screenToFlow({ x: dom.right, y: dom.bottom });
+  const x = Math.min(p1.x, p2.x);
+  const y = Math.min(p1.y, p2.y);
+  return {
+    x,
+    y,
+    width: Math.abs(p2.x - p1.x),
+    height: Math.abs(p2.y - p1.y),
+  };
+}
+
+/** Point (repère flow) dans un rectangle axis-aligned (inclus bord). */
+export function flowPointInRect(px: number, py: number, r: Rect): boolean {
+  return px >= r.x && py >= r.y && px <= r.x + r.width && py <= r.y + r.height;
+}
+

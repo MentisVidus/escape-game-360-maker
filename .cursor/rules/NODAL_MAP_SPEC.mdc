@@ -4322,6 +4322,13 @@ dédiée** sur la pince REQ/PWD. Plus déterministe que la piste A
    - REQ avec récompense déjà attachée → zone d'accroche
      désactivée (pas de drop possible).
 
+**Statut (2026-05-02)** : **livré** — `<div class="nodal-attach-zone-reward">` avec
+`data-attach-zone="reward"` / `data-reward-parent-id` dans `ActionNodeView` ;
+`onNodeDragStop` teste en priorité le centre du nœud dragué dans la zone
+(`domRectToFlowBounds` + `flowPointInRect` dans `geometry.ts`) puis garde
+l’overlap REQ/PWD / selector ; `onNodeDragStart` → `.attach-zone--active` ;
+tests unitaires `geometryRewardZone.test.ts` ; smoke drag manuel pour le reste.
+
 **Critère de fin** :
 - Smoke : créer un REQ + une action `msg` à côté ; drag de la
   `msg` sur la zone visible à droite du REQ → attachement
@@ -4712,6 +4719,11 @@ questions ouvertes, captures pertinentes.)
     actions **Ouvrir** / **Supprimer** / **Définir départ** / **Replier** / **Aller au parent** ;
     **Copier** / **Coller** : **C8.5.2** ; **Dupliquer scène** (C8.5.3) **non poursuivie** (couvert par copier-coller du pod scène).
   - Tests : `nodalContextMenuModel.test.ts`.
+- 2026-05-02 — **C8.6.3 livré** — zone d’accroche REQ/PWD (piste B) :
+  - [ActionNodeView.tsx](xflow/react/src/view/nodes/ActionNodeView.tsx) + [nodes.css](xflow/react/src/view/nodes/nodes.css) ;
+  - [geometry.ts](xflow/react/src/view/nesting/geometry.ts) (`domRectToFlowBounds`, `flowPointInRect`) ;
+  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `onNodeDragStart` / priorité zone dans `onNodeDragStop` ;
+  - Tests : [geometryRewardZone.test.ts](xflow/react/src/__tests__/geometryRewardZone.test.ts).
 - 2026-05-02 — **C8.6.2 livré** — auto-resize selector + satellite sous bord sud + accroche petit selector :
   - [nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts) : grow/shrink après `attachChild` / `detachChild` ;
   - [nodalReactFlowProjection.ts](xflow/react/src/view/nodalReactFlowProjection.ts) : taille auto selector si pas de dimensions ;

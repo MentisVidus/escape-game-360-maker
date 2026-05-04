@@ -175,6 +175,25 @@
   opacity: 0.75;
 }
 
+/* C8.6.3 — zone d’accroche réelle (hit-test au drag) à droite du REQ/PWD */
+.nodal-attach-zone-reward {
+  position: absolute;
+  right: -88px;
+  top: 14px;
+  width: 80px;
+  height: calc(100% - 28px);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+  transition: background 120ms ease-in-out, border-color 120ms ease-in-out;
+}
+
+.nodal-attach-zone-reward.attach-zone--active {
+  background: color-mix(in srgb, var(--node-action-border) 30%, transparent);
+  border: 1px dashed var(--node-action-border);
+  border-radius: 6px;
+}
+
 .nodal-reward-placeholder {
   position: absolute;
   right: -88px;
@@ -186,6 +205,7 @@
   border-radius: 6px;
   padding: 3px 6px;
   pointer-events: none;
+  z-index: 2;
 }
 
 .nodal-detach-btn {

@@ -79,9 +79,15 @@ import {
   REWARD_CHILD_GAP_X,
   SELECTOR_SMALL_WIDTH_PX,
 } from "./nesting/constants";
-import { DEFAULT_NODE_WIDTH } from "./nesting/geometry";
 import { parentIdDepth, SCENE_PADDING_TOP, SCENE_PADDING_X } from "./nesting/containerBounds";
-import { overlapRatioByChild, toAbsoluteRect, type NestedNodeLike } from "./nesting/geometry";
+import {
+  DEFAULT_NODE_WIDTH,
+  domRectToFlowBounds,
+  flowPointInRect,
+  overlapRatioByChild,
+  toAbsoluteRect,
+  type NestedNodeLike,
+} from "./nesting/geometry";
 import {
   describeNodeForDeletion,
   flattenDeleteChains,
@@ -755,8 +761,27 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     [state]
   );
 
+  const onNodeDragStart: OnNodeDrag<RFNode<NodalRFData>> = useCallback(
+    (_event, params) => {
+      const live = store.getState();
+      const id = params.id as ActionNodeId;
+      if (!(id in live.actions)) return;
+      const rewardFlowInBlocked = live.edges.some(
+        (edge) => edge.family === "flow" && edge.targetId === id && edge.sourceId in live.scenes
+      );
+      if (rewardFlowInBlocked) return;
+      document.querySelectorAll(".nodal-attach-zone-reward").forEach((el) => {
+        el.classList.add("attach-zone--active");
+      });
+    },
+    [store]
+  );
+
   const onNodeDragStop: OnNodeDrag<RFNode<NodalRFData>> = useCallback(
     (_event, draggedNode) => {
+      document.querySelectorAll(".nodal-attach-zone-reward.attach-zone--active").forEach((el) => {
+        el.classList.remove("attach-zone--active");
+      });
       const allNodes = reactFlow.getNodes();
       const latestDragged = allNodes.find((n) => n.id === draggedNode.id) ?? draggedNode;
       const live = store.getState();
@@ -802,6 +827,30 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         (edge) => edge.family === "flow" && edge.targetId === draggedNode.id && edge.sourceId in live.scenes
       );
       if (hasFlowInFromScene) return;
+
+      /* C8.6.3 — priorité : centre du nœud dragué dans la zone DOM `data-attach-zone="reward"`. */
+      const childCenterFlowX = childRect.x + childRect.width / 2;
+      const childCenterFlowY = childRect.y + childRect.height / 2;
+      const screenToFlow = (p: { x: number; y: number }) => reactFlow.screenToFlowPosition(p);
+      for (const el of document.querySelectorAll("[data-attach-zone=\"reward\"]")) {
+        const parentId = el.getAttribute("data-reward-parent-id");
+        if (!parentId || parentId === draggedNode.id) continue;
+        const parentAct = live.actions[parentId as ActionNodeId];
+        if (!parentAct || (parentAct.actionType !== "req" && parentAct.actionType !== "pwd")) continue;
+        if ("rewardActionId" in parentAct && parentAct.rewardActionId) continue;
+        const dom = el.getBoundingClientRect();
+        const flowBounds = domRectToFlowBounds(screenToFlow, dom);
+        if (flowBounds.width <= 0 || flowBounds.height <= 0) continue;
+        if (!flowPointInRect(childCenterFlowX, childCenterFlowY, flowBounds)) continue;
+        const parentRf = nodesById.get(parentId);
+        if (!parentRf) continue;
+        const parentSize = parentRf.measured?.width ?? parentRf.width ?? DEFAULT_NODE_WIDTH;
+        live.attachChild(parentId as AnyNodeId, draggedNode.id as AnyNodeId, {
+          x: parentSize + REWARD_CHILD_GAP_X,
+          y: 0,
+        });
+        return;
+      }
 
       // Chaîne parentId lue sur le store à jour (getState) : plusieurs onNodeDragStop
       // peuvent s'enchaîner avant re-render React ; state.layout du closure serait obsolète.
@@ -1037,6 +1086,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             )
           }
           onMoveEnd={onMoveEnd}
+          onNodeDragStart={onNodeDragStart}
           onNodeDragStop={onNodeDragStop}
           onPaneMouseMove={(e) => {
             lastFlowPointerRef.current = reactFlow.screenToFlowPosition({
