@@ -5,22 +5,19 @@ import {
   type ActionNodeId,
   type AnyNodeId,
   type MediaNodeId,
-  type SceneBoxNodeId,
   type SceneNodeId,
 } from "../model/ids";
 import type { FlowEdge } from "../model/edges";
 import type { ActionNode, MediaNode, SceneNode } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import { stableSceneNodeIdFromExternal } from "../serialize/fromProjectJson";
-import {
-  absoluteFlowPositionInPane,
-  computeContainerBounds,
-  parentIdDepth,
-  reanchorSBox,
-} from "../view/nesting/containerBounds";
-import { flowPointInRect } from "../view/nesting/geometry";
+import { absoluteFlowPositionInPane, computeContainerBounds, reanchorSBox } from "../view/nesting/containerBounds";
+import { findDeepestDropContainer } from "./dropContainerResolve";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 import { reconcileSceneBoxes, sboxIdFromScene } from "./reconcileSceneBoxes";
+
+/** Ré-export tests / appels externes (C9.2). */
+export { findDeepestDropContainer, findSceneBoxAtFlowPoint, rewardZoneFlowRect } from "./dropContainerResolve";
 
 /** MIME JSON palette → canvas (C9.1, Q-C9.1-1). */
 export const PALETTE_DRAG_MIME = "application/escape360-nodal-palette+json";
@@ -126,27 +123,17 @@ function wouldCreateCycle(
   return false;
 }
 
-/**
- * S-box dont le cadre (bounds conteneur) contient `position` en flow absolu.
- * Chevauchement : priorité au s-box dont la scène est la plus profonde (C8.6.1 analogue).
- */
-export function findSceneBoxAtFlowPoint(state: NodalProject, position: { x: number; y: number }): SceneBoxNodeId | null {
-  const hits: SceneBoxNodeId[] = [];
-  for (const bid of Object.keys(state.sceneBoxes) as SceneBoxNodeId[]) {
-    const box = state.sceneBoxes[bid];
-    if (!box || !(box.sceneId in state.scenes)) continue;
-    const abs = absoluteFlowPositionInPane(state, bid);
-    const { width, height } = computeContainerBounds(state, bid);
-    const rect = { x: abs.x, y: abs.y, width, height };
-    if (flowPointInRect(position.x, position.y, rect)) hits.push(bid);
+/** C8.6.2 — aligné sur `nodalProjectStore.growSelectorIfContentOverflows`. */
+function growSelectorIfContentOverflowsProject(next: NodalProject, selectorId: ActionNodeId): void {
+  const act = next.actions[selectorId];
+  const lo = next.layout[selectorId];
+  if (!act || act.actionType !== "selector" || !lo || lo.collapsed) return;
+  if (lo.width == null || lo.height == null) return;
+  const bounds = computeContainerBounds(next, selectorId);
+  if (bounds.width > lo.width || bounds.height > lo.height) {
+    const { width: _w, height: _h, ...rest } = lo;
+    next.layout[selectorId] = { ...rest };
   }
-  if (hits.length === 0) return null;
-  if (hits.length === 1) return hits[0]!;
-  hits.sort(
-    (a, b) =>
-      parentIdDepth(state, state.sceneBoxes[a]!.sceneId) - parentIdDepth(state, state.sceneBoxes[b]!.sceneId)
-  );
-  return hits[hits.length - 1]!;
 }
 
 /** Effets layout d’un edge flow scène→action (aligné sur `nodalProjectStore.connect`). */
@@ -169,9 +156,38 @@ function applyFlowEdgeSceneToAction(next: NodalProject, edge: FlowEdge): boolean
   return true;
 }
 
+function attachActionUnderParent(
+  next: NodalProject,
+  childId: ActionNodeId,
+  parentId: ActionNodeId,
+  position: { x: number; y: number },
+  mode: "selector" | "reqPwd"
+): boolean {
+  if (wouldCreateCycle(next.layout as Record<string, { parentId?: AnyNodeId | null }>, String(parentId), String(childId))) {
+    return false;
+  }
+  const pAbs = absoluteFlowPositionInPane(next, parentId);
+  next.layout[childId] = {
+    x: position.x - pAbs.x,
+    y: position.y - pAbs.y,
+    parentId,
+    collapsed: false,
+  };
+  if (mode === "reqPwd") {
+    const pr = next.actions[parentId];
+    if (!pr || (pr.actionType !== "req" && pr.actionType !== "pwd")) return false;
+    next.actions[parentId] = { ...pr, rewardActionId: childId } as ActionNode;
+  }
+  if (mode === "selector") {
+    growSelectorIfContentOverflowsProject(next, parentId);
+  }
+  return true;
+}
+
 /**
- * C9.1 — insertion top-level à une position flow absolue (`parentId` null après reconcile scène).
- * C9.2 — drop d’action sur s-box : hotspot + edge flow scène→action.
+ * C9.1 — insertion top-level à une position flow absolue.
+ * C9.2 — drop sur s-box : hotspot + edge flow.
+ * C9.3 — selector / REQ-PWD (zone récompense) avant s-box (`findDeepestDropContainer`).
  */
 export function insertNodeAtAbsolute(
   state: NodalProject,
@@ -212,20 +228,35 @@ export function insertNodeAtAbsolute(
   if (spec.kind === "action") {
     const id = asActionNodeId(nextAutoId("act"));
     const node = buildActionNode(id, spec.actionType);
-    const bid = findSceneBoxAtFlowPoint(next, position);
-    const sceneId = bid ? (next.sceneBoxes[bid]?.sceneId as SceneNodeId | undefined) : undefined;
+    const hit = findDeepestDropContainer(next, position);
 
-    if (bid != null && sceneId != null) {
+    if (hit?.kind === "selector") {
       next.actions[id] = node;
-      next.layout[id] = orphanLayout(position.x, position.y);
-      const edge: FlowEdge = {
-        id: asEdgeId(nextAutoId("edge")),
-        family: "flow",
-        sourceId: sceneId,
-        targetId: id,
-      };
-      if (applyFlowEdgeSceneToAction(next, edge)) {
-        next.edges.push(edge);
+      if (!attachActionUnderParent(next, id, hit.id, position, "selector")) {
+        next.layout[id] = orphanLayout(position.x, position.y);
+      }
+    } else if (hit?.kind === "reqPwd") {
+      next.actions[id] = node;
+      if (!attachActionUnderParent(next, id, hit.id, position, "reqPwd")) {
+        next.layout[id] = orphanLayout(position.x, position.y);
+      }
+    } else if (hit?.kind === "sceneBox") {
+      const sceneId = next.sceneBoxes[hit.id]?.sceneId as SceneNodeId | undefined;
+      if (sceneId != null) {
+        next.actions[id] = node;
+        next.layout[id] = orphanLayout(position.x, position.y);
+        const edge: FlowEdge = {
+          id: asEdgeId(nextAutoId("edge")),
+          family: "flow",
+          sourceId: sceneId,
+          targetId: id,
+        };
+        if (applyFlowEdgeSceneToAction(next, edge)) {
+          next.edges.push(edge);
+        }
+      } else {
+        next.actions[id] = node;
+        next.layout[id] = orphanLayout(position.x, position.y);
       }
     } else {
       next.actions[id] = node;

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { asSceneNodeId, type ActionNodeId, type AnyNodeId, type SceneNodeId } from "../model/ids";
-import type { SceneNode } from "../model/nodes";
+import { asActionNodeId, asEdgeId, asSceneNodeId, type ActionNodeId, type AnyNodeId, type SceneNodeId } from "../model/ids";
+import type { ActionNode, ReqActionNode, SceneNode } from "../model/nodes";
+import { findDeepestDropContainer, rewardZoneFlowRect } from "../store/dropContainerResolve";
 import {
   computeTranslatedAbsolutePositions,
   decodePaletteDragPayload,
@@ -10,7 +11,10 @@ import {
 } from "../store/insertNodeAtAbsolute";
 import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
-import { absoluteFlowPositionInPane, SCENE_PADDING_TOP, SCENE_PADDING_X } from "../view/nesting/containerBounds";
+import { absoluteFlowPositionInPane, computeContainerBounds, SCENE_PADDING_TOP, SCENE_PADDING_X } from "../view/nesting/containerBounds";
+
+const sfx = { url: "", volume: 1 };
+const visibility = { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true };
 
 describe("insertNodeAtAbsolute + palette D&D (C9.1)", () => {
   it("encode / decode JSON payload (Q-C9.1-1)", () => {
@@ -116,5 +120,125 @@ describe("insertNodeAtAbsolute + palette D&D (C9.1)", () => {
     expect(med).toBeTruthy();
     expect(after.layout[med!.id]?.parentId ?? null).toBeNull();
     expect(after.edges.some((e) => e.family === "flow" && e.targetId === med!.id)).toBe(false);
+  });
+});
+
+describe("C9.3 — selector + REQ/PWD + résolution conteneur", () => {
+  it("findDeepestDropContainer : selector imbriqué bat le parent", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-nest"),
+      nodeType: "scene",
+      sceneId: "ext-nest",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const outer: ActionNode = {
+      id: asActionNodeId("act-out"),
+      nodeType: "action",
+      actionType: "selector",
+      label: "OUT",
+      payload: { nested: { title: "", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const inner: ActionNode = {
+      id: asActionNodeId("act-in"),
+      nodeType: "action",
+      actionType: "selector",
+      label: "IN",
+      payload: { nested: { title: "", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const store = createNodalProjectStore();
+    const s = store.getState();
+    s.addScene(scene, { x: 0, y: 0 });
+    s.addAction(outer, { x: 120, y: 120 });
+    s.connect({ id: asEdgeId("e-out"), family: "flow", sourceId: scene.id, targetId: outer.id });
+    s.addAction(inner, { x: 200, y: 200 });
+    s.attachChild(outer.id, inner.id, { x: 50, y: 50 });
+    const snap = store.getState();
+    const absIn = absoluteFlowPositionInPane(snap, inner.id);
+    const bIn = computeContainerBounds(snap, inner.id);
+    const pt = { x: absIn.x + Math.min(44, bIn.width * 0.4), y: absIn.y + Math.min(36, bIn.height * 0.4) };
+    const hit = findDeepestDropContainer(snap, pt);
+    expect(hit).toEqual({ kind: "selector", id: inner.id });
+  });
+
+  it("drop msg sur selector → enfant + satellite choice-options", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-sel"),
+      nodeType: "scene",
+      sceneId: "ext-sel",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const sel: ActionNode = {
+      id: asActionNodeId("act-sel"),
+      nodeType: "action",
+      actionType: "selector",
+      label: "SEL",
+      payload: { nested: { title: "", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const store = createNodalProjectStore();
+    const s = store.getState();
+    s.addScene(scene, { x: 0, y: 0 });
+    s.addAction(sel, { x: 80, y: 80 });
+    s.connect({ id: asEdgeId("e-sel"), family: "flow", sourceId: scene.id, targetId: sel.id });
+    const snap = store.getState();
+    const abs = absoluteFlowPositionInPane(snap, sel.id);
+    const b = computeContainerBounds(snap, sel.id);
+    const drop = { x: abs.x + b.width * 0.35, y: abs.y + b.height * 0.35 };
+    expect(findDeepestDropContainer(snap, drop)?.kind).toBe("selector");
+
+    store.getState().insertNodeAtAbsolute({ kind: "action", actionType: "msg" }, drop, { source: "palette" });
+    const after = store.getState();
+    const msg = Object.values(after.actions).find((a) => a.actionType === "msg" && a.id !== sel.id);
+    expect(msg).toBeTruthy();
+    expect(after.layout[msg!.id]?.parentId).toBe(sel.id);
+    const choiceSat = Object.values(after.satellites).find((sat) => sat.satelliteType === "choice-options");
+    expect(choiceSat).toBeTruthy();
+    const meta = after.edges.find((e) => e.family === "meta" && e.sourceId === msg!.id && e.targetId === choiceSat!.id);
+    expect(meta).toBeTruthy();
+  });
+
+  it("drop msg sur REQ vide → rewardActionId + parent REQ", () => {
+    const scene: SceneNode = {
+      id: asSceneNodeId("scn-r"),
+      nodeType: "scene",
+      sceneId: "ext-r",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const req: ActionNode = {
+      id: asActionNodeId("act-r"),
+      nodeType: "action",
+      actionType: "req",
+      label: "R",
+      payload: { itemId: "", copy: { bodyHtml: "", buttonLabel: "" } },
+      rewardActionId: null,
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const store = createNodalProjectStore();
+    const s = store.getState();
+    s.addScene(scene, { x: 0, y: 0 });
+    s.addAction(req, { x: 250, y: 180 });
+    s.connect({ id: asEdgeId("e-r"), family: "flow", sourceId: scene.id, targetId: req.id });
+    const snap = store.getState();
+    const z = rewardZoneFlowRect(snap, req.id);
+    expect(z).toBeTruthy();
+    const drop = { x: z!.x + z!.width / 2, y: z!.y + z!.height / 2 };
+    expect(findDeepestDropContainer(snap, drop)?.kind).toBe("reqPwd");
+
+    store.getState().insertNodeAtAbsolute({ kind: "action", actionType: "msg" }, drop, { source: "palette" });
+    const after = store.getState();
+    const r = after.actions[req.id];
+    expect(r?.actionType === "req" ? r.rewardActionId : null).toBeTruthy();
+    const rid = (r as ReqActionNode).rewardActionId!;
+    expect(after.layout[rid]?.parentId).toBe(req.id);
+    expect(rewardZoneFlowRect(after, req.id)).toBeNull();
   });
 });

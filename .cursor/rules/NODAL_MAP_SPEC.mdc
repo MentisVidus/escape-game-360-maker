@@ -1446,8 +1446,8 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_8.md`.
 
 **Date d’ouverture** : 2026-05-05.
 **Branche** : `feat/c9-palette-dnd` (depuis `feat/nodal-map`).
-**Statut** : cadrage validé (Q-C9-1 à 7 + bis) — **C9.0 → C9.2 livrés** sur
-  `feat/c9-palette-dnd` ; suite C9.3–C9.4.
+**Statut** : cadrage validé (Q-C9-1 à 7 + bis) — **C9.0 → C9.3 livrés** sur
+  `feat/c9-palette-dnd` ; suite C9.4.
 
 ### Scope figé
 
@@ -1691,24 +1691,13 @@ sur REQ/PWD (création récompense état 4).
 - C8.6.1 — résolution topmost-first sub-selector : déjà appliquée à
   `onNodeDragStop`, à mutualiser
 
-**Phase questions (workflow §8.1)** :
-- **Q-C9.3-1** — Exposer un helper réutilisable
-  `findDeepestContainerAt(position, validTypes)`, ou inliner la
-  résolution dans `insertNodeAtAbsolute` ? *Vote : helper réutilisable
-  — `onNodeDragStop` pourra y migrer plus tard pour DRY.*
-- **Q-C9.3-2** — Drop sur sous-selector imbriqué : confirmer que la
-  résolution descend jusqu’au selector le plus profond (pas le parent).
-  Tests à ajouter pour ce cas.
-- **Q-C9.3-3** — Détection zone REQ/PWD : réutiliser bounds géométriques
-  de `geometryRewardZone` (cohérent avec la zone visuelle C8.6.3) ou
-  passer par overlap DOM ? *Vote : géométrique, même helper que
-  `onNodeDragStop`.*
-- **Q-C9.3-4** — Selector saturé (si limite max choix existe) : drop
-  refusé ou fallback top-level ? *Vote : fallback top-level (cohérent
-  avec doctrine « fallback silencieux ».)*
-- **Q-C9.3-5** — REQ/PWD avec récompense déjà attachée : remplacer ?
-  refuser ? fallback top-level ? *Vote : fallback top-level. Pas de
-  remplacement implicite.*
+**Phase questions (workflow §8.1)** — *réalisé* :
+- **Q-C9.3-1** — `dropContainerResolve.ts` : `findDeepestDropContainer` +
+  `rewardZoneFlowRect` (réexport depuis `insertNodeAtAbsolute` pour tests).
+- **Q-C9.3-2** — Selectors triés par profondeur décroissante ; test imbriqué.
+- **Q-C9.3-3** — Zone récompense géométrique (alignée C8.6.3 / `nodes.css`).
+- **Q-C9.3-4** / **Q-C9.3-5** — Saturation / REQ occupé : pas de hit conteneur
+  → fallback top-level (pas de remplacement implicite).
 
 **Périmètre** :
 - Étendre `insertNodeAtAbsolute` :
@@ -1799,4 +1788,7 @@ cours de déplacement). Pas de tracking de validité par cible
 - 2026-05-05 — **C9.2 livré** : `findSceneBoxAtFlowPoint` + drop action sur s-box
   → `parentId` s-box + edge flow scène→action ; scène/média → fallback top-level.
   Tests Vitest ; `c8RoundtripReal` + `c8EscapegameLayoutRoundtrip` OK.
+- 2026-05-05 — **C9.3 livré** : `dropContainerResolve.ts` (`findDeepestDropContainer`,
+  `rewardZoneFlowRect` géométrique C8.6.3), insertion selector / REQ-PWD avant s-box ;
+  tests imbriqués + choice-options + récompense.
 
