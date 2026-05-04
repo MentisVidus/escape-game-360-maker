@@ -1446,8 +1446,8 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_8.md`.
 
 **Date d’ouverture** : 2026-05-05.
 **Branche** : `feat/c9-palette-dnd` (depuis `feat/nodal-map`).
-**Statut** : cadrage validé (Q-C9-1 à 7 + bis) — **C9.0 → C9.3 livrés** sur
-  `feat/c9-palette-dnd` ; suite C9.4.
+**Statut** : cadrage validé (Q-C9-1 à 7 + bis) — **C9.0 → C9.4 livrés** sur
+  `feat/c9-palette-dnd`.
 
 ### Scope figé
 
@@ -1741,19 +1741,11 @@ cours de déplacement). Pas de tracking de validité par cible
 - API HTML5 D&D : `event.dataTransfer.setDragImage(element, x, y)`
 - Exemple React Flow `dnd-flow` (lien spec)
 
-**Phase questions (workflow §8.1)** :
-- **Q-C9.4-1** — Stratégie de rendu ghost :
-  - (a) `setDragImage` avec un élément DOM cloné à la volée du
-    composant nœud (rendu mini off-screen) ;
-  - (b) `setDragImage` avec une image statique (PNG/SVG) par type ;
-  - (c) overlay React custom suivant `dragover` events (plus de
-    contrôle, plus de code).
-  *Vote : (a) si faisable proprement, sinon (c). (b) trop figé.*
-- **Q-C9.4-2** — Position du ghost : centré sous le curseur ou offset
-  coin haut-gauche ? *Vote : centré (plus naturel pour D&D créatif).*
-- **Q-C9.4-3** — Apparence : opacité réduite (~70%) pour signaler
-  « en cours de pose », ou apparence pleine (= nœud canvas) ?
-  *Vote : opacité réduite, distingue du nœud déjà posé.*
+**Phase questions (workflow §8.1)** — *réalisé* :
+- **Q-C9.4-1** — `paletteDragGhost.ts` : DOM off-screen + classes
+  `nodal-node` / `nodes.css` (pas d’overlay React).
+- **Q-C9.4-2** — `setDragImage(host, width/2, height/2)`.
+- **Q-C9.4-3** — opacité hôte `0.7` ; retrait au `dragend`.
 
 **Périmètre** :
 - Au `onDragStart` palette : générer le ghost selon Q-C9.4-1 et
@@ -1791,4 +1783,6 @@ cours de déplacement). Pas de tracking de validité par cible
 - 2026-05-05 — **C9.3 livré** : `dropContainerResolve.ts` (`findDeepestDropContainer`,
   `rewardZoneFlowRect` géométrique C8.6.3), insertion selector / REQ-PWD avant s-box ;
   tests imbriqués + choice-options + récompense.
+- 2026-05-05 — **C9.4 livré** : `paletteDragGhost.ts` + `setDragImage` depuis la palette
+  (ghost type canvas, centré, opacité 0.7). Pas de test jsdom (API D&D) — vérif manuelle.
 

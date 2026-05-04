@@ -4,7 +4,6 @@ import type { NodalSearchFieldHandle } from "./NodalSearchField";
 import { useCallback } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import type { ActionNode, MediaNode } from "../../model/nodes";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
 import {
   encodePaletteDragPayload,
@@ -13,6 +12,7 @@ import {
 } from "../../store/insertNodeAtAbsolute";
 import { useNodalUi } from "../nodalUiContext";
 import { NodalSearchField } from "./NodalSearchField";
+import { setPaletteDragGhostImage } from "./paletteDragGhost";
 import "./palette.css";
 
 type PaletteProps = {
@@ -31,7 +31,7 @@ function nodalChrome() {
   return typeof window !== "undefined" ? window.__escape360NodalChrome : undefined;
 }
 
-function onPaletteDragStart(e: ReactDragEvent, spec: PaletteInsertSpec) {
+function onPaletteDragStart(e: ReactDragEvent<HTMLElement>, spec: PaletteInsertSpec, locale: "fr" | "en") {
   e.dataTransfer.effectAllowed = "copy";
   e.dataTransfer.setData(PALETTE_DRAG_MIME, encodePaletteDragPayload(spec));
   try {
@@ -39,6 +39,7 @@ function onPaletteDragStart(e: ReactDragEvent, spec: PaletteInsertSpec) {
   } catch {
     /* certains navigateurs restreignent setData */
   }
+  setPaletteDragGhostImage(e, spec, locale);
 }
 
 export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) {
@@ -140,7 +141,7 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
         type="button"
         className="nodal-palette-draggable"
         draggable
-        onDragStart={(e) => onPaletteDragStart(e, { kind: "scene" })}
+        onDragStart={(e) => onPaletteDragStart(e, { kind: "scene" }, L)}
         onClick={() => insertAtCenter({ kind: "scene" })}
       >
         {labels.addScene}
@@ -162,7 +163,7 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           type="button"
           className="nodal-palette-draggable"
           draggable
-          onDragStart={(e) => onPaletteDragStart(e, { kind: "action", actionType })}
+          onDragStart={(e) => onPaletteDragStart(e, { kind: "action", actionType }, L)}
           onClick={() => insertAtCenter({ kind: "action", actionType })}
         >
           {label}
@@ -174,7 +175,7 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
         type="button"
         className="nodal-palette-draggable"
         draggable
-        onDragStart={(e) => onPaletteDragStart(e, { kind: "media", mediaType: "media-image" })}
+        onDragStart={(e) => onPaletteDragStart(e, { kind: "media", mediaType: "media-image" }, L)}
         onClick={() => insertAtCenter({ kind: "media", mediaType: "media-image" })}
       >
         Image
@@ -183,7 +184,7 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
         type="button"
         className="nodal-palette-draggable"
         draggable
-        onDragStart={(e) => onPaletteDragStart(e, { kind: "media", mediaType: "media-audio" })}
+        onDragStart={(e) => onPaletteDragStart(e, { kind: "media", mediaType: "media-audio" }, L)}
         onClick={() => insertAtCenter({ kind: "media", mediaType: "media-audio" })}
       >
         Audio
