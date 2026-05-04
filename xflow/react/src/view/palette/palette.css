@@ -64,6 +64,20 @@
   box-sizing: border-box;
 }
 
+/* C9.4 — hôte `setDragImage` (retiré au dragend) */
+.nodal-palette-drag-ghost-host {
+  box-sizing: border-box;
+}
+
+/* C9.1 — items palette draggables vers le canvas */
+.nodal-palette-draggable {
+  cursor: grab;
+}
+
+.nodal-palette-draggable:active {
+  cursor: grabbing;
+}
+
 .nodal-palette-gear {
   display: flex;
   align-items: center;

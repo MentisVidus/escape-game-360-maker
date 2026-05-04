@@ -1,13 +1,31 @@
-# NODAL_MAP_SPEC
+﻿# NODAL_MAP_SPEC
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.7 (4 mai 2026)
+> **Version** : 1.8 (5 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+
+> **Changelog v1.8** : clôture **chantier C9** — drag & drop depuis la
+> palette. Découpage livré : **C9.0** clic droit sur edge métier →
+> **suppression immédiate** (`disconnect`, sans menu ; `synth-trans-*`
+> ignorées) ; **C9.1** palette items draggables + MIME JSON,
+> `insertNodeAtAbsolute` + drop canvas (orphelin), helper partagé avec
+> `pasteClipboardAt` ; **C9.2** drop s-box → hotspot état 2 + auto-edge
+> flow scène→action ; **C9.3** drop selector (choix état 3,
+> sous-selector profondeur décroissante) + REQ/PWD (récompense état 4,
+> `dropContainerResolve` / `rewardZoneFlowRect`) ; **C9.4** ghost node
+> pendant drag (`paletteDragGhost`, `setDragImage`).
+>
+> **Écartés** : aucun sous-chantier C9.0–C9.4 retiré du plan. Option
+> overlay React pour le ghost (C9.4) non retenue au profit de
+> `setDragImage` + DOM hors écran.
+>
+> Détail fichiers : **Annexe B — C9**. Journal de chantier (plans
+> détaillés + décisions de design) : `docs/archives/chantier_9.md`.
 
 > **Changelog v1.7** : clôture **chantier C8** — ajustements UX carte
 > nodale. Découpage livré : **C8.1.a** selector replié (chevron, `hidden`
@@ -909,9 +927,12 @@ ou backlog produit).
 
 ### C9 — Drag & drop depuis la palette
 
+- **Livré** (2026-05-05) — synthèse **Annexe B — C9**, journal
+  `docs/archives/chantier_9.md`.
 - Palette **latérale** (pas horizontale).
-- Drag & drop vers la vue.
-- Aperçu au survol.
+- Drag & drop vers la vue (palette → canvas, conteneurs C9.2–C9.3).
+- Ghost pendant drag (**C9.4**) ; pas de surcouche « survol » par cible
+  de drop (fallback silencieux).
 
 ---
 
@@ -1416,6 +1437,33 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_8.md`.
 - **Smoke dédié `SMK-C8-*`** — jamais formalisé en suite automatisée ; la recette
   C7 `SMK-01…10` reste la base ; extensions manuelles possibles.
 - **Reports §7** — inchangés (zoom auto sélection, undo/redo, `updatePreview` thème, …).
+
+### C9 — Drag & drop depuis la palette *(clôture chantier 2026-05-05)*
+
+**Branche** : `feat/c9-palette-dnd` (depuis `feat/nodal-map`). **Journal
+détaillé** (plans + décisions de design) : `docs/archives/chantier_9.md`.
+
+**Périmètre livré (synthèse)** :
+
+- **C9.0** — Clic droit sur edge métier → **suppression immédiate**
+  (`disconnect`, sans menu intermédiaire ; arêtes `synth-trans-*` ignorées).
+- **C9.1** — Items palette **draggables** (clic = création au centre canvas
+  inchangée), drop canvas → orphelin top-level ; helper
+  `insertNodeAtAbsolute` factorisé avec `pasteClipboardAt`.
+- **C9.2** — Drop sur s-box → hotspot état 2 + auto-edge flow scène→action.
+- **C9.3** — Drop sur selector (état 3, sous-selector imbriqué) + REQ/PWD
+  (récompense état 4, zone géométrique alignée C8.6.3).
+- **C9.4** — Ghost node pendant drag (apparence type nœud canvas,
+  `setDragImage`).
+
+**Reste éventuel (hors clôture stricte C9)** :
+
+- **« Retour vers scène »** (référence par select / anti-spaghetti edges) —
+  noté en scope figé, **hors livraison C9**.
+- **Tests automatisés du ghost** — limites jsdom sur l’API D&D ; recette
+  manuelle (journal C9.4).
+- **DRY** — mutualiser `findDeepestDropContainer` avec `onNodeDragStop` :
+  reporté, non bloquant.
 
 ## Annexe C — Glossaire
 

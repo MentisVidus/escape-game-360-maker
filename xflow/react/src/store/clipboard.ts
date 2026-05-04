@@ -18,6 +18,7 @@ import type { NodalProject } from "../model/project";
 import { attachMediaToMetaSource } from "./mediaMetaLayout";
 import { sboxIdFromScene } from "./reconcileSceneBoxes";
 import { absoluteFlowPositionInPane, buildChildrenByParent, collectDescendantNodeIds } from "../view/nesting/containerBounds";
+import { computeTranslatedAbsolutePositions } from "./insertNodeAtAbsolute";
 
 export type ClipboardSubgraph = {
   scenes: Record<string, SceneNode>;
@@ -243,13 +244,7 @@ export function pasteClipboard(
     idMap.set(sid as AnyNodeId, asSatelliteNodeId(nextAutoId("sat")));
   }
 
-  const dx = pasteAbs.x - clip.originAbs.x;
-  const dy = pasteAbs.y - clip.originAbs.y;
-  const newAbsByOld = new Map<AnyNodeId, { x: number; y: number }>();
-  for (const id of ids) {
-    const abs = absoluteFlowPositionInPane(clipState, id);
-    newAbsByOld.set(id, { x: abs.x + dx, y: abs.y + dy });
-  }
+  const newAbsByOld = computeTranslatedAbsolutePositions(clipState, ids, pasteAbs, clip.originAbs);
 
   const newScenes: NodalProject["scenes"] = { ...state.scenes };
   const newBoxes: NodalProject["sceneBoxes"] = { ...state.sceneBoxes };

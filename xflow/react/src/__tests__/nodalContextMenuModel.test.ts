@@ -4,6 +4,10 @@ import { asActionNodeId, asEdgeId, type AnyNodeId, asSceneNodeId } from "../mode
 import type { ActionNode, SceneNode } from "../model/nodes";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 import { buildNodalContextMenuItems } from "../view/contextMenu/nodalContextMenuModel";
+import {
+  isSynthTransitionProjectionEdgeId,
+  SYNTH_TRANSITION_RF_EDGE_ID_PREFIX,
+} from "../view/nodalReactFlowProjection";
 
 const sfx = { url: "", volume: 1 };
 const visibility = { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true };
@@ -112,5 +116,12 @@ describe("buildNodalContextMenuItems (C8.5.1)", () => {
     const sboxId = sboxIds[0]!;
     const items = buildNodalContextMenuItems(snap, "fr", sboxId as AnyNodeId, [sboxId], true);
     expect(items.map((i) => i.action)).toEqual(["toggle-fold"]);
+  });
+});
+
+describe("isSynthTransitionProjectionEdgeId (C9.0)", () => {
+  it("reconnaît le préfixe edges projetées selector replié", () => {
+    expect(isSynthTransitionProjectionEdgeId(`${SYNTH_TRANSITION_RF_EDGE_ID_PREFIX}a-b`)).toBe(true);
+    expect(isSynthTransitionProjectionEdgeId("e-real-1")).toBe(false);
   });
 });

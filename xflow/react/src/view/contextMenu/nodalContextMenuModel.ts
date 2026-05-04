@@ -97,6 +97,7 @@ export function buildNodalContextMenuItems(
 
   if (targetId in snap.actions) {
     const act = snap.actions[targetId as ActionNodeId];
+    if (!act) return out;
     const isSelector = act.actionType === "selector";
     out.push({ action: "open", label: t.open });
     out.push({ action: "copy-target", label: t.copy });
