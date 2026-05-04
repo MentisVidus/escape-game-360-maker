@@ -110,6 +110,7 @@ import { PwdContentPopup } from "./popups/PwdContentPopup";
 import { SelectorContentPopup } from "./popups/SelectorContentPopup";
 import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
 import { DeleteConfirmDialog } from "./popups/DeleteConfirmDialog";
+import { KeyboardShortcutsPopup } from "./popups/KeyboardShortcutsPopup";
 import {
   buildNodalContextMenuItems,
   contextMenuParentTarget,
@@ -157,6 +158,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [selectorEditorActionId, setSelectorEditorActionId] = useState<ActionNodeId | null>(null);
   const [globalSettingsHubOpen, setGlobalSettingsHubOpen] = useState(false);
   const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
+  const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     title: string;
     body: string;
@@ -283,6 +285,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       !!selectorEditorActionId ||
       globalSettingsHubOpen ||
       popupThemeCustomizationOpen ||
+      keyboardShortcutsOpen ||
       deleteConfirm != null ||
       contextMenu != null,
     [
@@ -298,10 +301,48 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       selectorEditorActionId,
       globalSettingsHubOpen,
       popupThemeCustomizationOpen,
+      keyboardShortcutsOpen,
       deleteConfirm,
       contextMenu,
     ]
   );
+
+  /* Fermer l’aide raccourcis dès qu’une autre surface modale / éditeur s’ouvre. */
+  useEffect(() => {
+    if (
+      objectEditorSatelliteId ||
+      coordsEditorSatelliteId ||
+      choiceEditorSatelliteId ||
+      mediaEditorMediaId ||
+      msgEditorActionId ||
+      pickEditorActionId ||
+      gotoEditorActionId ||
+      reqEditorActionId ||
+      pwdEditorActionId ||
+      selectorEditorActionId ||
+      globalSettingsHubOpen ||
+      popupThemeCustomizationOpen ||
+      deleteConfirm != null ||
+      contextMenu != null
+    ) {
+      setKeyboardShortcutsOpen(false);
+    }
+  }, [
+    objectEditorSatelliteId,
+    coordsEditorSatelliteId,
+    choiceEditorSatelliteId,
+    mediaEditorMediaId,
+    msgEditorActionId,
+    pickEditorActionId,
+    gotoEditorActionId,
+    reqEditorActionId,
+    pwdEditorActionId,
+    selectorEditorActionId,
+    globalSettingsHubOpen,
+    popupThemeCustomizationOpen,
+    deleteConfirm,
+    contextMenu,
+  ]);
 
   const deselectAllRf = useCallback(() => {
     reactFlow.setNodes((nodes) => nodes.map((n) => ({ ...n, selected: false })));
@@ -339,18 +380,17 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     applyPasteSelection(newIds);
   }, [getPasteFlowPosition, store, applyPasteSelection]);
 
-  /** Touche D : no-op (C8.5.3 ignorée ; copier-coller scène = C8.5.2). */
-  const duplicateSelectionStub = useCallback(() => {}, []);
-
   useNodalKeyboard({
     anyPopupOpen,
     deselectAll: deselectAllRf,
-    duplicateSelection: duplicateSelectionStub,
     focusSearchField: () => {
       nodalSearchFieldRef.current?.focus();
     },
     copySelection: copyRfSelectionToClipboard,
     pasteFromClipboard: pasteAtPointerOrCenter,
+    openShortcutsHelp: () => {
+      setKeyboardShortcutsOpen(true);
+    },
   });
 
   useEffect(() => {
@@ -1059,6 +1099,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         setGlobalSettingsHubOpen,
         popupThemeCustomizationOpen,
         setPopupThemeCustomizationOpen,
+        keyboardShortcutsOpen,
+        setKeyboardShortcutsOpen,
       }}
     >
       <div className={layoutClassName} ref={canvasRef}>
@@ -1131,6 +1173,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           />
         ) : null}
         <WarningsPanel warnings={state.warnings} />
+        <KeyboardShortcutsPopup open={keyboardShortcutsOpen} onClose={() => setKeyboardShortcutsOpen(false)} />
         <DeleteConfirmDialog
           open={deleteConfirm != null}
           title={deleteConfirm?.title ?? ""}

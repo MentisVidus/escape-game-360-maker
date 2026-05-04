@@ -42,6 +42,9 @@ export type NodalUiContextValue = {
   setGlobalSettingsHubOpen: (open: boolean) => void;
   popupThemeCustomizationOpen: boolean;
   setPopupThemeCustomizationOpen: (open: boolean) => void;
+  /** C8.2.3 — popup aide raccourcis. */
+  keyboardShortcutsOpen: boolean;
+  setKeyboardShortcutsOpen: (open: boolean) => void;
 };
 
 export const NodalUiContext = createContext<NodalUiContextValue | null>(null);

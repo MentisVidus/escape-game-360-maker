@@ -858,9 +858,10 @@ absorption opportuniste. Cocher / déplacer dès qu’un item est traité.
 Scope finalisé (journal **Annexe D — Chantier C8**, synthèse **Annexe B — C8**) :
 
 - **Nœuds repliables** (état `collapsed` déjà réservé en `map-layout.json`).
-- **Raccourcis clavier** : `Delete`/`Backspace` (suppression), `Ctrl+D`
-  (duplication), `Ctrl+C` / `Ctrl+V` (copier/coller), `Échap` (fermer
-  popup), `Ctrl+A` (tout sélectionner).
+- **Raccourcis clavier** : `Delete`/`Backspace` (suppression), `Ctrl+C` /
+  `Ctrl+V` (copier/coller), `Ctrl+F` (recherche), `?` (aide raccourcis),
+  `Échap` (désélection / fermer popup). **`Ctrl+A`** : à coordonner avec
+  la sélection RF si repris plus tard.
 - **Indicateur visuel de la scène initiale** (badge / couleur / icône
   dédiés sur le nœud `scene` qui correspond au `firstScene`).
 - **Recherche de nœud** (`Ctrl+F`) par titre / id, avec navigation
@@ -1370,6 +1371,8 @@ détaillé** : **Annexe D — Chantier C8** (archive conservée dans ce fichier)
   polish cadre (`nodalSceneBoxLayoutByExternalId`, `reconcileSceneBoxes`, …).
 - **C8.2.1** — Hook clavier (`isEditingContext`), **Échap**, **Ctrl/Cmd+F** → recherche.
 - **C8.2.2** — Confirmations suppression (`onBeforeDelete`, `describeNodeForDeletion`, …).
+- **C8.2.3** — Popup **Raccourcis** (`KeyboardShortcutsPopup`, bouton palette, touche **`?`**,
+  état `keyboardShortcutsOpen` dans `NodalUiContext`).
 - **C8.3** + **C8.3.x** — Badge départ + chaîne nodal → DOM → `startSceneId` → `generateGame`.
 - **C8.4.1** — Recherche nœuds (palette + `searchNodes`, `NodalSearchField`).
 - **C8.5.1** (partiel) + **C8.5.2** — Menu contextuel, double-clic édition, **Ctrl+C/V**,
@@ -1382,9 +1385,6 @@ détaillé** : **Annexe D — Chantier C8** (archive conservée dans ce fichier)
 
 **Reste éventuel (hors clôture stricte C8)** :
 
-- **C8.2.3** — Popup « Raccourcis » (bouton palette + touche `?`) — plan rédigé, non implémenté.
-- **Touche `D`** — `duplicateSelection` encore **stub** dans `NodalCanvas.tsx` ;
-  branchement sur copier-coller / paste à la souris si souhaité.
 - **Smoke dédié `SMK-C8-*`** — jamais formalisé en suite automatisée ; la recette
   C7 `SMK-01…10` reste la base ; extensions manuelles possibles.
 - **Reports §7** — inchangés (zoom auto sélection, undo/redo, `updatePreview` thème, …).
@@ -1428,8 +1428,8 @@ détaillé** : **Annexe D — Chantier C8** (archive conservée dans ce fichier)
 Voir §7 → C8. Rappel synthétique :
 
 - **C8.1** Nœuds repliables (`collapsed` déjà dans `map-layout.json`).
-- **C8.2** Raccourcis clavier (`Delete`, `Ctrl+D`, `Ctrl+C/V`, `Échap`,
-  `Ctrl+A`).
+- **C8.2** Raccourcis clavier (`Delete`, `Ctrl+C/V`, `Ctrl+F`, `?`, `Échap`,
+  confirmations suppression ; pas de touche `D` — duplication = copier/coller).
 - **C8.3** Indicateur visuel de la scène initiale.
 - **C8.4** Recherche de nœud (`Ctrl+F`).
 - **C8.5** Copier/coller de nœuds (full version : sélection multiple,
@@ -1463,9 +1463,8 @@ reste obligatoire pour chaque sous-item non trivial.
 - **C8.2 — Raccourcis clavier**
   - `Delete` / `Backspace` : suppression du / des nœuds sélectionnés
     (avec confirmation si la sélection casse une chaîne REQ/PWD ?).
-  - `Ctrl+D` : duplication immédiate du nœud sélectionné (offset
-    visuel, nouveaux IDs, satellites recréés).
-  - `Ctrl+C` / `Ctrl+V` : copier/coller (cf. C8.5).
+  - `Ctrl+C` / `Ctrl+V` : copier/coller (cf. C8.5) — **duplication** par
+    copier/coller uniquement (pas de touche `D`, retirée 2026-05-02).
   - `Échap` : ferme la popup d’édition active.
   - `Ctrl+A` : sélection multiple (à coordonner avec C8.5).
   - **Désactivation** des raccourcis quand un input / Quill / popup a
@@ -3596,7 +3595,11 @@ le même.
 > Les raccourcis liés à la copie (`Ctrl+C` / `Ctrl+V`) sont traités en
 > C8.5 avec la logique correspondante.
 
-##### Étape C8.2.1 — Infrastructure raccourcis + Échap + touche `D` *(livrée 2026-05-02)*
+##### Étape C8.2.1 — Infrastructure raccourcis + Échap *(livrée 2026-05-02)*
+
+**Note (2026-05-02, amendement)** : la touche **`D`** / `duplicateSelection` a été
+**retirée** — la duplication passe par **copier/coller** (C8.5.2). La touche **`?`**
+et la popup d’aide sont livrées en **C8.2.3**.
 
 **Contexte technique** :
 - React Flow gère nativement `Backspace` / `Delete` (suppression des
@@ -3609,9 +3612,8 @@ le même.
   popup (à confirmer cas par cas dans le code existant).
 
 **Décisions design (validées avec utilisateur)** :
-- **`D` seul** pour duplication (évite le conflit `Ctrl+D` =
-  bookmark navigateur). Désactivé quand un input/Quill/popup a le
-  focus.
+- ~~**`D` seul** pour duplication~~ — **abrogé** : duplication = **Ctrl+C / Ctrl+V**
+  (cf. C8.5.2).
 - **`Échap`** :
   - Si une popup d'édition est ouverte → la fermer (déjà géré par
     les composants popup, à vérifier).
@@ -3686,14 +3688,11 @@ le même.
 4. **Tests** :
    - `isEditingContext` : input → true, contenteditable → true,
      div standard → false.
-   - Hook : appui sur `D` hors éditing → `duplicateSelection` appelée ;
-     dans un input → ignoré.
+   - Hook : raccourcis documentés en **C8.2.3** (`nodalKeyboard.test.ts`).
 
 **Critère de fin** :
 - Smoke : `Échap` ferme une popup quand ouverte ; désélectionne les
   nœuds quand fermée.
-- Smoke : `D` duplique le nœud sélectionné (stub dépendant de
-  C8.5.3) ; désactivé dans un Quill ouvert.
 - Pas de régression sur `Backspace` / `Delete` (suppression toujours
   active).
 
@@ -3779,7 +3778,7 @@ le même.
   orphelins si présents ; avec dialogue (chaîne) → confirmer supprime
   tout le sous-arbre décrit.
 
-##### Étape C8.2.3 — Centre d'aide raccourcis
+##### Étape C8.2.3 — Centre d'aide raccourcis *(livrée 2026-05-02)*
 
 **Décisions design (validées)** :
 - Bouton dédié dans la palette latérale, en bas, intitulé
@@ -3793,10 +3792,10 @@ le même.
 
 1. **Composant `KeyboardShortcutsPopup`** :
    - Liste structurée des raccourcis :
-     - Édition : `D` (Dupliquer), `Ctrl+C` / `Ctrl+V` (Copier/
-       Coller — réf C8.5), `Delete` / `Backspace` (Supprimer)
-     - Navigation : `Ctrl+F` (Recherche), `Échap` (Désélectionner /
-       Fermer popup)
+     - Édition : `Ctrl+C` / `Ctrl+V` (Copier/Coller — réf C8.5),
+       `Delete` / `Backspace` (Supprimer)
+     - Navigation : `Ctrl+F` (Recherche), `?` (cette aide), `Échap`
+       (Désélectionner / Fermer popup)
      - Sélection : `Shift+clic` (Multi-sélection),
        `Shift+drag` (Sélection rectangle)
      - Repli : clic chevron (Replier / Déplier)
@@ -3806,10 +3805,9 @@ le même.
 2. **Bouton dans la palette latérale**, ancré en bas via flex
    `margin-top: auto`. Ouvre la popup. Tooltip « Raccourcis (`?`) ».
 
-3. **Raccourci `?`** : ajouter au hook `useNodalKeyboard` (étape
-   C8.2.1) — attention à la détection : `?` est `Shift+/` sur QWERTY,
-   `Shift+,` sur AZERTY. Préférer écouter `e.key === "?"` (le
-   navigateur résout les modifiers).
+3. **Raccourci `?`** : branché dans `useNodalKeyboard` via
+   `openShortcutsHelp` — `e.key === "?"` (le navigateur résout les
+   layouts clavier).
 
 4. **Tests** :
    - Smoke : clic sur le bouton « Raccourcis » → popup ouverte ;
@@ -3820,6 +3818,13 @@ le même.
 - Visual QA : tous les raccourcis listés correspondent à ce qui est
   réellement implémenté.
 - Smoke : popup s'ouvre via 2 chemins (bouton + `?`).
+
+**Fichiers livrés** : [KeyboardShortcutsPopup.tsx](xflow/react/src/view/popups/KeyboardShortcutsPopup.tsx),
+[KeyboardShortcutsPopup.css](xflow/react/src/view/popups/KeyboardShortcutsPopup.css),
+[NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx), [NodePalette.tsx](xflow/react/src/view/palette/NodePalette.tsx),
+[palette.css](xflow/react/src/view/palette/palette.css), [nodalUiContext.tsx](xflow/react/src/view/nodalUiContext.tsx),
+[useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts), tests
+[nodalKeyboard.test.ts](xflow/react/src/__tests__/keyboard/nodalKeyboard.test.ts).
 
 #### Sous-chantier C8.5 — Copier / Coller + comportements clic + clic-droit
 
@@ -4720,6 +4725,10 @@ entrée de clôture en fin de liste.
     lot RF inchangé si pas de confirmation ; `onNodesDelete` : un `removeNode` par nœud RF supprimé,
     satellites ignorés.
   - Tests : `describeNodeForDeletion.test.ts` (REQ + récompense orpheline, chaîne REQ + `orderedDeleteChain`).
+- 2026-05-02 — **C8.2.3 livré** + **retrait touche `D`** — popup **Raccourcis**
+  (`KeyboardShortcutsPopup` + CSS), bouton palette + `?` (`openShortcutsHelp`),
+  `keyboardShortcutsOpen` dans `NodalUiContext` ; fermeture auto si autre modale ;
+  suppression `duplicateSelection` ; tests `nodalKeyboard.test.ts`.
 - 2026-05-02 — **C8.5.1 partiel** — double-clic édition + menu contextuel :
   - Vues : [ActionNodeView.tsx](xflow/react/src/view/nodes/ActionNodeView.tsx),
     [SceneNodeView.tsx](xflow/react/src/view/nodes/SceneNodeView.tsx),
@@ -4755,13 +4764,13 @@ entrée de clôture en fin de liste.
   - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `Ctrl/Cmd+C`·`V`, `onSelectionContextMenu` (rectangle Maj+drag), menu fond de carte avec sélection (copier / supprimer sélection, coller) ;
   - [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts), [nodalContextMenuModel.ts](xflow/react/src/view/contextMenu/nodalContextMenuModel.ts), [NodalContextMenu.tsx](xflow/react/src/view/contextMenu/NodalContextMenu.tsx) ;
   - Tests : `clipboard.test.ts`, mises à jour `nodalContextMenuModel.test.ts`, `nodalKeyboard.test.ts`.
-- 2026-05-02 — **C8.2.1 livré** — infrastructure raccourcis + **Échap** + **`D`** :
+- 2026-05-02 — **C8.2.1 livré** — infrastructure raccourcis + **Échap** (+ **`D`**
+  stub ensuite **retiré** le même jour — voir entrée **C8.2.3 livré**) :
   - [useNodalKeyboard.ts](xflow/react/src/view/keyboard/useNodalKeyboard.ts) :
     `nodalKeyboardHandleKeyDown` + hook ; **Échap** = désélection nœuds/arêtes RF
-    (hors popup) ; **`D`** sans modificateur = `duplicateSelection` (**stub** no-op ;
-    C8.5.3 non implémentée, voir C8.5.2) ; **Ctrl/Cmd+F** = focus champ recherche (cf. C8.4.1).
-  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `deselectAllRf` +
-    stub duplication ; un seul listener `window` « keydown ».
+    (hors popup) ; **Ctrl/Cmd+F** = focus champ recherche (cf. C8.4.1).
+  - [NodalCanvas.tsx](xflow/react/src/view/NodalCanvas.tsx) : `deselectAllRf` ;
+    un seul listener `window` « keydown ».
   - DevDependency **jsdom** + tests **`@vitest-environment jsdom`** :
     `src/__tests__/keyboard/isEditingContext.test.ts`,
     `src/__tests__/keyboard/nodalKeyboard.test.ts`.
@@ -4771,7 +4780,7 @@ entrée de clôture en fin de liste.
     recherchés (label scène/sceneId, label action, titre selector, displayName
     objet → satellites object correspondants). Plan **C8.4.1** rédigé.
   - **C8.2** (raccourcis) :
-    - `D` seul (pas Ctrl+D, conflit bookmark) pour Dupliquer.
+    - ~~`D` seul pour Dupliquer~~ — **abrogé** le 2026-05-02 (copier-coller suffit).
     - `Ctrl+C` / `Ctrl+V` restent (lié à C8.5).
     - `Échap` ferme la popup ou désélectionne si pas de popup.
     - Confirmations de suppression : scène/selector non-vides
@@ -4833,5 +4842,4 @@ entrée de clôture en fin de liste.
 - 2026-05-02 — **Annexe D clôturée** — chantier C8 UX nodal considéré clos
   pour le périmètre livré ; **synthèse** ajoutée en **Annexe B — C8** ;
   Annexe D conservée comme **archive** (journal + plans détaillés).
-  **Reste éventuel** hors clôture : **C8.2.3** (popup raccourcis), touche
-  **`D`** (stub `duplicateSelection`), suite smoke **`SMK-C8-*`** optionnelle.
+  **Reste éventuel** hors clôture : suite smoke **`SMK-C8-*`** optionnelle.

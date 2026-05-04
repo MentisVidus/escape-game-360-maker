@@ -50,6 +50,8 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           saveJson: "Save .json",
           load: "Load…",
           form: "Form editor",
+          shortcuts: "Shortcuts",
+          shortcutsHint: "Shortcuts (?)",
         }
       : {
           settings: "Paramètres globaux",
@@ -63,6 +65,8 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           saveJson: "Sauver .json",
           load: "Charger…",
           form: "Formulaire",
+          shortcuts: "Raccourcis",
+          shortcutsHint: "Raccourcis (?)",
         };
 
   const getCenterPosition = () => {
@@ -148,6 +152,7 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
   }, [L]);
 
   const openSettingsHub = () => {
+    ui.setKeyboardShortcutsOpen(false);
     ui.setObjectEditorSatelliteId(null);
     ui.setCoordsEditorSatelliteId(null);
     ui.setChoiceEditorSatelliteId(null);
@@ -205,6 +210,17 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
       </button>
 
       <div className="nodal-palette-footer">
+        <button
+          type="button"
+          className="nodal-palette-btn-shortcuts"
+          onClick={() => ui.setKeyboardShortcutsOpen(true)}
+          title={labels.shortcutsHint}
+        >
+          <span className="nodal-palette-shortcuts-icon" aria-hidden>
+            ⌨
+          </span>
+          {labels.shortcuts}
+        </button>
         <button
           type="button"
           className="nodal-palette-btn-primary"

@@ -6,13 +6,13 @@ import { isEditingContext } from "./isEditingContext";
 export type NodalKeyboardHandlers = {
   anyPopupOpen: boolean;
   deselectAll: () => void;
-  /** Touche D : duplication rapide — stub (C8.5.3 non faite, doublon C8.5.2). */
-  duplicateSelection: () => void;
   focusSearchField: () => void;
   /** C8.5.2 — copier la sélection RF (optionnel si non branché). */
   copySelection?: () => void;
   /** C8.5.2 — coller sous le pointeur / centre carte (optionnel). */
   pasteFromClipboard?: () => void;
+  /** C8.2.3 — ouvre la popup « Raccourcis » (touche `?`). */
+  openShortcutsHelp?: () => void;
 };
 
 /**
@@ -47,6 +47,14 @@ export function nodalKeyboardHandleKeyDown(e: KeyboardEvent, h: NodalKeyboardHan
     return true;
   }
 
+  if (e.key === "?") {
+    if (h.anyPopupOpen) return false;
+    if (!h.openShortcutsHelp) return false;
+    e.preventDefault();
+    h.openShortcutsHelp();
+    return true;
+  }
+
   if (h.anyPopupOpen) return false;
 
   if (e.key === "Escape") {
@@ -55,17 +63,10 @@ export function nodalKeyboardHandleKeyDown(e: KeyboardEvent, h: NodalKeyboardHan
     return true;
   }
 
-  if (e.key === "d" || e.key === "D") {
-    if (e.ctrlKey || e.metaKey) return false;
-    e.preventDefault();
-    h.duplicateSelection();
-    return true;
-  }
-
   return false;
 }
 
-/** C8.2.1 — raccourcis globaux (Échap, D, Ctrl/Cmd+F recherche). */
+/** C8.2.1+ — raccourcis globaux (Échap, Ctrl/Cmd+F, `?`, copier/coller). */
 export function useNodalKeyboard(handlers: NodalKeyboardHandlers): void {
   const ref = useRef(handlers);
   ref.current = handlers;
