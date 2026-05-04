@@ -2,6 +2,7 @@ import { asSceneBoxNodeId, type ActionNodeId, type SceneBoxNodeId, type SceneNod
 import type { SceneBoxNode } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import {
+  enforceFrameContentMinInsetX,
   reanchorSBox,
   SCENE_PADDING_TOP,
   SCENE_PADDING_X,
@@ -92,4 +93,5 @@ export function reconcileSceneBoxes(state: NodalProject): void {
   for (const bid of Object.keys(state.sceneBoxes) as SceneBoxNodeId[]) {
     reanchorSBox(state, bid);
   }
+  enforceFrameContentMinInsetX(state);
 }

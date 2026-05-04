@@ -2038,6 +2038,10 @@ s-box (groupNode, parentId: null)          ← géré par le store comme un sate
        s-box et son layout.
    - **Idempotent** — appelé après chaque mutation du store
      (équivalent du `reconcileAutoSatellites`).
+   - Après chaque `reanchorSBox` : `enforceFrameContentMinInsetX` dans
+     `containerBounds.ts` (`FRAME_CONTENT_MIN_INSET_X` = 12 px) —
+     marge horizontale minimale des enfants directs d’une **scène** ou
+     d’un **selector** (les **satellites** ne sont pas modifiés).
 
 3. **Store mutations** ([store/nodalProjectStore.ts](xflow/react/src/store/nodalProjectStore.ts)) :
    - `addScene(node, layout)` :

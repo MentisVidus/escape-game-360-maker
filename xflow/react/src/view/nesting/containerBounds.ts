@@ -1,4 +1,4 @@
-import type { AnyNodeId } from "../../model/ids";
+import type { ActionNodeId, AnyNodeId } from "../../model/ids";
 import type { NodalProject } from "../../model/project";
 import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH } from "./geometry";
 
@@ -6,6 +6,9 @@ import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH } from "./geometry";
 export const SCENE_PADDING_TOP = 32;
 export const SCENE_PADDING_X = 16;
 export const SCENE_PADDING_BOTTOM = 16;
+
+/** Marge horizontale minimale entre le bord gauche du cadre et les enfants directs (scène / selector imbriqué), C8 UX. */
+export const FRAME_CONTENT_MIN_INSET_X = 12;
 
 const SCENE_MIN_INNER_WIDTH = 160;
 const SCENE_MIN_INNER_HEIGHT = 48;
@@ -233,6 +236,30 @@ export function reanchorSBox(state: NodalProject, containerId: AnyNodeId): void 
   state.layout[containerId] = { ...sceneLayout, x: sceneLayout.x - shiftX, y: sceneLayout.y - shiftY };
   for (const [childId, l] of directChildren) {
     state.layout[childId] = { ...l, x: l.x + shiftX, y: l.y + shiftY };
+  }
+}
+
+/**
+ * Évite que les bords gauches des cadres (s-box → scène → selector, selector parent → enfant)
+ * se confondent visuellement : enfants directs d’une **scène** ou d’un **selector** avec `x` trop faible.
+ * Ne modifie pas les **satellites** (pile sud / alignements existants).
+ */
+export function enforceFrameContentMinInsetX(state: NodalProject): void {
+  for (const [childId, lo] of Object.entries(state.layout) as Array<
+    [AnyNodeId, NonNullable<NodalProject["layout"][AnyNodeId]>]
+  >) {
+    if (!lo?.parentId) continue;
+    if (childId in state.satellites) continue;
+
+    const pid = lo.parentId as AnyNodeId;
+
+    const parentIsSelector =
+      pid in state.actions && state.actions[pid as ActionNodeId]?.actionType === "selector";
+    const parentIsScene = pid in state.scenes;
+    if (!parentIsSelector && !parentIsScene) continue;
+
+    if (lo.x >= FRAME_CONTENT_MIN_INSET_X) continue;
+    state.layout[childId] = { ...lo, x: FRAME_CONTENT_MIN_INSET_X };
   }
 }
 

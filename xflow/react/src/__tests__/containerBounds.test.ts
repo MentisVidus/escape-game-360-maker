@@ -7,6 +7,8 @@ import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import {
   computeContainerBounds,
   computeContainerContentMaxBottom,
+  enforceFrameContentMinInsetX,
+  FRAME_CONTENT_MIN_INSET_X,
   parentIdDepth,
   positionRelativeToContainer,
   reanchorSBox,
@@ -622,6 +624,87 @@ describe("computeContainerBounds (C8.1.b)", () => {
     /* msg seul : maxBottom 80 ; si le satellite comptait, height >> 600 */
     expect(height).toBe(80 + SCENE_PADDING_BOTTOM);
     expect(width).toBe(190 + SCENE_PADDING_X);
+  });
+
+  it("enforceFrameContentMinInsetX : x minimal sous scène et selector (satellites inchangés)", () => {
+    const sceneId = asSceneNodeId("scn-inset");
+    const selId = asActionNodeId("act-sel-inset");
+    const msgSceneId = asActionNodeId("act-msg-scene-inset");
+    const msgSelId = asActionNodeId("act-msg-sel-inset");
+    const satId = asSatelliteNodeId("sat-sel-inset");
+    const scene: SceneNode = {
+      id: sceneId,
+      nodeType: "scene",
+      sceneId: "ext-inset",
+      label: "S",
+      panoramaUrl: "",
+    };
+    const selector: ActionNode = {
+      id: selId,
+      nodeType: "action",
+      actionType: "selector",
+      label: "Sel",
+      payload: {
+        nested: { title: "T", copy: { bodyHtml: "", buttonLabel: "" }, displayMode: "buttons" },
+      },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const msgScene: ActionNode = {
+      id: msgSceneId,
+      nodeType: "action",
+      actionType: "msg",
+      label: "M1",
+      payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const msgSel: ActionNode = {
+      id: msgSelId,
+      nodeType: "action",
+      actionType: "msg",
+      label: "M2",
+      payload: { copy: { bodyHtml: "", buttonLabel: "" } },
+      sfx: { ...sfx },
+      visibility: { ...visibility },
+    };
+    const state = {
+      meta: {
+        title: "T",
+        startSceneId: null,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        draftActionIds: [],
+        objects: {},
+      },
+      scenes: { [sceneId]: scene },
+      sceneBoxes: {},
+      actions: { [selId]: selector, [msgSceneId]: msgScene, [msgSelId]: msgSel },
+      satellites: {
+        [satId]: {
+          id: satId,
+          nodeType: "satellite" as const,
+          satelliteType: "choice-options" as const,
+          data: {
+            visibility: { requiresItem: "", hiddenIfHasItem: "" },
+            sfx: { ...sfx },
+          },
+        },
+      },
+      media: {},
+      edges: [],
+      layout: {
+        [sceneId]: { x: 0, y: 0, parentId: null, collapsed: false },
+        [msgSceneId]: { x: 3, y: 10, parentId: sceneId, collapsed: false },
+        [selId]: { x: 20, y: 40, parentId: sceneId, collapsed: false },
+        [msgSelId]: { x: 4, y: 8, parentId: selId, collapsed: false },
+        [satId]: { x: SCENE_PADDING_X, y: 100, parentId: selId, collapsed: false },
+      },
+    } satisfies NodalProject;
+
+    enforceFrameContentMinInsetX(state);
+    expect(state.layout[msgSceneId]?.x).toBe(FRAME_CONTENT_MIN_INSET_X);
+    expect(state.layout[msgSelId]?.x).toBe(FRAME_CONTENT_MIN_INSET_X);
+    expect(state.layout[satId]?.x).toBe(SCENE_PADDING_X);
   });
 });
 
