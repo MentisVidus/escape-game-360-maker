@@ -1515,11 +1515,291 @@ numérotés (`C9.x.y-fix`) si correctifs en cours de chantier.
 
 ### Plan détaillé C9.0 — directives pour Cursor
 
-*(À rédiger juste avant le démarrage du sous-chantier.)*
+**Pré-requis** : C9 cadrage validé (Annexe D ouverte). Aucune dépendance code.
+
+**Contexte** : avec C9.2 on créera un edge flow auto à chaque drop sur
+s-box. La suppression actuelle (clic + `Delete` clavier) deviendra
+fastidieuse. C9.0 ajoute un menu contextuel sur les edges.
+
+**Fichiers à lire avant de coder** :
+- `xflow/react/src/view/contextMenu/NodalContextMenu.tsx`
+- `xflow/react/src/view/contextMenu/nodalContextMenuModel.ts`
+- `xflow/react/src/view/NodalCanvas.tsx` (rechercher `onNodeContextMenu`,
+  `onPaneContextMenu`)
+- `xflow/react/src/store/nodalProjectStore.ts` (action de suppression
+  d’edge — `removeEdge` ou équivalent)
+
+**Phase questions (workflow §8.1)** :
+- **Q-C9.0-1** — Étendre `NodalContextMenu` pour inclure le cas edge,
+  ou créer un composant `EdgeContextMenu` séparé ? *Vote : étendre,
+  à confirmer si `nodalContextMenuModel.ts` tolère bien une troisième
+  cible.*
+- **Q-C9.0-2** — Comportement pour les edges synthétiques
+  (`synth-trans-*` créés sur selector replié, C8.1.a) :
+  - (a) menu masqué pour les `synth-*` ;
+  - (b) menu présent mais entrée « Supprimer » désactivée + tooltip
+    explicatif ;
+  - (c) suppression autorisée mais retire les arêtes métier sous-jacentes.
+- **Q-C9.0-3** — Confirmation avant suppression ? *Vote : non,
+  suppression directe (1 edge = blast minime).*
+
+**Périmètre** :
+- Activer `onEdgeContextMenu` dans React Flow.
+- Une seule entrée « Supprimer » dans le menu edge.
+- Fermeture déjà gérée par menu existant (C8.5) + Échap (C8.2.1).
+
+**Critères de fin** :
+- Clic droit sur edge ouvre le menu avec entrée « Supprimer ».
+- Action retire l’edge du store + de RF.
+- Pas de régression sur menu nœud / pane (C8.5).
+- Cas `synth-*` traité selon Q-C9.0-2.
+- Test Vitest : ouverture menu sur edge, suppression effective.
+
+**Branche / commit** :
+- Branche : `feat/c9-palette-dnd`.
+- Commit : `feat(nodal): C9.0 menu contextuel edge — Supprimer`.
+- Annexe D — Journal de chantier : entrée 1-2 lignes au commit.
+
+### Plan détaillé C9.1 — directives pour Cursor
+
+**Pré-requis** : C9.0 livré (commit présent sur `feat/c9-palette-dnd`).
+
+**Contexte** : fondations du D&D palette. Les boutons « Ajouter X »
+deviennent des items HTML5 draggables (clic = comportement actuel
+préservé, drag = create à position drop). Drop sur canvas vide crée
+un nœud orphelin top-level. Introduction du helper
+`insertNodeAtAbsolute` factorisé avec `pasteClipboardAt` (C8.5.2).
+**Pas encore** de drop sur s-box / selector / REQ-PWD (C9.2-3) ni de
+ghost (C9.4) — ce commit pose les rails.
+
+**Fichiers à lire avant de coder** :
+- `xflow/react/src/view/palette/NodePalette.tsx`
+- `xflow/react/src/store/clipboard.ts` (`pasteClipboardAt`)
+- `xflow/react/src/store/nodalProjectStore.ts` (`addNode`)
+- `xflow/react/src/view/NodalCanvas.tsx` (root canvas à équiper avec
+  `onDrop` / `onDragOver`)
+- Exemple React Flow `dnd-flow` :
+  https://reactflow.dev/examples/interaction/drag-and-drop
+
+**Phase questions (workflow §8.1)** :
+- **Q-C9.1-1** — Convention de transfert HTML5 D&D :
+  `dataTransfer.setData('application/escape360-node-type', type)` simple,
+  ou JSON `{ type, payload }` plus riche ? *Vote : JSON, pour transporter
+  un payload par défaut et faciliter l’évolution.*
+- **Q-C9.1-2** — Le clic « simple » sur item palette doit conserver le
+  comportement actuel (create top-level au centre canvas) ou être
+  désactivé au profit du seul D&D ? *Vote : conserver clic =
+  create centre canvas (pas de friction utilisateur habitué).*
+- **Q-C9.1-3** — Emplacement du helper `insertNodeAtAbsolute` :
+  - `xflow/react/src/store/insertNodeAtAbsolute.ts` (logique métier) ;
+  - méthode du store nodal ;
+  - `xflow/react/src/view/dnd/insertNodeAtAbsolute.ts` (couche vue) ?
+  *Vote : nouveau fichier `store/insertNodeAtAbsolute.ts`, cohérent
+  avec `store/clipboard.ts`.*
+
+**Périmètre** :
+- `NodePalette.tsx` : `draggable={true}` + `onDragStart` posant
+  `{ type, payload }` sur `dataTransfer`. `onClick` existant conservé.
+- `NodalCanvas.tsx` : `onDragOver` (preventDefault pour autoriser le
+  drop) + `onDrop` qui :
+  1. lit le type + payload depuis `dataTransfer` ;
+  2. convertit `clientX/Y` → flow position via `screenToFlowPosition` ;
+  3. appelle `insertNodeAtAbsolute(type, payload, position, { source: 'palette' })`.
+- `insertNodeAtAbsolute.ts` (nouveau) :
+  1. crée le nœud via `addNode` ;
+  2. **C9.1 only** : applique la position en absolu, `parentId = null`.
+     C9.2 / C9.3 étendront pour résoudre le conteneur cible ;
+  3. refactor `pasteClipboardAt` pour appeler ce helper sur chaque
+     nœud du clipboard (positions translatées).
+- Pas de régression sur copier-coller (C8.5.2) ni sur `addNode` direct.
+
+**Critères de fin** :
+- Drag d’un item palette + drop sur canvas vide → nœud créé à la
+  position du curseur.
+- Clic simple sur item palette → comportement actuel (create centre
+  canvas) préservé.
+- Copier-coller (Ctrl+C/V) fonctionne via le helper unifié — tests
+  `clipboard.test.ts` passent toujours.
+- Test Vitest : drop palette → orphelin position OK ; helper appelé
+  par les deux chemins.
+
+**Branche / commit** :
+- Branche : `feat/c9-palette-dnd`.
+- Commit : `feat(nodal): C9.1 palette draggable + drop canvas + helper`.
+- Annexe D — Journal de chantier mis à jour.
+
+### Plan détaillé C9.2 — directives pour Cursor
+
+**Pré-requis** : C9.0 et C9.1 livrés.
+
+**Contexte** : étendre `insertNodeAtAbsolute` pour résoudre le drop
+sur s-box. Quand la position de drop tombe à l’intérieur d’un s-box,
+l’action devient hotspot (état 2) de la scène correspondante,
+parentée au s-box, ET un edge flow scène→action est créé
+automatiquement.
+
+**Fichiers à lire avant de coder** :
+- `xflow/react/src/store/insertNodeAtAbsolute.ts` (créé en C9.1)
+- `xflow/react/src/store/reconcileSceneBoxes.ts` (mapping s-box ↔ scène)
+- `xflow/react/src/view/nesting/containerBounds.ts`
+- `xflow/react/src/view/nesting/sboxCollision.ts`
+- `xflow/react/src/view/handles/handleIds.ts`
+- `xflow/react/src/store/nodalProjectStore.ts` (`addEdge` ou équivalent)
+
+**Phase questions (workflow §8.1)** :
+- **Q-C9.2-1** — Détection s-box à position : ré-utiliser
+  `findContainerAt(position)` ou équivalent existant (cf. ce qu’utilise
+  `onNodeDragStop` pour drag interne) ? Si oui : nom + signature.
+  Sinon : nouveau helper `findSceneBoxAt(position)`.
+- **Q-C9.2-2** — Ids handle exact pour l’edge auto : `flow-out` du
+  scene-node, `flow-in` de l’action. Confirmer via `handleIds.ts`.
+- **Q-C9.2-3** — Cas particuliers :
+  - drop d’un type sans `flow-in` (média, scene) sur s-box → fallback
+    top-level (cf. décision Q-C9-3-bis).
+  - drop `goto` sur s-box → confirmer que `goto` accepte un `flow-in`
+    entrant (scène→goto). Si oui : OK. Si non : exclure.
+
+**Périmètre** :
+- Étendre `insertNodeAtAbsolute` :
+  1. avant fallback top-level, tester si position tombe dans un s-box ;
+  2. si oui ET type compatible (pas scene, pas média) : créer le nœud
+     enfant du s-box (position relative), créer edge flow
+     `scene-node:flow-out` → `action:flow-in` ;
+  3. sinon : conserver fallback top-level.
+- Vérifier non-régression `c8RoundtripReal` et
+  `c8EscapegameLayoutRoundtrip`.
+
+**Critères de fin** :
+- Drag msg / pick / req / pwd / selector / goto + drop sur s-box →
+  action devient hotspot, parentée s-box, edge flow scène→action visible.
+- Drop scene sur s-box → fallback top-level (silent).
+- Drop média sur s-box → fallback top-level (silent), auto-parentage
+  média existant prend le relais.
+- Edge auto supprimable via clic droit (C9.0).
+- Test Vitest : compatible / scene / média.
+
+**Branche / commit** :
+- Branche : `feat/c9-palette-dnd`.
+- Commit : `feat(nodal): C9.2 drop s-box hotspot + auto-edge flow`.
+- Annexe D — Journal de chantier mis à jour.
+
+### Plan détaillé C9.3 — directives pour Cursor
+
+**Pré-requis** : C9.1 livré (C9.2 indépendant — peut précéder ou suivre).
+
+**Contexte** : étendre `insertNodeAtAbsolute` pour résoudre les drops
+sur selector (création choix état 3, avec sous-selector imbriqué) et
+sur REQ/PWD (création récompense état 4).
+
+**Fichiers à lire avant de coder** :
+- `xflow/react/src/store/insertNodeAtAbsolute.ts`
+- `xflow/react/src/store/reconcileAutoSatellites.ts` (création satellite
+  `choice-options`)
+- `xflow/react/src/view/nesting/containerBounds.ts` + `sboxCollision.ts`
+- C8.6.3 — zone d’accroche REQ/PWD : voir
+  `docs/archives/chantier_8.md` § C8.6.3 + tests `geometryRewardZone.test.ts`
+- C8.6.1 — résolution topmost-first sub-selector : déjà appliquée à
+  `onNodeDragStop`, à mutualiser
+
+**Phase questions (workflow §8.1)** :
+- **Q-C9.3-1** — Exposer un helper réutilisable
+  `findDeepestContainerAt(position, validTypes)`, ou inliner la
+  résolution dans `insertNodeAtAbsolute` ? *Vote : helper réutilisable
+  — `onNodeDragStop` pourra y migrer plus tard pour DRY.*
+- **Q-C9.3-2** — Drop sur sous-selector imbriqué : confirmer que la
+  résolution descend jusqu’au selector le plus profond (pas le parent).
+  Tests à ajouter pour ce cas.
+- **Q-C9.3-3** — Détection zone REQ/PWD : réutiliser bounds géométriques
+  de `geometryRewardZone` (cohérent avec la zone visuelle C8.6.3) ou
+  passer par overlap DOM ? *Vote : géométrique, même helper que
+  `onNodeDragStop`.*
+- **Q-C9.3-4** — Selector saturé (si limite max choix existe) : drop
+  refusé ou fallback top-level ? *Vote : fallback top-level (cohérent
+  avec doctrine « fallback silencieux ».)*
+- **Q-C9.3-5** — REQ/PWD avec récompense déjà attachée : remplacer ?
+  refuser ? fallback top-level ? *Vote : fallback top-level. Pas de
+  remplacement implicite.*
+
+**Périmètre** :
+- Étendre `insertNodeAtAbsolute` :
+  1. détecter conteneur le plus profond compatible : selector ⟶
+     REQ/PWD ⟶ s-box (ordre topmost-first) ;
+  2. selector : créer comme enfant, `reconcileAutoSatellites` ajoute
+     `choice-options` ;
+  3. REQ/PWD vide : créer comme enfant (récompense unique) ;
+  4. REQ/PWD occupé / selector saturé : descendre dans la hiérarchie,
+     sinon top-level.
+- Tests Vitest : selector seul, sub-selector imbriqué, REQ/PWD vide,
+  REQ/PWD déjà occupé, selector saturé (si applicable).
+
+**Critères de fin** :
+- Drop msg sur selector → choix créé, satellite `choice-options`
+  auto-créé.
+- Drop sur sous-selector imbriqué → choix dans le sous-selector.
+- Drop sur REQ/PWD vide → action devient récompense.
+- Drop sur REQ/PWD occupé → fallback top-level.
+- Pas de régression tests C8.
+
+**Branche / commit** :
+- Branche : `feat/c9-palette-dnd`.
+- Commit : `feat(nodal): C9.3 drop selector + REQ/PWD`.
+- Annexe D — Journal de chantier mis à jour.
+
+### Plan détaillé C9.4 — directives pour Cursor
+
+**Pré-requis** : C9.1 livré (C9.2 / C9.3 indépendants).
+
+**Contexte** : finition UX — pendant le drag depuis palette, afficher
+un ghost qui ressemble au nœud type cible (comme un nœud canvas en
+cours de déplacement). Pas de tracking de validité par cible
+(décision Q-C9-4 : fallback silencieux rend les nuances inutiles).
+
+**Fichiers à lire avant de coder** :
+- `xflow/react/src/view/nodes/ActionNodeView.tsx`
+- `xflow/react/src/view/nodes/MediaNodeView.tsx`,
+  `xflow/react/src/view/nodes/SceneNodeView.tsx`
+- `xflow/react/src/view/palette/NodePalette.tsx`
+- API HTML5 D&D : `event.dataTransfer.setDragImage(element, x, y)`
+- Exemple React Flow `dnd-flow` (lien spec)
+
+**Phase questions (workflow §8.1)** :
+- **Q-C9.4-1** — Stratégie de rendu ghost :
+  - (a) `setDragImage` avec un élément DOM cloné à la volée du
+    composant nœud (rendu mini off-screen) ;
+  - (b) `setDragImage` avec une image statique (PNG/SVG) par type ;
+  - (c) overlay React custom suivant `dragover` events (plus de
+    contrôle, plus de code).
+  *Vote : (a) si faisable proprement, sinon (c). (b) trop figé.*
+- **Q-C9.4-2** — Position du ghost : centré sous le curseur ou offset
+  coin haut-gauche ? *Vote : centré (plus naturel pour D&D créatif).*
+- **Q-C9.4-3** — Apparence : opacité réduite (~70%) pour signaler
+  « en cours de pose », ou apparence pleine (= nœud canvas) ?
+  *Vote : opacité réduite, distingue du nœud déjà posé.*
+
+**Périmètre** :
+- Au `onDragStart` palette : générer le ghost selon Q-C9.4-1 et
+  l’attacher via `setDragImage`.
+- Si overlay React (option c) : composant `<DragGhost />` monté dans
+  `NodalCanvas`, écoute des events `dragover`, met à jour sa position.
+- Aucun changement à `insertNodeAtAbsolute` (purement présentationnel).
+
+**Critères de fin** :
+- Pendant le drag, un ghost ressemblant au type cible suit le curseur.
+- Au drop, le ghost disparaît.
+- Pas de régression sur le drop fonctionnel (C9.1-3).
+- Test Vitest si possible (jsdom limite l’API D&D — sinon note manuelle
+  + screenshot dans Annexe D).
+
+**Branche / commit** :
+- Branche : `feat/c9-palette-dnd`.
+- Commit : `feat(nodal): C9.4 ghost node pendant drag`.
+- Annexe D — Journal de chantier mis à jour.
 
 ### Journal de chantier
 
 - 2026-05-05 — Ouverture Annexe D. Cadrage validé en phase questions
   (Q-C9-1 à 7 + Q-C9-3-bis). Découpage 5 sous-chantiers, branche
-  `feat/c9-palette-dnd` à créer depuis `feat/nodal-map`.
+  `feat/c9-palette-dnd` créée depuis `feat/nodal-map`.
+- 2026-05-05 — Plans détaillés C9.0 → C9.4 rédigés (Annexe D), prêts à
+  être livrés à Cursor sous-chantier par sous-chantier.
 
