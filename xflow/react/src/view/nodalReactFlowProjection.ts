@@ -394,6 +394,13 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
   return sortNodesParentFirst(nodes);
 }
 
+/** Préfixe des IDs d’edges RF **purement projetées** (absentes du store). C9.0 / C8.1.a. */
+export const SYNTH_TRANSITION_RF_EDGE_ID_PREFIX = "synth-trans-";
+
+export function isSynthTransitionProjectionEdgeId(edgeId: string): boolean {
+  return edgeId.startsWith(SYNTH_TRANSITION_RF_EDGE_ID_PREFIX);
+}
+
 export function toReactFlowEdges(state: NodalProject): RFEdge[] {
   const childrenByParent = buildChildrenByParent(state);
   const { hiddenIds, synthGotoTargets } = computeSelectorFoldProjection(state, childrenByParent);
@@ -437,7 +444,7 @@ export function toReactFlowEdges(state: NodalProject): RFEdge[] {
   for (const [synthSourceId, sceneIds] of synthGotoTargets) {
     for (const targetSceneId of sceneIds) {
       synthEdges.push({
-        id: `synth-trans-${synthSourceId}-${targetSceneId}`,
+        id: `${SYNTH_TRANSITION_RF_EDGE_ID_PREFIX}${synthSourceId}-${targetSceneId}`,
         source: synthSourceId,
         target: targetSceneId,
         sourceHandle: HANDLE_SYNTH_GOTO_OUT,

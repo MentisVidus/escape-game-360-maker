@@ -119,7 +119,12 @@ import {
 import { NodalContextMenu } from "./contextMenu/NodalContextMenu";
 import { PopupThemeCustomizationPopup } from "./popups/PopupThemeCustomizationPopup";
 import { WarningsPanel } from "./warnings/WarningsPanel";
-import { toReactFlowEdges, toReactFlowNodes, type NodalRFData } from "./nodalReactFlowProjection";
+import {
+  isSynthTransitionProjectionEdgeId,
+  toReactFlowEdges,
+  toReactFlowNodes,
+  type NodalRFData,
+} from "./nodalReactFlowProjection";
 import "./NodalCanvas.css";
 
 const nodeTypes: NodeTypes = {
@@ -552,8 +557,21 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     [reactFlow]
   );
 
+  /** C9.0 — arête métier : clic droit supprime tout de suite (pas de menu ; les `synth-trans-*` sont ignorées). */
+  const onEdgeContextMenu = useCallback(
+    (e: ReactMouseEvent<Element> | globalThis.MouseEvent, edge: RFEdge) => {
+      e.preventDefault();
+      if (isSynthTransitionProjectionEdgeId(edge.id)) return;
+      const eid = asEdgeId(edge.id);
+      const snap = store.getState();
+      if (!snap.edges.some((ed) => ed.id === eid)) return;
+      store.getState().disconnect(eid);
+    },
+    [store]
+  );
+
   const onPaneContextMenu = useCallback(
-    (e: ReactMouseEvent) => {
+    (e: ReactMouseEvent<Element> | globalThis.MouseEvent) => {
       e.preventDefault();
       const snap = store.getState();
       const selected = reactFlow.getNodes().filter((n) => n.selected).map((n) => n.id);
@@ -1239,6 +1257,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             });
           }}
           onNodeContextMenu={onNodeContextMenu}
+          onEdgeContextMenu={onEdgeContextMenu}
           onPaneContextMenu={onPaneContextMenu}
           onSelectionContextMenu={onSelectionContextMenu}
           fitView
