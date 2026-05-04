@@ -1405,6 +1405,11 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_8.md`.
   auto-resize + satellite, **zone d’accroche REQ/PWD** + overlap symétrique +
   `REWARD_ZONE_OVERLAP_MIN`. **C8.6.4 / S4** (*drag bloqué selector-récompense*)
   **écarté** — inutile après C8.6.3 ; voir étape C8.6.4 dans le journal archivé.
+- **C8.7-fix** — Round-trip layout `.escapegame` : reparentage hotspot racine
+  fiable via `sceneBoxParentIdFromRootHotspotPathKey` (`mapLayoutJson.ts`) +
+  `reconcileSceneBoxes` couvre le cas « scène déjà sous s-box » (branche
+  `if (sl.parentId === bid)`). Tests `c8EscapegameLayoutRoundtrip` +
+  `c8RoundtripReal` (lecture fixture réel).
 
 **Reste éventuel (hors clôture stricte C8)** :
 

@@ -1,4 +1,4 @@
-import type { ActionNodeId, AnyNodeId, SceneNodeId } from "../model/ids";
+import type { ActionNodeId, AnyNodeId, SceneBoxNodeId, SceneNodeId } from "../model/ids";
 import type { NodeLayout } from "../model/layout";
 import type { MediaNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
@@ -164,6 +164,17 @@ function deriveParentPathKey(pathKey: string): string | null {
   return m?.[1] ?? null;
 }
 
+/** Hotspot racine `extId:h:i` (sans suffixe `:r` / `:c:j`) → s-box du graphe courant (C8.7-fix.3). */
+function sceneBoxParentIdFromRootHotspotPathKey(state: NodalProject, pathKey: string): SceneBoxNodeId | null {
+  const m = pathKey.match(/^([^:]+):h:\d+$/);
+  if (!m) return null;
+  const ext = m[1];
+  for (const s of Object.values(state.scenes)) {
+    if (s.sceneId === ext) return sboxIdFromScene(s.id);
+  }
+  return null;
+}
+
 /** Applique le layout stable (indépendant des ids internes) pour scènes + actions. */
 function applyStableSceneAndActionLayout(
   state: NodalProject,
@@ -205,7 +216,9 @@ function applyStableSceneAndActionLayout(
     if (parentPath !== null) {
       parentId = (mappedParent ?? (existing?.parentId as AnyNodeId | null | undefined) ?? null) as AnyNodeId | null;
     } else {
-      parentId = (existing?.parentId as AnyNodeId | null) ?? null;
+      /* Anciens map-layout : `parentId` indexé par ids `action-…` Drawflow — absents après désérialisation (`act__…`). */
+      const fromRootPath = sceneBoxParentIdFromRootHotspotPathKey(state, pathKey);
+      parentId = (fromRootPath ?? (existing?.parentId as AnyNodeId | null | undefined) ?? null) as AnyNodeId | null;
     }
     state.layout[actionId] = {
       ...existing,

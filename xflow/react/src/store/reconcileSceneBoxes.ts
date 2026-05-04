@@ -39,11 +39,8 @@ export function reconcileSceneBoxes(state: NodalProject): void {
       if (!state.layout[bid]) {
         state.layout[bid] = { x: 0, y: 0, parentId: null, collapsed: false };
       }
-      continue;
-    }
-
-    /* Scène racine (hydrate / legacy) : le s-box reprend son coin absolu. */
-    if (!sl.parentId) {
+    } else if (!sl.parentId) {
+      /* Scène racine (hydrate / legacy) : le s-box reprend son coin absolu. */
       const absX = sl.x;
       const absY = sl.y;
       state.layout[bid] = {
