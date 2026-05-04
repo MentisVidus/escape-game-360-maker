@@ -855,7 +855,7 @@ absorption opportuniste. Cocher / déplacer dès qu’un item est traité.
 
 ### C8 — Ajustements UX
 
-Scope finalisé (voir **Annexe D — Chantier C8**) :
+Scope finalisé (journal **Annexe D — Chantier C8**, synthèse **Annexe B — C8**) :
 
 - **Nœuds repliables** (état `collapsed` déjà réservé en `map-layout.json`).
 - **Raccourcis clavier** : `Delete`/`Backspace` (suppression), `Ctrl+D`
@@ -869,16 +869,15 @@ Scope finalisé (voir **Annexe D — Chantier C8**) :
   copies indépendantes (nouveaux IDs, satellites recréés via
   `reconcileAutoSatellites`), références objets (`objectId`) conservées,
   cas selector (sous-graphe complet).
-- **Rework UX selector** (S1–S4 du `DEV-C8-Selector-UX.md`) :
-  - **S1.** Sous-selector au premier plan (`z-index` élevé).
-  - **S2.** Fond selector non transparent (semi-transparent ou coloré).
-  - **S3.** Seuil d’accrochage REQ/PWD basé sur la surface du **plus
-    petit** des deux nœuds (ou zone d’accrochage dédiée sur la pince
-    REQ/PWD).
-  - **S4.** Selector enfant de REQ/PWD : drag indépendant **bloqué**
-    (suit le parent ; détachement via bouton uniquement). Distinction
-    explicite avec le sous-selector (selector enfant d’un selector)
-    qui garde son drag libre pour réordonner.
+- **Rework UX selector** (chantier `DEV-C8-Selector-UX.md`) :
+  - **S1.** Sous-selector au premier plan (`z-index` élevé) — **livré**.
+  - **S2.** Fond selector non transparent (semi-transparent ou coloré) — **livré**.
+  - **S3.** Accroche REQ/PWD : zone DOM dédiée + recouvrement + overlap
+    symétrique (piste B, ajustement gros selectors) — **livré** (C8.6.3).
+  - **S4.** *(Écarté 2026-05-02.)* Anciennement : drag bloqué sur le
+    selector-récompense d’un REQ/PWD — **non retenu** : l’accroche S3
+    suffit ; le drag libre reste préférable. Voir **Annexe D** (étape
+    C8.6.4 annulée) et **Annexe B — C8**.
 
 **Hors scope C8** : zoom auto sur sélection, mini-map, validation
 visuelle des chaînes incomplètes, undo/redo (voir Reports en attente
@@ -1357,6 +1356,39 @@ pour la liste vivante (médias portables nodaux, ménage `!important`
 Quill/CSS, pont `updatePreview()` legacy `C7.2-bis-04`, durcissement
 `SELECTOR_SPEC`, zoom auto sur sélection).
 
+### C8 — Ajustements UX carte nodale *(clôture chantier 2026-05-02)*
+
+**Branche** : `feat/c8-ux-adjustments` (depuis `feat/nodal-map`). **Journal
+détaillé** : **Annexe D — Chantier C8** (archive conservée dans ce fichier).
+
+**Périmètre livré (synthèse)** :
+
+- **C8.1.a** — Selector replié : chevron, `hidden` descendants/edges,
+  handle **`synth-goto-out`** + edges `synth-trans-*` (goto agrégés).
+- **C8.1.b** — Scène en **scene box** (`sceneBoxNode`), parentage actions,
+  repli, anti-collision dépli (1.b.6 / fix), media sous repli (1.b.5-fix),
+  polish cadre (`nodalSceneBoxLayoutByExternalId`, `reconcileSceneBoxes`, …).
+- **C8.2.1** — Hook clavier (`isEditingContext`), **Échap**, **Ctrl/Cmd+F** → recherche.
+- **C8.2.2** — Confirmations suppression (`onBeforeDelete`, `describeNodeForDeletion`, …).
+- **C8.3** + **C8.3.x** — Badge départ + chaîne nodal → DOM → `startSceneId` → `generateGame`.
+- **C8.4.1** — Recherche nœuds (palette + `searchNodes`, `NodalSearchField`).
+- **C8.5.1** (partiel) + **C8.5.2** — Menu contextuel, double-clic édition, **Ctrl+C/V**,
+  presse-papiers nodal (`clipboard.ts`, `pasteClipboardAt`). **C8.5.3** écartée
+  (doublon copier-coller scène).
+- **C8.6.1 → C8.6.3** — Selector UX : z-index sous-selector, fond semi-opaque,
+  auto-resize + satellite, **zone d’accroche REQ/PWD** + overlap symétrique +
+  `REWARD_ZONE_OVERLAP_MIN`. **C8.6.4 / S4** (*drag bloqué selector-récompense*)
+  **écarté** — inutile après C8.6.3 ; voir étape C8.6.4 en Annexe D.
+
+**Reste éventuel (hors clôture stricte C8)** :
+
+- **C8.2.3** — Popup « Raccourcis » (bouton palette + touche `?`) — plan rédigé, non implémenté.
+- **Touche `D`** — `duplicateSelection` encore **stub** dans `NodalCanvas.tsx` ;
+  branchement sur copier-coller / paste à la souris si souhaité.
+- **Smoke dédié `SMK-C8-*`** — jamais formalisé en suite automatisée ; la recette
+  C7 `SMK-01…10` reste la base ; extensions manuelles possibles.
+- **Reports §7** — inchangés (zoom auto sélection, undo/redo, `updatePreview` thème, …).
+
 ## Annexe C — Glossaire
 
 - **Action** : unité métier éditable. Types `msg`, `pick`, `goto`,
@@ -1378,14 +1410,18 @@ Quill/CSS, pont `updatePreview()` legacy `C7.2-bis-04`, durcissement
 - **Transition** (famille handle) : nouvelle famille dédiée au `goto` —
   couleur bleu vif, forme triangle, edge pointillé animé.
 
-## Annexe D — Chantier C8 (en cours)
+## Annexe D — Chantier C8 (clôturée 2026-05-02)
 
-> Annexe vivante (§8.4) — temporaire pendant le chantier C8. Sera
-> condensée dans **Annexe B — C8** à la clôture, puis supprimée.
+> **Archive** (§8.4) — journal de décisions et plans détaillés du chantier C8.
+> **Synthèse périmètre + reste éventuel** : **Annexe B — C8** + §7 **C8**.
+> Ce bloc n’est pas supprimé : il sert de **fil d’ariane** (commits, pivots,
+> correctifs). Les mises à jour « produit » post-clôture vont dans Annexe B — C8.
 
-**Date d’ouverture** : 2026-05-02.
-**Branche** : `feat/c8-ux-adjustments` (à créer depuis `feat/nodal-map`).
-**Statut** : cadrage validé, implémentation à démarrer.
+**Date d’ouverture** : 2026-05-02.  
+**Date de clôture** : 2026-05-02.  
+**Branche** : `feat/c8-ux-adjustments` (depuis `feat/nodal-map`).  
+**Statut** : **clôturé** — lots principaux livrés (voir journal ci-dessous) ;
+**C8.6.4 / S4** volontairement **non réalisé** (motif sous l’étape C8.6.4).
 
 ### Scope figé
 
@@ -1398,9 +1434,8 @@ Voir §7 → C8. Rappel synthétique :
 - **C8.4** Recherche de nœud (`Ctrl+F`).
 - **C8.5** Copier/coller de nœuds (full version : sélection multiple,
   satellites recréés, IDs nouveaux, sous-graphes selector).
-- **C8.6** Rework UX selector (S1 z-index sous-selector / S2 fond non
-  transparent / S3 seuil d’accrochage REQ/PWD / S4 drag bloqué quand
-  selector enfant de REQ/PWD).
+- **C8.6** Rework UX selector (**S1–S3** livrés ; **S4** drag bloqué sur
+  selector-récompense REQ/PWD — **écarté**, voir étape C8.6.4).
 
 **Hors scope** : zoom auto sur sélection (reporté), mini-map,
 validation visuelle des chaînes, undo/redo.
@@ -1474,11 +1509,11 @@ reste obligatoire pour chaque sous-item non trivial.
     - **Piste B** : zone d’accrochage **dédiée** sur la pince REQ/PWD
       (rectangle invisible avec son propre seuil).
     - Choix à valider en début de C8.6 selon faisabilité React Flow.
-  - **S4.** Selector enfant de REQ/PWD : drag indépendant **bloqué**
-    (option React Flow `draggable: false` ou contrôle dans
-    `onNodeDragStart`). Détachement via le bouton dédié uniquement.
-    Sous-selector (selector enfant d’un selector) : drag conservé
-    libre pour permettre le réordonnancement Y des choix.
+  - **S4.** *(Écarté à la clôture — 2026-05-02.)* Ancienne intention :
+    `draggable: false` sur le selector-récompense d’un REQ/PWD. Abandonné :
+    l’accroche **C8.6.3** (zone DOM + recouvrement + overlap symétrique sur
+    le corps REQ) rend l’attachement fiable y compris pour les **gros**
+    selectors ; bloquer le drag n’apportait plus assez de valeur UX.
 
 ### Stratégie de découpage
 
@@ -4058,11 +4093,12 @@ en un seul geste — équivalent à une « Save as » de scène.
 #### Sous-chantier C8.6 — Rework UX selector
 
 > Spec initiale : S1 (sous-selector premier plan), S2 (fond
-> semi-transparent), S3 (accroche REQ/PWD), S4 (drag bloqué selector
-> enfant REQ/PWD). **Ajouts utilisateur 2026-05-XX** :
-> auto-resize du selector + repositionnement du satellite auto.
+> semi-transparent), S3 (accroche REQ/PWD). **S4** (drag bloqué
+> selector-récompense) **écarté** à la clôture — voir étape C8.6.4.
+> **Ajouts utilisateur 2026-05-XX** : auto-resize du selector +
+> repositionnement du satellite auto.
 >
-> Découpage en 4 étapes ordonnées par dépendance.
+> Découpage en étapes **C8.6.1 → C8.6.3** (S4 retirée du périmètre livré).
 
 ##### Étape C8.6.1 — Sous-selector au premier plan (S1)
 
@@ -4335,55 +4371,32 @@ recouverte »)` pour les gros selectors ; `onNodeDragStart` →
   `msg` sur la zone visible à droite du REQ → attachement
   immédiat sans avoir à pousser la `msg` sur le corps du REQ.
 
-##### Étape C8.6.4 — Drag bloqué selector enfant de REQ/PWD (S4)
+##### Étape C8.6.4 — Drag bloqué selector enfant de REQ/PWD (S4) — **non réalisé / écarté**
 
-**Décisions design (validées)** : drag indépendant du selector
-quand il est récompense d'un REQ/PWD bloqué, sauf via le bouton
-« Détacher » dédié. Sous-selector (selector enfant d'un selector)
-garde le drag libre.
+**Motif (2026-05-02)** : après **C8.6.3** (zone d’accroche réelle + priorité au
+drop + recouvrement surfacique + overlap **symétrique** REQ vs enfant), les
+utilisateurs peuvent **attacher et repositionner** un selector volumineux
+comme récompense sans friction. Imposer `draggable: false` sur ce selector
+(S4) **n’améliore plus** l’objectif initial (éviter les ratés d’accroche) et
+**dégrade** la liberté de mise en page. Le bouton **« Détacher »** reste la
+voie explicite de rupture ; le sous-selector (selector dans selector) reste
+hors périmètre de cette étape.
 
-**Directive** :
+**Contenu archivé** *(ancienne directive, non implémentée)* : projection /
+`ActionNodeView` avec `draggable: false` lorsque
+`parentAction.rewardActionId === action.id` sur un parent `req`/`pwd` ;
+tests Vitest associés ; smoke drag bloqué.
 
-1. Dans la projection (`toReactFlowNodes`) ou dans
-   `ActionNodeView`, déterminer dynamiquement `draggable: false`
-   pour les selectors qui sont enfants directs d'un REQ/PWD :
-   ```ts
-   const isRewardOfReqPwd =
-     action.actionType === "selector" &&
-     parentAction &&
-     (parentAction.actionType === "req" || parentAction.actionType === "pwd") &&
-     parentAction.rewardActionId === action.id;
-   if (isRewardOfReqPwd) actionNode.draggable = false;
-   ```
+**Critère de fin** : *N/A* — étape retirée du périmètre livré.
 
-2. **Détachement** : conserver le bouton « Détacher » existant sur
-   le sous-arbre récompense (déjà rendu via
-   `nodal-detach-btn`), c'est l'unique moyen de séparer le selector
-   de son REQ/PWD.
-
-3. **Selector enfant d'un selector** : aucun changement, drag libre
-   conservé pour permettre le réordonnancement Y des choix.
-
-4. **Tests** :
-   - REQ + selector récompense : tentative de drag du selector →
-     pas de mouvement.
-   - Selector dans un selector parent : drag fonctionne (réorg).
-   - Bouton « Détacher » sur le selector récompense → après clic,
-     selector redevient draggable.
-
-**Critère de fin** :
-- Smoke : REQ avec selector récompense ; tentative de drag du
-  selector → bloquée. Clic « Détacher » → drag fonctionne.
-- Smoke : selector imbriqué dans un autre selector → drag libre.
-
-À définir en fin de chantier — base : la suite SMK-01 → SMK-10 reste
-valable, ajout de SMK-C8-* pour valider chaque sous-item (replier /
-déplier, raccourcis, recherche, copier/coller, drag selector parenté).
+**Smoke / recette** : la base **SMK-01 → SMK-10** (§7 / Annexe B — C7) reste
+valable ; une suite **`SMK-C8-*`** dédiée n’a pas été constituée (option
+future, voir **Annexe B — C8** « Reste éventuel »).
 
 ### Journal de chantier
 
-(À remplir au fil des sessions Cursor — décisions, points bloquants,
-questions ouvertes, captures pertinentes.)
+Journal tenu au fil des sessions (décisions, pivots, correctifs). Dernière
+entrée de clôture en fin de liste.
 
 - 2026-05-02 — Cadrage initial (présent document).
 - 2026-05-02 — **C8.1.a partiel** (commit `511871a` — chevron + repli +
@@ -4805,11 +4818,20 @@ questions ouvertes, captures pertinentes.)
       pseudo-élément).
     - **S1** : tri par profondeur dans la détection d'overlap pour
       que les sous-selectors aient priorité.
-    - **S4** : `draggable: false` sur les selectors récompense de
-      REQ/PWD ; détachement uniquement via le bouton dédié.
-    - Plan **C8.6.1 → C8.6.4** rédigé.
+    - **S4** : *(voir clôture ci-dessous — étape écartée.)*
+    - Plan **C8.6.1 → C8.6.3** rédigé et livré ; **C8.6.4** retiré du
+      périmètre livré.
   - Reports identifiés dans §7 :
     - Undo/Redo (zundo).
     - Indicateur visuel scène de départ dans le formulaire vanilla
       (cf. C8.3.x hors scope).
     - Bibliothèque / copie media partagée entre actions (cf. 1.b.5).
+- 2026-05-02 — **C8.6.4 / S4 écarté** — pas de `draggable: false` sur le
+  selector-récompense REQ/PWD : l’accroche **C8.6.3** (zone + recouvrement +
+  overlap symétrique) satisfait l’objectif UX ; S4 documenté comme **non
+  réalisé** (étape C8.6.4 + §7 C8 + Annexe B — C8).
+- 2026-05-02 — **Annexe D clôturée** — chantier C8 UX nodal considéré clos
+  pour le périmètre livré ; **synthèse** ajoutée en **Annexe B — C8** ;
+  Annexe D conservée comme **archive** (journal + plans détaillés).
+  **Reste éventuel** hors clôture : **C8.2.3** (popup raccourcis), touche
+  **`D`** (stub `duplicateSelection`), suite smoke **`SMK-C8-*`** optionnelle.
