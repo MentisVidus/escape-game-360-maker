@@ -2,12 +2,24 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.8 (5 mai 2026)
+> **Version** : 1.8.5 (5 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+
+> **Changelog v1.8.5** : extension §7 roadmap — formalisation des
+> chantiers **C10 → C16** : autonomie carte nodale (**C10**, bouton
+> *Générer le jeu* + paramètres globaux + timer global) ; logique de
+> jeu enrichie (**C11**, REQ multi-objets, crafting, récompense
+> d’échec) ; logique temporelle (**C12**, timer scène, timer action,
+> hotspot conditionnel) ; bibliothèques productivité (**C13**, styles
+> hotspot + icônes) ; mode visite virtuelle (**C14**) ; médias
+> avancés (**C15**, vidéo 360° + transitions) ; médias partagés et
+> portables (**C16**, IndexedDB + bibliothèque). v1.9 réservée à la
+> clôture **C10**. Mise à jour §0.1 et §7 introduction. Aucun
+> changement de règle métier §1–§6 ; doc-only.
 
 > **Changelog v1.8** : clôture **chantier C9** — drag & drop depuis la
 > palette. Découpage livré : **C9.0** clic droit sur edge métier →
@@ -146,7 +158,8 @@ valider l'intention produit. Il décrit :
 - Les règles de cohérence et warnings (§6).
 - La roadmap d'implémentation (§7).
 - Les règles de collaboration avec l'agent (§8).
-- Les annexes A–C (chantier **C7** **livré v1.6** ; voir **Annexe B — C7**).
+- Les annexes A–C (chantiers **C1–C9 livrés** — v1.5 → v1.8 ; voir
+  **Annexe B** par chantier ; journaux archivés sous `docs/archives/`).
 
 ### 0.2 Règles transversales produit
 
@@ -777,7 +790,12 @@ centre la vue sur le nœud concerné.
 
 ## 7. Roadmap d'implémentation
 
-Neuf chantiers numérotés pour référence dans les commits.
+Chantiers numérotés pour référence dans les commits. **C1–C9 livrés**
+(v1.5 → v1.8) ; **C10–C16 planifiés** ci-dessous. La numérotation
+au-delà de C10 est indicative — l’ordre peut être réarrangé selon
+priorité produit. Chaque chantier passe par la phase questions §8.1
+au démarrage et ouvre une **Annexe D** vivante refondue à la clôture
+(cf. §8.4 et `docs/archives/chantier_*.md`).
 
 ### C1 — Fondation du modèle en mémoire *(pas de rendu)*
 
@@ -933,6 +951,121 @@ ou backlog produit).
 - Drag & drop vers la vue (palette → canvas, conteneurs C9.2–C9.3).
 - Ghost pendant drag (**C9.4**) ; pas de surcouche « survol » par cible
   de drop (fallback silencieux).
+
+### C10 — Autonomie de la carte nodale *(authoring standalone)*
+
+Objectif : **dissocier l’authoring** du formulaire legacy. Tout ce
+qui est nécessaire pour générer un jeu doit être disponible depuis
+la carte nodale, sans bascule d’onglet. Conditionne la mise en
+**lecture seule** du formulaire legacy (§0.2 règle 2, **C6.1**).
+
+**Axe A — Bouton « Générer le jeu »** (cf. `editeur.html` /
+`editor_en.html` côté legacy) :
+
+- Exposer `generateGame()` depuis la carte (palette ou dock à cadrer).
+- Garantir un flush DOM préalable complet (le miroir nodal → DOM doit
+  être à jour avant l’appel — cf. `editor-shared-nodal-to-dom.js`).
+- Comportement post-génération : modale résultat / téléchargement
+  direct / bascule onglet legacy → à trancher en phase questions.
+
+**Axe B — Paramètres globaux du projet** :
+
+- Inventaire des champs globaux du formulaire legacy (titre, langue,
+  thème visuel global, `meta.startSceneId`, **timer global**, **styles
+  globaux**, **sons globaux**, **textes de fin de partie**).
+- Statut actuel par champ : déjà dans le store nodal ? déjà projeté
+  vers le DOM via `flushNodalStoreToEditorDom` ? sérialisé dans
+  `project.json` V2 ? — à dresser au démarrage.
+- Rapatrier dans la carte nodale ceux qui manquent ; popups dédiés ou
+  panneau « Paramètres globaux » (à cadrer).
+
+**Axe C — Désactivation legacy (C6.1)** :
+
+- Trancher si C10 est le bon moment pour passer définitivement les
+  contrôles legacy en lecture seule + bandeau « miroir nodal ».
+- Hors scope possible si la couverture B est partielle.
+
+Découpage attendu (à valider §8.1) : **C10.1** generateGame ; **C10.2**
+paramètres globaux ; **C10.3** désactivation legacy si retenu.
+
+### C11 — Logique de jeu : conditions et combinaisons
+
+Enrichissement des mécaniques REQ/PWD et inventaire :
+
+- **REQ multi-objets** — exiger plusieurs objets simultanément
+  (A + B requis pour débloquer C). Schema `req.objectIds: string[]`
+  à la place de `objectId: string` (§3.6, §5.1) ; warning §6 à
+  étendre (`OBJECT_UNDEFINED` par item).
+- **Crafting léger** — A + B → C : action joueur explicite combinant
+  deux objets pour en créer un troisième. Modèle d’action dédié
+  (`craft` ?) ou extension `pick` à cadrer.
+- **Récompense d’échec** — REQ / PWD : déclencher une action
+  spécifique (ex. goto scène piège) si l’objet manque ou le code est
+  faux. Métaphore Scratch étendue : deux pinces (succès / échec) au
+  lieu d’une (§2.3 État 4 à amender).
+
+**À cadrer** : *Scènes finales multiples* — victoire / défaite comme
+flag scène, ou comme nœud terminal dédié ? Modélisation à valider
+en phase questions C11.
+
+### C12 — Logique de jeu temporelle
+
+Introduction du temps comme dimension du gameplay (complément du
+timer global C10) :
+
+- **Timer sur scène** — durée locale par scène, en plus du timer
+  global. Champ `scene.timer?: number` (secondes) à introduire.
+- **Timer sur action** — déclenchement automatique d’une action
+  après X secondes sans interaction joueur. Modélisation `delay` /
+  `autoTrigger` sur action.
+- **Hotspot conditionnel temporel** — apparition / disparition d’un
+  hotspot après X secondes. Complément de la visibilité par
+  inventaire déjà en place.
+
+### C13 — Bibliothèques productivité éditeur
+
+Outils d’édition réutilisables, sans changer le runtime joueur :
+
+- **Bibliothèque de styles hotspot** — l’utilisateur crée des styles
+  nommés dans `meta.hotspotStyles`, les réapplique en 1 clic depuis
+  l’éditeur. Modifier un style → mise à jour de tous les hotspots
+  qui l’utilisent (référence par id de style, pas copie).
+- **Bibliothèque d’icônes hotspots** — remplacer le visuel hotspot
+  par une icône issue d’une bibliothèque libre avec droits
+  commerciaux à choisir (Lucide / Phosphor / Tabler / autre).
+  Stockage : ressource embarquée (SVG) ou référence par id.
+
+### C14 — Mode visite virtuelle
+
+Variant d’usage : générer un projet sans mécanique escape game.
+
+- **Suppression de la landing page** au démarrage runtime
+  (« Nouvelle partie » / « Démarrer ») — option projet.
+- **Option de génération « visite virtuelle »** — pas de timer, pas
+  d’inventaire, juste la navigation entre scènes. Flag projet
+  `mode: 'escape' | 'tour'` (à nommer) qui désactive les warnings
+  liés au gameplay (timer, inventaire, REQ/PWD).
+
+### C15 — Médias avancés
+
+Élargissement du catalogue de médias supportés :
+
+- **Scènes vidéo 360°** — Pannellum vidéo (en plus de l’image fixe).
+  Nœud `scene` étendu avec `mediaType: 'image' | 'video'`.
+- **Transitions image ↔ vidéo** — passer d’une scène image à une
+  scène vidéo et inversement, avec une transition visuelle propre
+  (fondu, etc.).
+
+### C16 — Médias partagés et portables
+
+Productivité médias et portabilité du snapshot :
+
+- **Médias portables dans le snapshot IndexedDB** — promouvoir les
+  callbacks no-op de `nodalDraftAdapter.ts` en stockage réel des
+  médias dans la session. (Origine : *Reports en attente* post-C7.)
+- **Bibliothèque médias partagée entre actions** — éviter les
+  doublons en référençant les médias par id dans `meta.media[mediaId]`,
+  consommé par tous les nœuds qui l’affichent.
 
 ---
 
