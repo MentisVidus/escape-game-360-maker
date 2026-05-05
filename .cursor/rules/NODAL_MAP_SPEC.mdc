@@ -1734,8 +1734,8 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_9.md`.
 
 **Date d'ouverture** : 2026-05-06.
 **Branche** : `feat/c10-autonomy` (depuis `feat/nodal-map`).
-**Statut** : cadrage validé (Q-C10-1 → Q-C10-bis-4) — démarrage
-**C10.0** imminent.
+**Statut** : cadrage validé (Q-C10-1 → Q-C10-bis-4) — **C10.0**
+complété (audit ci-dessous, 2026-05-06).
 
 ### Scope figé
 
@@ -1799,7 +1799,7 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 
 | # | Périmètre | Dépend de | Type |
 |---|---|---|---|
-| **C10.0** | Audit globals — tableau exhaustif champ legacy ↔ store nodal ↔ flush DOM ↔ project.json V2, dans Annexe D | — | doc-only |
+| **C10.0** | Audit globals — tableau exhaustif champ legacy ↔ store nodal ↔ flush DOM ↔ project.json V2, dans Annexe D | — | **doc-only — livré** |
 | **C10.1** | Bouton `[Publier]` palette + modale « Publication du jeu » (HTML autonome + ZIP web + placeholder Deploy) + flush synchrone garanti + suppression flush périodique 8 s | C10.0 (recommandé : repérer les autres points DOM-reading à équiper) | code |
 | **C10.2** | Rapatriement paramètres globaux dans la modale « Paramètres globaux » + extension `meta.settings`. Sous-découpage `C10.2.a → .x` figé après C10.0 (probable : end-screens, timer, audio, popup theme, inventaire, langue, thème) | C10.0 | code |
 | **C10.3** | Ouverture par défaut sur la carte nodale ; renommage `[Formulaire]` → `[Vérifier]` (toggle read-only) | C10.2 (la carte doit pouvoir tout éditer avant de devenir page d'accueil) | code |
@@ -1946,6 +1946,135 @@ strictement doc-only.
 - Annexe D — Journal de chantier mis à jour (entrée 1-2 lignes citant
   la complétion C10.0 et le sous-découpage C10.2.x proposé).
 
+### Audit globals (C10.0)
+
+**Phase questions C10.0 (réponses)**
+
+- **Q-C10.0-1** — Granularité : **un rang par champ logique**, avec les
+  `id` HTML listés en sous-puces dans la colonne « Champ legacy ».
+- **Q-C10.0-2** — Périmètre : **authoring uniquement** (formulaire +
+  sérialisation éditeur) ; pas d’inventaire des champs runtime purs du
+  HTML joueur généré.
+- **Q-C10.0-3** — `meta.startSceneId` / `startSceneId` export : **inclus**
+  comme ligne de référence (déjà rapatrié côté nodal + flush via ordre
+  des blocs scène).
+
+**Sources relues** : `editeur.html` / `editor_en.html` (`#editor-global-root`,
+`#global-settings` … hors `#scenes-container`) ; `js/editor-shared-project-serialization.js`
+(`getCurrentProjectData`) ; `js/editor-shared-timer.js` (`readTimerSettingsFromDom`) ;
+`js/editor-shared-nodal-to-dom.js` (`applyFromStore` → scènes + `projectPlayerPopupThemeToDom`) ;
+`js/editor-shared-bundle.js` (`flushNodalStoreToEditorDom`) ;
+`xflow/react/src/model/project.ts` (`ProjectMeta`) ;
+`xflow/react/src/serialize/toProjectJson.ts` (`serializeToProjectJson` / `ProjectJsonV2`) ;
+`xflow/react/src/serialize/mapLayoutJson.ts` (`MapLayoutJson.nodalPlayerPopupTheme`, …) ;
+`xflow/react/src/editor-map-main.tsx` (`serializeForBundle`) ;
+`js/editor-core.js` (`createEmptyProject`) ; `js/editeur-generate.js` /
+`js/editor-en-generate.js` (`generateGame`, `exportGameWebZip`) ;
+`js/editeur-app.js` / `js/editor-en-app.js` (`saveProject`, `saveProjectBundle`,
+`window.__escape360NodalChrome`, chargement bundle).
+
+**Convention colonne « Store nodal »** : cible long terme **C10**
+`meta.settings.<groupe>.<champ>` lorsque le champ n’existe pas encore dans
+le store ; aujourd’hui le store Zustand expose surtout `meta.*`,
+`scenes` / `actions` / `edges` / `layout` / `media` / `satellites` /
+`sceneBoxes`, plus **`playerPopupTheme`** (racine du state étendu, hors
+`ProjectMeta` — voir `nodalProjectStore.ts`).
+
+**Convention colonne « `project.json` V2 »** : distinguer (1) le
+**JSON métier minimal** écrit dans le bundle `.escapegame` comme
+`project.json` via `serializeToProjectJson` (type `ProjectJsonV2` :
+`schemaVersion`, `title`, `startSceneId`, `scenes[]`) ; (2) le
+**JSON éditeur complet** `EditorCore` / `getCurrentProjectData` (champs
+plats historiques : `useInv`, `timer`, `endScreens`, …) pour export
+`.json` legacy. Les extensions nodales hors `ProjectJsonV2` sont dans
+`map-layout.json` (ex. `nodalPlayerPopupTheme`).
+
+| Champ legacy (libellé + `id` / mécanisme) | Store nodal (actuel → cible `meta.settings`) | Flush DOM (`flushNodalStoreToEditorDom`) | `project.json` / persistance |
+| --- | --- | --- | --- |
+| **Titre du projet** — `#gameTitle` | `meta.title` → `meta.settings.project.title` (option cohérence) | non | (1) `title` racine. (2) idem champs plats legacy. |
+| **Scène de départ** — priorité `__ESCAPE360_NODAL_STORE__` dans `getCurrentProjectData` ; pas d’`id` global dédié (ordre `#scenes-container` + C8.3) | `meta.startSceneId` (id interne) + `scenes[id].sceneId` (externe) | **oui** (réordonnancement + projection scènes / hotspots) | (1) `startSceneId` (externe). (2) `startSceneId` legacy. |
+| **Inventaire — activer** — `#useInventory` | manquant → `meta.settings.inventoryGlobal.enabled` | non | (2) `useInv`. (1) **manquant** bundle. |
+| **Inventaire — position** — `#inv-pos` | manquant → `meta.settings.inventoryGlobal.position` | non | (2) `invPos`. (1) manquant. |
+| **Inventaire — icône** — `#inv-icon` | manquant → `meta.settings.inventoryGlobal.icon` | non | (2) `invIcon`. (1) manquant. |
+| **Inventaire — fond** — `#inv-bgc`, `#inv-bga` | manquant → `meta.settings.inventoryGlobal.panelBg` / `panelBgAlpha` | non | (2) `invBgc`, `invBga`. (1) manquant. |
+| **Inventaire — couleur texte** — `#inv-color` | manquant → `meta.settings.inventoryGlobal.textColor` | non | (2) `invColor`. (1) manquant. |
+| **Popups — activer thème perso** — `#useCustomPopup` | `playerPopupTheme.useCustomPopup` (slice store) → `meta.settings.popupTheme.useCustom` | **oui** (`projectPlayerPopupThemeToDom`) | (2) `useCustomPopup`. (1) manquant ; **(3)** `map-layout.json` → `nodalPlayerPopupTheme.useCustomPopup`. |
+| **Popups — police / couleurs** — `#pop-font`, `#pop-color`, `#pop-bgc`, `#pop-bga`, `#pop-btn-bg`, `#pop-btn-col` | idem slice → `meta.settings.popupTheme.*` | **oui** | (2) champs `popFont` … `popBtnCol`. (1) manquant ; **(3)** `nodalPlayerPopupTheme`. |
+| **Audio global — activer** — `#useGlobalAudio` | manquant → `meta.settings.audio.enabled` | non | (2) `useGlobalAudio`. (1) manquant. |
+| **Audio global — URL / volume** — `#globalAudioUrl`, `#globalAudioVol` (`#globalAudioVolVal` affichage) | manquant → `meta.settings.audio.url` / `volume` | non | (2) `globalMusic` {url,volume} (+ alias `globalAudioUrl`). (1) manquant. |
+| **Timer — activer** — `#useTimer` | manquant → `meta.settings.timer.enabled` | non | (2) `timer.enabled`. (1) manquant. |
+| **Timer — mode / durée / options** — `#timerMode`, `#timerStartSeconds`, `#timerAutoStart`, `#timerPauseOnPopup` | manquant → `meta.settings.timer.mode` / `startSeconds` / `autoStart` / `pauseWhenPopupOpen` | non | (2) sous-objet `timer`. (1) manquant. |
+| **Sauvegarde progression joueur** — `#playerSaveMode` | manquant → `meta.settings.playerSave.mode` | non | (2) `playerSave.mode`. (1) manquant. |
+| **Fin victoire — scène déclenchante** — `#victorySceneId` | manquant → `meta.settings.endScreens.victorySceneExternalId` | non | (2) `victorySceneId`. (1) manquant. |
+| **Fin défaite — scène déclenchante** — `#gameOverSceneId` | manquant → `meta.settings.endScreens.gameOverSceneExternalId` | non | (2) `gameOverSceneId`. (1) manquant. |
+| **Écran Game Over (modale)** — `#endGameOverTitle`, `#endGameOverBody`, `#endGameOverBtn` | manquant → `meta.settings.endScreens.gameOver.*` | non | (2) `endScreens.gameOver.{title,bodyHtml,buttonLabel}`. (1) manquant. |
+| **Écran Victoire (modale)** — `#endVictoryTitle`, `#endVictoryBody`, `#endVictoryBtn` | manquant → `meta.settings.endScreens.victory.*` | non | (2) idem `endScreens.victory.*`. (1) manquant. |
+
+**Champs hors périmètre « paramètres du jeu »** (hors tableau principal) :
+aperçus `#preview-inv-*`, `#preview-pop-*` (dérivés DOM) ; modales
+outil `#picker-modal`, `#scene-preview-modal` ; chrome carte
+`#project-map-*`, `#project-map-narration-only` (filtre d’affichage
+graphe, pas donnée projet). Les **timers locaux par scène** et leurs
+`class="sc-timer-override-*"` restent dans `#scenes-container` (hors
+C10.0 globals).
+
+**Dépendances entre champs**
+
+- `#useInventory` masque / affiche `#inv-settings-container` et les
+  sous-champs inventaire.
+- `#useCustomPopup` masque / affiche `#popup-settings-container` et les
+  `#pop-*`.
+- `#useGlobalAudio` masque / affiche `#audio-settings-container`.
+- `#useTimer` masque / affiche `#timer-settings-container`.
+- `#victorySceneId` / `#gameOverSceneId` : options peuplées depuis les
+  scènes du projet (liste `sel-endstate-scene`).
+- Rich text `#endGameOverBody` / `#endVictoryBody` : `flushRichEditorsIn`
+  sur `#end-screens-form-container` avant lecture dans
+  `getCurrentProjectData`.
+
+**Points DOM-reading** — à garantir avec **flush synchrone** en **C10.1**
+(compléter si de nouveaux appels apparaissent) :
+
+- `getCurrentProjectData()` — utilisé pour tout export qui repasse par
+  le legacy : **`saveProject()`** (JSON plein), **`generateGame()`**,
+  **`exportGameWebZip()`**, **`buildPlayerHtmlTemplate()`** (via
+  `getCurrentProjectData` dans generate), **captures brouillon local**
+  (`editor-shared-local-draft.js` → `getCurrentProjectData`).
+- **`saveProject()`** (barre d’outils) : **pas** de `flushNodalStoreToEditorDom`
+  aujourd’hui — risque majeur si édition uniquement nodale.
+- **`saveProjectBundle()`** (barre d’outils) : **ne lit pas** le DOM pour
+  le graphe ( `serializeForBundle` ) ; les **globals** hors nodal ne sont
+  **pas** dans `project.json` du bundle — rattrapage prévu C10.2 ; le
+  pont palette **`window.__escape360NodalChrome.saveEscapegameBundle`**
+  fait déjà un flush avant sauvegarde.
+- Après **hydrate bundle** nodal : `flushNodalStoreToEditorDom` déjà appelé
+  (`*-app.js` chargement `.escapegame`).
+- **Périodique** : `editor-nodal-map-bootstrap.js` (`NODAL_DOM_SYNC_MS =
+  8000`) — à **supprimer** en C10.1 au profit du flush on-demand.
+
+**Sous-découpage `C10.2.a` → `.x` proposé** (validation phase questions
+C10.1 avant rédaction des plans détaillés) :
+
+- **C10.2.a** — Titre / identité projet (`gameTitle` ↔ `meta.title` /
+  racine `ProjectJsonV2`) — peu de dépendances.
+- **C10.2.b** — Inventaire HUD (`useInventory`, `inv-*`) — dépend listes
+  scène uniquement pour cohérence visuelle (aperçu).
+- **C10.2.c** — Thème popups joueur (déjà partiellement nodal +
+  `nodalPlayerPopupTheme`) — **dépend** de C7.6 / Quill theme si textes
+  riches ajoutés plus tard ; aujourd’hui champs simples.
+- **C10.2.d** — Audio global (`useGlobalAudio`, `globalAudioUrl`,
+  `globalAudioVol`) — indépendant.
+- **C10.2.e** — Timer global (`useTimer`, `timer*`, `#playerSaveMode`) —
+  dépend C10.2.f pour cohérence UX modale « Paramètres globaux » mais
+  pas techniquement sur les données fin de partie.
+- **C10.2.f** — Fin de partie : scènes `victorySceneId` /
+  `gameOverSceneId` + textes modales `end*` — **dépend** des ids de
+  scène exportés (lien `meta.startSceneId` / liste scènes).
+- **C10.2.g** — Alignement sérialisation : étendre `serializeToProjectJson`
+  / hydrate et **ou** documenter le mapping `meta.settings` ↔ JSON
+  legacy / bundle — **transversal** ; clôt après a–f ou en parallèle
+  contrôlé (évite double vérité).
+
 ### Plan détaillé C10.1 — directives pour Cursor
 
 *À rédiger après la livraison de C10.0 (le périmètre exact des points
@@ -1969,9 +2098,11 @@ legacy s'appuient sur la carte comme page d'accueil).*
 
 ### Journal de chantier
 
+- 2026-05-06 — **C10.0 livré** : section « Audit globals (C10.0) »
+  (tableau + DOM-reading + proposition **C10.2.a–g**). Plans C10.1+
+  peuvent intégrer la liste des flush et la suppression du timer 8 s.
 - 2026-05-06 — Ouverture Annexe D. Cadrage validé en phase questions
   (Q-C10-1 → Q-C10-bis-4). Découpage 5 sous-chantiers (C10.0 → C10.4),
   branche `feat/c10-autonomy` créée depuis `feat/nodal-map`. Plan
-  détaillé C10.0 rédigé. Plans C10.1+ en attente de l'audit (rédaction
-  au fil de l'eau pour rester adaptables aux trouvailles).
+  détaillé C10.0 rédigé.
 
