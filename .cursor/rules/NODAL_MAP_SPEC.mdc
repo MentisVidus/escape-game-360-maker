@@ -9,7 +9,7 @@
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
 
-> **Changelog v1.8.6** : intégration nouveau chantier **C11 —
+> **Changelog v1.8.2** : intégration nouveau chantier **C11 —
 > Déploiement Netlify intégré** (« Deploy Game », complément du
 > Generate Game existant) avec persistance idempotente du `siteId`
 > dans `project.json`. **Renumérotation** des chantiers suivants :
@@ -19,7 +19,7 @@
 > avancés) ; C16 → **C17** (médias partagés et portables). v1.9
 > toujours réservée à la clôture **C10**. Doc-only.
 
-> **Changelog v1.8.5** : extension §7 roadmap — formalisation des
+> **Changelog v1.8.1** : extension §7 roadmap — formalisation des
 > chantiers **C10 → C16** : autonomie carte nodale (**C10**, bouton
 > *Générer le jeu* + paramètres globaux + timer global) ; logique de
 > jeu enrichie (**C11**, REQ multi-objets, crafting, récompense
@@ -1647,6 +1647,15 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_9.md`.
   (récompense état 4, zone géométrique alignée C8.6.3).
 - **C9.4** — Ghost node pendant drag (apparence type nœud canvas,
   `setDragImage`).
+
+**Note post-clôture (2026-05-05)** :
+
+- UX : le drop d’une **action** sur s-box ne crée plus d’attache hotspot
+  ni d’auto-edge flow. Le comportement est aligné sur un drop fond de
+  carte (nœud orphelin top-level), pour éviter des liaisons non désirées
+  en usage courant.
+- Les drops **selector** (état 3) et **REQ/PWD** (état 4) restent
+  inchangés.
 
 **Reste éventuel (hors clôture stricte C9)** :
 
