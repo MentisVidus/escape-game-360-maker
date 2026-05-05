@@ -1790,6 +1790,17 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
   fusion `feat/nodal-map` → `main` n'arrivera qu'après C11, donc pas
   de version publiée à préserver) ; refonte palette latérale (on
   ajoute juste un bouton).
+- **Découvert pendant C10.0 — à formaliser en chantier futur** : deux
+  fonctionnalités d'authoring legacy ne sont **pas encore portées**
+  dans la carte nodale (au-delà des paramètres globaux couverts par
+  C10) :
+  - **Aperçu de scène 360°** (image preview du panorama) — cible
+    naturelle : nœud **s-box** (zone visuelle de la scène).
+  - **Modale de placement des coordonnées hotspots** (UI pour pointer
+    sur l'image 360°) — cible naturelle : satellite
+    **`coords-options`**.
+  À reprendre dans un nouveau chantier dédié (probable **C18**) à la
+  clôture C10 ou plus tôt si bloquant pour les tests utilisateurs.
 - **Découpage hiérarchique illimité** : convention `C10.n` pour les
   grands sous-chantiers, `C10.n.a / .b / .c …` pour les modules à
   l'intérieur. Pas de plafond — l'utilisateur est ouvert à du
@@ -1833,6 +1844,16 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 - **Renommage `[Formulaire]` → `[Vérifier]`** (C10.3) : signale le
   changement de rôle (édition → vérification read-only) tout en
   préservant l'accessibilité au formulaire pour debug.
+- **Préservation des aperçus live (contrainte C10.2.c)** : la
+  migration `playerPopupTheme` (slice racine du store) →
+  `meta.settings.popupTheme` doit préserver la réactivité live des
+  aperçus DOM (`#popup-preview-*` se met à jour à chaque changement
+  via `projectPlayerPopupThemeToDom`). Les sélecteurs Zustand sur
+  `meta.settings.popupTheme.*` doivent déclencher le re-render avec
+  la même fréquence que le slice actuel (probablement OK — Zustand
+  shallow compare par défaut). À expliciter dans le plan détaillé
+  C10.2.c et à valider par recette manuelle (saisie couleur popup
+  dans la modale Paramètres globaux → aperçu mis à jour sans délai).
 
 ### Plan détaillé C10.0 — directives pour Cursor
 
@@ -2077,9 +2098,176 @@ C10.1 avant rédaction des plans détaillés) :
 
 ### Plan détaillé C10.1 — directives pour Cursor
 
-*À rédiger après la livraison de C10.0 (le périmètre exact des points
-DOM-reading à équiper et la suppression du flush périodique seront
-informés par l'audit).*
+**Pré-requis** : C10.0 livré (audit globals dans Annexe D présent ;
+tableau de mapping et inventaire des points DOM-reading disponibles
+pour référence). Branche `feat/c10-autonomy` active.
+
+**Contexte** : C10.1 livre l'**infrastructure de publication** depuis
+la carte nodale et **rationalise les flush DOM**. Trois axes en un
+seul commit :
+
+1. **Suppression du flush périodique 8 s** (`NODAL_DOM_SYNC_MS` dans
+   `editor-nodal-map-bootstrap.js`) au profit d'un **flush-on-demand**
+   garanti aux points d'entrée DOM-reading identifiés par C10.0.
+2. **Création d'un composant modale palette commun** (`PalettePopupModal`)
+   réutilisable par « Publication du jeu » (ce sous-chantier) et
+   « Paramètres globaux » (C10.2).
+3. **Bouton `[Publier]`** dans le bas de la palette + **modale
+   « Publication du jeu »** exposant les 3 chemins de publication :
+   HTML autonome, ZIP web hors-ligne, Déployer (placeholder C11).
+
+**Trouvaille critique C10.0 corrigée ici** : `saveProject()` (barre
+d'outils legacy) ne fait actuellement **pas** d'appel
+`flushNodalStoreToEditorDom()` avant la lecture du DOM. Risque de
+perte silencieuse de modifications en cas d'édition uniquement nodale.
+C10.1 ferme ce trou en équipant **tous** les points DOM-reading
+recensés par l'audit.
+
+**Fichiers à lire avant de coder** :
+
+- `xflow/react/src/editor-nodal-map-bootstrap.js` — `NODAL_DOM_SYNC_MS
+  = 8000` et `setInterval` à supprimer.
+- `js/editor-shared-bundle.js` — `flushNodalStoreToEditorDom`,
+  `EditorSharedBundleApi` (point de contact carte nodale → legacy).
+- `js/editeur-app.js` / `js/editor-en-app.js` — `saveProject`,
+  `saveProjectBundle`, et tous les points qui appellent
+  `getCurrentProjectData` directement ou indirectement.
+- `js/editeur-generate.js` / `js/editor-en-generate.js` —
+  `generateGame()`, `exportGameWebZip()`.
+- `js/editor-shared-local-draft.js` — capture brouillon local.
+- `xflow/react/src/view/palette/NodePalette.tsx` — structure de la
+  palette (zone bas avec `[Sauver]` / `[Charger]` / `[Formulaire]` ;
+  modale « Paramètres globaux » placeholder existante en haut pour
+  référence du pattern modale).
+- Modales C7.2/C7.3 (popups d'actions) — pattern fermeture Échap +
+  overlay + focus trap.
+
+**Phase questions (workflow §8.1)** — Cursor doit poser ses propres
+**Q-C10.1.x-Y** avant de coder. Pistes :
+
+- **Q-C10.1.x-1** — Composant modale palette commun :
+  *(a)* nouveau fichier `xflow/react/src/view/palette/PalettePopupModal.tsx`
+  factorisant le placeholder existant ;
+  *(b)* copier le pattern d'une modale C7.2 popup d'action ;
+  *(c)* wrapper sur une lib externe.
+  *Vote : (a) — réutilisé immédiatement en C10.2 sur la modale
+  Paramètres globaux ; pas de dépendance externe nécessaire.*
+- **Q-C10.1.x-2** — Indicateur loading pendant `flush + export` :
+  *(a)* overlay semi-transparent sur la modale avec spinner ;
+  *(b)* état désactivé des 3 boutons + label « Génération… » ;
+  *(c)* les deux.
+  *Vote : (b) — moins intrusif, suffisant si le flush+export reste
+  rapide (<2 s en pratique). Si l'export prend > 2 s on bascule sur
+  (c) en fix de suivi.*
+- **Q-C10.1.x-3** — `exportGameWebZip()` exposition :
+  *(a)* `window.exportGameWebZip` (parallèle à `generateGame`) ;
+  *(b)* nouvelle entrée de `EditorSharedBundleApi`.
+  *Vote : (b) — le bridge `EditorSharedBundleApi` est déjà le point
+  de contact carte nodale → legacy ; éviter la pollution `window`.*
+- **Q-C10.1.x-4** — Position exacte du bouton `[Publier]` dans
+  `NodePalette.tsx` : entre `[Charger]` et `[Formulaire]`. Lever le
+  slot exact (ordre des items en zone bas) avant l'insertion.
+- **Q-C10.1.x-5** — Libellés bilingues. FR : « Publication du jeu » /
+  « HTML autonome » / « ZIP web hors-ligne » / « Déployer ». EN :
+  Cursor propose les pendants en cohérence avec la palette EN
+  existante (ex. « Publishing » / « Standalone HTML » / « Offline
+  web ZIP » / « Deploy »).
+
+**Périmètre** :
+
+1. **Suppression du flush périodique** :
+   - Retirer la constante `NODAL_DOM_SYNC_MS` et le `setInterval`
+     correspondant dans `editor-nodal-map-bootstrap.js`.
+   - Vérifier qu'aucun autre fichier n'instaure un flush périodique
+     parallèle (grep `setInterval.*flush` ou similaire).
+
+2. **Flush-on-demand garanti** sur tous les points DOM-reading recensés
+   par l'audit C10.0 :
+   - **`saveProject()`** (FR + EN) : ajouter
+     `flushNodalStoreToEditorDom()` synchrone avant la lecture du DOM
+     (= **fix sécurité** identifié C10.0).
+   - **`generateGame()`** (FR + EN) : confirmer la présence du flush ;
+     ajouter si absent.
+   - **`exportGameWebZip()`** (FR + EN) : idem.
+   - **`editor-shared-local-draft.js`** (capture brouillon) : ajouter
+     flush avant `getCurrentProjectData` si absent.
+   - **`buildPlayerHtmlTemplate()`** : indirect via
+     `getCurrentProjectData`, OK si le caller flush.
+   - **`saveProjectBundle()`** : pas concerné (utilise
+     `serializeForBundle`, ne lit pas le DOM legacy) — laisser inchangé.
+   - Documenter la liste finale des callsites en commentaire
+     au-dessus de la déclaration `flushNodalStoreToEditorDom`.
+
+3. **Composant modale palette commun** `PalettePopupModal` :
+   - Props : `title: string`, `isOpen: boolean`, `onClose: () => void`,
+     `children: ReactNode` (body), `footerActions?: ReactNode` (boutons
+     en bas optionnels).
+   - Fermeture par **Échap** + clic overlay + bouton croix (cohérent
+     C8.2 Échap global — vérifier qu'on ne casse pas le hook
+     `isEditingContext`).
+   - Focus trap basique (focus initial sur le titre ou le premier
+     bouton ; restauration du focus à la fermeture).
+   - Style cohérent avec la palette latérale.
+   - Pas de dépendance externe sauf si déjà présente.
+
+4. **Bouton `[Publier]`** dans `NodePalette.tsx` :
+   - Position : zone bas, **entre `[Charger]` et `[Formulaire]`**
+     (cf. Q-C10.1.x-4).
+   - Icône + label « Publier » / « Publish ».
+   - Ouvre la modale « Publication du jeu » au clic.
+
+5. **Modale « Publication du jeu »** :
+   - Titre : « Publication du jeu » (FR) / EN à confirmer
+     Q-C10.1.x-5.
+   - 3 boutons d'action en liste verticale ou grille 1×3 :
+     - **HTML autonome** — flush + appel `generateGame()`
+       (`window.generateGame`).
+     - **ZIP web hors-ligne** — flush + appel `exportGameWebZip()`
+       via `EditorSharedBundleApi` (Q-C10.1.x-3).
+     - **Déployer** — `disabled` + tooltip « Disponible avec C11 ».
+   - Indicateur loading (Q-C10.1.x-2) pendant `flush + export`.
+   - Bouton fermeture (croix + Échap) toujours actif (même pendant
+     l'export — l'export peut continuer en arrière-plan, à confirmer
+     par recette).
+
+6. **Pas de migration `playerPopupTheme`** : reportée à **C10.2.c**
+   (cf. Décisions de design — contrainte live preview).
+
+**Critères de fin** :
+
+- `editor-nodal-map-bootstrap.js` ne contient plus de `setInterval`
+  ni de constante `NODAL_DOM_SYNC_MS` (relire le fichier après edit
+  pour confirmer).
+- `saveProject()` (FR + EN) appelle `flushNodalStoreToEditorDom()`
+  avant la lecture DOM (vérifier par lecture de code après edit ;
+  écrire un commentaire en début de fonction listant la garantie).
+- `generateGame()` et `exportGameWebZip()` (FR + EN) idem.
+- `editor-shared-local-draft.js` idem.
+- Bouton `[Publier]` visible dans la palette FR + EN, position entre
+  `[Charger]` et `[Formulaire]`.
+- Modale s'ouvre, affiche les 3 boutons, ferme par croix + Échap +
+  clic overlay.
+- Bouton « Déployer » `disabled` avec tooltip explicite.
+- **Tests Vitest** :
+  - Rendering du composant `PalettePopupModal` (titre, fermeture par
+    Échap, fermeture par clic overlay, focus restoration).
+  - Rendering du bouton `[Publier]` ouvrant la modale (mock onClick
+    handlers pour `generateGame` / `exportGameWebZip`).
+  - Vérification que `flushNodalStoreToEditorDom` est appelé avant
+    chaque handler de bouton (mock du flush, expect appelé une fois).
+- **Recette manuelle** (à consigner dans le journal de chantier
+  Annexe D) : édite nodale → clic `[Publier]` → HTML autonome → ouvrir
+  le fichier téléchargé : il contient les modifications **sans** avoir
+  attendu de flush périodique.
+
+**Branche / commit** :
+
+- Branche : `feat/c10-autonomy`.
+- Commit : `feat(nodal): C10.1 bouton Publier + modale Publication +
+  flush-on-demand`.
+- Annexe D — Journal de chantier : entrée 2-3 lignes avec liste des
+  callsites flush équipés, confirmation suppression périodique, et
+  notes de recette manuelle.
 
 ### Plans détaillés C10.2.a → C10.2.x — directives pour Cursor
 
