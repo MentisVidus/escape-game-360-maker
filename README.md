@@ -29,7 +29,7 @@ Plusieurs miroirs de l'éditeur cohabitent : tous servent le **même dépôt**, 
 | **GitHub Pages** (EN) | [MentisVidus.github.io/…/editor_en.html](https://MentisVidus.github.io/escape-game-360-maker/editor_en.html) | `main` (GitHub Pages) | ✅ Stable — référence |
 | **Production Netlify** | [eg360.netlify.app](https://eg360.netlify.app/) | `main` (Netlify) | ✅ Stable — miroir de la version GitHub Pages (formulaire + carte Drawflow) |
 | **Nodal map** (carte React) | [feat-nodal-map--eg360.netlify.app](https://feat-nodal-map--eg360.netlify.app/) | `feat/nodal-map` | 🟡 Branche de travail, **utilisable** — pas de chantier en cours, ce qui est livré est censé fonctionner |
-| **C7.5** (chantier actuel) | [feat-c7-5-smoke-persistence--eg360.netlify.app](https://feat-c7-5-smoke-persistence--eg360.netlify.app/) | `feat/c7-5-smoke-persistence` | ⚠️ **Instable** — branche de développement active, peut casser à tout moment |
+| (chantier actuel) | None | `none` | ⚠️ **Instable** — branche de développement active, peut casser à tout moment |
 
 ---
 
