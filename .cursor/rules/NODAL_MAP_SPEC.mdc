@@ -2,12 +2,22 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.8.5 (5 mai 2026)
+> **Version** : 1.8.6 (5 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+
+> **Changelog v1.8.6** : intégration nouveau chantier **C11 —
+> Déploiement Netlify intégré** (« Deploy Game », complément du
+> Generate Game existant) avec persistance idempotente du `siteId`
+> dans `project.json`. **Renumérotation** des chantiers suivants :
+> ancien C11 → **C12** (logique de jeu : conditions et combinaisons) ;
+> C12 → **C13** (logique temporelle) ; C13 → **C14** (bibliothèques) ;
+> C14 → **C15** (mode visite virtuelle) ; C15 → **C16** (médias
+> avancés) ; C16 → **C17** (médias partagés et portables). v1.9
+> toujours réservée à la clôture **C10**. Doc-only.
 
 > **Changelog v1.8.5** : extension §7 roadmap — formalisation des
 > chantiers **C10 → C16** : autonomie carte nodale (**C10**, bouton
@@ -791,7 +801,7 @@ centre la vue sur le nœud concerné.
 ## 7. Roadmap d'implémentation
 
 Chantiers numérotés pour référence dans les commits. **C1–C9 livrés**
-(v1.5 → v1.8) ; **C10–C16 planifiés** ci-dessous. La numérotation
+(v1.5 → v1.8) ; **C10–C17 planifiés** ci-dessous. La numérotation
 au-delà de C10 est indicative — l’ordre peut être réarrangé selon
 priorité produit. Chaque chantier passe par la phase questions §8.1
 au démarrage et ouvre une **Annexe D** vivante refondue à la clôture
@@ -988,7 +998,56 @@ la carte nodale, sans bascule d’onglet. Conditionne la mise en
 Découpage attendu (à valider §8.1) : **C10.1** generateGame ; **C10.2**
 paramètres globaux ; **C10.3** désactivation legacy si retenu.
 
-### C11 — Logique de jeu : conditions et combinaisons
+### C11 — Déploiement Netlify intégré *(« Deploy Game »)*
+
+Objectif : ajouter un bouton **« Deploy Game »** complémentaire au
+**« Generate Game »** existant. Au lieu de produire un ZIP / HTML
+autonome à télécharger, l’éditeur publie le jeu directement via
+l’**API Netlify** sur le compte de l’utilisateur, avec URL publique
+immédiate. Pas d’hébergement centralisé : chaque utilisateur fournit
+son propre token Netlify.
+
+**Cœur technique — idempotence du déploiement** :
+
+- **1 projet = 1 site Netlify**, jamais un nouveau site par
+  déploiement.
+- Premier déploiement → créer le site, récupérer son `siteId`,
+  **persister le `siteId` dans `project.json`** (au même titre que
+  les scènes et énigmes).
+- Déploiements suivants → réutiliser le `siteId` stocké → update du
+  site existant (redéploiement).
+- `siteId` introuvable côté Netlify (site supprimé manuellement) →
+  proposer recréation ou liaison à un site existant.
+
+**Périmètre fonctionnel** :
+
+- Bouton **« Deploy Game »** dans la palette / dock (cohabitation avec
+  « Generate Game », pas remplacement).
+- Connexion compte Netlify : token API personnel saisi dans les
+  paramètres de l’éditeur, **stocké en localStorage uniquement**,
+  jamais dans `project.json` ni dans le ZIP exporté (risque sécurité
+  si le ZIP est partagé).
+- Feedback post-déploiement : URL publique affichée + bouton
+  « Copier le lien » + bouton « Ouvrir le jeu ».
+- Gestion d’erreurs : token invalide, quota Netlify dépassé,
+  connexion perdue (messages clairs et actionnables).
+
+**Points à cadrer en phase questions** :
+
+- Nommage du site Netlify : basé sur le nom du projet ? slug
+  auto-généré ? personnalisable au déploiement ?
+- Doc utilisateur : création de compte Netlify + récupération du
+  token + gestion sommaire — rédiger ou lier la doc Netlify
+  existante.
+- Plan gratuit Netlify : sites illimités + 100 GB de bande passante
+  par mois (suffisant pour l’usage pédagogique visé).
+
+Découpage attendu (à valider §8.1) : **C11.1** saisie / test du token
+Netlify ; **C11.2** premier déploiement + persistance `siteId` ;
+**C11.3** redéploiement idempotent + gestion site disparu ;
+**C11.4** UX feedback (URL, copier, ouvrir, erreurs).
+
+### C12 — Logique de jeu : conditions et combinaisons
 
 Enrichissement des mécaniques REQ/PWD et inventaire :
 
@@ -1006,9 +1065,9 @@ Enrichissement des mécaniques REQ/PWD et inventaire :
 
 **À cadrer** : *Scènes finales multiples* — victoire / défaite comme
 flag scène, ou comme nœud terminal dédié ? Modélisation à valider
-en phase questions C11.
+en phase questions C12.
 
-### C12 — Logique de jeu temporelle
+### C13 — Logique de jeu temporelle
 
 Introduction du temps comme dimension du gameplay (complément du
 timer global C10) :
@@ -1022,7 +1081,7 @@ timer global C10) :
   hotspot après X secondes. Complément de la visibilité par
   inventaire déjà en place.
 
-### C13 — Bibliothèques productivité éditeur
+### C14 — Bibliothèques productivité éditeur
 
 Outils d’édition réutilisables, sans changer le runtime joueur :
 
@@ -1035,7 +1094,7 @@ Outils d’édition réutilisables, sans changer le runtime joueur :
   commerciaux à choisir (Lucide / Phosphor / Tabler / autre).
   Stockage : ressource embarquée (SVG) ou référence par id.
 
-### C14 — Mode visite virtuelle
+### C15 — Mode visite virtuelle
 
 Variant d’usage : générer un projet sans mécanique escape game.
 
@@ -1046,7 +1105,7 @@ Variant d’usage : générer un projet sans mécanique escape game.
   `mode: 'escape' | 'tour'` (à nommer) qui désactive les warnings
   liés au gameplay (timer, inventaire, REQ/PWD).
 
-### C15 — Médias avancés
+### C16 — Médias avancés
 
 Élargissement du catalogue de médias supportés :
 
@@ -1056,7 +1115,7 @@ Variant d’usage : générer un projet sans mécanique escape game.
   scène vidéo et inversement, avec une transition visuelle propre
   (fondu, etc.).
 
-### C16 — Médias partagés et portables
+### C17 — Médias partagés et portables
 
 Productivité médias et portabilité du snapshot :
 
