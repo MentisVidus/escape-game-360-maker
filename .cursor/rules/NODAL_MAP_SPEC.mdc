@@ -2,12 +2,32 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.8.6 (5 mai 2026)
+> **Version** : 1.8.7 (6 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+
+> **Changelog v1.8.7** : ouverture **chantier C10** (autonomie carte
+> nodale — authoring standalone). Cadrage validé en phase questions
+> (Q-C10-1 à Q-C10-bis-4). Annexe D ouverte avec scope figé +
+> découpage en **5 sous-chantiers** : **C10.0** audit globals
+> (doc-only, fil directeur) ; **C10.1** bouton « Publier » dans le
+> bas de palette + modale « Publication du jeu » (HTML autonome +
+> ZIP web hors-ligne, placeholder Deploy pour C11) + flush DOM
+> synchrone garanti, suppression du flush périodique 8 s ;
+> **C10.2.x** rapatriement des paramètres globaux dans la modale
+> « Paramètres globaux » existante (sous-découpage `.a/.b/.c…`
+> figé après l'audit C10.0) ; **C10.3** ouverture par défaut de
+> `editeur.html` / `editor_en.html` directement sur la carte
+> nodale (bouton **[Vérifier]** remplaçant **[Formulaire]**) ;
+> **C10.4** désactivation legacy + bandeau « miroir nodal » (absorbe
+> **C6.1**). Branche `feat/c10-autonomy` créée depuis
+> `feat/nodal-map`. Plan détaillé **C10.0** rédigé (les plans
+> C10.1+ seront rédigés au fil de l'eau pour rester adaptables aux
+> trouvailles de l'audit). v1.9 toujours réservée à la clôture C10.
+> Aucun changement de règle métier §1–§6 ; doc-only.
 
 > **Changelog v1.8.2** : intégration nouveau chantier **C11 —
 > Déploiement Netlify intégré** (« Deploy Game », complément du
@@ -964,39 +984,58 @@ ou backlog produit).
 
 ### C10 — Autonomie de la carte nodale *(authoring standalone)*
 
+- **En cours** (ouverture 2026-05-06) — branche `feat/c10-autonomy`,
+  cadrage figé **Annexe D**.
+
 Objectif : **dissocier l’authoring** du formulaire legacy. Tout ce
-qui est nécessaire pour générer un jeu doit être disponible depuis
-la carte nodale, sans bascule d’onglet. Conditionne la mise en
-**lecture seule** du formulaire legacy (§0.2 règle 2, **C6.1**).
+qui est nécessaire pour générer / publier un jeu doit être disponible
+depuis la carte nodale, sans bascule d’onglet. **Inclut** la mise en
+**lecture seule** du formulaire legacy (§0.2 règle 2, **C6.1** absorbé
+en C10.4) et l’ouverture par défaut de l’éditeur sur la carte nodale.
 
-**Axe A — Bouton « Générer le jeu »** (cf. `editeur.html` /
-`editor_en.html` côté legacy) :
+**Axe A — Bouton « Publier »** (cf. `editeur.html` / `editor_en.html`
+côté legacy) :
 
-- Exposer `generateGame()` depuis la carte (palette ou dock à cadrer).
-- Garantir un flush DOM préalable complet (le miroir nodal → DOM doit
-  être à jour avant l’appel — cf. `editor-shared-nodal-to-dom.js`).
-- Comportement post-génération : modale résultat / téléchargement
-  direct / bascule onglet legacy → à trancher en phase questions.
+- Bouton **[Publier]** dans le bas de la palette (entre [Charger] et
+  [Formulaire/Vérifier]) ouvrant une modale **« Publication du jeu »**.
+- 3 actions dans la modale : **HTML autonome** (`generateGame()`),
+  **ZIP web hors-ligne** (`exportGameWebZip()`), **Déployer** (placeholder
+  désactivé jusqu’à C11).
+- Flush DOM **synchrone garanti** avant chaque export
+  (`flushNodalStoreToEditorDom` — `editor-shared-nodal-to-dom.js`).
+- Suppression du flush périodique 8 s : remplacé par flush-on-demand
+  aux points d’entrée DOM-reading (Publier, Vérifier, Sauver
+  `.escapegame`).
 
 **Axe B — Paramètres globaux du projet** :
 
-- Inventaire des champs globaux du formulaire legacy (titre, langue,
-  thème visuel global, `meta.startSceneId`, **timer global**, **styles
-  globaux**, **sons globaux**, **textes de fin de partie**).
-- Statut actuel par champ : déjà dans le store nodal ? déjà projeté
-  vers le DOM via `flushNodalStoreToEditorDom` ? sérialisé dans
-  `project.json` V2 ? — à dresser au démarrage.
-- Rapatrier dans la carte nodale ceux qui manquent ; popups dédiés ou
-  panneau « Paramètres globaux » (à cadrer).
+- Inventaire chiffré (sous-chantier **C10.0**, doc-only) avant tout
+  code : tableau `champ legacy ↔ store nodal ↔ flush DOM ↔
+  project.json V2`.
+- Sections globales legacy à couvrir : titre, langue, thème global,
+  `meta.startSceneId`, **timer global**, **inventaire global**,
+  **popup theme**, **audio global**, **end-screens** (game over +
+  victory), tout autre champ révélé par C10.0.
+- Sérialisation : sous-objet `meta.settings` structuré (et non champs
+  plats sur `ProjectMeta`).
+- UI : la **modale « Paramètres globaux »** déjà branchée comme
+  placeholder en haut de palette devient le point d’entrée unique.
+  Sections internes organisées (Quill + `nodalQuillTheme` C7.6 pour
+  les textes riches).
 
-**Axe C — Désactivation legacy (C6.1)** :
+**Axe C — Ouverture nodale par défaut + désactivation legacy** :
 
-- Trancher si C10 est le bon moment pour passer définitivement les
-  contrôles legacy en lecture seule + bandeau « miroir nodal ».
-- Hors scope possible si la couverture B est partielle.
+- **C10.3** — `editeur.html` / `editor_en.html` bootstrappent
+  directement sur la carte nodale ; bouton **[Formulaire]** renommé
+  **[Vérifier]** (toggle vers vue read-only de vérification).
+- **C10.4** (absorbe **C6.1**) — bandeau « Miroir nodal — édition
+  via la carte » + tous inputs/textareas/selects/buttons d’édition
+  `disabled` côté formulaire.
 
-Découpage attendu (à valider §8.1) : **C10.1** generateGame ; **C10.2**
-paramètres globaux ; **C10.3** désactivation legacy si retenu.
+Découpage validé (§8.1, Annexe D) : **C10.0** audit globals ;
+**C10.1** bouton Publier + flush ; **C10.2.x** rapatriement globals
+(sous-découpage à figer après C10.0) ; **C10.3** ouverture nodale par
+défaut ; **C10.4** désactivation legacy.
 
 ### C11 — Déploiement Netlify intégré *(« Deploy Game »)*
 
@@ -1686,4 +1725,253 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_9.md`.
   (`coords-options`, `choice-options`, `object`).
 - **Transition** (famille handle) : nouvelle famille dédiée au `goto` —
   couleur bleu vif, forme triangle, edge pointillé animé.
+
+## Annexe D — Chantier C10 (en cours)
+
+> **Vivante** (§8.4) — journal de décisions, plans détaillés, traces
+> de bugs et fixes. Sera synthétisée dans **Annexe B — C10** à la
+> clôture du chantier puis archivée sous `docs/archives/chantier_10.md`.
+
+**Date d'ouverture** : 2026-05-06.
+**Branche** : `feat/c10-autonomy` (depuis `feat/nodal-map`).
+**Statut** : cadrage validé (Q-C10-1 → Q-C10-bis-4) — démarrage
+**C10.0** imminent.
+
+### Scope figé
+
+Synthèse des décisions issues de la phase questions (Claude ↔ user,
+2026-05-06) :
+
+- **Périmètre élargi** : les 3 axes A/B/C de §7 → C10 sont **tous**
+  couverts dans ce chantier. Le chantier **C6.1** (désactivation
+  legacy) est **absorbé** dans **C10.4** ; il ne reste plus de chantier
+  C6.1 séparé après C10.
+- **Audit chiffré obligatoire avant code** : sous-chantier **C10.0**
+  doc-only, produit le tableau `champ legacy ↔ store nodal ↔ flush
+  DOM ↔ project.json V2` qui figera le sous-découpage `C10.2.a → .x`.
+- **Bouton « Publier »** : ajouté dans le bas de la palette latérale,
+  entre `[Charger]` et le bouton actuellement nommé `[Formulaire]`
+  (renommé `[Vérifier]` en C10.3). Ouvre une modale unique
+  **« Publication du jeu »**.
+- **Modale « Publication du jeu »** : 3 boutons —
+  - **HTML autonome** (appel `generateGame()`).
+  - **ZIP web hors-ligne** (appel `exportGameWebZip()`).
+  - **Déployer** (placeholder `disabled`, branché en C11).
+  - *Note libellé* : remplacer « jeu » par « visite » quand un mode
+    « visite virtuelle » sera configuré (cf. C15) — détail UX, pas une
+    règle dure de C10.
+- **Flush DOM** : passage du périodique 8 s à **flush-on-demand** aux
+  points d'entrée DOM-reading (clic `[Publier]`, clic `[Vérifier]`,
+  sauver `.escapegame`, et tout autre point découvert pendant l'audit).
+  **Suppression complète** du `setInterval` 8 s. Indicateur
+  « chargement en cours » dans la modale tant que le flush + l'export
+  ne sont pas terminés.
+- **Modale « Paramètres globaux »** : la modale placeholder déjà
+  accessible depuis le **haut** de la palette (avec actuellement seul
+  le sous-onglet *popup theme* branché) devient le point d'entrée
+  unique pour l'ensemble des paramètres globaux. Sections internes
+  organisées par groupe métier — sous-découpage figé après C10.0.
+- **Sérialisation** : nouveau sous-objet `meta.settings` regroupant
+  `audio`, `timer`, `endScreens`, `popupTheme`, `inventoryGlobal`,
+  `language`, `theme`, et tout champ révélé par l'audit. **Pas** de
+  champs plats sur `ProjectMeta`.
+- **Source de vérité pendant la transition** : tout-ou-rien
+  (Q-C10-B-3 b). Le DOM legacy reste éditable jusqu'à C10.4 ;
+  l'utilisateur s'engage à ne pas y toucher pendant les sous-chantiers
+  C10.0 → C10.3. Pas de bandeau intermédiaire par champ.
+- **Ouverture par défaut** (C10.3) : `editeur.html` / `editor_en.html`
+  bootstrappent directement sur la carte nodale. Bouton `[Formulaire]`
+  renommé `[Vérifier]`, conservé comme toggle vers la vue legacy en
+  lecture seule (debug rapide).
+- **Désactivation legacy** (C10.4, absorbe C6.1) : bandeau « Miroir
+  nodal — édition via la carte » + tous inputs/textareas/selects/
+  buttons d'édition `disabled`. Vue de vérification §0.2 règle 2.
+- **Hors scope C10** : migration des `.escapegame` pré-existants (la
+  fusion `feat/nodal-map` → `main` n'arrivera qu'après C11, donc pas
+  de version publiée à préserver) ; refonte palette latérale (on
+  ajoute juste un bouton).
+- **Découpage hiérarchique illimité** : convention `C10.n` pour les
+  grands sous-chantiers, `C10.n.a / .b / .c …` pour les modules à
+  l'intérieur. Pas de plafond — l'utilisateur est ouvert à du
+  sous-découpage fin si l'audit le justifie.
+
+### Stratégie de découpage
+
+| # | Périmètre | Dépend de | Type |
+|---|---|---|---|
+| **C10.0** | Audit globals — tableau exhaustif champ legacy ↔ store nodal ↔ flush DOM ↔ project.json V2, dans Annexe D | — | doc-only |
+| **C10.1** | Bouton `[Publier]` palette + modale « Publication du jeu » (HTML autonome + ZIP web + placeholder Deploy) + flush synchrone garanti + suppression flush périodique 8 s | C10.0 (recommandé : repérer les autres points DOM-reading à équiper) | code |
+| **C10.2** | Rapatriement paramètres globaux dans la modale « Paramètres globaux » + extension `meta.settings`. Sous-découpage `C10.2.a → .x` figé après C10.0 (probable : end-screens, timer, audio, popup theme, inventaire, langue, thème) | C10.0 | code |
+| **C10.3** | Ouverture par défaut sur la carte nodale ; renommage `[Formulaire]` → `[Vérifier]` (toggle read-only) | C10.2 (la carte doit pouvoir tout éditer avant de devenir page d'accueil) | code |
+| **C10.4** | Désactivation legacy + bandeau « Miroir nodal » ; absorbe **C6.1** | C10.2, C10.3 | code |
+
+### Décisions de design
+
+- **Stockage `meta.settings`** : sous-objet structuré dans `ProjectMeta`
+  pour préserver la lisibilité du type principal et faciliter une
+  migration future (ajout/retrait de paramètres). Sérialisé dans
+  `project.json` V2 sous `meta.settings`.
+- **Réutilisation `nodalQuillTheme` (C7.6)** : pour tous les textes
+  riches HTML (end-screens body, popups globales, etc.), réutiliser
+  le wrapper `.nodal-quill-theme` posé en C7.6. Si une factor commune
+  émerge entre les sections globales, l'inscrire dans le plan détaillé
+  du sous-chantier C10.2.x concerné (refactoring opportuniste, §8.3).
+- **Pattern modal palette** : la modale « Publication du jeu » et la
+  modale « Paramètres globaux » suivent le même pattern UI (titre,
+  body sectionné, boutons d'action en bas, fermeture par croix +
+  Échap). Si un composant commun n'existe pas encore, le créer en
+  C10.1 et le réutiliser en C10.2.
+- **Flush-on-demand vs périodique** : raison du choix « jamais »
+  (Q-C10-bis-3) — un flush = une intention utilisateur. Plus prévisible
+  qu'un timer, élimine les races de timing pendant les exports, et
+  trivial à compléter si une régression révèle un point DOM-reading
+  oublié (ajouter un appel `flushNodalStoreToEditorDom()` au point
+  d'entrée concerné).
+- **Bouton `[Publier]` plutôt que `[Générer]`** : terme plus neutre,
+  couvre HTML autonome + ZIP web + Deploy futur. Cohérent avec le
+  titre de la modale « Publication du jeu ».
+- **Renommage `[Formulaire]` → `[Vérifier]`** (C10.3) : signale le
+  changement de rôle (édition → vérification read-only) tout en
+  préservant l'accessibilité au formulaire pour debug.
+
+### Plan détaillé C10.0 — directives pour Cursor
+
+**Pré-requis** : aucun (premier sous-chantier de C10). Branche
+`feat/c10-autonomy` créée et active.
+
+**Contexte** : §7 → C10 axe B mentionne explicitement « inventaire
+des champs globaux du formulaire legacy à dresser au démarrage ». C10.0
+livre cet inventaire dans **Annexe D** (nouvelle section
+`### Audit globals (C10.0)`). Le tableau produit est le **fil
+directeur** de tout le chantier C10 : il fige le sous-découpage
+`C10.2.a → .x` (rapatriement des globals) et révèle les points
+d'entrée DOM-reading à équiper d'un flush synchrone en C10.1. **Aucun
+code ne doit être modifié dans ce sous-chantier** — C10.0 est
+strictement doc-only.
+
+**Fichiers à lire avant de coder** :
+
+- `editeur.html` et `editor_en.html` — sections `#global-settings`,
+  `#global-sub-inv-body`, `#global-sub-popup-body`,
+  `#global-sub-audio-body`, `#global-sub-timer-body`, end-screens
+  (`#endGameOver*`, `#endVictory*`), titre, langue, thème, et tout
+  autre champ d'entrée trouvé hors `#scenes-container`.
+- `js/editeur-app.js` et `js/editor-en-app.js` — recherche `id=` →
+  lecture/écriture des champs globaux ; chercher
+  `flushNodalStoreToEditorDom` pour repérer tous les points d'appel
+  actuels.
+- `js/editor-shared-nodal-to-dom.js` — implémentation du flush :
+  inventorier précisément quels champs globaux sont projetés par le
+  miroir aujourd'hui (pour la colonne « Flush DOM ? »).
+- `js/editor-shared-bundle.js` — exposition de l'API
+  `EditorSharedBundleApi`.
+- `xflow/react/src/model/project.ts` — type `ProjectMeta` actuel.
+- `xflow/react/src/serialize/fromProjectJson.ts` et `toProjectJson.ts`
+  — sérialisation/désérialisation `project.json` V2 (pour la colonne
+  « project.json V2 ? »).
+- `js/editeur-generate.js` et `js/editor-en-generate.js` —
+  `generateGame()`, points de lecture du DOM (utile pour C10.1).
+- Module `exportGameWebZip` (chercher dans `js/` — utile pour C10.1).
+
+**Phase questions (workflow §8.1)** — Cursor doit poser ses propres
+**Q-C10.0-Y** avant de produire l'audit. Pistes :
+
+- **Q-C10.0-1** — Granularité du tableau : un row par `id` HTML, ou un
+  row par **champ logique** (un row pour `globalAudioUrl` +
+  `globalAudioVol` regroupés sous « audio global ») ? *Vote : par champ
+  logique, avec mention des `id` HTML en sous-puce — plus lisible pour
+  le découpage C10.2.x.*
+- **Q-C10.0-2** — Faut-il aussi inventorier les champs **runtime**
+  consommés par le jeu généré (au-delà du formulaire d'authoring) ?
+  *Vote : non, scope authoring uniquement — les consommateurs runtime
+  ne sont pas modifiés en C10.*
+- **Q-C10.0-3** — Cas particulier `meta.startSceneId` (déjà géré
+  C8.3) : à inclure dans le tableau pour la complétude, ou à mentionner
+  comme « déjà OK, hors scope C10 » ? *Vote : à inclure pour la
+  complétude — sert de référence d'un champ déjà rapatrié.*
+
+**Périmètre** :
+
+- Recenser **toutes** les sections globales du formulaire legacy
+  (FR + EN). Liste de départ (à compléter par lecture exhaustive du
+  HTML) :
+  - Inventaire global (`#global-sub-inv-body`).
+  - Popup theme global (`#global-sub-popup-body`).
+  - Audio global (`#global-sub-audio-body` — `#globalAudioUrl`,
+    `#globalAudioVol`, etc.).
+  - Timer global (`#global-sub-timer-body`).
+  - End-screens game over (`#endGameOverTitle`, `#endGameOverBody`,
+    `#endGameOverBtn`).
+  - End-screens victory (`#endVictoryTitle`, `#endVictoryBody`,
+    `#endVictoryBtn`).
+  - Titre du projet, langue, thème visuel global, mode
+    (escape vs visite), tout champ système restant.
+- Pour chaque champ logique, produire 4 colonnes :
+  - **Champ legacy** (libellé + `id` HTML — sous-puces).
+  - **Store nodal** (chemin actuel ou `manquant`). Doit refléter
+    la nouvelle convention `meta.settings.<group>.<field>` même si
+    le champ est aujourd'hui ailleurs (proposition de cible).
+  - **Flush DOM** (`oui` / `non` — projeté par
+    `flushNodalStoreToEditorDom` aujourd'hui ?).
+  - **`project.json` V2** (chemin sérialisé actuel ou `manquant`).
+- Identifier les **dépendances** entre champs (ex. checkbox
+  d'activation timer qui conditionne d'autres champs) en notes sous
+  le tableau.
+- Identifier les **points DOM-reading** existants (clic « Générer le
+  jeu » legacy, sauver `.escapegame`, etc.) pour préparer l'inventaire
+  des appels `flushNodalStoreToEditorDom` à poser en C10.1.
+- Insérer le tout dans **Annexe D** sous une nouvelle section
+  `### Audit globals (C10.0)`, juste avant `### Plan détaillé C10.1`.
+- **Proposer** un sous-découpage `C10.2.a → .x` basé sur les
+  regroupements logiques révélés par l'audit. Format : liste à puces
+  sous le tableau, avec dépendances entre sous-modules. *Le découpage
+  proposé sera validé en phase questions C10.1 avant toute écriture
+  des plans détaillés C10.2.x.*
+
+**Critères de fin** :
+
+- Tableau exhaustif (relire le HTML legacy section par section ; pas
+  de section globale oubliée).
+- Sous-découpage `C10.2.a → .x` proposé sous le tableau.
+- Liste des points DOM-reading à équiper d'un flush en C10.1 (au
+  minimum : clic Publier, clic Vérifier, sauver `.escapegame` ; à
+  compléter).
+- Aucun fichier code touché (commit doc-only sur Annexe D + Journal
+  de chantier).
+
+**Branche / commit** :
+
+- Branche : `feat/c10-autonomy`.
+- Commit : `docs(nodal): C10.0 audit globals (Annexe D)`.
+- Annexe D — Journal de chantier mis à jour (entrée 1-2 lignes citant
+  la complétion C10.0 et le sous-découpage C10.2.x proposé).
+
+### Plan détaillé C10.1 — directives pour Cursor
+
+*À rédiger après la livraison de C10.0 (le périmètre exact des points
+DOM-reading à équiper et la suppression du flush périodique seront
+informés par l'audit).*
+
+### Plans détaillés C10.2.a → C10.2.x — directives pour Cursor
+
+*À rédiger après la livraison de C10.0 (le sous-découpage par section
+globale dépend du tableau d'audit).*
+
+### Plan détaillé C10.3 — directives pour Cursor
+
+*À rédiger après C10.2 (l'ouverture par défaut sur la carte requiert
+que tous les paramètres globaux soient éditables depuis la carte).*
+
+### Plan détaillé C10.4 — directives pour Cursor
+
+*À rédiger après C10.3 (le bandeau et la désactivation des inputs
+legacy s'appuient sur la carte comme page d'accueil).*
+
+### Journal de chantier
+
+- 2026-05-06 — Ouverture Annexe D. Cadrage validé en phase questions
+  (Q-C10-1 → Q-C10-bis-4). Découpage 5 sous-chantiers (C10.0 → C10.4),
+  branche `feat/c10-autonomy` créée depuis `feat/nodal-map`. Plan
+  détaillé C10.0 rédigé. Plans C10.1+ en attente de l'audit (rédaction
+  au fil de l'eau pour rester adaptables aux trouvailles).
 
