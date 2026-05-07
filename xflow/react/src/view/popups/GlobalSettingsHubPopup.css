@@ -1,50 +1,11 @@
-/* C10.2.a — accordion hub Paramètres globaux (`<details>` natifs). */
+/* C10.2.a-fix — hub paramètres globaux en liste de boutons. */
 
-.nodal-canvas-layout .nodal-popup-panel--global-hub-accordion {
+.nodal-canvas-layout .nodal-popup-panel--global-hub {
   max-width: min(480px, 94vw);
 }
 
-.nodal-canvas-layout .nodal-global-hub-accordion {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 10px 0 4px;
-}
-
-.nodal-canvas-layout .nodal-global-hub-details {
-  border: 1px solid var(--palette-button-border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--palette-button-bg) 88%, transparent);
-  overflow: hidden;
-}
-
-.nodal-canvas-layout .nodal-global-hub-summary {
-  cursor: pointer;
-  list-style: none;
-  padding: 10px 12px;
-  font-weight: 600;
-  color: var(--node-text);
-  user-select: none;
-}
-
-.nodal-canvas-layout .nodal-global-hub-summary::-webkit-details-marker {
-  display: none;
-}
-
-.nodal-canvas-layout .nodal-global-hub-summary::before {
-  content: "▸";
-  display: inline-block;
-  margin-right: 8px;
-  transition: transform 0.12s ease;
-  opacity: 0.75;
-}
-
-.nodal-canvas-layout .nodal-global-hub-details[open] > .nodal-global-hub-summary::before {
-  transform: rotate(90deg);
-}
-
 .nodal-canvas-layout .nodal-global-hub-section-body {
-  padding: 0 12px 12px;
+  padding: 0 2px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -65,12 +26,4 @@
   background: var(--palette-button-bg);
   color: var(--node-text);
   font: inherit;
-}
-
-.nodal-canvas-layout .nodal-global-hub-placeholder {
-  margin: 0;
-  padding: 0 12px 12px;
-  font-size: 13px;
-  opacity: 0.75;
-  color: var(--palette-heading);
 }

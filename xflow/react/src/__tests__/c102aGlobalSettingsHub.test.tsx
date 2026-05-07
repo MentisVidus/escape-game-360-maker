@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 /**
- * C10.2.a — hub Paramètres globaux (accordion + titre) et hydrate
+ * C10.2.a-fix — hub Paramètres globaux (liste de boutons) et hydrate
  * `meta.settings` / sérialisation bundle.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -39,69 +39,78 @@ function renderTree(node: ReactNode) {
   });
 }
 
-describe("C10.2.a — GlobalSettingsHubPopup", () => {
-  it("rend 6 sections <details>", () => {
+describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
+  it("rend 6 boutons section", () => {
     const store = createNodalProjectStore();
     renderTree(
-      <GlobalSettingsHubPopup open onClose={() => {}} onOpenPopupTheme={() => {}} store={store} />
+      <GlobalSettingsHubPopup
+        open
+        onClose={() => {}}
+        onOpenProjectIdentity={() => {}}
+        onOpenPopupTheme={() => {}}
+        store={store}
+      />
     );
-    expect(container.querySelectorAll("details").length).toBe(6);
+    const btns = Array.from(container.querySelectorAll("button.nodal-global-hub-btn"));
+    expect(btns.length).toBe(6);
   });
 
-  it("seule la section Identité projet est ouverte par défaut", () => {
+  it("4 boutons sont désactivés avec tooltip C10.2.x", () => {
     const store = createNodalProjectStore();
     renderTree(
-      <GlobalSettingsHubPopup open onClose={() => {}} onOpenPopupTheme={() => {}} store={store} />
+      <GlobalSettingsHubPopup
+        open
+        onClose={() => {}}
+        onOpenProjectIdentity={() => {}}
+        onOpenPopupTheme={() => {}}
+        store={store}
+      />
     );
-    const opened = container.querySelectorAll("details[open]");
-    expect(opened.length).toBe(1);
-    expect(opened[0]?.querySelector("summary")?.textContent).toContain("Identité");
+    const btns = Array.from(container.querySelectorAll<HTMLButtonElement>("button.nodal-global-hub-btn"));
+    const disabled = btns.filter((b) => b.disabled);
+    expect(disabled.length).toBe(4);
+    expect(disabled.some((b) => (b.title || "").includes("C10.2.b"))).toBe(true);
+    expect(disabled.some((b) => (b.title || "").includes("C10.2.d"))).toBe(true);
+    expect(disabled.some((b) => (b.title || "").includes("C10.2.e"))).toBe(true);
+    expect(disabled.some((b) => (b.title || "").includes("C10.2.f"))).toBe(true);
   });
 
-  it("saisie titre → setMetaTitle + flush DOM", () => {
-    const flush = vi.fn();
-    vi.stubGlobal("EditorSharedBundle", { flushNodalStoreToEditorDom: flush });
+  it("clic Identité projet appelle onOpenProjectIdentity", () => {
     const store = createNodalProjectStore();
-    store.getState().setMetaTitle("Avant");
-    const gameTitle = document.createElement("input");
-    gameTitle.id = "gameTitle";
-    document.body.appendChild(gameTitle);
-
+    const onIdentity = vi.fn();
     renderTree(
-      <GlobalSettingsHubPopup open onClose={() => {}} onOpenPopupTheme={() => {}} store={store} />
+      <GlobalSettingsHubPopup
+        open
+        onClose={() => {}}
+        onOpenProjectIdentity={onIdentity}
+        onOpenPopupTheme={() => {}}
+        store={store}
+      />
     );
-    const input = container.querySelector<HTMLInputElement>("#nodal-global-project-title");
-    expect(input?.value).toBe("Avant");
-
+    const btn = Array.from(container.querySelectorAll("button.nodal-global-hub-btn")).find((b) =>
+      (b.textContent || "").includes("Identité")
+    );
+    expect(btn).toBeDefined();
     act(() => {
-      const v = "Mon titre test";
-      const setVal = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      setVal?.call(input!, v);
-      /* React 19 + contrôlé : `input` puis `change` pour que `onChange` lise `target.value`. */
-      input!.dispatchEvent(new Event("input", { bubbles: true }));
-      input!.dispatchEvent(new Event("change", { bubbles: true }));
+      btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    expect(store.getState().meta.title).toBe("Mon titre test");
-    expect(flush).toHaveBeenCalled();
-
-    document.body.removeChild(gameTitle);
+    expect(onIdentity).toHaveBeenCalledTimes(1);
   });
 
-  it("bouton personnalisation popups appelle onOpenPopupTheme", () => {
+  it("clic Thème popups appelle onOpenPopupTheme", () => {
     const store = createNodalProjectStore();
     const onTheme = vi.fn();
     renderTree(
-      <GlobalSettingsHubPopup open onClose={() => {}} onOpenPopupTheme={onTheme} store={store} />
+      <GlobalSettingsHubPopup
+        open
+        onClose={() => {}}
+        onOpenProjectIdentity={() => {}}
+        onOpenPopupTheme={onTheme}
+        store={store}
+      />
     );
-    const summaries = Array.from(container.querySelectorAll("summary"));
-    const popSection = summaries.find((s) => (s.textContent || "").includes("Thème popups"));
-    expect(popSection).toBeDefined();
-    const details = popSection!.closest("details");
-    act(() => {
-      details!.setAttribute("open", "");
-    });
     const btn = Array.from(container.querySelectorAll("button")).find((b) =>
-      (b.textContent || "").includes("Personnalisation")
+      (b.textContent || "").includes("Thème popups")
     );
     expect(btn).toBeDefined();
     act(() => {

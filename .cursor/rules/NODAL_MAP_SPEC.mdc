@@ -2977,6 +2977,25 @@ legacy s'appuient sur la carte comme page d'accueil).*
      `closeActiveModal` confirmée par lecture du code).
 
 - 2026-05-07 — **C10.2.a livré** (`feat/c10-autonomy`). Votes Q-C10.2.a-1→3 :
+ - 2026-05-07 — **C10.2.a-fix livré** (`feat/c10-autonomy`) : pivot UX
+  hub accordion → **liste verticale de 6 boutons** (alignement C10.1
+  Publish). `GlobalSettingsHubPopup` : 2 boutons actifs
+  (`Identité projet`, `Thème popups`) et 4 boutons `disabled` avec
+  tooltip `Bientôt — C10.2.x` (`.b`, `.d`, `.e`, `.f`). Création
+  `ProjectIdentitySettingsPopup.tsx` (titre + champ `meta.title` +
+  flush DOM `#gameTitle` + bouton Terminé). Wiring `NodalCanvas` :
+  state `projectIdentitySettingsOpen`, ouverture depuis le hub, fermeture
+  Échap via `closeActiveModal`, coexistence avec `PopupThemeCustomizationPopup`.
+  `GlobalSettingsHubPopup.css` nettoyé (suppression styles accordion,
+  conservation styles bouton-liste). Tests réécrits :
+  `c102aGlobalSettingsHub.test.tsx` (bouton-liste, 4 disabled, callbacks)
+  + nouveau `c102aFixProjectIdentityPopup.test.tsx` (rendering, binding
+  titre, fermeture). Aucune modification modèle/store/sérialisation
+  C10.2.a (maintien de `ProjectMeta.settings`/hydrate/serialize tel quel).
+  Recettes manuelles C10.2.a reconfirmées via le nouveau flux
+  Hub → popup Identité.
+
+- 2026-05-07 — **C10.2.a livré** (`feat/c10-autonomy`). Votes Q-C10.2.a-1→3 :
   accordion `<details>` natif / seule **Identité projet** ouverte par
   défaut / `ProjectSettings` entièrement optionnel. `ProjectMeta` étendu
   avec `settings?: ProjectSettings` (`project.ts`). `GlobalSettingsHubPopup`
