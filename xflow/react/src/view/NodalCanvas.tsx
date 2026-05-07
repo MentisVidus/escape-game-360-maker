@@ -117,6 +117,7 @@ import { PublishGamePopup } from "./popups/PublishGamePopup";
 import { ProjectIdentitySettingsPopup } from "./popups/ProjectIdentitySettingsPopup";
 import { InventoryGlobalSettingsPopup } from "./popups/InventoryGlobalSettingsPopup";
 import { AudioGlobalSettingsPopup } from "./popups/AudioGlobalSettingsPopup";
+import { TimerAndSavePlayerSettingsPopup } from "./popups/TimerAndSavePlayerSettingsPopup";
 import {
   buildNodalContextMenuItems,
   contextMenuParentTarget,
@@ -171,6 +172,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [projectIdentitySettingsOpen, setProjectIdentitySettingsOpen] = useState(false);
   const [inventoryGlobalSettingsOpen, setInventoryGlobalSettingsOpen] = useState(false);
   const [audioGlobalSettingsOpen, setAudioGlobalSettingsOpen] = useState(false);
+  const [timerAndSaveSettingsOpen, setTimerAndSaveSettingsOpen] = useState(false);
   const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   /** C10.1 — modale « Publication du jeu » (palette → bouton [Publier]). */
@@ -204,6 +206,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setProjectIdentitySettingsOpen(false);
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
+    setTimerAndSaveSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setPickEditorActionId(null);
     setGotoEditorActionId(null);
@@ -221,6 +224,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setProjectIdentitySettingsOpen(false);
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
+    setTimerAndSaveSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setGotoEditorActionId(null);
@@ -238,6 +242,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setProjectIdentitySettingsOpen(false);
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
+    setTimerAndSaveSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -255,6 +260,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setProjectIdentitySettingsOpen(false);
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
+    setTimerAndSaveSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -272,6 +278,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setProjectIdentitySettingsOpen(false);
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
+    setTimerAndSaveSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -289,6 +296,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setProjectIdentitySettingsOpen(false);
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
+    setTimerAndSaveSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -321,6 +329,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       projectIdentitySettingsOpen ||
       inventoryGlobalSettingsOpen ||
       audioGlobalSettingsOpen ||
+      timerAndSaveSettingsOpen ||
       popupThemeCustomizationOpen ||
       keyboardShortcutsOpen ||
       publishHubOpen ||
@@ -341,6 +350,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       projectIdentitySettingsOpen,
       inventoryGlobalSettingsOpen,
       audioGlobalSettingsOpen,
+      timerAndSaveSettingsOpen,
       popupThemeCustomizationOpen,
       keyboardShortcutsOpen,
       publishHubOpen,
@@ -380,6 +390,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     }
     if (audioGlobalSettingsOpen) {
       setAudioGlobalSettingsOpen(false);
+      return;
+    }
+    if (timerAndSaveSettingsOpen) {
+      setTimerAndSaveSettingsOpen(false);
       return;
     }
     if (popupThemeCustomizationOpen) {
@@ -438,6 +452,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     projectIdentitySettingsOpen,
     inventoryGlobalSettingsOpen,
     audioGlobalSettingsOpen,
+    timerAndSaveSettingsOpen,
     popupThemeCustomizationOpen,
     globalSettingsHubOpen,
     objectEditorSatelliteId,
@@ -469,6 +484,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       projectIdentitySettingsOpen ||
       inventoryGlobalSettingsOpen ||
       audioGlobalSettingsOpen ||
+      timerAndSaveSettingsOpen ||
       popupThemeCustomizationOpen ||
       publishHubOpen ||
       deleteConfirm != null ||
@@ -491,6 +507,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     projectIdentitySettingsOpen,
     inventoryGlobalSettingsOpen,
     audioGlobalSettingsOpen,
+    timerAndSaveSettingsOpen,
     popupThemeCustomizationOpen,
     publishHubOpen,
     deleteConfirm,
@@ -1568,6 +1585,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             setGlobalSettingsHubOpen(false);
             setAudioGlobalSettingsOpen(true);
           }}
+          onOpenTimerSave={() => {
+            setGlobalSettingsHubOpen(false);
+            setTimerAndSaveSettingsOpen(true);
+          }}
         />
         <ProjectIdentitySettingsPopup
           store={store}
@@ -1593,6 +1614,15 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           onClose={() => setAudioGlobalSettingsOpen(false)}
           onBack={() => {
             setAudioGlobalSettingsOpen(false);
+            setGlobalSettingsHubOpen(true);
+          }}
+        />
+        <TimerAndSavePlayerSettingsPopup
+          store={store}
+          open={timerAndSaveSettingsOpen}
+          onClose={() => setTimerAndSaveSettingsOpen(false)}
+          onBack={() => {
+            setTimerAndSaveSettingsOpen(false);
             setGlobalSettingsHubOpen(true);
           }}
         />

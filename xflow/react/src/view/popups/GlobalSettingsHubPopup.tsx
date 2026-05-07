@@ -59,6 +59,7 @@ type Props = {
   onOpenInventory: () => void;
   onOpenPopupTheme: () => void;
   onOpenAudio: () => void;
+  onOpenTimerSave: () => void;
   store: StoreApi<NodalProjectStore>;
 };
 
@@ -75,6 +76,7 @@ export function GlobalSettingsHubPopup({
   onOpenInventory,
   onOpenPopupTheme,
   onOpenAudio,
+  onOpenTimerSave,
   store,
 }: Props) {
   const L = COPY[locale()];
@@ -108,7 +110,7 @@ export function GlobalSettingsHubPopup({
         <button type="button" className="nodal-global-hub-btn nodal-global-hub-btn--primary" onClick={onOpenAudio}>
           {L.audio}
         </button>
-        <button type="button" className="nodal-global-hub-btn" disabled title={L.soon("C10.2.e")}>
+        <button type="button" className="nodal-global-hub-btn nodal-global-hub-btn--primary" onClick={onOpenTimerSave}>
           {L.timerSave}
         </button>
         <button type="button" className="nodal-global-hub-btn" disabled title={L.soon("C10.2.f")}>

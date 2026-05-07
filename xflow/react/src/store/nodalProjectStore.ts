@@ -17,7 +17,11 @@ import type {
   AudioGlobalSettings,
   InventoryGlobalSettings,
   NodalProject,
+  PlayerSaveMode,
+  PlayerSaveSettings,
   PopupThemeSettings,
+  TimerGlobalSettings,
+  TimerMode,
 } from "../model/project";
 import { applyHydratedLayout, type MapLayoutJson } from "../serialize/mapLayoutJson";
 import { applyMetaMediaLinks, applyNodalAutoSatelliteData } from "../serialize/nodalMapExtras";
@@ -82,6 +86,10 @@ export type NodalProjectStore = NodalProject & {
   setMetaSettingsInventory: (patch: Partial<InventoryGlobalSettings>) => void;
   /** C10.2.d — audio global (`meta.settings.audio`). */
   setMetaSettingsAudio: (patch: Partial<AudioGlobalSettings>) => void;
+  /** C10.2.e — timer global (`meta.settings.timer`). */
+  setMetaSettingsTimer: (patch: Partial<TimerGlobalSettings>) => void;
+  /** C10.2.e — sauvegarde joueur (`meta.settings.playerSave`). */
+  setMetaSettingsPlayerSave: (patch: Partial<PlayerSaveSettings>) => void;
   setViewport: (viewport: Viewport) => void;
   upsertObject: (entry: ObjectEntry) => void;
   removeObject: (objectId: string) => void;
@@ -189,6 +197,18 @@ const clamp01 = (value: unknown, fallback: number): number => {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.min(1, n));
+};
+
+const normalizeTimerMode = (value: unknown): TimerMode =>
+  value === "countup" ? "countup" : "countdown";
+
+const normalizePlayerSaveMode = (value: unknown): PlayerSaveMode =>
+  value === "none" || value === "auto" ? value : "manual";
+
+const normalizeStartSeconds = (value: unknown, fallback: number): number => {
+  const n = Number.parseInt(String(value ?? fallback), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, n);
 };
 
 const normalizePlayerPopupTheme = (theme?: Partial<PlayerPopupTheme> | null): PlayerPopupTheme => ({
@@ -792,6 +812,56 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
             settings: {
               ...(state.meta.settings || {}),
               audio: nextAudio,
+            },
+          },
+        });
+      });
+    },
+
+    setMetaSettingsTimer: (patch) => {
+      set((state) => {
+        const prev = state.meta.settings?.timer;
+        const nextTimer: TimerGlobalSettings = {
+          enabled: !!(prev?.enabled ?? false),
+          mode: normalizeTimerMode(prev?.mode),
+          startSeconds: normalizeStartSeconds(prev?.startSeconds, 1800),
+          autoStart: !!(prev?.autoStart ?? true),
+          pauseWhenPopupOpen: !!(prev?.pauseWhenPopupOpen ?? false),
+          ...patch,
+        };
+        nextTimer.mode = normalizeTimerMode(nextTimer.mode);
+        nextTimer.startSeconds = normalizeStartSeconds(nextTimer.startSeconds, 1800);
+        nextTimer.enabled = !!nextTimer.enabled;
+        nextTimer.autoStart = !!nextTimer.autoStart;
+        nextTimer.pauseWhenPopupOpen = !!nextTimer.pauseWhenPopupOpen;
+        return withWarnings({
+          ...state,
+          meta: {
+            ...state.meta,
+            settings: {
+              ...(state.meta.settings || {}),
+              timer: nextTimer,
+            },
+          },
+        });
+      });
+    },
+
+    setMetaSettingsPlayerSave: (patch) => {
+      set((state) => {
+        const prev = state.meta.settings?.playerSave;
+        const nextSave: PlayerSaveSettings = {
+          mode: normalizePlayerSaveMode(prev?.mode),
+          ...patch,
+        };
+        nextSave.mode = normalizePlayerSaveMode(nextSave.mode);
+        return withWarnings({
+          ...state,
+          meta: {
+            ...state.meta,
+            settings: {
+              ...(state.meta.settings || {}),
+              playerSave: nextSave,
             },
           },
         });

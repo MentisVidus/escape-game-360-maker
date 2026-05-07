@@ -593,6 +593,28 @@
                 globalAudioVol.dispatchEvent(new Event("input", { bubbles: true }));
             }
         }
+        /* C10.2.e — timer global + sauvegarde joueur (`meta.settings.timer` / `playerSave`). */
+        var timer = st.meta && st.meta.settings && st.meta.settings.timer;
+        if (timer) {
+            var useTimer = document.getElementById("useTimer");
+            var timerMode = document.getElementById("timerMode");
+            var timerStartSeconds = document.getElementById("timerStartSeconds");
+            var timerAutoStart = document.getElementById("timerAutoStart");
+            var timerPauseOnPopup = document.getElementById("timerPauseOnPopup");
+            if (useTimer) {
+                useTimer.checked = !!timer.enabled;
+                useTimer.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            if (timerMode && timer.mode != null) timerMode.value = String(timer.mode);
+            if (timerStartSeconds && timer.startSeconds != null) timerStartSeconds.value = String(timer.startSeconds);
+            if (timerAutoStart) timerAutoStart.checked = !!timer.autoStart;
+            if (timerPauseOnPopup) timerPauseOnPopup.checked = !!timer.pauseWhenPopupOpen;
+        }
+        var playerSave = st.meta && st.meta.settings && st.meta.settings.playerSave;
+        if (playerSave) {
+            var playerSaveMode = document.getElementById("playerSaveMode");
+            if (playerSaveMode && playerSave.mode != null) playerSaveMode.value = String(playerSave.mode);
+        }
         return out;
     }
 

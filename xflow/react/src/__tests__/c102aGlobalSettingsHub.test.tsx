@@ -50,6 +50,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenInventory={() => {}}
         onOpenPopupTheme={() => {}}
         onOpenAudio={() => {}}
+        onOpenTimerSave={() => {}}
         store={store}
       />
     );
@@ -57,7 +58,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
     expect(btns.length).toBe(6);
   });
 
-  it("3 boutons sont désactivés avec tooltip C10.2.x", () => {
+  it("1 bouton reste désactivé avec tooltip C10.2.f", () => {
     const store = createNodalProjectStore();
     renderTree(
       <GlobalSettingsHubPopup
@@ -67,13 +68,13 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenInventory={() => {}}
         onOpenPopupTheme={() => {}}
         onOpenAudio={() => {}}
+        onOpenTimerSave={() => {}}
         store={store}
       />
     );
     const btns = Array.from(container.querySelectorAll<HTMLButtonElement>("button.nodal-global-hub-btn"));
     const disabled = btns.filter((b) => b.disabled);
-    expect(disabled.length).toBe(2);
-    expect(disabled.some((b) => (b.title || "").includes("C10.2.e"))).toBe(true);
+    expect(disabled.length).toBe(1);
     expect(disabled.some((b) => (b.title || "").includes("C10.2.f"))).toBe(true);
   });
 
@@ -88,6 +89,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenInventory={() => {}}
         onOpenPopupTheme={() => {}}
         onOpenAudio={() => {}}
+        onOpenTimerSave={() => {}}
         store={store}
       />
     );
@@ -112,6 +114,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenInventory={() => {}}
         onOpenPopupTheme={onTheme}
         onOpenAudio={() => {}}
+        onOpenTimerSave={() => {}}
         store={store}
       />
     );
@@ -136,6 +139,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenInventory={onInventory}
         onOpenPopupTheme={() => {}}
         onOpenAudio={() => {}}
+        onOpenTimerSave={() => {}}
         store={store}
       />
     );
@@ -159,6 +163,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenInventory={() => {}}
         onOpenPopupTheme={() => {}}
         onOpenAudio={onAudio}
+        onOpenTimerSave={() => {}}
         store={store}
       />
     );
@@ -170,6 +175,31 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
       btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onAudio).toHaveBeenCalledTimes(1);
+  });
+
+  it("clic Timer & sauvegarde appelle onOpenTimerSave", () => {
+    const store = createNodalProjectStore();
+    const onTimerSave = vi.fn();
+    renderTree(
+      <GlobalSettingsHubPopup
+        open
+        onClose={() => {}}
+        onOpenProjectIdentity={() => {}}
+        onOpenInventory={() => {}}
+        onOpenPopupTheme={() => {}}
+        onOpenAudio={() => {}}
+        onOpenTimerSave={onTimerSave}
+        store={store}
+      />
+    );
+    const btn = Array.from(container.querySelectorAll("button.nodal-global-hub-btn")).find((b) =>
+      (b.textContent || "").includes("Timer")
+    );
+    expect(btn).toBeDefined();
+    act(() => {
+      btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onTimerSave).toHaveBeenCalledTimes(1);
   });
 });
 

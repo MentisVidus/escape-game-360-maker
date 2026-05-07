@@ -17,9 +17,9 @@ export type ProjectSettings = {
   /** C10.2.d — audio global */
   audio?: AudioGlobalSettings;
   /** C10.2.e — timer global */
-  timer?: Record<string, unknown>;
+  timer?: TimerGlobalSettings;
   /** C10.2.e — sauvegarde progression joueur */
-  playerSave?: Record<string, unknown>;
+  playerSave?: PlayerSaveSettings;
   /** C10.2.f — fins de partie */
   endScreens?: Record<string, unknown>;
 };
@@ -49,6 +49,22 @@ export type AudioGlobalSettings = {
   enabled: boolean;
   url: string;
   volume: number;
+};
+
+export type TimerMode = "countdown" | "countup";
+
+export type TimerGlobalSettings = {
+  enabled: boolean;
+  mode: TimerMode;
+  startSeconds: number;
+  autoStart: boolean;
+  pauseWhenPopupOpen: boolean;
+};
+
+export type PlayerSaveMode = "none" | "manual" | "auto";
+
+export type PlayerSaveSettings = {
+  mode: PlayerSaveMode;
 };
 
 export type ProjectMeta = {
