@@ -8,6 +8,7 @@ import {
 import type { ActionNode, MediaNode, SceneNode } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import { stableSceneNodeIdFromExternal } from "../serialize/fromProjectJson";
+import { DEFAULT_MEDIA_IMAGE_PLACEHOLDER_URL } from "../view/preview/scenePanoramaDisplay";
 import { absoluteFlowPositionInPane, computeContainerBounds } from "../view/nesting/containerBounds";
 import { findDeepestDropContainer } from "./dropContainerResolve";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
@@ -93,7 +94,7 @@ function buildActionNode(id: ActionNodeId, actionType: ActionNode["actionType"])
 
 function buildMediaNode(id: MediaNodeId, mediaType: MediaNode["mediaType"]): MediaNode {
   if (mediaType === "media-image") {
-    return { id, nodeType: "media", mediaType, label: "Media", data: { url: "" } };
+    return { id, nodeType: "media", mediaType, label: "Media", data: { url: DEFAULT_MEDIA_IMAGE_PLACEHOLDER_URL } };
   }
   return { id, nodeType: "media", mediaType: "media-audio", label: "Media", data: { url: "", volume: 1 } };
 }

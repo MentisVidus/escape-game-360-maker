@@ -11,6 +11,7 @@ export type NodalContextMenuAction =
   /** Fond de carte / rectangle de sélection RF : supprime tous les nœuds sélectionnés (hors flux satellite seul géré par RF). */
   | "delete-selection"
   | "set-start-scene"
+  | "preview-scene-360"
   | "toggle-fold"
   | "go-parent";
 
@@ -33,6 +34,7 @@ function labels(locale: "fr" | "en") {
     fold: L ? "Collapse" : "Replier",
     unfold: L ? "Expand" : "Déplier",
     goParent: L ? "Go to parent" : "Aller au parent",
+    previewScene360: L ? "Preview scene 360°" : "Tester la scène 360°",
   };
 }
 
@@ -87,6 +89,10 @@ export function buildNodalContextMenuItems(
   }
 
   if (targetId in snap.sceneBoxes) {
+    const sid = snap.sceneBoxes[targetId as SceneBoxNodeId]?.sceneId;
+    if (sid) {
+      out.push({ action: "preview-scene-360", label: t.previewScene360 });
+    }
     const collapsed = !!snap.layout[targetId as SceneBoxNodeId]?.collapsed;
     out.push({
       action: "toggle-fold",

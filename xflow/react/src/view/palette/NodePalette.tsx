@@ -118,6 +118,7 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
   }, [L]);
 
   const openSettingsHub = () => {
+    ui.setScenePreviewSceneId(null);
     ui.setKeyboardShortcutsOpen(false);
     ui.setObjectEditorSatelliteId(null);
     ui.setCoordsEditorSatelliteId(null);
@@ -200,7 +201,10 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
         <button
           type="button"
           className="nodal-palette-btn-shortcuts"
-          onClick={() => ui.setKeyboardShortcutsOpen(true)}
+          onClick={() => {
+            ui.setScenePreviewSceneId(null);
+            ui.setKeyboardShortcutsOpen(true);
+          }}
           title={labels.shortcutsHint}
         >
           <span className="nodal-palette-shortcuts-icon" aria-hidden>
@@ -239,7 +243,10 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           type="button"
           className="nodal-palette-btn-publish"
           title={labels.publishHint}
-          onClick={() => ui.setPublishHubOpen(true)}
+          onClick={() => {
+            ui.setScenePreviewSceneId(null);
+            ui.setPublishHubOpen(true);
+          }}
         >
           {labels.publish}
         </button>

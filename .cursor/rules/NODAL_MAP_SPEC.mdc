@@ -2503,4 +2503,8 @@ Annexe D*. Questions résiduelles éventuelles :
   Plans détaillés C18.1 et C18.2 rédigés en one-shot dans cette
   Annexe D, prêts à être livrés à Cursor sous-chantier par
   sous-chantier.
+- 2026-05-08 — **C18.1 livré (code)** : menu s-box « Tester la scène 360° »,
+  `ScenePreviewModal` + `NodalPanoramaViewer` (Pannellum global),
+  `collectSceneHotspotProjections`, `sceneIdFromSboxId`, tests Vitest
+  `c18ScenePreviewModal.test.tsx`, MAJ `nodalContextMenuModel.test`.
 

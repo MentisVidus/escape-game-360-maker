@@ -21,6 +21,7 @@ export function MediaNodeView({ id, data }: NodeProps) {
   const node = (data as { node: MediaNode }).node;
   const ui = useNodalUi();
   const openEditor = useCallback(() => {
+    ui.setScenePreviewSceneId(null);
     ui.setMediaEditorMediaId(id as MediaNodeId);
   }, [id, ui]);
 

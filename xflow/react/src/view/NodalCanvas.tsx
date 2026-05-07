@@ -57,6 +57,7 @@ import type {
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
+import { sceneIdFromSboxId } from "../store/reconcileSceneBoxes";
 import { isNodalClipboardEmpty } from "../store/clipboard";
 import { decodePaletteDragPayload, PALETTE_DRAG_MIME } from "../store/insertNodeAtAbsolute";
 import { isValidConnection } from "./connectionPolicy";
@@ -114,6 +115,7 @@ import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
 import { DeleteConfirmDialog } from "./popups/DeleteConfirmDialog";
 import { KeyboardShortcutsPopup } from "./popups/KeyboardShortcutsPopup";
 import { PublishGamePopup } from "./popups/PublishGamePopup";
+import { ScenePreviewModal } from "./popups/ScenePreviewModal";
 import { ProjectIdentitySettingsPopup } from "./popups/ProjectIdentitySettingsPopup";
 import { InventoryGlobalSettingsPopup } from "./popups/InventoryGlobalSettingsPopup";
 import { AudioGlobalSettingsPopup } from "./popups/AudioGlobalSettingsPopup";
@@ -179,6 +181,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   /** C10.1 — modale « Publication du jeu » (palette → bouton [Publier]). */
   const [publishHubOpen, setPublishHubOpen] = useState(false);
+  /** C18.1 — aperçu Pannellum plein écran (menu contextuel s-box). */
+  const [scenePreviewSceneId, setScenePreviewSceneId] = useState<SceneNodeId | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     title: string;
     body: string;
@@ -199,7 +203,31 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     targetId: AnyNodeId | null;
   } | null>(null);
   const lastFlowPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const openScenePreview = useCallback((sceneId: SceneNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setCoordsEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setProjectIdentitySettingsOpen(false);
+    setInventoryGlobalSettingsOpen(false);
+    setAudioGlobalSettingsOpen(false);
+    setTimerAndSaveSettingsOpen(false);
+    setEndScreensSettingsOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setMsgEditorActionId(null);
+    setKeyboardShortcutsOpen(false);
+    setPublishHubOpen(false);
+    setScenePreviewSceneId(sceneId);
+  }, []);
+
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
+    setScenePreviewSceneId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -219,6 +247,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setMsgEditorActionId(id);
   }, []);
   const openPickContentEditor = useCallback((id: ActionNodeId) => {
+    setScenePreviewSceneId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -238,6 +267,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setPickEditorActionId(id);
   }, []);
   const openGotoContentEditor = useCallback((id: ActionNodeId) => {
+    setScenePreviewSceneId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -257,6 +287,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setGotoEditorActionId(id);
   }, []);
   const openReqContentEditor = useCallback((id: ActionNodeId) => {
+    setScenePreviewSceneId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -276,6 +307,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setReqEditorActionId(id);
   }, []);
   const openPwdContentEditor = useCallback((id: ActionNodeId) => {
+    setScenePreviewSceneId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -295,6 +327,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setPwdEditorActionId(id);
   }, []);
   const openSelectorContentEditor = useCallback((id: ActionNodeId) => {
+    setScenePreviewSceneId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -342,6 +375,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       popupThemeCustomizationOpen ||
       keyboardShortcutsOpen ||
       publishHubOpen ||
+      !!scenePreviewSceneId ||
       deleteConfirm != null ||
       contextMenu != null,
     [
@@ -364,6 +398,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       popupThemeCustomizationOpen,
       keyboardShortcutsOpen,
       publishHubOpen,
+      scenePreviewSceneId,
       deleteConfirm,
       contextMenu,
     ]
@@ -388,6 +423,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     }
     if (publishHubOpen) {
       setPublishHubOpen(false);
+      return;
+    }
+    if (scenePreviewSceneId != null) {
+      setScenePreviewSceneId(null);
       return;
     }
     if (projectIdentitySettingsOpen) {
@@ -463,6 +502,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     contextMenu,
     keyboardShortcutsOpen,
     publishHubOpen,
+    scenePreviewSceneId,
     projectIdentitySettingsOpen,
     inventoryGlobalSettingsOpen,
     audioGlobalSettingsOpen,
@@ -503,6 +543,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       endScreensSettingsOpen ||
       popupThemeCustomizationOpen ||
       publishHubOpen ||
+      scenePreviewSceneId != null ||
       deleteConfirm != null ||
       contextMenu != null
     ) {
@@ -527,6 +568,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     endScreensSettingsOpen,
     popupThemeCustomizationOpen,
     publishHubOpen,
+    scenePreviewSceneId,
     deleteConfirm,
     contextMenu,
   ]);
@@ -577,6 +619,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     copySelection: copyRfSelectionToClipboard,
     pasteFromClipboard: pasteAtPointerOrCenter,
     openShortcutsHelp: () => {
+      setScenePreviewSceneId(null);
       setKeyboardShortcutsOpen(true);
     },
   });
@@ -777,6 +820,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           else if (a.actionType === "selector") openSelectorContentEditor(a.id);
           else openMsgContentEditor(a.id);
         } else if (tid in snap.media) {
+          setScenePreviewSceneId(null);
           setMediaEditorMediaId(tid as MediaNodeId);
         }
         return;
@@ -788,6 +832,11 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       }
       if (action === "set-start-scene" && tid in snap.scenes) {
         store.getState().setStartScene(tid as SceneNodeId);
+        return;
+      }
+      if (action === "preview-scene-360" && tid != null && tid in snap.sceneBoxes) {
+        const sid = sceneIdFromSboxId(snap, tid as SceneBoxNodeId);
+        if (sid) openScenePreview(sid);
         return;
       }
       if (action === "toggle-fold") {
@@ -821,6 +870,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       openSelectorContentEditor,
       openMsgContentEditor,
       setMediaEditorMediaId,
+      setScenePreviewSceneId,
+      openScenePreview,
     ]
   );
 
@@ -1322,6 +1373,9 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         setKeyboardShortcutsOpen,
         publishHubOpen,
         setPublishHubOpen,
+        scenePreviewSceneId,
+        setScenePreviewSceneId,
+        openScenePreview,
       }}
     >
       <div className={layoutClassName} ref={canvasRef}>
@@ -1668,6 +1722,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <PublishGamePopup
           open={publishHubOpen}
           onClose={() => setPublishHubOpen(false)}
+        />
+        <ScenePreviewModal
+          sceneId={scenePreviewSceneId}
+          onClose={() => setScenePreviewSceneId(null)}
         />
       </div>
     </div>
