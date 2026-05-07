@@ -1815,6 +1815,10 @@ function loadProject(event) {
                             return refreshLocalDraftStatusUi();
                         }).then(function () {
                             inputEl.value = "";
+                            /* C10.3 — carte nodale après hydrate bundle (Q-C10.3-1 (c)). */
+                            if (typeof window.escape360TryOpenDefaultNodalMap === "function") {
+                                window.escape360TryOpenDefaultNodalMap("loadProject.zip");
+                            }
                         });
                     })
                     .catch(fail);
@@ -1969,6 +1973,15 @@ window.__escape360EditorDomApi = {
 
 window.addEventListener("load", function () {
     setTimeout(function () {
-        initLocalDraftFeature();
+        Promise.resolve(initLocalDraftFeature())
+            .catch(function () {
+                /* init échoue rarement ; on ouvre la carte même pour rester prévisible */
+            })
+            .finally(function () {
+                /** C10.3 — après init brouillon (prompt restore synchrone inclus), vue nodale active. Q-C10.3-2 (a) sans localStorage. */
+                if (typeof window.escape360TryOpenDefaultNodalMap === "function") {
+                    window.escape360TryOpenDefaultNodalMap("load");
+                }
+            });
     }, 80);
 });

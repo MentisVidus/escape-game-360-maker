@@ -3569,6 +3569,21 @@ bump v1.9, PR `feat/c10-autonomy` → `feat/nodal-map`).
   reload → titre modale ; (3) titre → `[Publier]` → `index.html` contient
   le titre.
 
+- 2026-05-07 — **C10.3 livré** (`feat/c10-autonomy`) : ouverture nodale **par défaut**.
+  Timing **Q-C10.3-1 (c)** : après `await initLocalDraftFeature()` (+ prompt restore
+  éventuel, synchrone) dans le handler **`window`** `load` (+ 80 ms), appel à
+  `escape360TryOpenDefaultNodalMap("load")` → même flux que `openNodalMapEditor`
+  (modale carte + onglet moteur nodal). Second déclenchement après chargement
+  `.escapegame` lorsque `hydrateFromBundle` a réussi (fin de chaîne ZIP), pour
+  afficher tout de suite le graphe hydraté. **Q-C10.3-2 (a)** : pas de
+  localStorage. **Q-C10.3-3** : aucun changement sur `meta.viewport`. Fichiers :
+  `js/editor-nodal-map-bootstrap.js`, `js/editeur-app.js`, `js/editor-en-app.js`.
+  Vitest : `c103DefaultNodalMapVisible.test.tsx` (mock `ResizeObserver`, `.nodal-palette`
+  + `.react-flow` présents au mount).
+  Recettes manuelles : éditeur neuf → modale carte nodale sans clic ; charger
+  `.escapegame` → carte avec contenu ; reload → carte ; `[Formulaire]` ferme encore
+  vers le formulaire legacy.
+
 - 2026-05-06 — **C10.0 livré** : section « Audit globals (C10.0) »
   (tableau + DOM-reading + proposition **C10.2.a–g**). Plans C10.1+
   peuvent intégrer la liste des flush et la suppression du timer 8 s.

@@ -9,6 +9,10 @@
  * de la modale Carte (handlers `setProjectMapEngine` / `wrapCloseProjectMap` ci-dessous).
  * Le hook subscribe `startSceneId` (C8.3.x) reste actif pour propager immédiatement
  * un changement de scène de départ vers le DOM legacy hors-modale.
+ *
+ * C10.3 — ouverture nodale par défaut : après hydrate brouillon (load) ou après
+ * `hydrateFromBundle`, `editeur-app` / `editor-en-app` appellent
+ * `window.escape360TryOpenDefaultNodalMap()` (même flux que `openNodalMapEditor`).
  */
 (function () {
   "use strict";
@@ -158,6 +162,15 @@
     }
   }
 
+  /** C10.3 — équivalent clic « Éditeur Nodal » ; safe si bundle React absent. */
+  function tryOpenDefaultNodalMap(reason) {
+    try {
+      openNodalMapEditor();
+    } catch (e) {
+      console.warn("escape360TryOpenDefaultNodalMap", reason || "", e);
+    }
+  }
+
   function pollUntil(fn, maxTries) {
     if (fn()) return;
     var n = 0;
@@ -188,4 +201,5 @@
 
   window.setProjectMapEngine = setProjectMapEngine;
   window.openNodalMapEditor = openNodalMapEditor;
+  window.escape360TryOpenDefaultNodalMap = tryOpenDefaultNodalMap;
 })();
