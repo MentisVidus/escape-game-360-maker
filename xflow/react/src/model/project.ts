@@ -11,9 +11,9 @@ import type { ObjectEntry } from "./objects";
  */
 export type ProjectSettings = {
   /** C10.2.b — inventaire HUD */
-  inventoryGlobal?: Record<string, unknown>;
+  inventoryGlobal?: InventoryGlobalSettings;
   /** C10.2.c — thème popups (migration depuis `playerPopupTheme` / map-layout) */
-  popupTheme?: Record<string, unknown>;
+  popupTheme?: PopupThemeSettings;
   /** C10.2.d — audio global */
   audio?: Record<string, unknown>;
   /** C10.2.e — timer global */
@@ -22,6 +22,27 @@ export type ProjectSettings = {
   playerSave?: Record<string, unknown>;
   /** C10.2.f — fins de partie */
   endScreens?: Record<string, unknown>;
+};
+
+export type InventoryGlobalPosition = "top-right" | "top-left" | "bottom-right" | "bottom-left";
+
+export type InventoryGlobalSettings = {
+  enabled: boolean;
+  position: InventoryGlobalPosition;
+  icon: string;
+  panelBg: string;
+  panelBgAlpha: number;
+  textColor: string;
+};
+
+export type PopupThemeSettings = {
+  useCustom: boolean;
+  font: string;
+  color: string;
+  bg: string;
+  bgAlpha: number;
+  btnBg: string;
+  btnColor: string;
 };
 
 export type ProjectMeta = {

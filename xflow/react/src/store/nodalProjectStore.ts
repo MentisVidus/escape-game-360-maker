@@ -13,7 +13,7 @@ import type {
 import type { NodeLayout, Viewport } from "../model/layout";
 import type { ActionNode, MediaNode, SatelliteNode, SceneNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
-import type { NodalProject } from "../model/project";
+import type { InventoryGlobalSettings, NodalProject, PopupThemeSettings } from "../model/project";
 import { applyHydratedLayout, type MapLayoutJson } from "../serialize/mapLayoutJson";
 import { applyMetaMediaLinks, applyNodalAutoSatelliteData } from "../serialize/nodalMapExtras";
 import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
@@ -44,11 +44,10 @@ type NodePatch = Partial<ActionNode | SceneNode | SatelliteNode | MediaNode>;
 export type NodalProjectStore = NodalProject & {
   /** Phase 2 (1.b.6) : trace des poussées anti-collision au dépli, par s-box origine — non persisté. */
   sceneBoxOverlapMemory: Map<SceneBoxNodeId, SBoxDisplacement[]>;
-  /** Thème des popups joueur — vérité UI nodale (C7.2-bis) ; persistance bundle = lot ultérieur. */
-  playerPopupTheme: PlayerPopupTheme;
-  setPlayerPopupTheme: (patch: Partial<PlayerPopupTheme>) => void;
-  /** Réaligne depuis le formulaire vanilla (après chargement projet / édition legacy). */
-  syncPlayerPopupThemeFromDom: () => void;
+  /** C10.2.c — thème des popups joueur sous `meta.settings.popupTheme`. */
+  setMetaSettingsPopupTheme: (patch: Partial<PopupThemeSettings>) => void;
+  /** C10.2.c — réaligne `meta.settings.popupTheme` depuis le formulaire vanilla. */
+  syncMetaSettingsPopupThemeFromDom: () => void;
   warnings: Warning[];
   addScene: (node: SceneNode, layout?: Partial<NodeLayout>) => void;
   addAction: (node: ActionNode, layout?: Partial<NodeLayout>) => void;
@@ -74,6 +73,8 @@ export type NodalProjectStore = NodalProject & {
   setStartScene: (sceneId: SceneNodeId) => void;
   /** C10.2.a — titre projet (`meta.title` + flush DOM via `applyFromStore`). */
   setMetaTitle: (title: string) => void;
+  /** C10.2.b — paramètres inventaire global (`meta.settings.inventoryGlobal`). */
+  setMetaSettingsInventory: (patch: Partial<InventoryGlobalSettings>) => void;
   setViewport: (viewport: Viewport) => void;
   upsertObject: (entry: ObjectEntry) => void;
   removeObject: (objectId: string) => void;
@@ -186,8 +187,8 @@ const clamp01 = (value: unknown, fallback: number): number => {
 const normalizePlayerPopupTheme = (theme?: Partial<PlayerPopupTheme> | null): PlayerPopupTheme => ({
   ...DEFAULT_PLAYER_POPUP_THEME,
   ...(theme || {}),
-  useCustomPopup: !!theme?.useCustomPopup,
-  popBga: clamp01(theme?.popBga, DEFAULT_PLAYER_POPUP_THEME.popBga),
+  useCustom: !!theme?.useCustom,
+  bgAlpha: clamp01(theme?.bgAlpha, DEFAULT_PLAYER_POPUP_THEME.bgAlpha),
 });
 
 const hasIncomingMeta = (state: NodalProjectStore, nodeId: SatelliteNodeId): boolean =>
@@ -301,23 +302,37 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     return createStore<NodalProjectStore>((set, get) => ({
     ...createEmptyProject(),
     sceneBoxOverlapMemory: new Map(),
-    playerPopupTheme: { ...DEFAULT_PLAYER_POPUP_THEME },
     warnings: [],
 
-    setPlayerPopupTheme: (patch) => {
+    setMetaSettingsPopupTheme: (patch) => {
       set((state) =>
         withWarnings({
           ...state,
-          playerPopupTheme: { ...state.playerPopupTheme, ...patch },
+          meta: {
+            ...state.meta,
+            settings: {
+              ...(state.meta.settings || {}),
+              popupTheme: normalizePlayerPopupTheme({
+                ...(state.meta.settings?.popupTheme || DEFAULT_PLAYER_POPUP_THEME),
+                ...patch,
+              }),
+            },
+          },
         })
       );
     },
 
-    syncPlayerPopupThemeFromDom: () => {
+    syncMetaSettingsPopupThemeFromDom: () => {
       set((state) =>
         withWarnings({
           ...state,
-          playerPopupTheme: readPlayerPopupFieldsFromDom(),
+          meta: {
+            ...state.meta,
+            settings: {
+              ...(state.meta.settings || {}),
+              popupTheme: normalizePlayerPopupTheme(readPlayerPopupFieldsFromDom()),
+            },
+          },
         })
       );
     },
@@ -728,6 +743,31 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       );
     },
 
+    setMetaSettingsInventory: (patch) => {
+      set((state) => {
+        const prev = state.meta.settings?.inventoryGlobal;
+        const nextInventory: InventoryGlobalSettings = {
+          enabled: prev?.enabled ?? true,
+          position: prev?.position ?? "top-right",
+          icon: prev?.icon ?? "🎒",
+          panelBg: prev?.panelBg ?? "#000000",
+          panelBgAlpha: prev?.panelBgAlpha ?? 0.8,
+          textColor: prev?.textColor ?? "#ffffff",
+          ...patch,
+        };
+        return withWarnings({
+          ...state,
+          meta: {
+            ...state.meta,
+            settings: {
+              ...(state.meta.settings || {}),
+              inventoryGlobal: nextInventory,
+            },
+          },
+        });
+      });
+    },
+
     copyNodesToClipboard: (nodeIds) => {
       const state = get();
       const clip = buildClipboard(state, nodeIds);
@@ -744,7 +784,6 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
         const next: NodalProjectStore = {
           ...merged.project,
           sceneBoxOverlapMemory: state.sceneBoxOverlapMemory,
-          playerPopupTheme: state.playerPopupTheme,
         } as NodalProjectStore;
         for (const e of next.edges) {
           if (e.family === "transition") syncGotoTargetFromTransitionEdge(next, e);
@@ -853,10 +892,21 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       applyNodalAutoSatelliteData(next, layoutJson.nodalAutoSatelliteData);
       applyMetaMediaLinks(next, layoutJson.nodalMetaMediaLinks);
       migrateMediaParenting(next);
-      const playerPopupTheme = normalizePlayerPopupTheme(
-        layoutJson.nodalPlayerPopupTheme ?? readPlayerPopupFieldsFromDom()
+      const popupThemeFromProject = next.meta.settings?.popupTheme;
+      const popupTheme = normalizePlayerPopupTheme(
+        popupThemeFromProject ?? layoutJson.nodalPlayerPopupTheme ?? readPlayerPopupFieldsFromDom()
       );
-      set(withWarnings({ ...next, playerPopupTheme }));
+      const withPopupTheme: NodalProjectStore = {
+        ...next,
+        meta: {
+          ...next.meta,
+          settings: {
+            ...(next.meta.settings || {}),
+            popupTheme,
+          },
+        },
+      };
+      set(withWarnings(withPopupTheme));
     },
   }));
   };

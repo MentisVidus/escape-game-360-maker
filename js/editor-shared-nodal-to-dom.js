@@ -516,7 +516,7 @@
             media: raw.media,
             edges: raw.edges,
             layout: raw.layout,
-            playerPopupTheme: raw.playerPopupTheme || null
+            popupTheme: (raw.meta && raw.meta.settings && raw.meta.settings.popupTheme) || null
         };
     }
 
@@ -531,14 +531,14 @@
         var popBtnBg = document.getElementById("pop-btn-bg");
         var popBtnCol = document.getElementById("pop-btn-col");
 
-        if (useCustom) useCustom.checked = !!theme.useCustomPopup;
+        if (useCustom) useCustom.checked = !!theme.useCustom;
         if (container && useCustom) container.style.display = useCustom.checked ? "flex" : "none";
-        if (popFont && theme.popFont != null) popFont.value = String(theme.popFont);
-        if (popColor && theme.popColor != null) popColor.value = String(theme.popColor);
-        if (popBgc && theme.popBgc != null) popBgc.value = String(theme.popBgc);
-        if (popBga && theme.popBga != null) popBga.value = String(theme.popBga);
-        if (popBtnBg && theme.popBtnBg != null) popBtnBg.value = String(theme.popBtnBg);
-        if (popBtnCol && theme.popBtnCol != null) popBtnCol.value = String(theme.popBtnCol);
+        if (popFont && theme.font != null) popFont.value = String(theme.font);
+        if (popColor && theme.color != null) popColor.value = String(theme.color);
+        if (popBgc && theme.bg != null) popBgc.value = String(theme.bg);
+        if (popBga && theme.bgAlpha != null) popBga.value = String(theme.bgAlpha);
+        if (popBtnBg && theme.btnBg != null) popBtnBg.value = String(theme.btnBg);
+        if (popBtnCol && theme.btnColor != null) popBtnCol.value = String(theme.btnColor);
 
         if (typeof global.updatePreview === "function") global.updatePreview();
         if (typeof global.updateQuillTheme === "function") global.updateQuillTheme();
@@ -551,11 +551,31 @@
         var st = snapProjectSlice(storeApi.getState());
         if (!st) return { ok: false, reason: "empty state" };
         var out = applyNodalStateToLegacyDom(st);
-        projectPlayerPopupThemeToDom(st.playerPopupTheme);
+        projectPlayerPopupThemeToDom(st.popupTheme);
         /* C10.2.a — identité projet : titre formulaire legacy. */
         var gameTitleEl = typeof document !== "undefined" ? document.getElementById("gameTitle") : null;
         if (gameTitleEl && st.meta && st.meta.title != null) {
             gameTitleEl.value = String(st.meta.title);
+        }
+        /* C10.2.b — inventaire HUD (`meta.settings.inventoryGlobal`). */
+        var inv = st.meta && st.meta.settings && st.meta.settings.inventoryGlobal;
+        if (inv) {
+            var useInventory = document.getElementById("useInventory");
+            var invPos = document.getElementById("inv-pos");
+            var invIcon = document.getElementById("inv-icon");
+            var invBgc = document.getElementById("inv-bgc");
+            var invBga = document.getElementById("inv-bga");
+            var invColor = document.getElementById("inv-color");
+            if (useInventory) {
+                useInventory.checked = !!inv.enabled;
+                useInventory.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            if (invPos && inv.position != null) invPos.value = String(inv.position);
+            if (invIcon && inv.icon != null) invIcon.value = String(inv.icon);
+            if (invBgc && inv.panelBg != null) invBgc.value = String(inv.panelBg);
+            if (invBga && inv.panelBgAlpha != null) invBga.value = String(inv.panelBgAlpha);
+            if (invColor && inv.textColor != null) invColor.value = String(inv.textColor);
+            if (typeof global.updatePreview === "function") global.updatePreview();
         }
         return out;
     }

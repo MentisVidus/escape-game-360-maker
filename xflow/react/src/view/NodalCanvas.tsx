@@ -115,6 +115,7 @@ import { DeleteConfirmDialog } from "./popups/DeleteConfirmDialog";
 import { KeyboardShortcutsPopup } from "./popups/KeyboardShortcutsPopup";
 import { PublishGamePopup } from "./popups/PublishGamePopup";
 import { ProjectIdentitySettingsPopup } from "./popups/ProjectIdentitySettingsPopup";
+import { InventoryGlobalSettingsPopup } from "./popups/InventoryGlobalSettingsPopup";
 import {
   buildNodalContextMenuItems,
   contextMenuParentTarget,
@@ -167,6 +168,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [selectorEditorActionId, setSelectorEditorActionId] = useState<ActionNodeId | null>(null);
   const [globalSettingsHubOpen, setGlobalSettingsHubOpen] = useState(false);
   const [projectIdentitySettingsOpen, setProjectIdentitySettingsOpen] = useState(false);
+  const [inventoryGlobalSettingsOpen, setInventoryGlobalSettingsOpen] = useState(false);
   const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   /** C10.1 — modale « Publication du jeu » (palette → bouton [Publier]). */
@@ -198,6 +200,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setMediaEditorMediaId(null);
     setGlobalSettingsHubOpen(false);
     setProjectIdentitySettingsOpen(false);
+    setInventoryGlobalSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setPickEditorActionId(null);
     setGotoEditorActionId(null);
@@ -213,6 +216,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setMediaEditorMediaId(null);
     setGlobalSettingsHubOpen(false);
     setProjectIdentitySettingsOpen(false);
+    setInventoryGlobalSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setGotoEditorActionId(null);
@@ -228,6 +232,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setMediaEditorMediaId(null);
     setGlobalSettingsHubOpen(false);
     setProjectIdentitySettingsOpen(false);
+    setInventoryGlobalSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -243,6 +248,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setMediaEditorMediaId(null);
     setGlobalSettingsHubOpen(false);
     setProjectIdentitySettingsOpen(false);
+    setInventoryGlobalSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -258,6 +264,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setMediaEditorMediaId(null);
     setGlobalSettingsHubOpen(false);
     setProjectIdentitySettingsOpen(false);
+    setInventoryGlobalSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -273,6 +280,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setMediaEditorMediaId(null);
     setGlobalSettingsHubOpen(false);
     setProjectIdentitySettingsOpen(false);
+    setInventoryGlobalSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -303,6 +311,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       !!selectorEditorActionId ||
       globalSettingsHubOpen ||
       projectIdentitySettingsOpen ||
+      inventoryGlobalSettingsOpen ||
       popupThemeCustomizationOpen ||
       keyboardShortcutsOpen ||
       publishHubOpen ||
@@ -321,6 +330,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       selectorEditorActionId,
       globalSettingsHubOpen,
       projectIdentitySettingsOpen,
+      inventoryGlobalSettingsOpen,
       popupThemeCustomizationOpen,
       keyboardShortcutsOpen,
       publishHubOpen,
@@ -352,6 +362,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     }
     if (projectIdentitySettingsOpen) {
       setProjectIdentitySettingsOpen(false);
+      return;
+    }
+    if (inventoryGlobalSettingsOpen) {
+      setInventoryGlobalSettingsOpen(false);
       return;
     }
     if (popupThemeCustomizationOpen) {
@@ -408,6 +422,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     keyboardShortcutsOpen,
     publishHubOpen,
     projectIdentitySettingsOpen,
+    inventoryGlobalSettingsOpen,
     popupThemeCustomizationOpen,
     globalSettingsHubOpen,
     objectEditorSatelliteId,
@@ -437,6 +452,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       selectorEditorActionId ||
       globalSettingsHubOpen ||
       projectIdentitySettingsOpen ||
+      inventoryGlobalSettingsOpen ||
       popupThemeCustomizationOpen ||
       publishHubOpen ||
       deleteConfirm != null ||
@@ -457,6 +473,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     selectorEditorActionId,
     globalSettingsHubOpen,
     projectIdentitySettingsOpen,
+    inventoryGlobalSettingsOpen,
     popupThemeCustomizationOpen,
     publishHubOpen,
     deleteConfirm,
@@ -1522,6 +1539,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             setGlobalSettingsHubOpen(false);
             setProjectIdentitySettingsOpen(true);
           }}
+          onOpenInventory={() => {
+            setGlobalSettingsHubOpen(false);
+            setInventoryGlobalSettingsOpen(true);
+          }}
           onOpenPopupTheme={() => {
             setGlobalSettingsHubOpen(false);
             setPopupThemeCustomizationOpen(true);
@@ -1531,6 +1552,11 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           store={store}
           open={projectIdentitySettingsOpen}
           onClose={() => setProjectIdentitySettingsOpen(false)}
+        />
+        <InventoryGlobalSettingsPopup
+          store={store}
+          open={inventoryGlobalSettingsOpen}
+          onClose={() => setInventoryGlobalSettingsOpen(false)}
         />
         <PopupThemeCustomizationPopup
           store={store}

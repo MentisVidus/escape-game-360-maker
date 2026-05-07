@@ -56,6 +56,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onOpenProjectIdentity: () => void;
+  onOpenInventory: () => void;
   onOpenPopupTheme: () => void;
   store: StoreApi<NodalProjectStore>;
 };
@@ -70,6 +71,7 @@ export function GlobalSettingsHubPopup({
   open,
   onClose,
   onOpenProjectIdentity,
+  onOpenInventory,
   onOpenPopupTheme,
   store,
 }: Props) {
@@ -95,7 +97,7 @@ export function GlobalSettingsHubPopup({
         <button type="button" className="nodal-global-hub-btn nodal-global-hub-btn--primary" onClick={onOpenProjectIdentity}>
           {L.identity}
         </button>
-        <button type="button" className="nodal-global-hub-btn" disabled title={L.soon("C10.2.b")}>
+        <button type="button" className="nodal-global-hub-btn nodal-global-hub-btn--primary" onClick={onOpenInventory}>
           {L.inventory}
         </button>
         <button type="button" className="nodal-global-hub-btn nodal-global-hub-btn--primary" onClick={onOpenPopupTheme}>

@@ -47,6 +47,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         open
         onClose={() => {}}
         onOpenProjectIdentity={() => {}}
+        onOpenInventory={() => {}}
         onOpenPopupTheme={() => {}}
         store={store}
       />
@@ -55,21 +56,21 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
     expect(btns.length).toBe(6);
   });
 
-  it("4 boutons sont désactivés avec tooltip C10.2.x", () => {
+  it("3 boutons sont désactivés avec tooltip C10.2.x", () => {
     const store = createNodalProjectStore();
     renderTree(
       <GlobalSettingsHubPopup
         open
         onClose={() => {}}
         onOpenProjectIdentity={() => {}}
+        onOpenInventory={() => {}}
         onOpenPopupTheme={() => {}}
         store={store}
       />
     );
     const btns = Array.from(container.querySelectorAll<HTMLButtonElement>("button.nodal-global-hub-btn"));
     const disabled = btns.filter((b) => b.disabled);
-    expect(disabled.length).toBe(4);
-    expect(disabled.some((b) => (b.title || "").includes("C10.2.b"))).toBe(true);
+    expect(disabled.length).toBe(3);
     expect(disabled.some((b) => (b.title || "").includes("C10.2.d"))).toBe(true);
     expect(disabled.some((b) => (b.title || "").includes("C10.2.e"))).toBe(true);
     expect(disabled.some((b) => (b.title || "").includes("C10.2.f"))).toBe(true);
@@ -83,6 +84,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         open
         onClose={() => {}}
         onOpenProjectIdentity={onIdentity}
+        onOpenInventory={() => {}}
         onOpenPopupTheme={() => {}}
         store={store}
       />
@@ -105,6 +107,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         open
         onClose={() => {}}
         onOpenProjectIdentity={() => {}}
+        onOpenInventory={() => {}}
         onOpenPopupTheme={onTheme}
         store={store}
       />
@@ -117,6 +120,29 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
       btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onTheme).toHaveBeenCalledTimes(1);
+  });
+
+  it("clic Inventaire appelle onOpenInventory", () => {
+    const store = createNodalProjectStore();
+    const onInventory = vi.fn();
+    renderTree(
+      <GlobalSettingsHubPopup
+        open
+        onClose={() => {}}
+        onOpenProjectIdentity={() => {}}
+        onOpenInventory={onInventory}
+        onOpenPopupTheme={() => {}}
+        store={store}
+      />
+    );
+    const btn = Array.from(container.querySelectorAll("button.nodal-global-hub-btn")).find((b) =>
+      (b.textContent || "").includes("Inventaire")
+    );
+    expect(btn).toBeDefined();
+    act(() => {
+      btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onInventory).toHaveBeenCalledTimes(1);
   });
 });
 

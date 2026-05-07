@@ -2977,6 +2977,49 @@ legacy s'appuient sur la carte comme page d'accueil).*
      `closeActiveModal` confirmée par lecture du code).
 
 - 2026-05-07 — **C10.2.a livré** (`feat/c10-autonomy`). Votes Q-C10.2.a-1→3 :
+- 2026-05-07 — **C10.2.c livré** (`feat/c10-autonomy`) : migration
+  thème popup depuis le slice racine `playerPopupTheme` vers
+  `meta.settings.popupTheme` (type strict ajouté dans `project.ts` :
+  `useCustom`, `font`, `color`, `bg`, `bgAlpha`, `btnBg`,
+  `btnColor`). Store migré (`nodalProjectStore.ts`) :
+  suppression du slice racine + nouvelles mutations
+  `setMetaSettingsPopupTheme(...)` et
+  `syncMetaSettingsPopupThemeFromDom()`. `PopupThemeCustomizationPopup`
+  conserve son UI mais rebinde lecture/écriture sur
+  `meta.settings.popupTheme`. Hook `usePlayerPopupTheme` lit désormais
+  ce sous-objet avec fallback `DEFAULT_PLAYER_POPUP_THEME`.
+  Projection DOM legacy (`editor-shared-nodal-to-dom.js`) branchée sur
+  `meta.settings.popupTheme` pour préserver la réactivité live
+  (`#pop-*`, `#useCustomPopup`, `updatePreview`, `updateQuillTheme`).
+  `map-layout.json` n’écrit plus `nodalPlayerPopupTheme` ; compat
+  hydrate conservée 1× : si `project.json.meta.settings.popupTheme`
+  absent, fallback sur `layoutJson.nodalPlayerPopupTheme`.
+  Tests Vitest : nouveau `c102cPopupThemeMigration.test.tsx`
+  (round-trip `project.json`, flush DOM preview, compat fallback
+  legacy). Build `editor-map` vert.
+
+- 2026-05-07 — **C10.2.b livré** (`feat/c10-autonomy`) : migration Inventaire
+  HUD vers `meta.settings.inventoryGlobal` avec type strict
+  (`enabled`, `position`, `icon`, `panelBg`, `panelBgAlpha`,
+  `textColor`) dans `project.ts` et mutation store
+  `setMetaSettingsInventory(...)` (`nodalProjectStore.ts`).
+  Création `InventoryGlobalSettingsPopup.tsx` (checkbox `enabled`
+  + masquage des 5 sous-champs comme `#inv-settings-container` legacy),
+  activation du bouton `Inventaire` dans `GlobalSettingsHubPopup`
+  (placeholder retiré), et wiring `NodalCanvas` (`inventoryGlobalSettingsOpen`
+  + priorité Échap dans `closeActiveModal`).
+  Flush store→DOM étendu dans `editor-shared-nodal-to-dom.js` :
+  projection sur `#useInventory`, `#inv-pos`, `#inv-icon`,
+  `#inv-bgc`, `#inv-bga`, `#inv-color` + `dispatchEvent("change")`
+  sur `#useInventory` pour préserver le masquage legacy.
+  Tests Vitest ajoutés/ajustés :
+  `c102aGlobalSettingsHub.test.tsx` (Inventaire actif, 3 disabled)
+  + nouveau `c102bInventoryGlobalSettings.test.tsx`
+  (popup binding+flush, round-trip serialize/hydrate,
+  flush `applyFromStore` vers DOM legacy). Recettes manuelles C10.2.b :
+  (1) modale Inventaire ↔ formulaire legacy en live ; (2) save `.escapegame`
+  puis reload conserve les champs ; (3) publication HTML conserve les valeurs.
+
  - 2026-05-07 — **C10.2.a-fix livré** (`feat/c10-autonomy`) : pivot UX
   hub accordion → **liste verticale de 6 boutons** (alignement C10.1
   Publish). `GlobalSettingsHubPopup` : 2 boutons actifs
