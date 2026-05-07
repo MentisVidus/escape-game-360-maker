@@ -1,7 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { ActionNode, CoordsOptionsSatelliteNode } from "../../model/nodes";
+import { findSceneOfHotspotSatellite } from "../../store/findSceneOfHotspotSatellite";
+import { useNodalUi } from "../nodalUiContext";
 import { HotspotAppearancePopup } from "./HotspotAppearancePopup";
+
+function detectLocale(): "fr" | "en" {
+  if (typeof document === "undefined") return "fr";
+  return document.documentElement.lang?.toLowerCase().startsWith("en") ? "en" : "fr";
+}
+
+const PICK_LABELS = {
+  fr: { btn: "📍 Placer sur l'image", tip: "Disponible pour les hotspots de scène uniquement." },
+  en: { btn: "📍 Place on image", tip: "Available for scene hotspots only." },
+} as const;
 
 type Props = {
   satellite: CoordsOptionsSatelliteNode | null;
@@ -20,6 +32,11 @@ export function CoordsOptionsPopup({
   onChangeActionOptions,
   onClose,
 }: Props) {
+  const ui = useNodalUi();
+  const snap = useSyncExternalStore(ui.store.subscribe, () => ui.store.getState(), () => ui.store.getState());
+  const pickEnabled = satellite ? findSceneOfHotspotSatellite(snap, satellite.id) != null : false;
+  const Lpick = PICK_LABELS[detectLocale()];
+
   const [pitch, setPitch] = useState("0");
   const [yaw, setYaw] = useState("0");
   const [requiresItem, setRequiresItem] = useState("");
@@ -96,6 +113,20 @@ export function CoordsOptionsPopup({
             <span>Yaw</span>
             <input type="number" value={yaw} onChange={(e) => setYaw(e.target.value)} onBlur={apply} step="0.1" />
           </label>
+        </div>
+        <div className="nodal-coords-pick-row">
+          <button
+            type="button"
+            className="nodal-coords-pick-btn"
+            disabled={!pickEnabled}
+            title={!pickEnabled ? Lpick.tip : undefined}
+            onClick={() => {
+              if (!satellite || !pickEnabled) return;
+              ui.openCoordsPicker(satellite.id);
+            }}
+          >
+            {Lpick.btn}
+          </button>
         </div>
         <label className="nodal-popup-field">
           <span>requiresItem</span>

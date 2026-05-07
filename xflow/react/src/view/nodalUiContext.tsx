@@ -53,6 +53,10 @@ export type NodalUiContextValue = {
   setScenePreviewSceneId: (id: SceneNodeId | null) => void;
   /** Ouvre l’aperçu 360° et ferme les autres popups / hubs carte. */
   openScenePreview: (sceneId: SceneNodeId) => void;
+  /** C18.2 — placement pitch/yaw sur le panorama (ne ferme pas `coordsEditorSatelliteId`). */
+  coordsPickerSatelliteId: SatelliteNodeId | null;
+  setCoordsPickerSatelliteId: (id: SatelliteNodeId | null) => void;
+  openCoordsPicker: (satId: SatelliteNodeId) => void;
 };
 
 export const NodalUiContext = createContext<NodalUiContextValue | null>(null);

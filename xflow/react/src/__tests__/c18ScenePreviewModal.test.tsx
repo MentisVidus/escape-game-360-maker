@@ -84,6 +84,9 @@ function mockNodalUi(store: ReturnType<typeof createNodalProjectStore>, override
     scenePreviewSceneId: null,
     setScenePreviewSceneId: vi.fn(),
     openScenePreview: vi.fn(),
+    coordsPickerSatelliteId: null,
+    setCoordsPickerSatelliteId: vi.fn(),
+    openCoordsPicker: vi.fn(),
     ...overrides,
   };
 }

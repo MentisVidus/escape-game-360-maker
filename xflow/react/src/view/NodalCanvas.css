@@ -809,3 +809,124 @@
 .nodal-canvas-layout .nodal-scene-preview-modal__close-btn:hover {
   background: var(--palette-button-hover);
 }
+
+/* C18.2 — picker coords au-dessus des popups carte (z-index 2100) et de l’aperçu scène (2000) */
+.nodal-canvas-layout .nodal-coords-picker-modal.nodal-popup-overlay {
+  z-index: 2200;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  max-height: 100vh;
+  background: var(--palette-bg);
+  color: var(--node-text);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__panel--compact {
+  min-height: auto;
+  max-height: min(90vh, 420px);
+  width: min(440px, 94vw);
+  margin: auto;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--palette-border);
+  background: color-mix(in srgb, var(--palette-bg) 88%, var(--node-text));
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__title-live {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__body--message {
+  padding: 20px 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: stretch;
+  text-align: center;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__footer {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--palette-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__btn-primary {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--node-selected-outline);
+  background: color-mix(in srgb, var(--node-selected-outline) 18%, var(--palette-button-bg));
+  color: var(--node-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__btn-primary:hover {
+  background: color-mix(in srgb, var(--node-selected-outline) 28%, var(--palette-button-bg));
+}
+
+.nodal-canvas-layout .nodal-coords-pick-row {
+  margin: 8px 0 10px;
+}
+
+.nodal-canvas-layout .nodal-coords-pick-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+}
+
+.nodal-canvas-layout .nodal-coords-pick-btn:hover:not(:disabled) {
+  background: var(--palette-button-hover);
+}
+
+.nodal-canvas-layout .nodal-coords-pick-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__body .nodal-panorama-viewer-host {
+  flex: 1;
+  min-height: 280px;
+  width: 100%;
+}

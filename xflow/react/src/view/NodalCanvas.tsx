@@ -116,6 +116,7 @@ import { DeleteConfirmDialog } from "./popups/DeleteConfirmDialog";
 import { KeyboardShortcutsPopup } from "./popups/KeyboardShortcutsPopup";
 import { PublishGamePopup } from "./popups/PublishGamePopup";
 import { ScenePreviewModal } from "./popups/ScenePreviewModal";
+import { CoordsPickerModal } from "./popups/CoordsPickerModal";
 import { ProjectIdentitySettingsPopup } from "./popups/ProjectIdentitySettingsPopup";
 import { InventoryGlobalSettingsPopup } from "./popups/InventoryGlobalSettingsPopup";
 import { AudioGlobalSettingsPopup } from "./popups/AudioGlobalSettingsPopup";
@@ -183,6 +184,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [publishHubOpen, setPublishHubOpen] = useState(false);
   /** C18.1 — aperçu Pannellum plein écran (menu contextuel s-box). */
   const [scenePreviewSceneId, setScenePreviewSceneId] = useState<SceneNodeId | null>(null);
+  /** C18.2 — placement coords sur panorama (par-dessus CoordsOptionsPopup). */
+  const [coordsPickerSatelliteId, setCoordsPickerSatelliteId] = useState<SatelliteNodeId | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     title: string;
     body: string;
@@ -204,6 +207,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   } | null>(null);
   const lastFlowPointerRef = useRef<{ x: number; y: number } | null>(null);
   const openScenePreview = useCallback((sceneId: SceneNodeId) => {
+    setCoordsPickerSatelliteId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -226,8 +230,32 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setScenePreviewSceneId(sceneId);
   }, []);
 
+  const openCoordsPicker = useCallback((satId: SatelliteNodeId) => {
+    setObjectEditorSatelliteId(null);
+    setChoiceEditorSatelliteId(null);
+    setMediaEditorMediaId(null);
+    setGlobalSettingsHubOpen(false);
+    setProjectIdentitySettingsOpen(false);
+    setInventoryGlobalSettingsOpen(false);
+    setAudioGlobalSettingsOpen(false);
+    setTimerAndSaveSettingsOpen(false);
+    setEndScreensSettingsOpen(false);
+    setPopupThemeCustomizationOpen(false);
+    setPickEditorActionId(null);
+    setGotoEditorActionId(null);
+    setReqEditorActionId(null);
+    setPwdEditorActionId(null);
+    setSelectorEditorActionId(null);
+    setMsgEditorActionId(null);
+    setKeyboardShortcutsOpen(false);
+    setPublishHubOpen(false);
+    setScenePreviewSceneId(null);
+    setCoordsPickerSatelliteId(satId);
+  }, []);
+
   const openMsgContentEditor = useCallback((id: ActionNodeId) => {
     setScenePreviewSceneId(null);
+    setCoordsPickerSatelliteId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -248,6 +276,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   }, []);
   const openPickContentEditor = useCallback((id: ActionNodeId) => {
     setScenePreviewSceneId(null);
+    setCoordsPickerSatelliteId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -268,6 +297,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   }, []);
   const openGotoContentEditor = useCallback((id: ActionNodeId) => {
     setScenePreviewSceneId(null);
+    setCoordsPickerSatelliteId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -288,6 +318,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   }, []);
   const openReqContentEditor = useCallback((id: ActionNodeId) => {
     setScenePreviewSceneId(null);
+    setCoordsPickerSatelliteId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -308,6 +339,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   }, []);
   const openPwdContentEditor = useCallback((id: ActionNodeId) => {
     setScenePreviewSceneId(null);
+    setCoordsPickerSatelliteId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -328,6 +360,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   }, []);
   const openSelectorContentEditor = useCallback((id: ActionNodeId) => {
     setScenePreviewSceneId(null);
+    setCoordsPickerSatelliteId(null);
     setObjectEditorSatelliteId(null);
     setCoordsEditorSatelliteId(null);
     setChoiceEditorSatelliteId(null);
@@ -375,6 +408,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       popupThemeCustomizationOpen ||
       keyboardShortcutsOpen ||
       publishHubOpen ||
+      !!coordsPickerSatelliteId ||
       !!scenePreviewSceneId ||
       deleteConfirm != null ||
       contextMenu != null,
@@ -398,6 +432,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       popupThemeCustomizationOpen,
       keyboardShortcutsOpen,
       publishHubOpen,
+      coordsPickerSatelliteId,
       scenePreviewSceneId,
       deleteConfirm,
       contextMenu,
@@ -423,6 +458,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     }
     if (publishHubOpen) {
       setPublishHubOpen(false);
+      return;
+    }
+    if (coordsPickerSatelliteId != null) {
+      setCoordsPickerSatelliteId(null);
       return;
     }
     if (scenePreviewSceneId != null) {
@@ -462,6 +501,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       return;
     }
     if (coordsEditorSatelliteId) {
+      setCoordsPickerSatelliteId(null);
       setCoordsEditorSatelliteId(null);
       return;
     }
@@ -502,6 +542,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     contextMenu,
     keyboardShortcutsOpen,
     publishHubOpen,
+    coordsPickerSatelliteId,
     scenePreviewSceneId,
     projectIdentitySettingsOpen,
     inventoryGlobalSettingsOpen,
@@ -544,6 +585,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       popupThemeCustomizationOpen ||
       publishHubOpen ||
       scenePreviewSceneId != null ||
+      coordsPickerSatelliteId != null ||
       deleteConfirm != null ||
       contextMenu != null
     ) {
@@ -569,6 +611,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     popupThemeCustomizationOpen,
     publishHubOpen,
     scenePreviewSceneId,
+    coordsPickerSatelliteId,
     deleteConfirm,
     contextMenu,
   ]);
@@ -620,6 +663,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     pasteFromClipboard: pasteAtPointerOrCenter,
     openShortcutsHelp: () => {
       setScenePreviewSceneId(null);
+      setCoordsPickerSatelliteId(null);
       setKeyboardShortcutsOpen(true);
     },
   });
@@ -821,6 +865,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           else openMsgContentEditor(a.id);
         } else if (tid in snap.media) {
           setScenePreviewSceneId(null);
+          setCoordsPickerSatelliteId(null);
           setMediaEditorMediaId(tid as MediaNodeId);
         }
         return;
@@ -871,6 +916,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       openMsgContentEditor,
       setMediaEditorMediaId,
       setScenePreviewSceneId,
+      setCoordsPickerSatelliteId,
       openScenePreview,
     ]
   );
@@ -1376,6 +1422,9 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         scenePreviewSceneId,
         setScenePreviewSceneId,
         openScenePreview,
+        coordsPickerSatelliteId,
+        setCoordsPickerSatelliteId,
+        openCoordsPicker,
       }}
     >
       <div className={layoutClassName} ref={canvasRef}>
@@ -1505,7 +1554,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
               visibility: patch.visibility as ActionNode["visibility"],
             } as never);
           }}
-          onClose={() => setCoordsEditorSatelliteId(null)}
+          onClose={() => {
+            setCoordsPickerSatelliteId(null);
+            setCoordsEditorSatelliteId(null);
+          }}
         />
         <ChoiceOptionsPopup
           satellite={choiceSatellite}
@@ -1726,6 +1778,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <ScenePreviewModal
           sceneId={scenePreviewSceneId}
           onClose={() => setScenePreviewSceneId(null)}
+        />
+        <CoordsPickerModal
+          satelliteId={coordsPickerSatelliteId}
+          onClose={() => setCoordsPickerSatelliteId(null)}
         />
       </div>
     </div>

@@ -91,7 +91,9 @@ export function collectSceneHotspotProjections(
     const safeScene = String(sceneId).replace(/[^a-zA-Z0-9_-]/g, "_");
     const cssClass = `prev-hs-${safeScene}-${index}`;
 
-    cssText += `.${cssClass} { ${rawCss} outline: 3px dashed ${outlineColor} !important; outline-offset: 2px; pointer-events: auto; display: flex; align-items: center; justify-content: center; }\n`;
+    const pointerPe = variant === "picker-bg" ? "none" : "auto";
+    const opacity = variant === "picker-bg" ? "opacity: 0.5; " : "";
+    cssText += `.${cssClass} { ${rawCss} outline: 3px dashed ${outlineColor} !important; outline-offset: 2px; pointer-events: ${pointerPe}; ${opacity}display: flex; align-items: center; justify-content: center; }\n`;
     cssText += `.${cssClass}::after { content: '${hsIdText}'; background: black; color: white; padding: 2px 5px; font-size: 12px; font-weight: bold; border-radius: 3px; }\n`;
     projections.push({ pitch, yaw, cssClass });
   });

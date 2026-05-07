@@ -2507,4 +2507,10 @@ Annexe D*. Questions résiduelles éventuelles :
   `ScenePreviewModal` + `NodalPanoramaViewer` (Pannellum global),
   `collectSceneHotspotProjections`, `sceneIdFromSboxId`, tests Vitest
   `c18ScenePreviewModal.test.tsx`, MAJ `nodalContextMenuModel.test`.
+- 2026-05-08 — **C18.2 livré (code)** : bouton « Placer sur l'image » dans
+  `CoordsOptionsPopup`, `CoordsPickerModal` + état `coordsPickerSatelliteId` /
+  `openCoordsPicker` (contexte UI, sans fermer l'éditeur coords), helper
+  `findSceneOfHotspotSatellite`, CSS picker (z-index au-dessus des popups),
+  tests `c18CoordsPickerModal.test.tsx`, mocks `NodalUiContext` étendus
+  (`c18ScenePreviewModal.test.tsx`).
 

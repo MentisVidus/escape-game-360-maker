@@ -22,6 +22,7 @@ export function MediaNodeView({ id, data }: NodeProps) {
   const ui = useNodalUi();
   const openEditor = useCallback(() => {
     ui.setScenePreviewSceneId(null);
+    ui.setCoordsPickerSatelliteId(null);
     ui.setMediaEditorMediaId(id as MediaNodeId);
   }, [id, ui]);
 
