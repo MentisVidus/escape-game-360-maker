@@ -2,6 +2,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { ObjectEntry } from "../../model/objects";
 import type { ObjectSatelliteNode } from "../../model/nodes";
 
+import { MediaUploadButton } from "../components/MediaUploadButton";
+import { MEDIA_ACCEPT_IMAGE_LOOSE } from "../components/mediaUploadAccept";
+
 type Props = {
   satellite: ObjectSatelliteNode | null;
   objectEntry: ObjectEntry | null;
@@ -112,21 +115,39 @@ export function ObjectEditorPopup({
         </label>
         <label className="nodal-popup-field">
           <span>Icône (URL)</span>
-          <input
-            value={iconUrlInput}
-            onChange={(e) => setIconUrlInput(e.target.value)}
-            onBlur={() => {
-              const oid = objectIdInput.trim();
-              // Ne pas écrire sur un objectId vide ou non-existant.
-              if (!oid || !objectEntries[oid]) return;
-              onUpsertObject({
-                objectId: oid,
-                displayName: objectEntries[oid].displayName,
-                iconMediaId: objectEntries[oid].iconMediaId,
-                iconUrl: iconUrlInput,
-              });
-            }}
-          />
+          <div className="nodal-url-with-upload">
+            <input
+              className="nodal-url-with-upload__input"
+              value={iconUrlInput}
+              onChange={(e) => setIconUrlInput(e.target.value)}
+              onBlur={() => {
+                const oid = objectIdInput.trim();
+                // Ne pas écrire sur un objectId vide ou non-existant.
+                if (!oid || !objectEntries[oid]) return;
+                onUpsertObject({
+                  objectId: oid,
+                  displayName: objectEntries[oid].displayName,
+                  iconMediaId: objectEntries[oid].iconMediaId,
+                  iconUrl: iconUrlInput,
+                });
+              }}
+            />
+            <MediaUploadButton
+              accept={MEDIA_ACCEPT_IMAGE_LOOSE}
+              currentUrl={iconUrlInput.trim().startsWith("blob:") ? iconUrlInput.trim() : undefined}
+              onPicked={(next) => {
+                setIconUrlInput(next);
+                const oid = objectIdInput.trim();
+                if (!oid || !objectEntries[oid]) return;
+                onUpsertObject({
+                  objectId: oid,
+                  displayName: objectEntries[oid].displayName,
+                  iconMediaId: objectEntries[oid].iconMediaId,
+                  iconUrl: next,
+                });
+              }}
+            />
+          </div>
         </label>
         <div className="nodal-popup-actions">
           <button type="button" onClick={onClose}>

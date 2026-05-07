@@ -1948,6 +1948,12 @@ window.__escape360NodalChrome = {
         if (typeof exportGameWebZip === "function") return exportGameWebZip();
         return Promise.resolve();
     },
+    /** C10.5 — fichier local → URL `blob:` (session bundle) pour la palette nodale. */
+    pickLocalBundleMedia: function (accept) {
+        var b = typeof EditorSharedBundle !== "undefined" ? EditorSharedBundle : null;
+        if (!b || typeof b.pickLocalMediaFromBundle !== "function") return Promise.resolve(null);
+        return b.pickLocalMediaFromBundle(accept);
+    },
     updatePreview: updatePreview
 };
 

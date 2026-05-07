@@ -3,6 +3,8 @@ import type { StoreApi } from "zustand/vanilla";
 
 import type { AudioGlobalSettings } from "../../model/project";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
+import { MediaUploadButton } from "../components/MediaUploadButton";
+import { MEDIA_ACCEPT_AUDIO } from "../components/mediaUploadAccept";
 import { PalettePopupModal } from "../palette/PalettePopupModal";
 
 type Locale = "fr" | "en";
@@ -110,15 +112,23 @@ export function AudioGlobalSettingsPopup({ open, onClose, onBack, store }: Props
         <label className="nodal-global-hub-label" htmlFor="nodal-global-audio-url">
           {L.url}
         </label>
-        <input
-          id="nodal-global-audio-url"
-          className="nodal-global-hub-input"
-          type="text"
-          value={audio.url}
-          disabled={!audio.enabled}
-          onChange={(e) => commit({ url: e.target.value })}
-          autoComplete="off"
-        />
+        <div className="nodal-url-with-upload">
+          <input
+            id="nodal-global-audio-url"
+            className="nodal-global-hub-input nodal-url-with-upload__input"
+            type="text"
+            value={audio.url}
+            disabled={!audio.enabled}
+            onChange={(e) => commit({ url: e.target.value })}
+            autoComplete="off"
+          />
+          <MediaUploadButton
+            accept={MEDIA_ACCEPT_AUDIO}
+            disabled={!audio.enabled}
+            currentUrl={audio.url?.trim()?.startsWith("blob:") ? audio.url.trim() : undefined}
+            onPicked={(url) => commit({ url })}
+          />
+        </div>
 
         <label className="nodal-global-hub-label" htmlFor="nodal-global-audio-vol">
           {L.volume} ({vol.toFixed(2)})

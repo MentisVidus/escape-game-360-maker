@@ -1,0 +1,37 @@
+.nodal-url-with-upload {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.nodal-url-with-upload .nodal-url-with-upload__input,
+.nodal-url-with-upload .nodal-global-hub-input.nodal-url-with-upload__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.nodal-media-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.35);
+  color: inherit;
+  cursor: pointer;
+}
+
+.nodal-media-upload-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+.nodal-media-upload-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

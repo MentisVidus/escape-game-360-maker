@@ -11,12 +11,16 @@
     var bundleTrackedObjectUrls = [];
     var bundleLocalMediaTargetEl = null;
     var bundleLocalMediaAccept = "*/*";
+    /** C10.5 — promesse en attente pour `pickLocalMediaFromBundle` (input fichier dédié). */
+    var bundleReactPickResolver = null;
+    var bundleReactPickInputEl = null;
 
     function registerBundleBlobUrl(url) {
         if (url && bundleTrackedObjectUrls.indexOf(url) < 0) bundleTrackedObjectUrls.push(url);
     }
 
     function revokeEditorBundleSession() {
+        abortBundleReactPickPromise();
         bundleTrackedObjectUrls.forEach(function (u) {
             try {
                 URL.revokeObjectURL(u);
@@ -172,7 +176,95 @@
         return a[0] === 0x50 && a[1] === 0x4b;
     }
 
+    function abortBundleReactPickPromise() {
+        if (!bundleReactPickResolver) return;
+        var res = bundleReactPickResolver;
+        bundleReactPickResolver = null;
+        try {
+            res(null);
+        } catch (e) {}
+    }
+
+    function ensureBundleReactPickInput() {
+        if (bundleReactPickInputEl && bundleReactPickInputEl.isConnected) {
+            return bundleReactPickInputEl;
+        }
+        var doc = global.document;
+        if (!doc || typeof doc.createElement !== "function") return null;
+        var el = doc.createElement("input");
+        el.type = "file";
+        el.setAttribute("aria-hidden", "true");
+        el.style.position = "absolute";
+        el.style.width = "0";
+        el.style.height = "0";
+        el.style.opacity = "0";
+        el.style.pointerEvents = "none";
+        el.tabIndex = -1;
+        el.addEventListener("change", onBundleReactPickChange);
+        (doc.body || doc.documentElement).appendChild(el);
+        bundleReactPickInputEl = el;
+        return el;
+    }
+
+    function onBundleReactPickChange(ev) {
+        var inp = ev.target;
+        var file = inp.files && inp.files[0];
+        if (!bundleReactPickResolver) {
+            if (inp) inp.value = "";
+            return;
+        }
+        var resolve = bundleReactPickResolver;
+        bundleReactPickResolver = null;
+        if (!file) {
+            if (inp) inp.value = "";
+            resolve(null);
+            return;
+        }
+        var url = URL.createObjectURL(file);
+        registerBundleBlobUrl(url);
+        global.bundleAssets.set(url, file);
+        if (inp) inp.value = "";
+        resolve(url);
+    }
+
+    /**
+     * C10.5 — choix fichier local pour la carte nodale : retourne une URL `blob:`
+     * enregistrée pour le ZIP `.escapegame` (sans champ `<input>` legacy).
+     */
+    function pickLocalMediaFromBundle(accept) {
+        return new Promise(function (resolve) {
+            abortBundleReactPickPromise();
+            var el = ensureBundleReactPickInput();
+            if (!el) {
+                resolve(null);
+                return;
+            }
+            bundleReactPickResolver = resolve;
+            el.accept = accept || "*/*";
+            el.value = "";
+            try {
+                el.click();
+            } catch (e) {
+                bundleReactPickResolver = null;
+                resolve(null);
+            }
+        });
+    }
+
+    /** Libère un blob de session précédent (remplacement URL dans une popup carte). */
+    function releaseBundleTrackedBlobUrl(url) {
+        var t = typeof url === "string" ? url.trim() : "";
+        if (!t || !t.startsWith("blob:")) return;
+        if (global.bundleAssets && global.bundleAssets.has(t)) global.bundleAssets.delete(t);
+        try {
+            URL.revokeObjectURL(t);
+        } catch (e) {}
+        var ix = bundleTrackedObjectUrls.indexOf(t);
+        if (ix >= 0) bundleTrackedObjectUrls.splice(ix, 1);
+    }
+
     function openBundleLocalMediaPicker(targetInput, accept) {
+        abortBundleReactPickPromise();
         bundleLocalMediaTargetEl = targetInput;
         bundleLocalMediaAccept = accept || "*/*";
         var el = document.getElementById("bundle-media-file");
@@ -304,6 +396,8 @@
         isZipArrayBuffer: isZipArrayBuffer,
         openBundleLocalMediaPicker: openBundleLocalMediaPicker,
         onBundleLocalMediaSelected: onBundleLocalMediaSelected,
+        pickLocalMediaFromBundle: pickLocalMediaFromBundle,
+        releaseBundleTrackedBlobUrl: releaseBundleTrackedBlobUrl,
         collectPortableBundleEmbeds: collectPortableBundleEmbeds,
         mapZipAssetsToEditorSession: mapZipAssetsToEditorSession,
         rewriteLoadedProjectPathsToBlobUrls: rewriteLoadedProjectPathsToBlobUrls,

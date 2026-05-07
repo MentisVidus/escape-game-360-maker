@@ -3,6 +3,8 @@ import type { StoreApi } from "zustand/vanilla";
 
 import type { InventoryGlobalSettings } from "../../model/project";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
+import { MediaUploadButton } from "../components/MediaUploadButton";
+import { MEDIA_ACCEPT_IMAGE_LOOSE } from "../components/mediaUploadAccept";
 import { PalettePopupModal } from "../palette/PalettePopupModal";
 
 type Locale = "fr" | "en";
@@ -147,13 +149,20 @@ export function InventoryGlobalSettingsPopup({ open, onClose, onBack, store }: P
             <label className="nodal-global-hub-label" htmlFor="nodal-inv-icon">
               {L.icon}
             </label>
-            <input
-              id="nodal-inv-icon"
-              className="nodal-global-hub-input"
-              type="text"
-              value={inventory.icon}
-              onChange={(e) => commit({ icon: e.target.value })}
-            />
+            <div className="nodal-url-with-upload">
+              <input
+                id="nodal-inv-icon"
+                className="nodal-global-hub-input nodal-url-with-upload__input"
+                type="text"
+                value={inventory.icon}
+                onChange={(e) => commit({ icon: e.target.value })}
+              />
+              <MediaUploadButton
+                accept={MEDIA_ACCEPT_IMAGE_LOOSE}
+                currentUrl={inventory.icon?.trim()?.startsWith("blob:") ? inventory.icon.trim() : undefined}
+                onPicked={(url) => commit({ icon: url })}
+              />
+            </div>
 
             <label className="nodal-global-hub-label" htmlFor="nodal-inv-bg">
               {L.panelBg}

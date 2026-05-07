@@ -3584,6 +3584,15 @@ bump v1.9, PR `feat/c10-autonomy` → `feat/nodal-map`).
   `.escapegame` → carte avec contenu ; reload → carte ; `[Formulaire]` ferme encore
   vers le formulaire legacy.
 
+- 2026-05-07 — **C10.5 livré** (`feat/c10-autonomy`) : upload média local sur la carte nodale.
+  `js/editor-shared-bundle.js` : `pickLocalMediaFromBundle` (input fichier dédié),
+  `releaseBundleTrackedBlobUrl`, annulation `abortBundleReactPickPromise` avant le 📎 legacy.
+  Bridge `window.__escape360NodalChrome.pickLocalBundleMedia` (FR + EN). Composant
+  `MediaUploadButton.tsx` (+ `.css`), constantes `mediaUploadAccept.ts`. Popups équipées :
+  `AudioGlobalSettingsPopup`, `InventoryGlobalSettingsPopup`, `MediaEditorPopup`,
+  `HotspotAppearancePopup`, `ObjectEditorPopup`. **Pas** d’éditeur dédié « URL panorama 360° »
+  en React (pas dans l’audit des popups). Vitest `c105MediaUploadButton.test.tsx`.
+
 - 2026-05-06 — **C10.0 livré** : section « Audit globals (C10.0) »
   (tableau + DOM-reading + proposition **C10.2.a–g**). Plans C10.1+
   peuvent intégrer la liste des flush et la suppression du timer 8 s.
