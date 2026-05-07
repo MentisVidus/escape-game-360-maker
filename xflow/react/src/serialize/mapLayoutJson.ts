@@ -91,9 +91,6 @@ export function stripAutoSatelliteLayoutFromMap(layout: MapLayoutJson): MapLayou
   if (layout.nodalSceneMetaMediaLinks?.length) {
     out.nodalSceneMetaMediaLinks = [...layout.nodalSceneMetaMediaLinks];
   }
-  if (layout.nodalPlayerPopupTheme) {
-    out.nodalPlayerPopupTheme = { ...layout.nodalPlayerPopupTheme };
-  }
   if (layout.nodalSceneBoxLayoutByExternalId && Object.keys(layout.nodalSceneBoxLayoutByExternalId).length > 0) {
     out.nodalSceneBoxLayoutByExternalId = { ...layout.nodalSceneBoxLayoutByExternalId };
   }
@@ -357,10 +354,6 @@ export const serializeLayout = (state: NodalProject): MapLayoutJson => {
   const sceneMetaLinks = collectSceneMetaMediaLinks(state);
   if (sceneMetaLinks.length > 0) {
     out.nodalSceneMetaMediaLinks = sceneMetaLinks;
-  }
-  const playerPopupTheme = (state as NodalProject & { playerPopupTheme?: PlayerPopupTheme }).playerPopupTheme;
-  if (playerPopupTheme) {
-    out.nodalPlayerPopupTheme = { ...playerPopupTheme };
   }
   return out;
 };

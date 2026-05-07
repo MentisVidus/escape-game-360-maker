@@ -30,9 +30,9 @@ function writeDomState(s: PlayerPopupTheme) {
   const useCustom = el<HTMLInputElement>("useCustomPopup");
   const container = el<HTMLElement>("popup-settings-container");
   if (useCustom) {
-    useCustom.checked = s.useCustomPopup;
+    useCustom.checked = s.useCustom;
     if (container) {
-      container.style.display = s.useCustomPopup ? "flex" : "none";
+      container.style.display = s.useCustom ? "flex" : "none";
     }
   }
   const font = el<HTMLSelectElement>("pop-font");
@@ -41,12 +41,12 @@ function writeDomState(s: PlayerPopupTheme) {
   const bga = el<HTMLInputElement>("pop-bga");
   const btnBg = el<HTMLInputElement>("pop-btn-bg");
   const btnCol = el<HTMLInputElement>("pop-btn-col");
-  if (font) font.value = s.popFont;
-  if (color) color.value = s.popColor;
-  if (bgc) bgc.value = s.popBgc;
-  if (bga) bga.value = String(s.popBga);
-  if (btnBg) btnBg.value = s.popBtnBg;
-  if (btnCol) btnCol.value = s.popBtnCol;
+  if (font) font.value = s.font;
+  if (color) color.value = s.color;
+  if (bgc) bgc.value = s.bg;
+  if (bga) bga.value = String(s.bgAlpha);
+  if (btnBg) btnBg.value = s.btnBg;
+  if (btnCol) btnCol.value = s.btnColor;
   [useCustom, font, color, bgc, bga, btnBg, btnCol].forEach((node) => {
     if (node) node.dispatchEvent(new Event("input", { bubbles: true }));
   });
@@ -69,15 +69,17 @@ export function PopupThemeCustomizationPopup({ open, store, onClose, onBackToHub
 
   useEffect(() => {
     if (!open) return;
-    store.getState().syncPlayerPopupThemeFromDom();
+    store.getState().syncMetaSettingsPopupThemeFromDom();
   }, [open, store]);
 
   const commit = (patch: Partial<PlayerPopupTheme>) => {
-    store.getState().setPlayerPopupTheme(patch);
-    queueMicrotask(() => writeDomState(store.getState().playerPopupTheme));
+    store.getState().setMetaSettingsPopupTheme(patch);
+    queueMicrotask(() =>
+      writeDomState(store.getState().meta.settings?.popupTheme || theme)
+    );
   };
 
-  const pushDom = () => writeDomState(store.getState().playerPopupTheme);
+  const pushDom = () => writeDomState(store.getState().meta.settings?.popupTheme || theme);
 
   const previewBoxStyle = useMemo(() => playerPopupThemeToDemoBoxStyle(theme), [theme]);
   const previewBtnStyle = useMemo(() => playerPopupThemeToDemoBtnStyle(theme), [theme]);
@@ -113,7 +115,7 @@ export function PopupThemeCustomizationPopup({ open, store, onClose, onBackToHub
           back: "← Retour",
         };
 
-  const { useCustomPopup, popFont, popColor, popBgc, popBga, popBtnBg, popBtnCol } = theme;
+  const { useCustom, font, color, bg, bgAlpha, btnBg, btnColor } = theme;
 
   return (
     <div
@@ -132,22 +134,22 @@ export function PopupThemeCustomizationPopup({ open, store, onClose, onBackToHub
             <label className="nodal-popup-check">
               <input
                 type="checkbox"
-                checked={useCustomPopup}
+                checked={useCustom}
                 onChange={(e) => {
-                  commit({ useCustomPopup: e.target.checked });
+                  commit({ useCustom: e.target.checked });
                 }}
               />
               <span>{t.useCustom}</span>
             </label>
 
-            <div className={`nodal-pt-fields nodal-ha-visual ${!useCustomPopup ? "nodal-pt-fields--disabled" : ""}`}>
+            <div className={`nodal-pt-fields nodal-ha-visual ${!useCustom ? "nodal-pt-fields--disabled" : ""}`}>
               <label className="nodal-popup-field">
                 <span>{t.font}</span>
                 <select
-                  value={popFont}
-                  disabled={!useCustomPopup}
+                  value={font}
+                  disabled={!useCustom}
                   onChange={(e) => {
-                    commit({ popFont: e.target.value });
+                    commit({ font: e.target.value });
                   }}
                 >
                   {FONT_OPTIONS.map((o) => (
@@ -162,10 +164,10 @@ export function PopupThemeCustomizationPopup({ open, store, onClose, onBackToHub
                   <span>{t.textCol}</span>
                   <input
                     type="color"
-                    value={popColor}
-                    disabled={!useCustomPopup}
+                    value={color}
+                    disabled={!useCustom}
                     onChange={(e) => {
-                      commit({ popColor: e.target.value });
+                      commit({ color: e.target.value });
                     }}
                   />
                 </label>
@@ -173,27 +175,27 @@ export function PopupThemeCustomizationPopup({ open, store, onClose, onBackToHub
                   <span>{t.bg}</span>
                   <input
                     type="color"
-                    value={popBgc}
-                    disabled={!useCustomPopup}
+                    value={bg}
+                    disabled={!useCustom}
                     onChange={(e) => {
-                      commit({ popBgc: e.target.value });
+                      commit({ bg: e.target.value });
                     }}
                   />
                 </label>
               </div>
               <label className="nodal-popup-field">
                 <span>
-                  {t.alpha} ({popBga})
+                  {t.alpha} ({bgAlpha})
                 </span>
                 <input
                   type="range"
                   min={0}
                   max={1}
                   step={0.1}
-                  value={popBga}
-                  disabled={!useCustomPopup}
+                  value={bgAlpha}
+                  disabled={!useCustom}
                   onChange={(e) => {
-                    commit({ popBga: Number(e.target.value) });
+                    commit({ bgAlpha: Number(e.target.value) });
                   }}
                 />
               </label>
@@ -202,10 +204,10 @@ export function PopupThemeCustomizationPopup({ open, store, onClose, onBackToHub
                   <span>{t.btnBg}</span>
                   <input
                     type="color"
-                    value={popBtnBg}
-                    disabled={!useCustomPopup}
+                    value={btnBg}
+                    disabled={!useCustom}
                     onChange={(e) => {
-                      commit({ popBtnBg: e.target.value });
+                      commit({ btnBg: e.target.value });
                     }}
                   />
                 </label>
@@ -213,10 +215,10 @@ export function PopupThemeCustomizationPopup({ open, store, onClose, onBackToHub
                   <span>{t.btnCol}</span>
                   <input
                     type="color"
-                    value={popBtnCol}
-                    disabled={!useCustomPopup}
+                    value={btnColor}
+                    disabled={!useCustom}
                     onChange={(e) => {
-                      commit({ popBtnCol: e.target.value });
+                      commit({ btnColor: e.target.value });
                     }}
                   />
                 </label>
