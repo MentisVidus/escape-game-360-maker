@@ -132,6 +132,17 @@
   font-size: 11px !important;
 }
 
+/* C10.1 — bouton Publier (palette). Style neutre, [Sauver] reste primary. */
+.nodal-palette-btn-publish {
+  border-color: var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+}
+
+.nodal-palette-btn-publish:hover {
+  background: var(--palette-button-hover);
+}
+
 .nodal-palette-advanced {
   margin: 0;
   padding: 4px 0 2px;

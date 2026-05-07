@@ -113,6 +113,7 @@ import { SelectorContentPopup } from "./popups/SelectorContentPopup";
 import { GlobalSettingsHubPopup } from "./popups/GlobalSettingsHubPopup";
 import { DeleteConfirmDialog } from "./popups/DeleteConfirmDialog";
 import { KeyboardShortcutsPopup } from "./popups/KeyboardShortcutsPopup";
+import { PublishGamePopup } from "./popups/PublishGamePopup";
 import {
   buildNodalContextMenuItems,
   contextMenuParentTarget,
@@ -166,6 +167,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [globalSettingsHubOpen, setGlobalSettingsHubOpen] = useState(false);
   const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
+  /** C10.1 — modale « Publication du jeu » (palette → bouton [Publier]). */
+  const [publishHubOpen, setPublishHubOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     title: string;
     body: string;
@@ -293,6 +296,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       globalSettingsHubOpen ||
       popupThemeCustomizationOpen ||
       keyboardShortcutsOpen ||
+      publishHubOpen ||
       deleteConfirm != null ||
       contextMenu != null,
     [
@@ -309,6 +313,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       globalSettingsHubOpen,
       popupThemeCustomizationOpen,
       keyboardShortcutsOpen,
+      publishHubOpen,
       deleteConfirm,
       contextMenu,
     ]
@@ -329,6 +334,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     }
     if (keyboardShortcutsOpen) {
       setKeyboardShortcutsOpen(false);
+      return;
+    }
+    if (publishHubOpen) {
+      setPublishHubOpen(false);
       return;
     }
     if (popupThemeCustomizationOpen) {
@@ -383,6 +392,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     deleteConfirm,
     contextMenu,
     keyboardShortcutsOpen,
+    publishHubOpen,
     popupThemeCustomizationOpen,
     globalSettingsHubOpen,
     objectEditorSatelliteId,
@@ -412,6 +422,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       selectorEditorActionId ||
       globalSettingsHubOpen ||
       popupThemeCustomizationOpen ||
+      publishHubOpen ||
       deleteConfirm != null ||
       contextMenu != null
     ) {
@@ -430,6 +441,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     selectorEditorActionId,
     globalSettingsHubOpen,
     popupThemeCustomizationOpen,
+    publishHubOpen,
     deleteConfirm,
     contextMenu,
   ]);
@@ -1223,6 +1235,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         setPopupThemeCustomizationOpen,
         keyboardShortcutsOpen,
         setKeyboardShortcutsOpen,
+        publishHubOpen,
+        setPublishHubOpen,
       }}
     >
       <div className={layoutClassName} ref={canvasRef}>
@@ -1499,6 +1513,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             setPopupThemeCustomizationOpen(false);
             setGlobalSettingsHubOpen(true);
           }}
+        />
+        <PublishGamePopup
+          open={publishHubOpen}
+          onClose={() => setPublishHubOpen(false)}
         />
       </div>
     </div>

@@ -5,6 +5,10 @@ export type Escape360NodalChromeApi = {
   flushThenLocalDraftSnapshot: () => Promise<void>;
   triggerLoadEscapegame: () => void;
   closeProjectMapModal: () => void;
+  /** C10.1 — Publication HTML autonome (modale Publication). */
+  generateGameHtml: () => void;
+  /** C10.1 — Publication ZIP web hors-ligne (modale Publication). Async (fetch CDN + JSZip). */
+  exportGameWebZip: () => Promise<void> | void;
   updatePreview?: () => void;
 };
 

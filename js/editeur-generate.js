@@ -2516,6 +2516,10 @@ function buildPlayerHtmlTemplate() {
 }
 
 function generateGame() {
+    /* C10.1 — defense in depth (Q-C10.1.x-3) : flush nodal → DOM legacy avant lecture. */
+    if (window.EditorSharedBundle && typeof window.EditorSharedBundle.flushNodalStoreToEditorDom === "function") {
+        window.EditorSharedBundle.flushNodalStoreToEditorDom();
+    }
     var project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
     var embedList =
         typeof window.collectPortableBundleEmbeds === "function"
@@ -2548,6 +2552,10 @@ async function exportGameWebZip() {
             "JSZip ou FileSaver.js n’est pas chargé. Vérifiez votre connexion Internet (CDN), puis rechargez la page."
         );
         return;
+    }
+    /* C10.1 — defense in depth (Q-C10.1.x-3) : flush nodal → DOM legacy avant lecture. */
+    if (window.EditorSharedBundle && typeof window.EditorSharedBundle.flushNodalStoreToEditorDom === "function") {
+        window.EditorSharedBundle.flushNodalStoreToEditorDom();
     }
     try {
         const htmlRaw = buildPlayerHtmlTemplate();

@@ -1572,6 +1572,10 @@ function updateHsFields(hId, opts) {
 
 
 function saveProject() {
+    /* C10.1 — defense in depth (Q-C10.1.x-3): every caller (legacy toolbar button,
+     * nodal palette bridge `__escape360NodalChrome`, dev console) is guaranteed that
+     * the legacy DOM mirrors the nodal store before `getCurrentProjectData` is read. */
+    if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
     const project = getCurrentProjectData();
     var embedList =
         typeof window.collectPortableBundleEmbeds === "function"
@@ -1890,13 +1894,20 @@ function updatePreview() {
 
 window.updatePreview = updatePreview;
 
+/** Nodal palette bridge (`xflow/react`) — save / load / publish / close modal.
+ *
+ *  C10.1 — defense in depth (Q-C10.1.x-3): `saveProject` / `generateGame` /
+ *  `exportGameWebZip` now flush the nodal store themselves before reading the
+ *  legacy DOM. The matching bridge methods no longer need to flush ahead.
+ *  `saveProjectBundle` does not read the legacy DOM (`serializeForBundle` reads
+ *  the store directly). `flushThenLocalDraftSnapshot` keeps its explicit flush:
+ *  `captureSnapshot` (`editor-shared-local-draft.js`) does not flush — refactor
+ *  of the autosave to a store-driven flow is out of scope for C10.1. */
 window.__escape360NodalChrome = {
     saveEscapegameBundle: function () {
-        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
         void saveProjectBundle();
     },
     flushThenSaveJson: function () {
-        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
         saveProject();
     },
     flushThenLocalDraftSnapshot: async function () {
@@ -1909,6 +1920,15 @@ window.__escape360NodalChrome = {
     },
     closeProjectMapModal: function () {
         if (typeof closeProjectMap === "function") closeProjectMap();
+    },
+    /** C10.1 — Publish standalone HTML. `generateGame` flushes internally. */
+    generateGameHtml: function () {
+        if (typeof generateGame === "function") generateGame();
+    },
+    /** C10.1 — Publish offline web ZIP. `exportGameWebZip` flushes internally. */
+    exportGameWebZip: function () {
+        if (typeof exportGameWebZip === "function") return exportGameWebZip();
+        return Promise.resolve();
     },
     updatePreview: updatePreview
 };

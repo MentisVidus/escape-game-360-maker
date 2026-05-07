@@ -2286,6 +2286,66 @@ legacy s'appuient sur la carte comme page d'accueil).*
 
 ### Journal de chantier
 
+- 2026-05-07 — **C10.1 livré** sur `feat/c10-autonomy`. Phase questions
+  Q-C10.1.x-1→7 validée (votes : (a) `PalettePopupModal` minimal /
+  (a) bridge `__escape360NodalChrome.generateGameHtml` +
+  `exportGameWebZip` / (a) defense in depth flush / (c) noteDirty
+  inchangé / (c) bouton entre `[Charger]` et `[Formulaire]` / libellés
+  EN OK / α-β-γ confirmés / t1 + t1-bis recette + t3 mocks).
+  Suppression du `setInterval` 8 s (`js/editor-nodal-map-bootstrap.js`,
+  pas `xflow/react/src/` — chemin du plan corrigé). Defense in depth :
+  flush ajouté **dans** `saveProject()`, `generateGame()`,
+  `exportGameWebZip()` (FR + EN, 6 callsites au total). Bridge
+  `__escape360NodalChrome` nettoyé : flush retirés de
+  `saveEscapegameBundle` (saveProjectBundle ne lit pas le DOM legacy)
+  et `flushThenSaveJson` (saveProject flush désormais en interne) ;
+  `flushThenLocalDraftSnapshot` conserve son flush (captureSnapshot
+  ne flushe pas — refonte autosave store-driven hors scope). Ajout
+  bridge : `generateGameHtml`, `exportGameWebZip` + typage
+  `escape360NodalChrome.d.ts`. Composant partagé
+  `PalettePopupModal.tsx` (+ `.css`) — scope minimal Q-C10.1.x-1 (a).
+  Modale `PublishGamePopup.tsx` consomme le composant + le bridge.
+  Bouton `[Publier]` dans `NodePalette.tsx` (libellé FR « Publier » /
+  EN « Publish », tooltip explicatif), entre `[Charger]` et
+  `[Formulaire]`. State `publishHubOpen` ajouté à `NodalCanvas` +
+  `NodalUiContext`, intégré à `closeActiveModal` (priorité Échap après
+  raccourcis et avant `popupThemeCustomizationOpen`) et à `anyPopupOpen`
+  / effet de fermeture auto raccourcis. 14/14 tests Vitest verts
+  (`c10PaletteModalAndPublish.test.tsx`) ; `vite.config.ts` étendu
+  pour inclure `*.test.tsx`. Build `editor-map.js` vert. Suite Vitest
+  globale : 173 passed + 1 skipped + 2 failed pré-existants
+  (`c8RoundtripReal.test.ts` dépend de fixtures locales gitignored
+  `docs/temporaire/c8-roundtrip-broken/*.json`, sans rapport avec C10.1).
+
+  **Audit `noteDirty` (Q-C10.1.x-3-bis (c) confirmé)** :
+  - Source unique de déclenchement : `editor-shared-local-draft-ui.js:545-546`
+    — `doc.addEventListener("input", noteDirty, true)` +
+    `doc.addEventListener("change", noteDirty, true)` (capture-phase
+    sur `document`).
+  - Alias `noteLocalDraftDirty = localDraftUi.noteDirty;` exposé en
+    `js/editeur-app.js:266` et `js/editor-en-app.js:262` mais
+    **jamais appelé** (`rg "noteLocalDraftDirty\("` → 0 match).
+  - Conclusion : aucune session 100 % nodale (drag/connect React Flow,
+    palette, popups d'éditeurs C7.x sans champ HTML natif) ne
+    déclenche d'autosave dirty → pas de stale possible. Cas résiduel :
+    un popup React C7.x qui modifie un `<input>` peut déclencher
+    `noteDirty`, mais ce risque préexistait avec le flush 8 s
+    (jusqu'à 8 s de stale) et n'est qu'aggravé de quelques secondes.
+    Refonte autosave store-driven = chantier dédié post-C10.
+
+  **Recettes manuelles à exécuter (β + flush effective + t1-bis Échap)** :
+  1. **β fermeture pendant ZIP** : ouvrir éditeur → carte nodale →
+     `[Publier]` → `ZIP web hors-ligne` → fermer modale (croix) pendant
+     1–2 s → vérifier que le download `EscapeGame_Web.zip` arrive
+     malgré la fermeture (promesse non annulée).
+  2. **Flush effectif sans périodique** : éditer la carte nodale
+     (renommer une scène, déplacer un hotspot) → **sans attendre 8 s**
+     → `[Publier]` → `HTML autonome` → ouvrir `index.html` téléchargé →
+     vérifier que les modifications sont présentes.
+  3. **t1-bis Échap palette** : ouvrir `[Publier]` → presser **Échap** →
+     la modale Publication doit se fermer (priorité dans
+     `closeActiveModal` confirmée par lecture du code).
+
 - 2026-05-06 — **C10.0 livré** : section « Audit globals (C10.0) »
   (tableau + DOM-reading + proposition **C10.2.a–g**). Plans C10.1+
   peuvent intégrer la liste des flush et la suppression du timer 8 s.

@@ -3,8 +3,12 @@
  * Requiert : `xflow/react/dist/editor-map.js` (global `Escape360EditorNodalMap`) chargé avant ce script.
  * Après premier `mount` : `window.__ESCAPE360_NODAL_STORE__` = store Zustand (API C6+).
  * C6.1 : bandeau + masquage FAB + `escape360-nodal-map-ro`.
- * C6.2 : synchro DOM par intervalle (8 s) + flush à la sortie de l’onglet nodal / fermeture modale
- * (plus de `store.subscribe` + rAF à chaque tick du graphe).
+ * C10.1 : suppression du flush périodique 8 s — le flush DOM ← store est désormais
+ * garanti **sur demande** côté legacy (`saveProject` / `generateGame` / `exportGameWebZip`,
+ * defense in depth Q-C10.1.x-3) et aux transitions onglet nodal → Drawflow / fermeture
+ * de la modale Carte (handlers `setProjectMapEngine` / `wrapCloseProjectMap` ci-dessous).
+ * Le hook subscribe `startSceneId` (C8.3.x) reste actif pour propager immédiatement
+ * un changement de scène de départ vers le DOM legacy hors-modale.
  */
 (function () {
   "use strict";
@@ -12,16 +16,13 @@
   var ENGINE_DRAWFLOW = "drawflow";
   var ENGINE_NODAL = "nodal";
   var BODY_RO_CLASS = "escape360-nodal-map-ro";
-  /** Synchro périodique DOM ← store pendant l’onglet nodal (évite rAF à chaque drag). */
-  var NODAL_DOM_SYNC_MS = 8000;
-  var nodalDomInterval = null;
 
   function isNodalEngineActive() {
     var wrap = document.getElementById("project-map-canvas-wrap");
     return !!(wrap && wrap.classList.contains("project-map-engine-nodal"));
   }
 
-  /** C8.3.x — flush immédiat quand `meta.startSceneId` change (hors intervalle 8 s). */
+  /** C8.3.x — flush immédiat quand `meta.startSceneId` change (subscribe Zustand). */
   var startSceneHookStore = null;
   var startSceneHookUnsub = null;
 
@@ -60,25 +61,6 @@
     flushNodalProjectionToDomInner();
   }
 
-  function clearNodalDomInterval() {
-    if (nodalDomInterval != null) {
-      clearInterval(nodalDomInterval);
-      nodalDomInterval = null;
-    }
-  }
-
-  function startNodalDomInterval() {
-    clearNodalDomInterval();
-    if (!isNodalEngineActive()) return;
-    nodalDomInterval = setInterval(function () {
-      if (!isNodalEngineActive()) {
-        clearNodalDomInterval();
-        return;
-      }
-      flushNodalProjectionToDom();
-    }, NODAL_DOM_SYNC_MS);
-  }
-
   function syncNodalReadOnlyChrome(engine) {
     var isNodal = engine === ENGINE_NODAL;
     var modal = document.getElementById("project-map-modal");
@@ -110,7 +92,6 @@
 
     if (engine !== ENGINE_NODAL) {
       flushNodalProjectionToDom();
-      clearNodalDomInterval();
     }
 
     wrap.classList.remove("project-map-engine-drawflow", "project-map-engine-nodal");
@@ -136,7 +117,6 @@
         }
       }
       flushNodalProjectionToDom();
-      startNodalDomInterval();
     }
 
     syncNodalReadOnlyChrome(engine);
@@ -165,7 +145,6 @@
     if (typeof orig !== "function") return false;
     window.closeProjectMap = function () {
       flushNodalProjectionToDom();
-      clearNodalDomInterval();
       setProjectMapEngine(ENGINE_DRAWFLOW);
       orig.apply(this, arguments);
     };

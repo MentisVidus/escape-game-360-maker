@@ -45,6 +45,9 @@ export type NodalUiContextValue = {
   /** C8.2.3 — popup aide raccourcis. */
   keyboardShortcutsOpen: boolean;
   setKeyboardShortcutsOpen: (open: boolean) => void;
+  /** C10.1 — modale « Publication du jeu » (palette → bouton [Publier]). */
+  publishHubOpen: boolean;
+  setPublishHubOpen: (open: boolean) => void;
 };
 
 export const NodalUiContext = createContext<NodalUiContextValue | null>(null);

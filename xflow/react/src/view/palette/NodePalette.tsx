@@ -60,6 +60,8 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           snapshot: "Local snapshot",
           saveJson: "Save .json",
           load: "Load…",
+          publish: "Publish",
+          publishHint: "Publish your game (HTML / ZIP / deploy)",
           form: "Form editor",
           shortcuts: "Shortcuts",
           shortcutsHint: "Shortcuts (?)",
@@ -75,6 +77,8 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           snapshot: "Snapshot local",
           saveJson: "Sauver .json",
           load: "Charger…",
+          publish: "Publier",
+          publishHint: "Publication du jeu (HTML / ZIP / déploiement)",
           form: "Formulaire",
           shortcuts: "Raccourcis",
           shortcutsHint: "Raccourcis (?)",
@@ -228,6 +232,14 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
         </details>
         <button type="button" onClick={() => runChrome((c) => c.triggerLoadEscapegame())}>
           {labels.load}
+        </button>
+        <button
+          type="button"
+          className="nodal-palette-btn-publish"
+          title={labels.publishHint}
+          onClick={() => ui.setPublishHubOpen(true)}
+        >
+          {labels.publish}
         </button>
         <button type="button" onClick={() => runChrome((c) => c.closeProjectMapModal())}>
           {labels.form}
