@@ -1552,11 +1552,19 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           store={store}
           open={projectIdentitySettingsOpen}
           onClose={() => setProjectIdentitySettingsOpen(false)}
+          onBack={() => {
+            setProjectIdentitySettingsOpen(false);
+            setGlobalSettingsHubOpen(true);
+          }}
         />
         <InventoryGlobalSettingsPopup
           store={store}
           open={inventoryGlobalSettingsOpen}
           onClose={() => setInventoryGlobalSettingsOpen(false)}
+          onBack={() => {
+            setInventoryGlobalSettingsOpen(false);
+            setGlobalSettingsHubOpen(true);
+          }}
         />
         <PopupThemeCustomizationPopup
           store={store}

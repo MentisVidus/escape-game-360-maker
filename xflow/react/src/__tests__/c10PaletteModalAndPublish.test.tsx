@@ -188,6 +188,61 @@ describe("C10.1 — PalettePopupModal", () => {
     expect(container.querySelector(".nodal-popup-actions")).not.toBeNull();
     expect(container.textContent).toContain("action-footer");
   });
+
+  it("onBack undefined ⇒ pas de bouton Retour (même si footerActions fournis)", () => {
+    renderTree(
+      <PalettePopupModal
+        title="X"
+        isOpen
+        onClose={() => {}}
+        footerActions={<button type="button">action-footer</button>}
+      >
+        <p>body</p>
+      </PalettePopupModal>
+    );
+    expect(container.querySelector(".nodal-popup-actions-left")).toBeNull();
+    expect(container.textContent).toContain("action-footer");
+  });
+
+  it("onBack fourni ⇒ bouton Retour affiché à gauche + footerActions à droite", () => {
+    renderTree(
+      <PalettePopupModal
+        title="X"
+        isOpen
+        onClose={() => {}}
+        onBack={() => {}}
+        footerActions={<button type="button">action-footer</button>}
+      >
+        <p>body</p>
+      </PalettePopupModal>
+    );
+    const actions = container.querySelector(".nodal-popup-actions--with-back");
+    expect(actions).not.toBeNull();
+    expect(container.querySelector(".nodal-popup-actions-left")).not.toBeNull();
+    expect(container.querySelector(".nodal-popup-actions-right")?.textContent).toContain("action-footer");
+    expect(container.querySelector(".nodal-popup-actions-left")?.textContent).toContain("Retour");
+  });
+
+  it("clic bouton Retour ⇒ appelle onBack", () => {
+    const onBack = vi.fn();
+    renderTree(
+      <PalettePopupModal
+        title="X"
+        isOpen
+        onClose={() => {}}
+        onBack={onBack}
+        footerActions={<button type="button">action-footer</button>}
+      >
+        <p>body</p>
+      </PalettePopupModal>
+    );
+    const backBtn = container.querySelector(".nodal-popup-actions-left button");
+    expect(backBtn).not.toBeNull();
+    act(() => {
+      backBtn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("C10.1 — PublishGamePopup", () => {

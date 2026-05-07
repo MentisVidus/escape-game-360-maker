@@ -15,6 +15,8 @@ type Props = {
   children: ReactNode;
   /** Boutons d’action en bas optionnels (alignés à droite par défaut). */
   footerActions?: ReactNode;
+  /** Bouton retour dans le footer-gauche (si défini). */
+  onBack?: () => void;
   /** Modificateur CSS optionnel sur `.nodal-popup-panel` (p. ex. `nodal-popup-panel--publish`). */
   panelModifier?: string;
   /** id ARIA pour `aria-labelledby` sur le rôle dialog. Défaut : auto. */
@@ -46,6 +48,7 @@ export function PalettePopupModal({
   onClose,
   children,
   footerActions,
+  onBack,
   panelModifier,
   labelledById,
   locale,
@@ -58,6 +61,8 @@ export function PalettePopupModal({
   const headingId = labelledById ?? autoIdRef.current;
   const closeLabel =
     (locale ?? detectLocale()) === "en" ? "Close" : "Fermer";
+  const backLabel =
+    (locale ?? detectLocale()) === "en" ? "Back" : "Retour";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -109,8 +114,22 @@ export function PalettePopupModal({
           {title}
         </h2>
         <div className="palette-popup-body">{children}</div>
-        {footerActions ? (
-          <div className="nodal-popup-actions">{footerActions}</div>
+        {onBack || footerActions ? (
+          <div
+            className={
+              "nodal-popup-actions" +
+              (onBack && footerActions ? " nodal-popup-actions--with-back" : onBack ? " nodal-popup-actions--only-back" : "")
+            }
+          >
+            {onBack ? (
+              <div className="nodal-popup-actions-left">
+                <button type="button" className="nodal-ha-btn-secondary" onClick={onBack}>
+                  {backLabel}
+                </button>
+              </div>
+            ) : null}
+            {footerActions ? <div className="nodal-popup-actions-right">{footerActions}</div> : null}
+          </div>
         ) : null}
       </div>
     </div>

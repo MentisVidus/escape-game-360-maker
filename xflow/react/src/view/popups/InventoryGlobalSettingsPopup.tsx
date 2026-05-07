@@ -76,11 +76,12 @@ const DEFAULT_INVENTORY: InventoryGlobalSettings = {
 type Props = {
   open: boolean;
   onClose: () => void;
+  onBack?: () => void;
   store: StoreApi<NodalProjectStore>;
 };
 
 /** C10.2.b — popup dédiée Inventaire HUD. */
-export function InventoryGlobalSettingsPopup({ open, onClose, store }: Props) {
+export function InventoryGlobalSettingsPopup({ open, onClose, onBack, store }: Props) {
   const L = COPY[locale()];
   const [inventory, setInventory] = useState<InventoryGlobalSettings>(
     store.getState().meta.settings?.inventoryGlobal ?? DEFAULT_INVENTORY
@@ -104,6 +105,7 @@ export function InventoryGlobalSettingsPopup({ open, onClose, store }: Props) {
       title={L.title}
       isOpen={open}
       onClose={onClose}
+      onBack={onBack}
       panelModifier="nodal-popup-panel--global-hub"
       labelledById="nodal-inventory-settings-title"
       locale={locale()}

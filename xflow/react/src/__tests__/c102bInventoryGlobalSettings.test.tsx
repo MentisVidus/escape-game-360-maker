@@ -42,7 +42,9 @@ describe("C10.2.b — InventoryGlobalSettingsPopup", () => {
     const store = createNodalProjectStore();
     const flush = vi.fn();
     vi.stubGlobal("EditorSharedBundle", { flushNodalStoreToEditorDom: flush });
-    renderTree(<InventoryGlobalSettingsPopup open onClose={() => {}} store={store} />);
+    renderTree(
+      <InventoryGlobalSettingsPopup open onClose={() => {}} onBack={() => {}} store={store} />
+    );
     const iconInput = container.querySelector<HTMLInputElement>("#nodal-inv-icon");
     expect(iconInput).toBeTruthy();
     act(() => {
@@ -58,8 +60,26 @@ describe("C10.2.b — InventoryGlobalSettingsPopup", () => {
   it("cache les champs avancés quand enabled=false", () => {
     const store = createNodalProjectStore();
     store.getState().setMetaSettingsInventory({ enabled: false });
-    renderTree(<InventoryGlobalSettingsPopup open onClose={() => {}} store={store} />);
+    renderTree(
+      <InventoryGlobalSettingsPopup open onClose={() => {}} onBack={() => {}} store={store} />
+    );
     expect(container.querySelector("#nodal-inv-position")).toBeNull();
+  });
+
+  it("bouton Retour appelle onBack", () => {
+    const store = createNodalProjectStore();
+    const onClose = vi.fn();
+    const onBack = vi.fn();
+    renderTree(<InventoryGlobalSettingsPopup open onClose={onClose} onBack={onBack} store={store} />);
+    const back = Array.from(container.querySelectorAll("button")).find((b) =>
+      (b.textContent || "").includes("Retour")
+    );
+    expect(back).toBeTruthy();
+    act(() => {
+      back!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(0);
   });
 });
 

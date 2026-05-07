@@ -44,11 +44,12 @@ function flushNodalToDom() {
 type Props = {
   open: boolean;
   onClose: () => void;
+  onBack?: () => void;
   store: StoreApi<NodalProjectStore>;
 };
 
 /** C10.2.a-fix — popup dédiée Identité projet (titre uniquement pour l’instant). */
-export function ProjectIdentitySettingsPopup({ open, onClose, store }: Props) {
+export function ProjectIdentitySettingsPopup({ open, onClose, onBack, store }: Props) {
   const L = COPY[locale()];
   const [title, setTitle] = useState(() => store.getState().meta.title);
 
@@ -68,6 +69,7 @@ export function ProjectIdentitySettingsPopup({ open, onClose, store }: Props) {
       title={L.title}
       isOpen={open}
       onClose={onClose}
+      onBack={onBack}
       panelModifier="nodal-popup-panel--global-hub"
       labelledById="nodal-project-identity-title"
       locale={locale()}

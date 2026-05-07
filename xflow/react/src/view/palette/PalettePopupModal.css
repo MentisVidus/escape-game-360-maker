@@ -75,3 +75,18 @@
   border-color: var(--node-selected-outline);
   background: color-mix(in srgb, var(--node-selected-outline) 14%, var(--palette-button-bg));
 }
+
+/* Footer actions (C10.2.a-fix2 — bouton Retour à gauche). */
+.nodal-canvas-layout .nodal-popup-actions--only-back {
+  justify-content: flex-start;
+}
+
+.nodal-canvas-layout .nodal-popup-actions--with-back {
+  justify-content: space-between;
+}
+
+.nodal-canvas-layout .nodal-popup-actions-left,
+.nodal-canvas-layout .nodal-popup-actions-right {
+  display: flex;
+  align-items: center;
+}
