@@ -15,6 +15,8 @@ import type { ActionNode, MediaNode, SatelliteNode, SceneNode } from "../model/n
 import type { ObjectEntry } from "../model/objects";
 import type {
   AudioGlobalSettings,
+  EndScreenCopySettings,
+  EndScreensSettings,
   InventoryGlobalSettings,
   NodalProject,
   PlayerSaveMode,
@@ -49,6 +51,12 @@ import { computeWarnings, type Warning } from "./computeWarnings";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 
 type NodePatch = Partial<ActionNode | SceneNode | SatelliteNode | MediaNode>;
+type EndScreensSettingsPatch = Partial<
+  Omit<EndScreensSettings, "gameOver" | "victory">
+> & {
+  gameOver?: Partial<EndScreenCopySettings>;
+  victory?: Partial<EndScreenCopySettings>;
+};
 
 export type NodalProjectStore = NodalProject & {
   /** Phase 2 (1.b.6) : trace des poussées anti-collision au dépli, par s-box origine — non persisté. */
@@ -90,6 +98,8 @@ export type NodalProjectStore = NodalProject & {
   setMetaSettingsTimer: (patch: Partial<TimerGlobalSettings>) => void;
   /** C10.2.e — sauvegarde joueur (`meta.settings.playerSave`). */
   setMetaSettingsPlayerSave: (patch: Partial<PlayerSaveSettings>) => void;
+  /** C10.2.f — fins de partie (`meta.settings.endScreens`). */
+  setMetaSettingsEndScreens: (patch: EndScreensSettingsPatch) => void;
   setViewport: (viewport: Viewport) => void;
   upsertObject: (entry: ObjectEntry) => void;
   removeObject: (objectId: string) => void;
@@ -209,6 +219,25 @@ const normalizeStartSeconds = (value: unknown, fallback: number): number => {
   const n = Number.parseInt(String(value ?? fallback), 10);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, n);
+};
+
+const normalizeEndScreens = (raw?: EndScreensSettingsPatch | EndScreensSettings | null): EndScreensSettings => {
+  const gameOverRaw = raw?.gameOver ?? {};
+  const victoryRaw = raw?.victory ?? {};
+  return {
+    victorySceneExternalId: String(raw?.victorySceneExternalId ?? "").trim(),
+    gameOverSceneExternalId: String(raw?.gameOverSceneExternalId ?? "").trim(),
+    gameOver: {
+      title: String(gameOverRaw.title ?? ""),
+      bodyHtml: String(gameOverRaw.bodyHtml ?? ""),
+      buttonLabel: String(gameOverRaw.buttonLabel ?? ""),
+    },
+    victory: {
+      title: String(victoryRaw.title ?? ""),
+      bodyHtml: String(victoryRaw.bodyHtml ?? ""),
+      buttonLabel: String(victoryRaw.buttonLabel ?? ""),
+    },
+  };
 };
 
 const normalizePlayerPopupTheme = (theme?: Partial<PlayerPopupTheme> | null): PlayerPopupTheme => ({
@@ -862,6 +891,28 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
             settings: {
               ...(state.meta.settings || {}),
               playerSave: nextSave,
+            },
+          },
+        });
+      });
+    },
+
+    setMetaSettingsEndScreens: (patch) => {
+      set((state) => {
+        const prev = normalizeEndScreens(state.meta.settings?.endScreens);
+        const nextEndScreens = normalizeEndScreens({
+          ...prev,
+          ...patch,
+          gameOver: { ...prev.gameOver, ...(patch.gameOver || {}) },
+          victory: { ...prev.victory, ...(patch.victory || {}) },
+        });
+        return withWarnings({
+          ...state,
+          meta: {
+            ...state.meta,
+            settings: {
+              ...(state.meta.settings || {}),
+              endScreens: nextEndScreens,
             },
           },
         });

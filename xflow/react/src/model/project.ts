@@ -21,7 +21,7 @@ export type ProjectSettings = {
   /** C10.2.e — sauvegarde progression joueur */
   playerSave?: PlayerSaveSettings;
   /** C10.2.f — fins de partie */
-  endScreens?: Record<string, unknown>;
+  endScreens?: EndScreensSettings;
 };
 
 export type InventoryGlobalPosition = "top-right" | "top-left" | "bottom-right" | "bottom-left";
@@ -65,6 +65,19 @@ export type PlayerSaveMode = "none" | "manual" | "auto";
 
 export type PlayerSaveSettings = {
   mode: PlayerSaveMode;
+};
+
+export type EndScreenCopySettings = {
+  title: string;
+  bodyHtml: string;
+  buttonLabel: string;
+};
+
+export type EndScreensSettings = {
+  victorySceneExternalId: string;
+  gameOverSceneExternalId: string;
+  gameOver: EndScreenCopySettings;
+  victory: EndScreenCopySettings;
 };
 
 export type ProjectMeta = {

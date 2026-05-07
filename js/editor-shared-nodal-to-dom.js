@@ -615,6 +615,51 @@
             var playerSaveMode = document.getElementById("playerSaveMode");
             if (playerSaveMode && playerSave.mode != null) playerSaveMode.value = String(playerSave.mode);
         }
+        /* C10.2.f — fins de partie (`meta.settings.endScreens`). */
+        var endScreens = st.meta && st.meta.settings && st.meta.settings.endScreens;
+        if (endScreens) {
+            var victorySceneId = document.getElementById("victorySceneId");
+            var gameOverSceneId = document.getElementById("gameOverSceneId");
+            var endGameOverTitle = document.getElementById("endGameOverTitle");
+            var endGameOverBody = document.getElementById("endGameOverBody");
+            var endGameOverBtn = document.getElementById("endGameOverBtn");
+            var endVictoryTitle = document.getElementById("endVictoryTitle");
+            var endVictoryBody = document.getElementById("endVictoryBody");
+            var endVictoryBtn = document.getElementById("endVictoryBtn");
+            if (victorySceneId && endScreens.victorySceneExternalId != null) {
+                victorySceneId.value = String(endScreens.victorySceneExternalId);
+            }
+            if (gameOverSceneId && endScreens.gameOverSceneExternalId != null) {
+                gameOverSceneId.value = String(endScreens.gameOverSceneExternalId);
+            }
+            if (endGameOverTitle && endScreens.gameOver && endScreens.gameOver.title != null) {
+                endGameOverTitle.value = String(endScreens.gameOver.title);
+            }
+            if (endGameOverBody && endScreens.gameOver && endScreens.gameOver.bodyHtml != null) {
+                endGameOverBody.value = String(endScreens.gameOver.bodyHtml);
+            }
+            if (endGameOverBtn && endScreens.gameOver && endScreens.gameOver.buttonLabel != null) {
+                endGameOverBtn.value = String(endScreens.gameOver.buttonLabel);
+            }
+            if (endVictoryTitle && endScreens.victory && endScreens.victory.title != null) {
+                endVictoryTitle.value = String(endScreens.victory.title);
+            }
+            if (endVictoryBody && endScreens.victory && endScreens.victory.bodyHtml != null) {
+                endVictoryBody.value = String(endScreens.victory.bodyHtml);
+            }
+            if (endVictoryBtn && endScreens.victory && endScreens.victory.buttonLabel != null) {
+                endVictoryBtn.value = String(endScreens.victory.buttonLabel);
+            }
+            var endScreensContainer = document.getElementById("end-screens-form-container");
+            var domApi = getApi();
+            if (
+                endScreensContainer &&
+                domApi &&
+                typeof domApi.flushRichEditorsIn === "function"
+            ) {
+                domApi.flushRichEditorsIn(endScreensContainer);
+            }
+        }
         return out;
     }
 

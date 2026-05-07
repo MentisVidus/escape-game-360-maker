@@ -118,6 +118,7 @@ import { ProjectIdentitySettingsPopup } from "./popups/ProjectIdentitySettingsPo
 import { InventoryGlobalSettingsPopup } from "./popups/InventoryGlobalSettingsPopup";
 import { AudioGlobalSettingsPopup } from "./popups/AudioGlobalSettingsPopup";
 import { TimerAndSavePlayerSettingsPopup } from "./popups/TimerAndSavePlayerSettingsPopup";
+import { EndScreensSettingsPopup } from "./popups/EndScreensSettingsPopup";
 import {
   buildNodalContextMenuItems,
   contextMenuParentTarget,
@@ -173,6 +174,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const [inventoryGlobalSettingsOpen, setInventoryGlobalSettingsOpen] = useState(false);
   const [audioGlobalSettingsOpen, setAudioGlobalSettingsOpen] = useState(false);
   const [timerAndSaveSettingsOpen, setTimerAndSaveSettingsOpen] = useState(false);
+  const [endScreensSettingsOpen, setEndScreensSettingsOpen] = useState(false);
   const [popupThemeCustomizationOpen, setPopupThemeCustomizationOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   /** C10.1 — modale « Publication du jeu » (palette → bouton [Publier]). */
@@ -207,6 +209,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
     setTimerAndSaveSettingsOpen(false);
+    setEndScreensSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setPickEditorActionId(null);
     setGotoEditorActionId(null);
@@ -225,6 +228,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
     setTimerAndSaveSettingsOpen(false);
+    setEndScreensSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setGotoEditorActionId(null);
@@ -243,6 +247,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
     setTimerAndSaveSettingsOpen(false);
+    setEndScreensSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -261,6 +266,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
     setTimerAndSaveSettingsOpen(false);
+    setEndScreensSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -279,6 +285,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
     setTimerAndSaveSettingsOpen(false);
+    setEndScreensSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -297,6 +304,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     setInventoryGlobalSettingsOpen(false);
     setAudioGlobalSettingsOpen(false);
     setTimerAndSaveSettingsOpen(false);
+    setEndScreensSettingsOpen(false);
     setPopupThemeCustomizationOpen(false);
     setMsgEditorActionId(null);
     setPickEditorActionId(null);
@@ -330,6 +338,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       inventoryGlobalSettingsOpen ||
       audioGlobalSettingsOpen ||
       timerAndSaveSettingsOpen ||
+      endScreensSettingsOpen ||
       popupThemeCustomizationOpen ||
       keyboardShortcutsOpen ||
       publishHubOpen ||
@@ -351,6 +360,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       inventoryGlobalSettingsOpen,
       audioGlobalSettingsOpen,
       timerAndSaveSettingsOpen,
+      endScreensSettingsOpen,
       popupThemeCustomizationOpen,
       keyboardShortcutsOpen,
       publishHubOpen,
@@ -394,6 +404,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     }
     if (timerAndSaveSettingsOpen) {
       setTimerAndSaveSettingsOpen(false);
+      return;
+    }
+    if (endScreensSettingsOpen) {
+      setEndScreensSettingsOpen(false);
       return;
     }
     if (popupThemeCustomizationOpen) {
@@ -453,6 +467,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     inventoryGlobalSettingsOpen,
     audioGlobalSettingsOpen,
     timerAndSaveSettingsOpen,
+    endScreensSettingsOpen,
     popupThemeCustomizationOpen,
     globalSettingsHubOpen,
     objectEditorSatelliteId,
@@ -485,6 +500,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
       inventoryGlobalSettingsOpen ||
       audioGlobalSettingsOpen ||
       timerAndSaveSettingsOpen ||
+      endScreensSettingsOpen ||
       popupThemeCustomizationOpen ||
       publishHubOpen ||
       deleteConfirm != null ||
@@ -508,6 +524,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
     inventoryGlobalSettingsOpen,
     audioGlobalSettingsOpen,
     timerAndSaveSettingsOpen,
+    endScreensSettingsOpen,
     popupThemeCustomizationOpen,
     publishHubOpen,
     deleteConfirm,
@@ -1589,6 +1606,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
             setGlobalSettingsHubOpen(false);
             setTimerAndSaveSettingsOpen(true);
           }}
+          onOpenEndScreens={() => {
+            setGlobalSettingsHubOpen(false);
+            setEndScreensSettingsOpen(true);
+          }}
         />
         <ProjectIdentitySettingsPopup
           store={store}
@@ -1623,6 +1644,15 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           onClose={() => setTimerAndSaveSettingsOpen(false)}
           onBack={() => {
             setTimerAndSaveSettingsOpen(false);
+            setGlobalSettingsHubOpen(true);
+          }}
+        />
+        <EndScreensSettingsPopup
+          store={store}
+          open={endScreensSettingsOpen}
+          onClose={() => setEndScreensSettingsOpen(false)}
+          onBack={() => {
+            setEndScreensSettingsOpen(false);
             setGlobalSettingsHubOpen(true);
           }}
         />

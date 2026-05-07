@@ -51,6 +51,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenPopupTheme={() => {}}
         onOpenAudio={() => {}}
         onOpenTimerSave={() => {}}
+        onOpenEndScreens={() => {}}
         store={store}
       />
     );
@@ -58,7 +59,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
     expect(btns.length).toBe(6);
   });
 
-  it("1 bouton reste désactivé avec tooltip C10.2.f", () => {
+  it("plus aucun bouton section n'est désactivé", () => {
     const store = createNodalProjectStore();
     renderTree(
       <GlobalSettingsHubPopup
@@ -69,13 +70,13 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenPopupTheme={() => {}}
         onOpenAudio={() => {}}
         onOpenTimerSave={() => {}}
+        onOpenEndScreens={() => {}}
         store={store}
       />
     );
     const btns = Array.from(container.querySelectorAll<HTMLButtonElement>("button.nodal-global-hub-btn"));
     const disabled = btns.filter((b) => b.disabled);
-    expect(disabled.length).toBe(1);
-    expect(disabled.some((b) => (b.title || "").includes("C10.2.f"))).toBe(true);
+    expect(disabled.length).toBe(0);
   });
 
   it("clic Identité projet appelle onOpenProjectIdentity", () => {
@@ -90,6 +91,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenPopupTheme={() => {}}
         onOpenAudio={() => {}}
         onOpenTimerSave={() => {}}
+        onOpenEndScreens={() => {}}
         store={store}
       />
     );
@@ -115,6 +117,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenPopupTheme={onTheme}
         onOpenAudio={() => {}}
         onOpenTimerSave={() => {}}
+        onOpenEndScreens={() => {}}
         store={store}
       />
     );
@@ -140,6 +143,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenPopupTheme={() => {}}
         onOpenAudio={() => {}}
         onOpenTimerSave={() => {}}
+        onOpenEndScreens={() => {}}
         store={store}
       />
     );
@@ -164,6 +168,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenPopupTheme={() => {}}
         onOpenAudio={onAudio}
         onOpenTimerSave={() => {}}
+        onOpenEndScreens={() => {}}
         store={store}
       />
     );
@@ -189,6 +194,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenPopupTheme={() => {}}
         onOpenAudio={() => {}}
         onOpenTimerSave={onTimerSave}
+        onOpenEndScreens={() => {}}
         store={store}
       />
     );
@@ -200,6 +206,32 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
       btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onTimerSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("clic Fins de partie appelle onOpenEndScreens", () => {
+    const store = createNodalProjectStore();
+    const onEndScreens = vi.fn();
+    renderTree(
+      <GlobalSettingsHubPopup
+        open
+        onClose={() => {}}
+        onOpenProjectIdentity={() => {}}
+        onOpenInventory={() => {}}
+        onOpenPopupTheme={() => {}}
+        onOpenAudio={() => {}}
+        onOpenTimerSave={() => {}}
+        onOpenEndScreens={onEndScreens}
+        store={store}
+      />
+    );
+    const btn = Array.from(container.querySelectorAll("button.nodal-global-hub-btn")).find((b) =>
+      (b.textContent || "").includes("Fins de partie")
+    );
+    expect(btn).toBeDefined();
+    act(() => {
+      btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onEndScreens).toHaveBeenCalledTimes(1);
   });
 });
 
