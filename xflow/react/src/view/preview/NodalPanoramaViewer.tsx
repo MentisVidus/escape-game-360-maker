@@ -49,6 +49,18 @@ export function NodalPanoramaViewer({
   const reactId = useId().replace(/:/g, "");
   const stableIdRef = useRef(`nodal-pnm-${reactId}`);
   const viewerRef = useRef<PannellumViewer | null>(null);
+  /**
+   * C18.2-fix.2 — `initialPitch`/`initialYaw` sont des valeurs *initiales*
+   * (capturées au montage). On les fige dans un ref pour qu'elles ne
+   * déclenchent pas la recréation du viewer Pannellum à chaque tick du
+   * poll picker (sinon le drag est interrompu en permanence).
+   * Pour ré-initialiser à de nouvelles coords (changement de cible),
+   * remonter le composant via une `key` côté parent.
+   */
+  const initialPitchRef = useRef(initialPitch ?? 0);
+  const initialYawRef = useRef(initialYaw ?? 0);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
 
   useEffect(() => {
     const el = hostRef.current;
@@ -75,20 +87,20 @@ export function NodalPanoramaViewer({
       panorama: normalizePanoramaUrl(panoramaUrl),
       autoLoad: true,
       hotSpots: hs,
-      pitch: initialPitch ?? 0,
-      yaw: initialYaw ?? 0,
+      pitch: initialPitchRef.current,
+      yaw: initialYawRef.current,
       showControls: false,
     });
     viewerRef.current = viewer;
 
-    const onLoad = () => onReady?.();
+    const onLoad = () => onReadyRef.current?.();
     viewer.on?.("load", onLoad);
 
     return () => {
       viewer.destroy();
       if (viewerRef.current === viewer) viewerRef.current = null;
     };
-  }, [panoramaUrl, hotSpots, initialPitch, initialYaw, onReady]);
+  }, [panoramaUrl, hotSpots]);
 
   /**
    * C18.2-fix — viseur central : pitch/yaw lus en continu sur le centre

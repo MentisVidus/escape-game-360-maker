@@ -2513,6 +2513,15 @@ Annexe D*. Questions résiduelles éventuelles :
   `findSceneOfHotspotSatellite`, CSS picker (z-index au-dessus des popups),
   tests `c18CoordsPickerModal.test.tsx`, mocks `NodalUiContext` étendus
   (`c18ScenePreviewModal.test.tsx`).
+- 2026-05-08 — **C18.2-fix.2** : `initialPitch`/`initialYaw` figés dans
+  un ref dans `NodalPanoramaViewer` — auparavant ils étaient dans les
+  deps de l'effet de création du viewer Pannellum, donc à chaque tick
+  du poll `getPitch()`/`getYaw()` (120 ms) le viewer était détruit et
+  recréé, ce qui interrompait le drag souris. Comportement aligné sur
+  legacy `js/editor-shared-preview-picker.js:50-62` (le viewer existe
+  une seule fois ; le poll lit les coords du centre caméra). Pour
+  ré-initialiser à de nouvelles coords : remount via `key` côté parent
+  (déjà en place pour `CoordsPickerModal`).
 - 2026-05-08 — **C18.2-fix** : passage du picker en mode « viseur central »
   (legacy formulaire) — le clic sur le panorama ne capture plus les coords
   (il ré-orientait la caméra et empêchait le drag 360°). Le viseur (croix
