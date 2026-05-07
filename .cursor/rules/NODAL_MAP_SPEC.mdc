@@ -2269,10 +2269,481 @@ recensés par l'audit.
   callsites flush équipés, confirmation suppression périodique, et
   notes de recette manuelle.
 
-### Plans détaillés C10.2.a → C10.2.x — directives pour Cursor
+### Plans détaillés C10.2.a → C10.2.f — directives pour Cursor
 
-*À rédiger après la livraison de C10.0 (le sous-découpage par section
-globale dépend du tableau d'audit).*
+**Ordre d'exécution** validé (Q-C10.1-5) : `.a → .c → .d → .b → .e →
+.f`. Chaque sous-chantier = un commit. Sérialisation V2 branchée
+**in-line** dans chaque sous-chantier (Q-C10.1-2 (a), pas de `.g`
+séparé).
+
+**Conventions communes** (établies en C10.2.a, suivies par .b → .f) :
+
+- **Modèle** : `ProjectMeta.settings: ProjectSettings` (sous-objet
+  optionnel `?`) regroupant tous les groupes `inventoryGlobal`,
+  `popupTheme`, `audio`, `timer`, `playerSave`, `endScreens`.
+  `meta.title` et `meta.startSceneId` restent **flat** (identité
+  projet, pas paramètre de jeu — Q-C10.2.a-1 (a)).
+- **Store actions** : pour chaque groupe, ajouter une mutation
+  `setMetaSettings<Group>(partial: Partial<...>)` au store nodal qui
+  fait un merge superficiel + appelle `reconcile*` si pertinent (peu
+  probable pour les paramètres globaux).
+- **Flush store → DOM** : étendre `applyFromStore` dans
+  `js/editor-shared-nodal-to-dom.js` pour projeter chaque champ vers
+  son `id` legacy. Lire les valeurs depuis `state.meta.settings.<group>`
+  ; si le sous-objet est `undefined` (projet legacy non-migré), ne
+  pas toucher au DOM legacy (le formulaire conserve ses valeurs
+  d'init).
+- **Sérialisation V2** (`serializeToProjectJson` /
+  `toProjectJson.ts`) : ajouter `meta.settings.<group>` dans le bundle
+  `project.json` lorsque le sous-objet existe. Ne pas écrire
+  `meta.settings: {}` vide.
+- **Hydrate V2** (`deserializeFromProjectJson`) : lire
+  `meta.settings.<group>` si présent ; fallback sur `undefined` (pas
+  de valeur par défaut côté store — la modale Paramètres globaux et
+  le DOM legacy ont leurs propres valeurs init).
+- **UI section** : chaque groupe a une section dans l'accordion
+  `GlobalSettingsHubPopup` (créé en C10.2.a). Le binding va
+  store → DOM input → `setMetaSettings<Group>(...)` au `onChange`.
+- **Tests Vitest** par sous-chantier :
+  - **Round-trip** : `serialize → deserialize → equality` sur le
+    sous-objet `meta.settings.<group>`.
+  - **Flush** : mutation store → `applyFromStore` (mocké jsdom DOM)
+    → `id` legacy reflète la valeur.
+  - **Hydrate** : `project.json` avec `meta.settings.<group>` →
+    `deserializeFromProjectJson` → store contient la valeur.
+- **Recette manuelle** par sous-chantier (à consigner journal) :
+  - Édite valeur dans modale Paramètres globaux → DOM legacy mis à
+    jour en live (preuve flush).
+  - Édite valeur → `[Sauver .escapegame]` → reload bundle → modale
+    re-affiche la valeur (preuve serialize/hydrate).
+  - Édite valeur → `[Publier]` → HTML autonome → fichier généré
+    contient la valeur (preuve flush + generateGame).
+
+### Plan détaillé C10.2.a — Identité projet (titre) + structure accordion
+
+**Pré-requis** : C10.1 livré (commit `1d3c3f7` : `PalettePopupModal`,
+flush-on-demand). Branche `feat/c10-autonomy` active.
+
+**Contexte** : C10.2.a pose la **fondation** des sous-chantiers
+C10.2.b → .f en deux temps :
+
+1. **Restructure** la modale `GlobalSettingsHubPopup` en accordion à
+   **6 sections** (`Identité projet`, `Inventaire`, `Thème popups`,
+   `Audio`, `Timer & sauvegarde`, `Fins de partie`). Chaque section
+   non-active affiche un placeholder « Bientôt — C10.2.x ».
+2. **Branche** la section `Identité projet` avec l'unique champ
+   `Titre du projet`, lié à `meta.title` (déjà existant ; pas de
+   migration vers `meta.settings` — Q-C10.2.a-1 (a)).
+
+Le sous-chantier établit aussi la **convention `meta.settings`**
+(type `ProjectSettings` créé vide dans `ProjectMeta`, étendu au fil
+des C10.2.b → .f) et la **convention de tests** (round-trip + flush
++ hydrate).
+
+**Section `Thème popups` cas particulier** : actuellement branchée
+via le slice racine `playerPopupTheme` (sérialisé `map-layout.json`).
+**Conserver le fonctionnement actuel** dans C10.2.a (pas de
+migration). La migration `playerPopupTheme` → `meta.settings.popupTheme`
++ déplacement vers `project.json` est faite en **C10.2.c**. Adapter
+juste le markup pour fitter dans le nouveau pattern accordion.
+
+**Fichiers à lire avant de coder** :
+
+- `xflow/react/src/model/project.ts` — `ProjectMeta` à étendre avec
+  `settings?: ProjectSettings`.
+- `xflow/react/src/view/palette/GlobalSettingsHubPopup.tsx` —
+  composant à restructurer.
+- `xflow/react/src/view/palette/PalettePopupModal.tsx` — pattern modale
+  C10.1 (référence d'usage).
+- `xflow/react/src/store/nodalProjectStore.ts` — méthodes
+  `updateMeta` ou équivalent (chercher comment `meta.title` est
+  actuellement modifié).
+- `js/editor-shared-nodal-to-dom.js` — `applyFromStore` (chercher si
+  `#gameTitle` est déjà projeté ; sinon ajouter).
+- `js/editor-shared-project-serialization.js` —
+  `getCurrentProjectData` (lecture `#gameTitle`).
+- `editeur.html` / `editor_en.html` — `#gameTitle` (input à miroiter).
+
+**Phase questions (workflow §8.1)** — Cursor pose ses Q-C10.2.a-Y :
+
+- **Q-C10.2.a-1** — Composant accordion : (a) implémentation custom
+  inline (sections + chevron, déjà patternisé dans la palette
+  latérale C8.1 ?) ; (b) lib externe légère ; (c) `<details>` natif
+  HTML5. *Vote : (c) — `<details>` natif suffit, accessibilité
+  gratuite, zéro dépendance, animation CSS basique.*
+- **Q-C10.2.a-2** — Toutes les sections ouvertes par défaut, ou seule
+  la section active (`Identité projet` en C10.2.a) ? *Vote : seule
+  la section qui contient des champs branchés ouverte au démarrage ;
+  les autres fermées avec placeholder « Bientôt — C10.2.x » visible
+  sur titre cliqué.*
+- **Q-C10.2.a-3** — Type `ProjectSettings` : (a) tous les champs
+  optionnels (`?`) au niveau du sous-objet (`inventoryGlobal?`,
+  `popupTheme?`, …) — `meta.settings` est partiellement rempli ;
+  (b) tous obligatoires avec valeurs par défaut. *Vote : (a) — le
+  legacy actuel n'a pas ces champs dans le store, et tant que la
+  migration C10.2.b → .f n'a pas eu lieu, ils sont `undefined`. Plus
+  honnête que des valeurs par défaut qui masquent le fait que la
+  source de vérité est encore le DOM.*
+
+**Périmètre** :
+
+1. **Étendre `ProjectMeta`** dans `xflow/react/src/model/project.ts`
+   avec :
+   ```ts
+   export type ProjectSettings = {
+     inventoryGlobal?: { /* C10.2.b */ };
+     popupTheme?: { /* C10.2.c */ };
+     audio?: { /* C10.2.d */ };
+     timer?: { /* C10.2.e */ };
+     playerSave?: { /* C10.2.e */ };
+     endScreens?: { /* C10.2.f */ };
+   };
+   ```
+   Ajouter `settings?: ProjectSettings` dans `ProjectMeta`. Les
+   commentaires `/* C10.2.x */` indiquent le sous-chantier qui
+   remplit chaque sous-objet.
+
+2. **Restructurer `GlobalSettingsHubPopup`** :
+   - Wrapper `PalettePopupModal` (titre « Paramètres globaux » /
+     « Global settings »).
+   - Body : 6 `<details>` (un par groupe), avec `<summary>` cliquable.
+   - `Identité projet` : ouvert par défaut, contient un input texte
+     « Titre du projet » lié à `meta.title`.
+   - `Thème popups` : conserver le contenu actuel (popup theme branché
+     via `playerPopupTheme` slice racine — ne pas migrer ici).
+   - 4 autres : placeholder « Bientôt — C10.2.b/.d/.e/.f ».
+
+3. **Flush `meta.title` → `#gameTitle`** dans `applyFromStore` :
+   - Vérifier si déjà projeté (audit C10.0 disait « non »).
+   - Sinon ajouter `el = document.getElementById("gameTitle"); if (el)
+     el.value = state.meta.title || "";`.
+
+4. **Sérialisation** : aucune extension nécessaire — `meta.title` est
+   déjà sérialisé comme `title` racine dans `ProjectJsonV2`. **Ne
+   pas** écrire `meta.settings` dans le bundle si vide (`undefined`
+   ou `{}` sans clés).
+
+5. **Hydrate** : aucune extension nécessaire pour le titre. Préparer
+   le terrain : `deserializeFromProjectJson` doit lire un éventuel
+   `meta.settings` du JSON et le placer dans `state.meta.settings`
+   (sera utile à partir de .b).
+
+**Critères de fin** :
+
+- `ProjectMeta` étend bien avec `settings?: ProjectSettings`.
+- `GlobalSettingsHubPopup` affiche 6 sections, dont 1 active
+  (`Identité projet`) et 5 placeholders.
+- L'input « Titre du projet » modifie `meta.title` en live et le DOM
+  `#gameTitle` reflète la valeur.
+- Test Vitest : rendu des 6 sections + interaction sur l'input titre
+  (mutation store + flush DOM mockés).
+- Recettes manuelles consignées :
+  - Modifie titre dans modale → `#gameTitle` legacy reflète.
+  - Modifie titre → `[Sauver .escapegame]` → reload → modale
+    re-affiche.
+  - Modifie titre → `[Publier]` → HTML autonome contient le titre.
+
+**Branche / commit** :
+
+- Branche : `feat/c10-autonomy`.
+- Commit : `feat(nodal): C10.2.a identité projet + accordion modale
+  Paramètres globaux`.
+- Annexe D — Journal de chantier : entrée 2-3 lignes (structure
+  accordion posée, titre branché, conventions `meta.settings`
+  établies).
+
+### Plan détaillé C10.2.b — Inventaire HUD
+
+**Pré-requis** : C10.2.a livré (accordion + conventions).
+
+**Contexte** : rapatrier les 6 champs du formulaire legacy
+`#useInventory`, `#inv-pos`, `#inv-icon`, `#inv-bgc`, `#inv-bga`,
+`#inv-color` dans la section `Inventaire` de la modale, sous
+`meta.settings.inventoryGlobal`. `#useInventory` masque
+`#inv-settings-container` côté legacy — la modale doit reproduire ce
+masquage (afficher / cacher les sous-champs selon `enabled`).
+
+**Fichiers à lire avant de coder** :
+
+- `editeur.html` / `editor_en.html` — `#global-sub-inv-body` et
+  `#inv-settings-container`.
+- `js/editor-shared-project-serialization.js` —
+  `getCurrentProjectData` (clés `useInv`, `invPos`, `invIcon`,
+  `invBgc`, `invBga`, `invColor`).
+- `js/editor-shared-nodal-to-dom.js` — `applyFromStore` (extension).
+- `xflow/react/src/model/project.ts` — type `ProjectSettings` à
+  remplir.
+- `xflow/react/src/serialize/toProjectJson.ts` /
+  `fromProjectJson.ts` — extension serialize/hydrate.
+- Plan détaillé C10.2.a (référence pour les conventions).
+
+**Phase questions** : Q-C10.2.b-Y standards (champs optionnels,
+binding, etc.). Pas de question structurelle inattendue.
+
+**Périmètre** :
+
+1. **Type** : `ProjectSettings.inventoryGlobal = { enabled: boolean;
+   position: string; icon: string; panelBg: string; panelBgAlpha:
+   number; textColor: string }`. Adapter les types stricts (enum
+   `position`) si Cursor identifie une liste fermée dans le legacy.
+
+2. **Section UI** « Inventaire » : checkbox `enabled` toujours
+   visible ; les 5 autres champs cachés tant que `enabled === false`
+   (cohérent legacy `#inv-settings-container`).
+
+3. **Store mutation** : `setMetaSettingsInventory(patch: Partial<...>)`.
+
+4. **Flush DOM** : projeter sur `#useInventory`, `#inv-pos`,
+   `#inv-icon`, `#inv-bgc`, `#inv-bga`, `#inv-color`. Déclencher le
+   `change` event sur `#useInventory` après mise à jour pour que le
+   masquage `#inv-settings-container` legacy se fasse (à confirmer en
+   recette manuelle).
+
+5. **Sérialisation V2** : ajouter `meta.settings.inventoryGlobal` au
+   `project.json` du bundle si non-`undefined`.
+
+6. **Hydrate V2** : lire `meta.settings.inventoryGlobal` → store.
+
+**Critères de fin** :
+
+- Section accordion `Inventaire` activée (placeholder retiré).
+- Mutation store ↔ DOM legacy ↔ `project.json` cohérente.
+- Tests Vitest : round-trip + flush + hydrate sur le sous-objet.
+- Recettes manuelles consignées (les 3 standards).
+
+**Branche / commit** :
+
+- Branche : `feat/c10-autonomy`.
+- Commit : `feat(nodal): C10.2.b inventaire HUD (meta.settings.inventoryGlobal)`.
+
+### Plan détaillé C10.2.c — Thème popups (migration `playerPopupTheme`)
+
+**Pré-requis** : C10.2.a livré.
+
+**Contexte** : sous-chantier le **plus délicat** de C10.2 :
+**migration** du slice racine `playerPopupTheme` (state Zustand,
+sérialisé `map-layout.json.nodalPlayerPopupTheme`) vers
+`meta.settings.popupTheme` (state Zustand sous `meta.settings`,
+sérialisé `project.json.meta.settings.popupTheme`). Casse le format
+in-memory et bundle (`map-layout.json` perd la clé, `project.json`
+gagne la clé) — accepté §0.2 règle 6 (pas de rétrocompat avant
+fusion `feat/nodal-map` → `main` post-C11).
+
+**Contrainte critique** (cf. Décisions de design Annexe D —
+« Préservation des aperçus live ») : la **réactivité live** des
+aperçus DOM `#popup-preview-*` (mis à jour à chaque changement via
+`projectPlayerPopupThemeToDom`) doit être préservée à l'identique.
+Vérifier que les sélecteurs Zustand sur `meta.settings.popupTheme.*`
+déclenchent le re-render avec la même fréquence que le slice actuel.
+
+**Fichiers à lire avant de coder** :
+
+- `xflow/react/src/store/nodalProjectStore.ts` — slice
+  `playerPopupTheme` actuel + ses actions.
+- `xflow/react/src/serialize/mapLayoutJson.ts` —
+  `MapLayoutJson.nodalPlayerPopupTheme` (à retirer).
+- `js/editor-shared-nodal-to-dom.js` —
+  `projectPlayerPopupThemeToDom` (à brancher sur la nouvelle source).
+- `xflow/react/src/view/palette/PopupThemeCustomizationPopup.tsx` (ou
+  équivalent — chercher) pour repérer les sélecteurs actuels.
+- `xflow/react/src/view/palette/GlobalSettingsHubPopup.tsx` — section
+  `Thème popups` à brancher sur la nouvelle source.
+
+**Phase questions** :
+
+- **Q-C10.2.c-1** — Migration des projets en cours : un
+  `.escapegame` sauvegardé en C10.2.a-précédent contient
+  `nodalPlayerPopupTheme` dans `map-layout.json`. À l'hydrate :
+  *(a)* lire les deux emplacements (`meta.settings.popupTheme`
+  prioritaire, fallback `nodalPlayerPopupTheme`) pour ne pas casser
+  les bundles que tu as générés depuis C10.0 ; *(b)* casse stricte —
+  les bundles pré-C10.2.c sont à régénérer manuellement (hors le tien
+  qui n'as encore rien diffusé). *Vote : (a) lecture compatible 1×
+  pour 1 cycle, écriture toujours sur la nouvelle clé. Cleanup du
+  fallback à un futur sous-chantier (ou jamais — coût marginal).*
+
+**Périmètre** :
+
+1. **Type** : `ProjectSettings.popupTheme = { useCustom: boolean;
+   font: string; color: string; bg: string; bgAlpha: number;
+   btnBg: string; btnColor: string }`.
+
+2. **Migration store** : retirer le slice racine `playerPopupTheme`,
+   placer ses valeurs dans `meta.settings.popupTheme`. Mettre à jour
+   tous les sélecteurs (`useStore(s => s.playerPopupTheme...)` →
+   `useStore(s => s.meta.settings?.popupTheme?...)`).
+
+3. **Section UI** : remplacer le contenu actuel de la section
+   `Thème popups` par le binding sur `meta.settings.popupTheme`.
+   Préserver l'UI existante (champs et aperçu).
+
+4. **Flush DOM** : `projectPlayerPopupThemeToDom` doit lire
+   `meta.settings.popupTheme` (ou continuer à recevoir les valeurs en
+   paramètre — refactor à voir).
+
+5. **Sérialisation V2** : écrire `meta.settings.popupTheme` dans
+   `project.json`. **Retirer** `nodalPlayerPopupTheme` de
+   `map-layout.json`.
+
+6. **Hydrate** : lire `meta.settings.popupTheme` du `project.json`.
+   Compat Q-C10.2.c-1 (a) : si absent, fallback
+   `mapLayout.nodalPlayerPopupTheme` 1× pour 1 cycle.
+
+**Critères de fin** :
+
+- Slice racine `playerPopupTheme` n'existe plus (recherche
+  `playerPopupTheme` dans les sources retourne 0 hit hors compat
+  hydrate).
+- `map-layout.json` n'écrit plus `nodalPlayerPopupTheme`.
+- `project.json` écrit `meta.settings.popupTheme`.
+- **Recette manuelle live preview** (critique) : ouvrir modale →
+  changer la couleur de fond popup → aperçu joueur (`#popup-preview-*`)
+  se met à jour **immédiatement** (même temps de réaction qu'avant).
+- Tests Vitest : round-trip + flush + hydrate + compat
+  `nodalPlayerPopupTheme` legacy.
+
+**Branche / commit** :
+
+- Branche : `feat/c10-autonomy`.
+- Commit : `feat(nodal): C10.2.c thème popups migration → meta.settings.popupTheme`.
+
+### Plan détaillé C10.2.d — Audio global
+
+**Pré-requis** : C10.2.a livré.
+
+**Contexte** : rapatrier `#useGlobalAudio`, `#globalAudioUrl`,
+`#globalAudioVol` sous `meta.settings.audio`. `#useGlobalAudio` masque
+`#audio-settings-container` côté legacy.
+
+**Fichiers à lire** :
+- `editeur.html` / `editor_en.html` — `#global-sub-audio-body`.
+- `js/editor-shared-project-serialization.js` (clés
+  `useGlobalAudio`, `globalMusic`).
+- Plan C10.2.b (pattern de référence).
+
+**Phase questions** : Q-C10.2.d-Y standards.
+
+**Périmètre** :
+
+1. Type `audio = { enabled: boolean; url: string; volume: number }`.
+2. Section UI `Audio` : checkbox + 2 champs (URL + slider volume).
+3. Store mutation `setMetaSettingsAudio`.
+4. Flush DOM sur les 3 ids.
+5. Sérialisation/Hydrate `meta.settings.audio`.
+6. **Cas particulier** : le legacy sérialise `globalMusic: { url,
+   volume }` (objet imbriqué) avec un alias `globalAudioUrl` plat.
+   Choisir la forme V2 : `meta.settings.audio = { enabled, url,
+   volume }` plat (sans aliasing) — Cursor justifie son choix.
+
+**Critères de fin** : tests Vitest standards + recettes manuelles.
+
+**Commit** : `feat(nodal): C10.2.d audio global (meta.settings.audio)`.
+
+### Plan détaillé C10.2.e — Timer global + sauvegarde joueur
+
+**Pré-requis** : C10.2.a livré.
+
+**Contexte** : rapatrier `#useTimer`, `#timerMode`,
+`#timerStartSeconds`, `#timerAutoStart`, `#timerPauseOnPopup` sous
+`meta.settings.timer` ; et `#playerSaveMode` sous
+`meta.settings.playerSave`. Deux groupes mais une seule section UI
+« Timer & sauvegarde » (cohérent avec le legacy qui les regroupe dans
+`#global-sub-timer-body`).
+
+**Fichiers à lire** :
+
+- `editeur.html` / `editor_en.html` — `#global-sub-timer-body`.
+- `js/editor-shared-timer.js` — `readTimerSettingsFromDom` (utile pour
+  la convention de naming des champs timer).
+- Plans C10.2.b et .d (pattern de référence).
+
+**Phase questions** :
+
+- **Q-C10.2.e-1** — Type `timer.mode` : enum (`'countdown'`,
+  `'stopwatch'`, …) ou string libre ? Lever depuis
+  `readTimerSettingsFromDom` la liste des modes valides. *Vote : enum
+  strict pour cohérence runtime.*
+
+**Périmètre** :
+
+1. Types :
+   ```ts
+   timer = { enabled: boolean; mode: TimerMode; startSeconds: number;
+             autoStart: boolean; pauseWhenPopupOpen: boolean }
+   playerSave = { mode: PlayerSaveMode }
+   ```
+2. Section UI unique « Timer & sauvegarde » avec sous-bloc timer
+   (masqué si `!enabled`) et bloc `playerSave` toujours visible.
+3. Mutations `setMetaSettingsTimer` + `setMetaSettingsPlayerSave`.
+4. Flush DOM sur les 6 ids.
+5. Sérialisation/Hydrate `meta.settings.timer` + `meta.settings.playerSave`.
+
+**Commit** : `feat(nodal): C10.2.e timer + sauvegarde joueur
+(meta.settings.timer / .playerSave)`.
+
+### Plan détaillé C10.2.f — Fins de partie
+
+**Pré-requis** : C10.2.a livré, C10.2.e livré (réutilise le pattern
+sélecteur de scène).
+
+**Contexte** : dernier rapatriement — sections
+`#endGameOverTitle/Body/Btn`, `#endVictoryTitle/Body/Btn`,
+`#victorySceneId`, `#gameOverSceneId` sous
+`meta.settings.endScreens`. Les `Body` sont des **textes riches Quill**
+— réutiliser l'infra `nodalQuillTheme` (C7.6).
+
+**Fichiers à lire** :
+
+- `editeur.html` / `editor_en.html` — `#end-screens-form-container`.
+- `js/editor-shared-project-serialization.js` — clés
+  `endScreens.{gameOver,victory}.{title,bodyHtml,buttonLabel}` +
+  `victorySceneId` / `gameOverSceneId`.
+- Composants C7.2/C7.3 popups — pattern d'usage `nodalQuillTheme`.
+- Plan C10.2.e (pattern sélecteur scène — `victorySceneId` /
+  `gameOverSceneId` peuplés depuis liste scènes du store).
+
+**Phase questions** :
+
+- **Q-C10.2.f-1** — Stockage des `*SceneId` : (a) externe (`extScene`
+  string lisible) ; (b) interne (`SceneNodeId` opaque). *Vote : (a)
+  externe — cohérent avec le legacy qui sérialise `victorySceneId`
+  externe ; le store résout l'interne au runtime.*
+- **Q-C10.2.f-2** — Sélecteur scène UI : (a) `<select>` natif peuplé
+  depuis `Object.values(state.scenes).map(s => s.sceneId)` ; (b)
+  composant custom avec recherche. *Vote : (a) — simple, 5-20 scènes
+  en pratique, pas besoin de recherche.*
+- **Q-C10.2.f-3** — Quill : réutiliser le wrapper
+  `nodalQuillTheme` posé en C7.6. *Vote : oui (cf. décisions de
+  design Annexe D).*
+
+**Périmètre** :
+
+1. Type :
+   ```ts
+   endScreens = {
+     victorySceneExternalId: string;
+     gameOverSceneExternalId: string;
+     gameOver: { title: string; bodyHtml: string; buttonLabel: string };
+     victory: { title: string; bodyHtml: string; buttonLabel: string };
+   }
+   ```
+2. Section UI « Fins de partie » : 2 sélecteurs scène + 6 champs
+   (3 par fin) avec Quill sur les `bodyHtml`.
+3. Mutations `setMetaSettingsEndScreens(...)`.
+4. Flush DOM sur les 8 ids. Pour `bodyHtml` : passer par
+   `flushRichEditorsIn` après mise à jour pour que Quill soit synchro.
+5. Sérialisation/Hydrate `meta.settings.endScreens`.
+6. **Cas particulier hydrate** : si une scène référencée
+   (`victorySceneExternalId`) n'existe plus au moment de l'hydrate
+   (utilisateur a supprimé la scène), conserver la string mais la
+   modale affichera `(scène introuvable)` dans le `<select>`. Pas
+   de purge automatique.
+
+**Critères de fin** : tests Vitest standards + recettes manuelles +
+recette spéciale Quill (édite body Game Over → save → reload →
+HTML restauré).
+
+**Commit** : `feat(nodal): C10.2.f fins de partie (meta.settings.endScreens)`.
 
 ### Plan détaillé C10.3 — directives pour Cursor
 
