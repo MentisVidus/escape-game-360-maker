@@ -2,12 +2,25 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.9 (7 mai 2026)
+> **Version** : 1.9.1 (7 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+
+> **Changelog v1.9.1** : ajout de **4 chantiers backlog** en §7,
+> issus du backlog identifié pendant C10 (cf. archive
+> `docs/archives/chantier_10.md` § « Découvert pendant C10.0 / C10.2 ») :
+> **C18** — Aperçu de scène 360° + modale placement coords hotspots ;
+> **C19** — Audio preview / écouter (popup audio global + media nodes
+> audio) ; **C20** — Aperçus latéraux globaux (inventaire + écrans
+> Game Over / Victory themed, absorbe l'item ex-`C10.2.b-fix`) ;
+> **C21** — End-screens scene-level via clic droit (rendrait obsolète
+> la section globale C10.2.f). §7 intro mise à jour : « C11–C21
+> planifiés ». Priorité produit annoncée : **C18 et C19 prioritaires
+> sur C11–C17**, ordre confirmé en cadrage des chantiers à venir.
+> Doc-only.
 
 > **Changelog v1.9** : clôture **chantier C10** — autonomie carte nodale
 > (authoring standalone). Synthèse **Annexe B — C10**. Livré :
@@ -833,11 +846,12 @@ centre la vue sur le nœud concerné.
 ## 7. Roadmap d'implémentation
 
 Chantiers numérotés pour référence dans les commits. **C1–C10 livrés**
-(v1.5 → v1.9) ; **C11–C17 planifiés** ci-dessous. La numérotation
+(v1.5 → v1.9) ; **C11–C21 planifiés** ci-dessous. La numérotation
 au-delà de C10 est indicative — l’ordre peut être réarrangé selon
-priorité produit. Chaque chantier passe par la phase questions §8.1
-au démarrage et ouvre une **Annexe D** vivante refondue à la clôture
-(cf. §8.4 et `docs/archives/chantier_*.md`).
+priorité produit (priorité produit annoncée v1.9.1 : **C18 et C19
+prioritaires sur C11–C17**). Chaque chantier passe par la phase
+questions §8.1 au démarrage et ouvre une **Annexe D** vivante refondue
+à la clôture (cf. §8.4 et `docs/archives/chantier_*.md`).
 
 ### C1 — Fondation du modèle en mémoire *(pas de rendu)*
 
@@ -1140,6 +1154,191 @@ Productivité médias et portabilité du snapshot :
 - **Bibliothèque médias partagée entre actions** — éviter les
   doublons en référençant les médias par id dans `meta.media[mediaId]`,
   consommé par tous les nœuds qui l’affichent.
+
+### C18 — Aperçu de scène 360° + placement coords hotspots
+
+Objectif : porter dans la carte nodale les **deux dernières fonctions
+d'authoring legacy non rapatriées en C10** — visualisation interactive
+du panorama 360° d'une scène et placement des coordonnées de hotspot
+via clic sur l'aperçu. Ce sont les deux fonctions encore exclusivement
+disponibles côté formulaire après la clôture C10. **Priorité : haute
+(annoncée v1.9.1).**
+
+**Cœur technique** :
+
+- Réutilisation du viewer **Pannellum** déjà embarqué côté runtime
+  joueur (pas d'ajout de dépendance).
+- Source des panoramas : `scene.panoramaUrl` (URL ou bundle local
+  C10.5).
+- Lecture des coords actuelles depuis le satellite `coords-options`
+  (yaw, pitch).
+
+**Périmètre fonctionnel** :
+
+- **Aperçu scène 360°** : visualisation du panorama d'une scène
+  depuis le nœud **s-box**. Cible UI à cadrer (popup dédié, panneau
+  intégré au s-box, ou modale plein écran). Mode **read-only**
+  initialement.
+- **Modale placement coords hotspots** : UI pointer-sur-image-360°
+  pour saisir / corriger les coordonnées d'un hotspot. Cible
+  d'ouverture : satellite `coords-options` (bouton « Définir sur
+  l'image » ou équivalent). Au clic dans le viewer, écriture du
+  yaw/pitch dans le store.
+- Cohabitation avec la saisie numérique manuelle existante du
+  satellite `coords-options` (les deux UI éditent la même donnée).
+
+**Points à cadrer en phase questions** :
+
+- Emplacement UI exact de l'aperçu scène (popup vs panneau s-box vs
+  modale plein écran).
+- Behavior du clic-pour-positionner : clic-once, drag-to-set,
+  crosshair persistant ?
+- Performance avec un grand nombre de scènes : aperçu lazy au survol /
+  clic uniquement ?
+- Intégration des hotspots existants : afficher leurs positions sur
+  l'aperçu ? Possibilité de drag pour repositionner ?
+
+Découpage attendu (à valider §8.1) : **C18.1** Aperçu scène 360°
+read-only ouvert depuis le s-box ; **C18.2** Modale placement coords
+hotspots éditable depuis `coords-options` ; **C18.3** (optionnel)
+Affichage + drag des hotspots existants sur l'aperçu.
+
+### C19 — Audio preview / écouter
+
+Objectif : pouvoir **tester un fichier audio** (URL ou bundle local)
+directement depuis la carte, avec contrôle volume actif. Permet le
+**pré-mix réaliste** des volumes sur l'audio global et les media nodes
+audio en authoring. Aujourd'hui l'utilisateur règle les volumes à
+l'aveugle. **Priorité : haute (annoncée v1.9.1).**
+
+**Cœur technique** :
+
+- `<audio>` HTML5 standard (pas de dépendance).
+- Réutilisation possible de `editorAudioPreviewToggle` legacy (cf.
+  `editeur.html` qui appelle déjà cette fonction sur le bouton ▶
+  legacy à côté de `#globalAudioUrl`).
+- Lecture en respectant la valeur `volume` actuellement saisie dans
+  le store.
+
+**Périmètre fonctionnel** :
+
+- Bouton **play/pause** sur les inputs URL audio :
+  - Popup audio global (`AudioGlobalSettingsPopup`, C10.2.d) — pour
+    `meta.settings.audio.url` + slider volume.
+  - Popups audio media nodes (édition d'un nœud `media-audio`).
+- Lecture **single-player partagée** : un seul player actif à la
+  fois ; ouvrir un nouveau preview arrête le précédent. Évite la
+  cacophonie.
+- Le volume slider **influe en temps réel** sur la lecture en
+  cours (mute possible via le slider à 0).
+
+**Points à cadrer en phase questions** :
+
+- Single player partagé (recommandé) ou un par-source ?
+- Comportement à la fin du fichier : auto-stop ou loop ?
+- Indication visuelle de l'état (jauge de progression ? icône ▶/⏸ ?).
+- Le player est-il actif sur l'aperçu complet ou se ferme-t-il à la
+  fermeture de la popup ? (Recommandé : auto-stop à la fermeture
+  popup pour éviter les sons fantômes.)
+
+Découpage attendu (à valider §8.1) : **C19.1** API preview audio
+unifiée + bouton dans `AudioGlobalSettingsPopup` ; **C19.2** Idem
+popups audio media nodes ; **C19.3** Slider volume live + auto-stop à
+fermeture popup.
+
+### C20 — Aperçus latéraux globaux
+
+Objectif : doter les popups **Paramètres globaux** des aperçus
+latéraux qui rendent visible l'effet de chaque réglage. Aujourd'hui
+seul le **thème popup** a un aperçu (factor `PlayerPopupPreview` posée
+en C7) — l'inventaire et les écrans de fin éditent à l'aveugle.
+Absorbe l'item ex-**`C10.2.b-fix`** noté pendant C10.
+
+**Cœur technique** :
+
+- Réutilisation et extension du pattern `PlayerPopupPreview` (C7).
+- Possible factor commune `<GlobalSettingsPreview>` partagée par
+  l'inventaire, les end-screens, et autres aperçus à venir.
+
+**Périmètre fonctionnel** :
+
+- **Aperçu inventaire HUD** dans `InventoryGlobalSettingsPopup`
+  (C10.2.b) : preview live des couleurs, position, icône, opacité
+  selon `meta.settings.inventoryGlobal`.
+- **Aperçu écrans Game Over / Victory** dans
+  `EndScreensSettingsPopup` (C10.2.f) : preview avec **application
+  du thème popup courant** (couleurs de fond, polices issues de
+  `meta.settings.popupTheme`) + texte HTML rendu par Quill. Aujourd'hui
+  l'éditeur des end-screens ignore complètement le thème popup, ce
+  qui décorrélait l'aperçu de la réalité runtime.
+- **Refit du pattern visible+disabled** sur la popup inventaire
+  (aujourd'hui les sous-champs sont masqués quand `enabled=false` —
+  divergent de C10.2.e timer qui les laisse visibles désactivés).
+  Alignement sur le pattern timer (item ex-`C10.2.b-fix` absorbé).
+- Autres aperçus pertinents à identifier en cadrage (audio meter
+  visuel sur le slider volume ? mock timer ?).
+
+**Points à cadrer en phase questions** :
+
+- Liste exhaustive des popups à équiper (audit type C10.0).
+- Position UI du panneau aperçu (à droite ? en bas ? popup plus
+  large ?).
+- Composant unique paramétrable ou un par groupe métier ?
+- Le retrofit visible+disabled inventaire : breaking visuel pour
+  l'utilisateur — communiquer si nécessaire.
+
+Découpage attendu (à valider §8.1) : **C20.1** Aperçu inventaire +
+retrofit visible+disabled ; **C20.2** Aperçu end-screens themed ;
+**C20.3** (optionnel) Autres aperçus identifiés en cadrage.
+
+### C21 — End-screens scene-level via clic droit
+
+Objectif : **refonte UX** de la définition des écrans de fin (game
+over / victory). Au lieu d'un sélecteur global qui désigne UNE scène
+spécifique comme déclencheuse (état actuel C10.2.f), n'importe quelle
+scène devient potentiellement victoire ou défaite via **clic droit +
+entrée menu contextuel**. Permet le **multi-scènes** : plusieurs fins
+distinctes, chacune avec son texte / ses paramètres.
+
+**Cœur technique** :
+
+- Extension du modèle scène : `Scene.endRole?: 'victory' |
+  'gameover' | null` (ou structure plus riche si besoin).
+- Textes propres par scène-fin : `title`, `bodyHtml`, `buttonLabel`
+  (et éventuellement score) portés sur la scène elle-même.
+- Refactor de `EndScreensSettingsPopup` (C10.2.f) : possiblement
+  supprimé en faveur d'un popup d'édition par scène-fin déclenché
+  depuis le menu contextuel ou depuis le nœud scène lui-même.
+
+**Périmètre fonctionnel** :
+
+- Clic droit scène → menu contextuel → entrées « Définir comme
+  victoire » / « Définir comme défaite » (ou « Retirer fin de partie »
+  si déjà définie).
+- Popup d'édition par scène-fin : `title`, `bodyHtml` (Quill +
+  `nodalQuillTheme`, cohérent C10.2.f), `buttonLabel`.
+- Indicateur visuel sur la s-box de la scène-fin (badge couleur ?
+  icône ?).
+- **Migration des projets pré-C21** : les valeurs actuelles
+  `meta.settings.endScreens` (un seul couple victoire/défaite) sont
+  promues comme propriétés de la scène désignée.
+
+**Points à cadrer en phase questions** :
+
+- Conserver une vue globale (lecture seule) listant les scènes-fins
+  désignées, ou tout retirer du hub Paramètres globaux ?
+- Une scène peut-elle être victoire ET défaite simultanément
+  (probablement non — choix exclusif) ?
+- Migration : automatique au load d'un projet pré-C21 ou via un
+  assistant utilisateur ?
+- Score / statistique runtime : prévu dans C21 ou hors scope ?
+- Cohabitation avec les autres clics droits scène existants (si
+  un menu contextuel scène existe déjà, comment s'y intègre-t-on).
+
+Découpage attendu (à valider §8.1) : **C21.1** Modèle (`endRole` +
+textes scène) + clic droit menu contextuel + popup d'édition par
+scène-fin ; **C21.2** Migration des projets C10.2.f → C21 + retrait
+sélecteur global de `EndScreensSettingsPopup`.
 
 ---
 
