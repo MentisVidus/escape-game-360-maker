@@ -13,7 +13,12 @@ import type {
 import type { NodeLayout, Viewport } from "../model/layout";
 import type { ActionNode, MediaNode, SatelliteNode, SceneNode } from "../model/nodes";
 import type { ObjectEntry } from "../model/objects";
-import type { InventoryGlobalSettings, NodalProject, PopupThemeSettings } from "../model/project";
+import type {
+  AudioGlobalSettings,
+  InventoryGlobalSettings,
+  NodalProject,
+  PopupThemeSettings,
+} from "../model/project";
 import { applyHydratedLayout, type MapLayoutJson } from "../serialize/mapLayoutJson";
 import { applyMetaMediaLinks, applyNodalAutoSatelliteData } from "../serialize/nodalMapExtras";
 import { deserializeFromProjectJson } from "../serialize/fromProjectJson";
@@ -75,6 +80,8 @@ export type NodalProjectStore = NodalProject & {
   setMetaTitle: (title: string) => void;
   /** C10.2.b — paramètres inventaire global (`meta.settings.inventoryGlobal`). */
   setMetaSettingsInventory: (patch: Partial<InventoryGlobalSettings>) => void;
+  /** C10.2.d — audio global (`meta.settings.audio`). */
+  setMetaSettingsAudio: (patch: Partial<AudioGlobalSettings>) => void;
   setViewport: (viewport: Viewport) => void;
   upsertObject: (entry: ObjectEntry) => void;
   removeObject: (objectId: string) => void;
@@ -300,11 +307,11 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
     const nextAutoId = (prefix: string) => `${prefix}-${++autoIdSeq}`;
 
     return createStore<NodalProjectStore>((set, get) => ({
-    ...createEmptyProject(),
-    sceneBoxOverlapMemory: new Map(),
-    warnings: [],
+      ...createEmptyProject(),
+      sceneBoxOverlapMemory: new Map(),
+      warnings: [],
 
-    setMetaSettingsPopupTheme: (patch) => {
+      setMetaSettingsPopupTheme: (patch) => {
       set((state) =>
         withWarnings({
           ...state,
@@ -320,9 +327,9 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           },
         })
       );
-    },
+      },
 
-    syncMetaSettingsPopupThemeFromDom: () => {
+      syncMetaSettingsPopupThemeFromDom: () => {
       set((state) =>
         withWarnings({
           ...state,
@@ -335,9 +342,9 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           },
         })
       );
-    },
+      },
 
-    addScene: (node, layout) => {
+      addScene: (node, layout) => {
       set((state) => {
         const next: NodalProjectStore = {
           ...state,
@@ -762,6 +769,29 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
             settings: {
               ...(state.meta.settings || {}),
               inventoryGlobal: nextInventory,
+            },
+          },
+        });
+      });
+    },
+
+    setMetaSettingsAudio: (patch) => {
+      set((state) => {
+        const prev = state.meta.settings?.audio;
+        const nextAudio: AudioGlobalSettings = {
+          enabled: prev?.enabled ?? false,
+          url: prev?.url ?? "",
+          volume: prev?.volume ?? 0.5,
+          ...patch,
+        };
+        nextAudio.volume = clamp01(nextAudio.volume, 0.5);
+        return withWarnings({
+          ...state,
+          meta: {
+            ...state.meta,
+            settings: {
+              ...(state.meta.settings || {}),
+              audio: nextAudio,
             },
           },
         });

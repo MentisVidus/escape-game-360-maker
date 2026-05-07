@@ -577,6 +577,22 @@
             if (invColor && inv.textColor != null) invColor.value = String(inv.textColor);
             if (typeof global.updatePreview === "function") global.updatePreview();
         }
+        /* C10.2.d — audio global (`meta.settings.audio`). */
+        var audio = st.meta && st.meta.settings && st.meta.settings.audio;
+        if (audio) {
+            var useGlobalAudio = document.getElementById("useGlobalAudio");
+            var globalAudioUrl = document.getElementById("globalAudioUrl");
+            var globalAudioVol = document.getElementById("globalAudioVol");
+            if (useGlobalAudio) {
+                useGlobalAudio.checked = !!audio.enabled;
+                useGlobalAudio.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            if (globalAudioUrl && audio.url != null) globalAudioUrl.value = String(audio.url);
+            if (globalAudioVol && audio.volume != null) {
+                globalAudioVol.value = String(audio.volume);
+                globalAudioVol.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        }
         return out;
     }
 

@@ -15,7 +15,7 @@ export type ProjectSettings = {
   /** C10.2.c — thème popups (migration depuis `playerPopupTheme` / map-layout) */
   popupTheme?: PopupThemeSettings;
   /** C10.2.d — audio global */
-  audio?: Record<string, unknown>;
+  audio?: AudioGlobalSettings;
   /** C10.2.e — timer global */
   timer?: Record<string, unknown>;
   /** C10.2.e — sauvegarde progression joueur */
@@ -43,6 +43,12 @@ export type PopupThemeSettings = {
   bgAlpha: number;
   btnBg: string;
   btnColor: string;
+};
+
+export type AudioGlobalSettings = {
+  enabled: boolean;
+  url: string;
+  volume: number;
 };
 
 export type ProjectMeta = {

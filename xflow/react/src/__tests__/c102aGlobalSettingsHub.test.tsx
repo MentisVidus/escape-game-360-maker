@@ -49,6 +49,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenProjectIdentity={() => {}}
         onOpenInventory={() => {}}
         onOpenPopupTheme={() => {}}
+        onOpenAudio={() => {}}
         store={store}
       />
     );
@@ -65,13 +66,13 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenProjectIdentity={() => {}}
         onOpenInventory={() => {}}
         onOpenPopupTheme={() => {}}
+        onOpenAudio={() => {}}
         store={store}
       />
     );
     const btns = Array.from(container.querySelectorAll<HTMLButtonElement>("button.nodal-global-hub-btn"));
     const disabled = btns.filter((b) => b.disabled);
-    expect(disabled.length).toBe(3);
-    expect(disabled.some((b) => (b.title || "").includes("C10.2.d"))).toBe(true);
+    expect(disabled.length).toBe(2);
     expect(disabled.some((b) => (b.title || "").includes("C10.2.e"))).toBe(true);
     expect(disabled.some((b) => (b.title || "").includes("C10.2.f"))).toBe(true);
   });
@@ -86,6 +87,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenProjectIdentity={onIdentity}
         onOpenInventory={() => {}}
         onOpenPopupTheme={() => {}}
+        onOpenAudio={() => {}}
         store={store}
       />
     );
@@ -109,6 +111,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenProjectIdentity={() => {}}
         onOpenInventory={() => {}}
         onOpenPopupTheme={onTheme}
+        onOpenAudio={() => {}}
         store={store}
       />
     );
@@ -132,6 +135,7 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
         onOpenProjectIdentity={() => {}}
         onOpenInventory={onInventory}
         onOpenPopupTheme={() => {}}
+        onOpenAudio={() => {}}
         store={store}
       />
     );
@@ -143,6 +147,29 @@ describe("C10.2.a-fix — GlobalSettingsHubPopup", () => {
       btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(onInventory).toHaveBeenCalledTimes(1);
+  });
+  it("clic Audio appelle onOpenAudio", () => {
+    const store = createNodalProjectStore();
+    const onAudio = vi.fn();
+    renderTree(
+      <GlobalSettingsHubPopup
+        open
+        onClose={() => {}}
+        onOpenProjectIdentity={() => {}}
+        onOpenInventory={() => {}}
+        onOpenPopupTheme={() => {}}
+        onOpenAudio={onAudio}
+        store={store}
+      />
+    );
+    const btn = Array.from(container.querySelectorAll("button.nodal-global-hub-btn")).find((b) =>
+      (b.textContent || "").includes("Audio")
+    );
+    expect(btn).toBeDefined();
+    act(() => {
+      btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onAudio).toHaveBeenCalledTimes(1);
   });
 });
 
