@@ -62,7 +62,8 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           load: "Load…",
           publish: "Publish",
           publishHint: "Publish your game (HTML / ZIP / deploy)",
-          form: "Form editor",
+          form: "Verify",
+          formHint: "Verification view (read-only)",
           shortcuts: "Shortcuts",
           shortcutsHint: "Shortcuts (?)",
         }
@@ -79,7 +80,8 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           load: "Charger…",
           publish: "Publier",
           publishHint: "Publication du jeu (HTML / ZIP / déploiement)",
-          form: "Formulaire",
+          form: "Vérifier",
+          formHint: "Vue de vérification (read-only)",
           shortcuts: "Raccourcis",
           shortcutsHint: "Raccourcis (?)",
         };
@@ -241,7 +243,7 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
         >
           {labels.publish}
         </button>
-        <button type="button" onClick={() => runChrome((c) => c.closeProjectMapModal())}>
+        <button type="button" title={labels.formHint} onClick={() => runChrome((c) => c.closeProjectMapModal())}>
           {labels.form}
         </button>
       </div>

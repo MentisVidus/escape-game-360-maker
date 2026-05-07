@@ -37,8 +37,8 @@
         <button class="btn-save" onclick="saveProject()">💾 Sauvegarder Projet (.json)</button>
         <button type="button" class="btn-save" onclick="void saveProjectBundle()" title="Archive ZIP renommée : project.json + dossier assets/">💾 Sauvegarder le projet (.escapegame)</button>
         <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Charger Projet (.json / .escapegame)</button>
-        <button type="button" class="btn-load" onclick="openProjectMap()" title="Vue graphe des scènes et transitions">🗺️ Afficher la carte</button>
-        <button type="button" class="btn-load" onclick="openNodalMapEditor()" title="Ouvre directement la carte React Flow">🧠 Éditeur Nodal</button>
+        <button type="button" id="toolbar-open-drawflow-map" class="btn-load" onclick="openProjectMap()" title="Vue graphe des scènes et transitions">🗺️ Afficher la carte</button>
+        <button type="button" id="toolbar-open-nodal-map" class="btn-load" onclick="openNodalMapEditor()" title="Ouvre directement la carte React Flow">🧠 Éditeur Nodal</button>
         <!-- Imports : JSON classique ou bundle ZIP (.escapegame) ; médias locaux pour le bundle -->
         <input type="file" id="file-import" style="display:none;" accept=".json,.escapegame,application/json,application/zip" onchange="loadProject(event)">
         <input type="file" id="bundle-media-file" style="display:none;" onchange="onBundleLocalMediaSelected(event)">
@@ -509,5 +509,6 @@
     <script src="xflow/draw/project-graph.js" defer></script>
     <script src="xflow/react/dist/editor-map.js" defer></script>
     <script src="js/editor-nodal-map-bootstrap.js" defer></script>
+    <script src="js/editor-shared-legacy-verify-mode.js" defer></script>
 </body>
 </html>

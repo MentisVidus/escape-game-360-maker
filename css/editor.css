@@ -379,3 +379,44 @@
             border-radius: 4px;
             border: 1px solid #bdc3c7;
         }
+
+        /* C10.4 — vue de vérification (formulaire legacy read-only) */
+        .editor-legacy-verify-banner {
+            position: sticky;
+            top: 0;
+            z-index: 70;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 10px;
+            margin: -4px 0 16px 0;
+            padding: 12px 14px;
+            border-radius: 8px;
+            background: linear-gradient(90deg, #fff3cd 0%, #ffe69c 55%, #fff3cd 100%);
+            border: 1px solid #e0b800;
+            color: #5c4a00;
+            font-size: 15px;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.35;
+            box-shadow: 0 2px 8px rgba(92, 74, 0, 0.12);
+        }
+        .editor-legacy-verify-banner-icon {
+            flex-shrink: 0;
+            font-size: 1.2em;
+            line-height: 1.2;
+        }
+        html.legacy-verify-mode-active .legacy-verify-no-pointer {
+            pointer-events: none !important;
+            cursor: default !important;
+            user-select: none;
+        }
+        html.legacy-verify-mode-active #editor-global-root input:not([type="hidden"]):disabled,
+        html.legacy-verify-mode-active #editor-global-root textarea:disabled,
+        html.legacy-verify-mode-active #editor-global-root select:disabled,
+        html.legacy-verify-mode-active #scenes-container input:not([type="hidden"]):disabled,
+        html.legacy-verify-mode-active #scenes-container textarea:disabled,
+        html.legacy-verify-mode-active #scenes-container select:disabled {
+            cursor: not-allowed;
+            opacity: 0.88;
+        }

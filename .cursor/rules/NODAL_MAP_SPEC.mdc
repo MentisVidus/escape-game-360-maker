@@ -200,13 +200,11 @@ Ces règles contraignent toutes les décisions d'implémentation.
    modification métier passe par une action sur ce modèle. Aucune
    écriture dans le DOM legacy ne fait autorité.
 
-2. **Cible produit : le formulaire DOM legacy en lecture seule.** À terme,
-   tous les inputs, selects, textarea et boutons d’édition seront
-   désactivés pour n’offrir qu’une **vue de vérification** (chantier **C6.1**,
-   optionnel — **non bloquant** pour C6 livré v1.5 : tant que **C6.1** n’est
-   pas fait, l’utilisateur peut encore éditer le legacy ; la **carte nodale**
-   et le **bundle** restent la source de vérité pour la persistance et
-   l’export).
+2. **Cible produit : le formulaire DOM legacy en lecture seule.** Les contrôles
+   du formulaire principal sont **désactivés** ; seule une **vue de vérification**
+   avec bandeau est proposée ; l’édition se fait sur la **carte nodale**
+   (**C10.4** — absorbe l’option **C6.1**). La carte et le bundle restent la
+   source de vérité pour la persistance et l’export.
 
 3. **Format V2 exclusivement.** Le modèle carte se sérialise vers un
    `project.json` au format V2 (schéma d'action unifié avec `type`,
@@ -3583,6 +3581,16 @@ bump v1.9, PR `feat/c10-autonomy` → `feat/nodal-map`).
   Recettes manuelles : éditeur neuf → modale carte nodale sans clic ; charger
   `.escapegame` → carte avec contenu ; reload → carte ; `[Formulaire]` ferme encore
   vers le formulaire legacy.
+
+- 2026-05-07 — **C10.4 livré** (`feat/c10-autonomy`) : formulaire legacy **read-only**.
+  Module `js/editor-shared-legacy-verify-mode.js` (bandeau sous `#editor-global-root`,
+  désactivation input/textarea/select/button + zones `[onclick]` + gel Quill,
+  `MutationObserver` sur `#editor-global-root` / `#scenes-container`, modales
+  picker / aperçu scène ; barre d’outils : seuls `toolbar-open-drawflow-map` et
+  `toolbar-open-nodal-map` restent actifs ; entrées `file-import` / `bundle-media-file`
+  non désactivées). Styles `css/editor.css`. Palette : bouton **Vérifier** /
+  **Verify** + tooltip read-only (`NodePalette.tsx`). Vitest
+  `c104NodePaletteVerify.test.tsx`. FR/EN : `editeur.html` / `editor_en.html`.
 
 - 2026-05-07 — **C10.5 livré** (`feat/c10-autonomy`) : upload média local sur la carte nodale.
   `js/editor-shared-bundle.js` : `pickLocalMediaFromBundle` (input fichier dédié),
