@@ -1035,7 +1035,10 @@ côté legacy) :
 Découpage validé (§8.1, Annexe D) : **C10.0** audit globals ;
 **C10.1** bouton Publier + flush ; **C10.2.x** rapatriement globals
 (sous-découpage à figer après C10.0) ; **C10.3** ouverture nodale par
-défaut ; **C10.4** désactivation legacy.
+défaut ; **C10.5** upload média local (images + audio — inséré
+post-cadrage initial pour vraiment clore l'autonomie) ; **C10.4**
+désactivation legacy + bandeau + renommage `[Formulaire]` →
+`[Vérifier]`.
 
 ### C11 — Déploiement Netlify intégré *(« Deploy Game »)*
 
@@ -1783,24 +1786,44 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
   bootstrappent directement sur la carte nodale. Bouton `[Formulaire]`
   renommé `[Vérifier]`, conservé comme toggle vers la vue legacy en
   lecture seule (debug rapide).
-- **Désactivation legacy** (C10.4, absorbe C6.1) : bandeau « Miroir
-  nodal — édition via la carte » + tous inputs/textareas/selects/
-  buttons d'édition `disabled`. Vue de vérification §0.2 règle 2.
+- **Upload média local** (C10.5, inséré post-cadrage initial) :
+  bouton d'upload local pour images + audio dans toutes les popups
+  carte consommatrices d'URL média (panorama scène, hotspot icon,
+  audio/image media nodes, audio global, inventaire icon). **Précondition
+  à C10.4** — sans cette fonction côté carte, désactiver le formulaire
+  priverait l'utilisateur de l'upload local (seul accessible via
+  legacy aujourd'hui).
+- **Désactivation legacy** (C10.4, absorbe C6.1) : bandeau « Vue de
+  vérification — l'édition se fait via la carte nodale » + tous
+  inputs/textareas/selects/buttons d'édition `disabled`. Renommage
+  bouton `[Formulaire]` → `[Vérifier]` côté palette. Vue de
+  vérification §0.2 règle 2. **Pré-requis : C10.5 livré.**
 - **Hors scope C10** : migration des `.escapegame` pré-existants (la
   fusion `feat/nodal-map` → `main` n'arrivera qu'après C11, donc pas
   de version publiée à préserver) ; refonte palette latérale (on
   ajoute juste un bouton).
-- **Découvert pendant C10.0 — à formaliser en chantier futur** : deux
-  fonctionnalités d'authoring legacy ne sont **pas encore portées**
-  dans la carte nodale (au-delà des paramètres globaux couverts par
-  C10) :
-  - **Aperçu de scène 360°** (image preview du panorama) — cible
-    naturelle : nœud **s-box** (zone visuelle de la scène).
-  - **Modale de placement des coordonnées hotspots** (UI pour pointer
-    sur l'image 360°) — cible naturelle : satellite
-    **`coords-options`**.
-  À reprendre dans un nouveau chantier dédié (probable **C18**) à la
-  clôture C10 ou plus tôt si bloquant pour les tests utilisateurs.
+- **Découvert pendant C10.0 / C10.2 — à formaliser en chantiers
+  futurs** :
+  - **C18 candidat — Aperçu de scène + placement coords hotspots** :
+    aperçu scène 360° (image preview du panorama, cible nœud
+    **s-box**) + modale placement coords hotspots (cible satellite
+    **`coords-options`**).
+  - **C19 candidat — Audio preview / écouter** : bouton lecture sur
+    les inputs URL audio (popup audio global C10.2.d + audio media
+    nodes) pour permettre le pré-mix volumes en authoring.
+  - **C20 candidat — Aperçus latéraux globaux** : aperçu inventaire
+    HUD dans `InventoryGlobalSettingsPopup`, aperçu écran
+    Game Over / Victory dans `EndScreensSettingsPopup` (avec
+    application du thème popup), et autres aperçus pertinents.
+    L'item **C10.2.b-fix** (preview inventaire + retrofit pattern
+    visible+disabled au lieu de masquage) s'absorbe ici.
+  - **C21 candidat — End-screens scene-level** : refonte UX game
+    over / victory — clic droit scène → « Définir comme victoire » /
+    « Définir comme défaite », multi-scènes possibles, chacune
+    personnalisable. Rendrait obsolète C10.2.f dans sa forme actuelle
+    (sélecteur global). À cadrer ultérieurement.
+  Numéros candidats à figer à l'ajout effectif des chantiers en §7
+  (cf. §5 du briefing CLAUDE.md).
 - **Découpage hiérarchique illimité** : convention `C10.n` pour les
   grands sous-chantiers, `C10.n.a / .b / .c …` pour les modules à
   l'intérieur. Pas de plafond — l'utilisateur est ouvert à du
@@ -1813,8 +1836,9 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 | **C10.0** | Audit globals — tableau exhaustif champ legacy ↔ store nodal ↔ flush DOM ↔ project.json V2, dans Annexe D | — | **doc-only — livré** |
 | **C10.1** | Bouton `[Publier]` palette + modale « Publication du jeu » (HTML autonome + ZIP web + placeholder Deploy) + flush synchrone garanti + suppression flush périodique 8 s | C10.0 (recommandé : repérer les autres points DOM-reading à équiper) | code |
 | **C10.2** | Rapatriement paramètres globaux dans la modale « Paramètres globaux » + extension `meta.settings`. Sous-découpage `C10.2.a → .x` figé après C10.0 (probable : end-screens, timer, audio, popup theme, inventaire, langue, thème) | C10.0 | code |
-| **C10.3** | Ouverture par défaut sur la carte nodale ; renommage `[Formulaire]` → `[Vérifier]` (toggle read-only) | C10.2 (la carte doit pouvoir tout éditer avant de devenir page d'accueil) | code |
-| **C10.4** | Désactivation legacy + bandeau « Miroir nodal » ; absorbe **C6.1** | C10.2, C10.3 | code |
+| **C10.3** | Ouverture par défaut sur la carte nodale (default landing au load page) | C10.2 | code |
+| **C10.5** | Upload média local (images + audio) — boutons file picker dans toutes les popups carte consommatrices d'URL média (inséré post-cadrage initial) | C10.3 | code |
+| **C10.4** | Désactivation legacy + bandeau « Vue de vérification » + renommage `[Formulaire]` → `[Vérifier]` ; absorbe **C6.1** | C10.5 (l'autonomie nécessite l'upload local pour vraiment fermer la porte legacy) | code |
 
 ### Décisions de design
 
@@ -3038,15 +3062,364 @@ HTML restauré).
 
 **Commit** : `feat(nodal): C10.2.f fins de partie (meta.settings.endScreens)`.
 
-### Plan détaillé C10.3 — directives pour Cursor
+### Plan détaillé C10.3 — Ouverture nodale par défaut
 
-*À rédiger après C10.2 (l'ouverture par défaut sur la carte requiert
-que tous les paramètres globaux soient éditables depuis la carte).*
+**Pré-requis** : C10.2 livré dans son ensemble (.a → .f, plus
+fixes 1 et 2). Branche `feat/c10-autonomy` active.
 
-### Plan détaillé C10.4 — directives pour Cursor
+**Contexte** : aujourd'hui `editeur.html` / `editor_en.html` ouvrent
+sur le formulaire legacy ; l'utilisateur clique le bouton
+`[Formulaire]` de la palette pour basculer vers la carte. Avec
+C10.2 complet, l'authoring est intégralement disponible côté carte ;
+le formulaire n'a plus de raison d'être la vue par défaut. C10.3
+inverse la valeur initiale.
 
-*À rédiger après C10.3 (le bandeau et la désactivation des inputs
-legacy s'appuient sur la carte comme page d'accueil).*
+**Décision validée** (Q-C10.3-1 (a)) : déclencher l'ouverture nodale
+au load (équivalent d'un clic auto sur le bouton actuel). Pas de
+refonte HTML — celle-ci viendra ultérieurement quand le formulaire
+sera totalement retiré.
+
+**Pas de changement** : structure HTML, modèle store, sérialisation.
+Pure orchestration init.
+
+**Fichiers à lire avant de coder** :
+
+- `editeur.html` / `editor_en.html` — état initial DOM (formulaire
+  visible par défaut, carte ouverte via toggle).
+- `js/editeur-app.js` / `js/editor-en-app.js` — `DOMContentLoaded`
+  handler, init éditeur, point d'entrée pour le trigger d'ouverture
+  carte.
+- `xflow/react/src/editor-nodal-map-bootstrap.js` — bootstrap React
+  de la carte (mount, init store).
+- Recherche : handler du bouton `[Formulaire]` actuel pour réutiliser
+  sa fonction d'ouverture (`onClick` doit pouvoir être appelé en
+  programmatique).
+
+**Phase questions (workflow §8.1)** — Cursor pose ses Q-C10.3-Y :
+
+- **Q-C10.3-1** — Timing trigger :
+  *(a)* `DOMContentLoaded` direct.
+  *(b)* Après `editor-init` complet.
+  *(c)* Après l'hydrate du store nodal (chargement
+  `.escapegame` / `map-layout.json`).
+  *Vote : (c) — éviter un flash visuel formulaire→carte si l'hydrate
+  prend du temps. La carte s'affiche directement avec son contenu
+  correct.*
+- **Q-C10.3-2** — Persistance préférence utilisateur :
+  *(a)* Toujours auto-ouvrir, ignore localStorage.
+  *(b)* Respecter une préférence sauvegardée.
+  *Vote : (a) — simple, prévisible. L'utilisateur peut toujours
+  cliquer `[Formulaire]` (`[Vérifier]` post-C10.4) pour voir le
+  legacy.*
+- **Q-C10.3-3** — Camera initiale : *vote utilisateur (c) ne rien
+  toucher.* `meta.viewport` déjà sérialisé/restauré. Cursor confirme
+  juste que rien ne régresse.
+
+**Périmètre** :
+
+1. **Trigger ouverture auto** au point convenu (Q-C10.3-1) : appeler
+   la même fonction que le handler `[Formulaire]`. Vérifier pour :
+   (a) projet vierge, (b) chargement `.escapegame`, (c) reload page.
+
+2. **Pas de changement** : bouton `[Formulaire]` reste fonctionnel et
+   nommé « Formulaire » (renommage en C10.4). Contenu/comportement
+   formulaire inchangé (désactivation en C10.4).
+
+3. **Tests Vitest** : test minimal au mount du composant racine, la
+   carte est visible (DOM jsdom). Pas de test du flow complet
+   (intégration HTML legacy + React = trop large).
+
+4. **Recette manuelle** :
+   - Ouvrir `editeur.html` neuf → carte visible immédiatement.
+   - Charger un `.escapegame` → carte visible avec contenu.
+   - Reload page → carte visible (état restauré).
+   - Cliquer `[Formulaire]` → bascule vers formulaire (toujours
+     fonctionnel).
+
+**Critères de fin** :
+
+- À l'ouverture de `editeur.html` / `editor_en.html` : la carte
+  nodale est la vue active.
+- Bouton `[Formulaire]` toujours fonctionnel (toggle vers
+  formulaire).
+- Aucune régression sur le pipeline V2 → DOM → generateGame.
+- Recettes manuelles consignées dans le journal Annexe D.
+
+**Branche / commit** :
+
+- Branche : `feat/c10-autonomy`.
+- Commit : `feat(nodal): C10.3 ouverture nodale par défaut`.
+- Annexe D — Journal : 1-2 lignes (timing trigger, recettes).
+
+### Plan détaillé C10.5 — Upload média local (images + audio)
+
+**Pré-requis** : C10.3 livré (default landing nodal). Branche
+`feat/c10-autonomy` active.
+
+**Contexte** : C10.5 inséré post-cadrage initial. Sans cette fonction
+côté carte, la promesse d'« authoring standalone » de C10 serait
+partielle — l'utilisateur devrait toujours retourner au formulaire
+legacy pour ajouter une image ou un audio depuis son ordinateur.
+C10.5 expose cette capacité dans toutes les popups carte qui
+consomment une URL média, débloquant ainsi C10.4 (désactivation
+totale legacy).
+
+Le formulaire legacy a déjà cette fonction via le bouton 📎 paperclip
+qui appelle `openBundleLocalMediaPicker(input, accept)` (cf.
+`editeur.html`). C10.5 réutilise l'API existante — pas de refonte du
+système bundle media.
+
+**Pas de changement** : modèle `ProjectMeta`, sérialisation V2,
+format `.escapegame` ZIP. Pure UI + bridge.
+
+**Fichiers à lire avant de coder** :
+
+- `js/editor-shared-bundle.js` — implémentation
+  `openBundleLocalMediaPicker` (signature complète à relever).
+- `editeur.html` / `editor_en.html` — usages actuels (pattern bouton
+  📎 à côté des inputs URL).
+- `xflow/react/src/types/escape360NodalChrome.d.ts` — bridge typing.
+- Popups carte consommatrices d'URL média (audit exhaustif —
+  Q-C10.5-5).
+
+**Phase questions (workflow §8.1)** — Cursor pose ses Q-C10.5-Y :
+
+- **Q-C10.5-1** — Surface bridge :
+  *(a)* `__escape360NodalChrome.openBundleLocalMediaPicker`
+  (cohérent avec `generateGameHtml` C10.1).
+  *(b)* Via `EditorSharedBundle` directement.
+  *(c)* Wrapper React local au composant `MediaUploadButton`.
+  *Vote : (a) — pattern bridge palette↔legacy établi C10.1. Adapter
+  `openBundleLocalMediaPicker` pour retourner une promesse plutôt
+  qu'écrire dans un `<input>` legacy si nécessaire.*
+- **Q-C10.5-2** — Composant React partagé :
+  *(a)* Composant unique `MediaUploadButton` (`accept`, `onPicked`)
+  réutilisé dans toutes les popups.
+  *(b)* Bouton inline dans chaque popup (duplication).
+  *Vote : (a) — refactoring opportuniste impératif. Sous
+  `xflow/react/src/view/components/MediaUploadButton.tsx`.*
+- **Q-C10.5-3** — Position UI vs champ URL :
+  *(a)* Bouton à côté du champ URL (à droite, pattern legacy 📎 mais
+  icône upload).
+  *(b)* Toggle URL/local.
+  *Vote : (a) — moins de friction.*
+- **Q-C10.5-4** — Icône bouton :
+  *(a)* `<svg>` inline upload (flèche-haut-dans-cadre, type Lucide
+  `upload`).
+  *(b)* Lib d'icônes existante.
+  *(c)* Emoji 📤.
+  *Vote : (a) — `<svg>` inline, pas de dépendance, taille uniforme.
+  Tooltip « Importer depuis l'ordinateur » / « Import from computer ».*
+- **Q-C10.5-5** — Liste exhaustive popups à équiper. Cursor établit
+  par audit. Seed (à compléter) :
+  - Panorama scène (popup édition scène — chercher où on saisit
+    l'URL panorama 360°).
+  - Hotspot icon (`HotspotAppearancePopup` ?).
+  - Audio media node (popup édition audio — `MediaEditorPopup` ?).
+  - Image media node (popup édition image — `MediaEditorPopup` ?).
+  - Audio global (`AudioGlobalSettingsPopup` C10.2.d) pour
+    `globalAudioUrl`.
+  - Inventaire icon (`InventoryGlobalSettingsPopup` C10.2.b) pour
+    `inv-icon`.
+  - Tout autre champ URL média repéré en lecture exhaustive.
+
+**Périmètre** :
+
+1. **Audit popups consommatrices** (Cursor, point Q-C10.5-5). Liste
+   finale en commentaire dans le commit.
+
+2. **Bridge `__escape360NodalChrome.openBundleLocalMediaPicker`** :
+   - Wrapper sur `EditorSharedBundle.openBundleLocalMediaPicker` ou
+     refonte légère pour API basée promesse :
+     `pickLocalMedia(accept: string): Promise<string | null>`.
+   - Mettre à jour `escape360NodalChrome.d.ts`.
+
+3. **Composant `MediaUploadButton`** dans
+   `xflow/react/src/view/components/` (créer dossier si absent) :
+   - Props : `accept: string`, `onPicked: (url: string) => void`,
+     `disabled?: boolean`, `tooltip?: string`.
+   - Rendu : bouton + icône upload SVG, tooltip bilingue par défaut.
+   - Au clic : appel
+     `__escape360NodalChrome.openBundleLocalMediaPicker(accept)`,
+     puis `onPicked(url)` si retour non-`null`.
+
+4. **Intégration** dans chaque popup (liste finale Q-C10.5-5) :
+   - À côté de chaque champ URL média : `<MediaUploadButton ... />`.
+   - `onPicked: (url) => setStoreField(url)` — mute le store, le flush
+     DOM legacy se charge ensuite via `applyFromStore`.
+
+5. **Tests Vitest** :
+   - `MediaUploadButton` : rendu, clic appelle bridge mock
+     (`vi.stubGlobal`), `onPicked` appelé avec URL retournée.
+   - Au moins une popup intégrée testée pour le wiring complet
+     (mock bridge + assert mutation store).
+
+6. **Recette manuelle** (à consigner) :
+   - Popup audio global → upload `.mp3` local → URL bundle écrite →
+     sauver `.escapegame` → reload → audio référencé.
+   - Idem image (panorama scène, hotspot icon, etc.).
+   - `[Publier]` HTML autonome → ZIP contient le média.
+
+**Critères de fin** :
+
+- Toutes les popups consommatrices d'URL média ont un bouton upload
+  fonctionnel.
+- Composant `MediaUploadButton` factorisé.
+- Bridge typé dans `escape360NodalChrome.d.ts`.
+- Tests Vitest verts.
+- Recettes manuelles consignées (au minimum 1 image + 1 audio).
+- Pas de régression sur l'upload legacy 📎 (le formulaire reste
+  fonctionnel jusqu'à C10.4).
+
+**Branche / commit** :
+
+- Branche : `feat/c10-autonomy`.
+- Commit : `feat(nodal): C10.5 upload média local (images + audio)`.
+- Annexe D — Journal : 2-3 lignes (liste popups équipées, composant
+  créé, bridge exposé).
+
+### Plan détaillé C10.4 — Désactivation legacy + bandeau + renommage
+
+**Pré-requis** : C10.5 livré (l'upload média local est désormais
+disponible côté carte — sans cela, désactiver le formulaire priverait
+l'utilisateur de cette fonction). Branche `feat/c10-autonomy` active.
+
+**Contexte** : dernier sous-chantier de C10. Le formulaire legacy
+devient une **vue de vérification read-only**. L'édition se fait
+exclusivement via la carte. Bouton `[Formulaire]` renommé `[Vérifier]`
+côté palette pour signaler le changement de fonction. Bandeau
+permanent en haut du formulaire pour rappeler le mode. Absorbe le
+chantier optionnel **C6.1** mentionné depuis v1.5.
+
+**Décisions validées** :
+
+- Q-C10.4-1 (a) : désactiver tout côté formulaire ; seul reste actif
+  le bouton **du haut** qui retourne à la carte (les boutons de la
+  palette sont déjà tous fonctionnels via la carte).
+- Q-C10.4-2 (a) : bandeau fixe en haut du formulaire.
+- Q-C10.4-3 OK : « Vue de vérification — l'édition se fait via la
+  carte nodale » (FR) / « Verification view — editing happens via
+  the nodal map » (EN).
+- Q-C10.4-4 (a) : `disabled` CSS standard.
+- Q-C10.4-5 : « Vérifier » / « Verify ».
+
+**Pas de changement** : modèle `ProjectMeta`, sérialisation V2, flux
+V2 → DOM → generateGame. Pure UI legacy + un renommage de bouton
+côté palette.
+
+**Fichiers à lire avant de coder** :
+
+- `editeur.html` / `editor_en.html` — recenser tous les inputs,
+  textareas, selects, buttons à désactiver. Identifier le bouton
+  « du haut » à conserver (probable : un toggle vers la carte ou la
+  fermeture du panneau formulaire — Cursor remontera).
+- `js/editeur-app.js` / `js/editor-en-app.js` — handlers des
+  contrôles legacy (laissés en place, contrôles inactifs).
+- `xflow/react/src/view/palette/NodePalette.tsx` — bouton
+  `[Formulaire]` à renommer.
+- Tests C10.x existants (vérifier non-régression flush/serialize).
+
+**Phase questions (workflow §8.1)** — Cursor pose ses Q-C10.4-Y :
+
+- **Q-C10.4-1** — Méthode de désactivation :
+  *(a)* Attribut HTML `disabled` posé en JS au DOMContentLoaded
+  (boucle sur tous les éléments d'édition). Réversible si besoin.
+  *(b)* CSS `pointer-events: none` + style disabled sur racine. Plus
+  rapide, moins ciblé.
+  *(c)* Refonte React miroir.
+  *Vote : (a) — sémantiquement correct, accessible (lecteurs
+  d'écran), réversible. (b) interfère avec scroll et éléments
+  d'affichage. (c) hors scope.*
+- **Q-C10.4-2** — Périmètre exact :
+  Liste à valider par Cursor au début du sous-chantier — tout ce
+  qui modifie le projet :
+  - `<input>`, `<textarea>`, `<select>` dans `#editor-global-root`
+    et `#scenes-container`.
+  - Boutons « Ajouter scène/hotspot/média », « Supprimer », etc.
+  - Boutons d'action transverses (`#saveBundle`, `#load`,
+    `#generateGame`, `#snapshot`) — désactivés (la palette les
+    couvre).
+  - Drag-and-drop scènes, sélecteurs scène, ré-ordonnancement.
+  - **Conserver actif** : seul le bouton de retour vers carte (à
+    identifier par Cursor — probable bouton du haut).
+- **Q-C10.4-3** — Style bandeau :
+  *(a)* Banner sticky/fixe en haut du conteneur formulaire, fond
+  contrasté (couleur d'avertissement douce), texte centré.
+  *(b)* Banner avec icône info à gauche.
+  *Vote : Cursor choisit selon cohérence visuelle globale (s'aligner
+  sur les patterns existants si bandeau de tutoriel/mode démo
+  existe).*
+- **Q-C10.4-4** — Désactivation runtime ou load :
+  *(a)* Au load, désactiver une fois ; gérer aussi les contrôles
+  ajoutés dynamiquement par les flush successifs via
+  `MutationObserver`.
+  *(b)* CSS sur racine + JS pour éléments dynamiques.
+  *Vote : (a) avec MutationObserver — robuste vs flush nodal → DOM.*
+
+**Périmètre** :
+
+1. **Bandeau « Vue de vérification »** :
+   - Insérer en haut de `#editor-global-root` (ou conteneur racine
+     formulaire) avec `position: sticky` ou `fixed`, fond contrasté.
+   - Texte bilingue (FR par défaut + check `editor_en.html`).
+   - Icône info optionnelle.
+
+2. **Désactivation des contrôles** :
+   - Au DOMContentLoaded (après init formulaire), itérer sur tous
+     les `<input>`, `<textarea>`, `<select>`, `<button>` du
+     conteneur formulaire.
+   - Poser `disabled = true` sauf sur le bouton de retour vers
+     carte (à identifier).
+   - `MutationObserver` pour appliquer aux contrôles ajoutés par
+     flush nodal → DOM.
+
+3. **Renommage palette** :
+   - Bouton `[Formulaire]` → `[Vérifier]` / `[Verify]` dans
+     `NodePalette.tsx`.
+   - Tooltip : « Vue de vérification (read-only) » /
+     « Verification view (read-only) ».
+
+4. **CSS standard disabled** :
+   - Vérifier que le CSS legacy `disabled` est lisible. Sinon
+     renforcer dans une feuille spécifique C10.4.
+
+5. **Tests Vitest** :
+   - Bouton palette renommé (`NodePalette.tsx` rendu).
+   - Pas de test côté legacy disabled (jsdom + MutationObserver
+     finement = recette manuelle).
+
+6. **Recette manuelle** (à consigner) :
+   - Ouvrir éditeur → carte visible (default landing C10.3) →
+     `[Vérifier]` → formulaire visible avec bandeau et tous champs/
+     boutons disabled.
+   - Bouton retour carte → carte réouverte.
+   - Pipeline `[Publier]` HTML autonome reste fonctionnel
+     (`getCurrentProjectData` non affecté par `disabled`).
+   - `[Sauver .escapegame]` flush + bundle marche.
+
+**Critères de fin** :
+
+- Bandeau « Vue de vérification » visible en haut du formulaire.
+- Tous les contrôles d'édition formulaire `disabled`.
+- Bouton de retour vers carte actif.
+- Bouton palette `[Formulaire]` renommé `[Vérifier]` / `[Verify]`.
+- Pipeline V2 → DOM → generateGame inchangé (recette manuelle).
+- Tests Vitest verts (rendu palette).
+- Recettes manuelles consignées.
+- §0.2 règle 2 (« cible produit : formulaire en lecture seule ») =
+  livrée.
+
+**Branche / commit** :
+
+- Branche : `feat/c10-autonomy`.
+- Commit : `feat(nodal): C10.4 désactivation legacy + bandeau Vérifier`.
+- Annexe D — Journal : 2-3 lignes (banner posé, contrôles désactivés,
+  renommage `[Vérifier]`, recettes manuelles).
+
+**Note de clôture C10** : après le commit C10.4, le chantier C10 est
+livré. Procéder à la clôture selon §2.7 du briefing CLAUDE.md
+(synthèse Annexe D → Annexe B, archivage `docs/archives/chantier_10.md`,
+bump v1.9, PR `feat/c10-autonomy` → `feat/nodal-map`).
 
 ### Journal de chantier
 
