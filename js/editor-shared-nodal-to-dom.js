@@ -552,6 +552,11 @@
         if (!st) return { ok: false, reason: "empty state" };
         var out = applyNodalStateToLegacyDom(st);
         projectPlayerPopupThemeToDom(st.playerPopupTheme);
+        /* C10.2.a — identité projet : titre formulaire legacy. */
+        var gameTitleEl = typeof document !== "undefined" ? document.getElementById("gameTitle") : null;
+        if (gameTitleEl && st.meta && st.meta.title != null) {
+            gameTitleEl.value = String(st.meta.title);
+        }
         return out;
     }
 

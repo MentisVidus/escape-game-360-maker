@@ -15,6 +15,8 @@ export type Escape360NodalChromeApi = {
 declare global {
   interface Window {
     __escape360NodalChrome?: Escape360NodalChromeApi;
+    /** Legacy bundle API (`js/editor-shared-bundle.js`) — flush nodal → DOM. */
+    EditorSharedBundle?: { flushNodalStoreToEditorDom?: () => void };
     /** Synchronise aperçus inventaire / popups + thème Quill (formulaire principal). */
     updatePreview?: () => void;
   }

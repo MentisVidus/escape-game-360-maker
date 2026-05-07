@@ -1,22 +1,57 @@
+import type { StoreApi } from "zustand/vanilla";
+import { useEffect, useState } from "react";
+
+import type { NodalProjectStore } from "../../store/nodalProjectStore";
+import { PalettePopupModal } from "../palette/PalettePopupModal";
+
+import "./GlobalSettingsHubPopup.css";
+
 type Locale = "fr" | "en";
 
 const COPY: Record<
   Locale,
-  { title: string; popups: string; soon1: string; soon2: string; close: string }
+  {
+    title: string;
+    hint: string;
+    close: string;
+    identity: string;
+    projectTitle: string;
+    inventory: string;
+    popups: string;
+    popupsBtn: string;
+    audio: string;
+    timerSave: string;
+    endScreens: string;
+    soon: (key: string) => string;
+  }
 > = {
   fr: {
-    title: "Réglages globaux",
-    popups: "Personnalisation des popups",
-    soon1: "Inventaire global — bientôt",
-    soon2: "Audio / timer — bientôt",
+    title: "Paramètres globaux",
+    hint: "Dépliez une section. Les réglages restent synchronisés avec le formulaire principal.",
     close: "Fermer",
+    identity: "Identité projet",
+    projectTitle: "Titre du projet",
+    inventory: "Inventaire",
+    popups: "Thème popups",
+    popupsBtn: "Personnalisation des popups…",
+    audio: "Audio",
+    timerSave: "Timer et sauvegarde",
+    endScreens: "Fins de partie",
+    soon: (key) => `Bientôt — ${key}`,
   },
   en: {
     title: "Global settings",
-    popups: "Popup appearance",
-    soon1: "Global inventory — coming soon",
-    soon2: "Audio / timer — coming soon",
+    hint: "Expand a section. Values stay in sync with the main form.",
     close: "Close",
+    identity: "Project identity",
+    projectTitle: "Project title",
+    inventory: "Inventory",
+    popups: "Popup theme",
+    popupsBtn: "Customize popup appearance…",
+    audio: "Audio",
+    timerSave: "Timer & save",
+    endScreens: "End screens",
+    soon: (key) => `Coming soon — ${key}`,
   },
 };
 
@@ -25,43 +60,108 @@ function locale(): Locale {
   return document.documentElement.lang?.toLowerCase().startsWith("en") ? "en" : "fr";
 }
 
+function flushNodalToDom() {
+  const Ex = typeof window !== "undefined" ? window.EditorSharedBundle : undefined;
+  if (Ex && typeof Ex.flushNodalStoreToEditorDom === "function") {
+    Ex.flushNodalStoreToEditorDom();
+  }
+}
+
 type Props = {
   open: boolean;
   onClose: () => void;
   onOpenPopupTheme: () => void;
+  store: StoreApi<NodalProjectStore>;
 };
 
-export function GlobalSettingsHubPopup({ open, onClose, onOpenPopupTheme }: Props) {
-  if (!open) return null;
+/**
+ * C10.2.a — Hub paramètres globaux : accordion `<details>` (Q-C10.2.a-1 (c)),
+ * section « Identité projet » ouverte par défaut (Q-C10.2.a-2), type
+ * `ProjectSettings` partiel (Q-C10.2.a-3 (a)). Thème popups : bouton vers
+ * l’éditeur existant (`playerPopupTheme`) sans migration ici (C10.2.c).
+ */
+export function GlobalSettingsHubPopup({ open, onClose, onOpenPopupTheme, store }: Props) {
   const L = COPY[locale()];
+  const [title, setTitle] = useState(() => store.getState().meta.title);
+
+  useEffect(() => {
+    if (!open) return;
+    setTitle(store.getState().meta.title);
+  }, [open, store]);
+
+  useEffect(() => {
+    if (!open) return;
+    return store.subscribe((s) => setTitle(s.meta.title));
+  }, [open, store]);
+
+  const onTitleChange = (value: string) => {
+    store.getState().setMetaTitle(value);
+    flushNodalToDom();
+  };
 
   return (
-    <div className="nodal-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="nodal-global-hub-title">
-      <div className="nodal-popup-backdrop" onClick={onClose} />
-      <div className="nodal-popup-panel nodal-popup-panel--global-hub">
-        <h2 id="nodal-global-hub-title">{L.title}</h2>
-        <p className="nodal-popup-hint">
-          {locale() === "fr"
-            ? "Choisissez une section. Les réglages sont synchronisés avec le formulaire principal."
-            : "Pick a section. Settings stay in sync with the main form."}
-        </p>
-        <div className="nodal-global-hub-actions">
-          <button type="button" className="nodal-global-hub-btn nodal-global-hub-btn--primary" onClick={onOpenPopupTheme}>
-            {L.popups}
-          </button>
-          <button type="button" className="nodal-global-hub-btn" disabled>
-            {L.soon1}
-          </button>
-          <button type="button" className="nodal-global-hub-btn" disabled>
-            {L.soon2}
-          </button>
-        </div>
-        <div className="nodal-popup-actions">
-          <button type="button" onClick={onClose}>
-            {L.close}
-          </button>
-        </div>
+    <PalettePopupModal
+      title={L.title}
+      isOpen={open}
+      onClose={onClose}
+      panelModifier="nodal-popup-panel--global-hub nodal-popup-panel--global-hub-accordion"
+      labelledById="nodal-global-hub-title"
+      locale={locale()}
+      footerActions={
+        <button type="button" onClick={onClose}>
+          {L.close}
+        </button>
+      }
+    >
+      <p className="nodal-popup-hint">{L.hint}</p>
+
+      <div className="nodal-global-hub-accordion">
+        <details className="nodal-global-hub-details" open>
+          <summary className="nodal-global-hub-summary">{L.identity}</summary>
+          <div className="nodal-global-hub-section-body">
+            <label className="nodal-global-hub-label" htmlFor="nodal-global-project-title">
+              {L.projectTitle}
+            </label>
+            <input
+              id="nodal-global-project-title"
+              className="nodal-global-hub-input"
+              type="text"
+              value={title}
+              onChange={(e) => onTitleChange(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+        </details>
+
+        <details className="nodal-global-hub-details">
+          <summary className="nodal-global-hub-summary">{L.inventory}</summary>
+          <p className="nodal-global-hub-placeholder">{L.soon("C10.2.b")}</p>
+        </details>
+
+        <details className="nodal-global-hub-details">
+          <summary className="nodal-global-hub-summary">{L.popups}</summary>
+          <div className="nodal-global-hub-section-body">
+            <button type="button" className="nodal-global-hub-btn nodal-global-hub-btn--primary" onClick={onOpenPopupTheme}>
+              {L.popupsBtn}
+            </button>
+          </div>
+        </details>
+
+        <details className="nodal-global-hub-details">
+          <summary className="nodal-global-hub-summary">{L.audio}</summary>
+          <p className="nodal-global-hub-placeholder">{L.soon("C10.2.d")}</p>
+        </details>
+
+        <details className="nodal-global-hub-details">
+          <summary className="nodal-global-hub-summary">{L.timerSave}</summary>
+          <p className="nodal-global-hub-placeholder">{L.soon("C10.2.e")}</p>
+        </details>
+
+        <details className="nodal-global-hub-details">
+          <summary className="nodal-global-hub-summary">{L.endScreens}</summary>
+          <p className="nodal-global-hub-placeholder">{L.soon("C10.2.f")}</p>
+        </details>
       </div>
-    </div>
+    </PalettePopupModal>
   );
 }

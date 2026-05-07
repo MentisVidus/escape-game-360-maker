@@ -1498,6 +1498,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           onClose={() => setSelectorEditorActionId(null)}
         />
         <GlobalSettingsHubPopup
+          store={store}
           open={globalSettingsHubOpen}
           onClose={() => setGlobalSettingsHubOpen(false)}
           onOpenPopupTheme={() => {

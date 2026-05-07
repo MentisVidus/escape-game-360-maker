@@ -195,6 +195,10 @@ const deserializeAction = (state: NodalProject, raw: ProjectJsonV2Action, pathKe
 export const deserializeFromProjectJson = (json: ProjectJsonV2): NodalProject => {
   const state = emptyProject();
   state.meta.title = json.title;
+  const incomingSettings = json.meta?.settings;
+  if (incomingSettings && Object.keys(incomingSettings).length > 0) {
+    state.meta.settings = { ...incomingSettings };
+  }
 
   for (const scene of json.scenes) {
     const sceneId = stableSceneNodeIdFromExternal(scene.id);

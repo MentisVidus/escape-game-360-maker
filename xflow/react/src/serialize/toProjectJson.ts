@@ -1,6 +1,6 @@
 import type { ActionNodeId, SceneNodeId } from "../model/ids";
 import type { ActionNode, ReqActionNode, PwdActionNode, SelectorActionNode } from "../model/nodes";
-import type { NodalProject } from "../model/project";
+import type { NodalProject, ProjectSettings } from "../model/project";
 import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import { INTERNAL_TO_V2_ACTION_TYPE } from "./v2TypeMap";
 
@@ -23,6 +23,8 @@ export type ProjectJsonV2 = {
   title: string;
   startSceneId: string | null;
   scenes: ProjectJsonV2Scene[];
+  /** C10.2+ — omis si aucun groupe `settings` défini. */
+  meta?: { settings?: ProjectSettings };
 };
 
 const isReqOrPwd = (action: ActionNode): action is ReqActionNode | PwdActionNode =>
@@ -114,11 +116,16 @@ export const serializeToProjectJson = (state: NodalProject): ProjectJsonV2 => {
       .map((action) => ({ action })),
   }));
 
-  return {
+  const base: ProjectJsonV2 = {
     schemaVersion: 2,
     title: state.meta.title,
     startSceneId: startSceneExternalId,
     scenes,
   };
+  const settings = state.meta.settings;
+  if (settings && Object.keys(settings).length > 0) {
+    return { ...base, meta: { settings } };
+  }
+  return base;
 };
 

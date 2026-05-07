@@ -72,6 +72,8 @@ export type NodalProjectStore = NodalProject & {
   /** Bascule `layout[nodeId].collapsed` (C8.1 — pliage des selectors). */
   toggleNodeCollapsed: (nodeId: AnyNodeId) => void;
   setStartScene: (sceneId: SceneNodeId) => void;
+  /** C10.2.a — titre projet (`meta.title` + flush DOM via `applyFromStore`). */
+  setMetaTitle: (title: string) => void;
   setViewport: (viewport: Viewport) => void;
   upsertObject: (entry: ObjectEntry) => void;
   removeObject: (objectId: string) => void;
@@ -715,6 +717,15 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
       if (!(sceneId in state.scenes)) return;
       const next = { ...state, meta: { ...state.meta, startSceneId: sceneId } };
       set(withWarnings(next));
+    },
+
+    setMetaTitle: (title) => {
+      set((state) =>
+        withWarnings({
+          ...state,
+          meta: { ...state.meta, title: title ?? "" },
+        })
+      );
     },
 
     copyNodesToClipboard: (nodeIds) => {

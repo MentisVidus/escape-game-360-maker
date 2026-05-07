@@ -2817,6 +2817,30 @@ legacy s'appuient sur la carte comme page d'accueil).*
      la modale Publication doit se fermer (priorité dans
      `closeActiveModal` confirmée par lecture du code).
 
+- 2026-05-07 — **C10.2.a livré** (`feat/c10-autonomy`). Votes Q-C10.2.a-1→3 :
+  accordion `<details>` natif / seule **Identité projet** ouverte par
+  défaut / `ProjectSettings` entièrement optionnel. `ProjectMeta` étendu
+  avec `settings?: ProjectSettings` (`project.ts`). `GlobalSettingsHubPopup`
+  restructuré : wrapper `PalettePopupModal`, 6 sections (Identité,
+  Inventaire placeholder **C10.2.b**, Thème popups avec bouton vers
+  l’éditeur existant `playerPopupTheme` sans migration, Audio **.d**,
+  Timer & sauvegarde **.e**, Fins de partie **.f**). Champ titre lié à
+  `meta.title` + `setMetaTitle` dans `nodalProjectStore` ; après chaque
+  `onChange`, `EditorSharedBundle.flushNodalStoreToEditorDom()` pour
+  refléter `#gameTitle` en live. `applyFromStore` étendu
+  (`editor-shared-nodal-to-dom.js`) : projection `meta.title` →
+  `#gameTitle`. `ProjectJsonV2` : `meta?: { settings? }` ;
+  `deserializeFromProjectJson` lit `json.meta.settings` ;
+  `serializeToProjectJson` n’écrit `meta` que si `settings` a au moins
+  une clé. Typage `window.EditorSharedBundle` dans
+  `escape360NodalChrome.d.ts`. `NodalCanvas` passe `store` au hub.
+  Styles `GlobalSettingsHubPopup.css`. **6 tests Vitest** verts
+  (`c102aGlobalSettingsHub.test.tsx`). Build `editor-map` vert.
+  **Recettes manuelles** (journal) : (1) modale Paramètres → titre →
+  vérifier `#gameTitle` legacy ; (2) titre → `[Sauver .escapegame]` →
+  reload → titre modale ; (3) titre → `[Publier]` → `index.html` contient
+  le titre.
+
 - 2026-05-06 — **C10.0 livré** : section « Audit globals (C10.0) »
   (tableau + DOM-reading + proposition **C10.2.a–g**). Plans C10.1+
   peuvent intégrer la liste des flush et la suppression du timer 8 s.
