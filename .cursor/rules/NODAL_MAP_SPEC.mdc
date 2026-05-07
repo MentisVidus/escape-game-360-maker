@@ -2301,9 +2301,13 @@ séparé).
   `meta.settings.<group>` si présent ; fallback sur `undefined` (pas
   de valeur par défaut côté store — la modale Paramètres globaux et
   le DOM legacy ont leurs propres valeurs init).
-- **UI section** : chaque groupe a une section dans l'accordion
-  `GlobalSettingsHubPopup` (créé en C10.2.a). Le binding va
-  store → DOM input → `setMetaSettings<Group>(...)` au `onChange`.
+- **UI section** : chaque groupe a une **popup dédiée** (sous
+  `xflow/react/src/view/popups/`) ouverte depuis un bouton du hub
+  `GlobalSettingsHubPopup` (refondu en **C10.2.a-fix** en liste
+  verticale de 6 boutons — voir plan dédié). Le sous-chantier crée
+  la popup dédiée + active son bouton dans le hub (retire `disabled`
+  + tooltip, branche `onClick`). Le binding popup → store → DOM input
+  → `setMetaSettings<Group>(...)` au `onChange`.
 - **Tests Vitest** par sous-chantier :
   - **Round-trip** : `serialize → deserialize → equality` sur le
     sous-objet `meta.settings.<group>`.
@@ -2323,6 +2327,14 @@ séparé).
 
 **Pré-requis** : C10.1 livré (commit `1d3c3f7` : `PalettePopupModal`,
 flush-on-demand). Branche `feat/c10-autonomy` active.
+
+**Note post-livraison (2026-05-08)** : pivot UX décidé en revue après
+livraison initiale (commit `4d57e99`). Le pattern accordion 6 sections
+ajoute un clic inutile pour les sections qui ouvrent juste une popup
+secondaire. Décision : passer à un **hub bouton-liste** (cohérent avec
+la modale Publication C10.1). Voir le **plan détaillé C10.2.a-fix**
+ci-dessous. Ce plan reflète la version *initiale* livrée ; le pivot
+est documenté dans son propre plan.
 
 **Contexte** : C10.2.a pose la **fondation** des sous-chantiers
 C10.2.b → .f en deux temps :
@@ -2351,8 +2363,9 @@ juste le markup pour fitter dans le nouveau pattern accordion.
 
 - `xflow/react/src/model/project.ts` — `ProjectMeta` à étendre avec
   `settings?: ProjectSettings`.
-- `xflow/react/src/view/palette/GlobalSettingsHubPopup.tsx` —
-  composant à restructurer.
+- `xflow/react/src/view/popups/GlobalSettingsHubPopup.tsx` —
+  composant à restructurer (chemin réel : `view/popups/`, **pas**
+  `view/palette/`).
 - `xflow/react/src/view/palette/PalettePopupModal.tsx` — pattern modale
   C10.1 (référence d'usage).
 - `xflow/react/src/store/nodalProjectStore.ts` — méthodes
@@ -2452,6 +2465,135 @@ juste le markup pour fitter dans le nouveau pattern accordion.
   accordion posée, titre branché, conventions `meta.settings`
   établies).
 
+### Plan détaillé C10.2.a-fix — Hub bouton-liste + popup Identité projet
+
+**Pré-requis** : C10.2.a livré (commit `4d57e99` sur `feat/c10-autonomy`
+— hub accordion + champ titre branché + conventions `meta.settings`
+établies).
+
+**Contexte** : pivot UX post-livraison. L'accordion 6 sections ajoute
+un clic inutile pour les sections qui ouvrent juste une popup secondaire
+(cas Thème popups : clic accordion → un seul bouton à cliquer →
+ouvre la popup réelle = 2 clics au lieu de 1). Le pattern bouton-hub
+aligne le hub Paramètres globaux sur la modale Publication du jeu
+(C10.1) : liste verticale de boutons, chacun ouvre une popup dédiée
+ou est `disabled` jusqu'à son sous-chantier.
+
+**Décision validée** (Q-C10.2.a-fix-1 (a)) : popup dédiée pour
+**chaque** section, y compris Identité projet. Forward-looking : la
+popup `ProjectIdentitySettingsPopup` pourra accueillir plus tard
+d'autres champs identité (URL souhaitée Netlify pour C11, mode
+escape vs visite, page de titre, etc.). Justifie la création d'une
+popup dédiée même pour un champ unique.
+
+**Fichiers à lire avant de coder** :
+
+- `xflow/react/src/view/popups/GlobalSettingsHubPopup.tsx` —
+  hub accordion à refondre.
+- `xflow/react/src/view/popups/GlobalSettingsHubPopup.css` — styles
+  accordion à nettoyer.
+- `xflow/react/src/view/popups/PublishGamePopup.tsx` — pattern de
+  référence pour la liste de boutons (3 boutons d'action sur la
+  modale Publication, C10.1).
+- `xflow/react/src/view/popups/PopupThemeCustomizationPopup.tsx` —
+  popup secondaire existante (modèle pour les futures popups
+  dédiées C10.2.b → .f).
+- `xflow/react/src/view/palette/PalettePopupModal.tsx` — wrapper
+  modale (C10.1).
+- `xflow/react/src/__tests__/c102aGlobalSettingsHub.test.tsx` —
+  tests accordion à mettre à jour.
+
+**Phase questions (workflow §8.1)** — Cursor pose ses Q-C10.2.a-fix-Y :
+
+- **Q-C10.2.a-fix-1** — Style des boutons hub : *(a)* plein largeur,
+  même style que les 3 boutons d'action de la modale Publication
+  (C10.1) ; *(b)* tile/card avec icône + label.
+  *Vote : (a) — alignement direct avec C10.1, zéro icône à concevoir.*
+- **Q-C10.2.a-fix-2** — Comportement bouton désactivé (Inventaire,
+  Audio, Timer, Fins) : *(a)* `disabled` + tooltip
+  « Bientôt — C10.2.x » comme `[Déployer]` dans modale Publication ;
+  *(b)* bouton actif qui ouvre une popup placeholder « Bientôt ».
+  *Vote : (a) — cohérent avec C10.1 et plus honnête (rien à cliquer
+  derrière).*
+- **Q-C10.2.a-fix-3** — Layout du hub : *(a)* 6 boutons en colonne
+  unique ; *(b)* 2 colonnes × 3 lignes pour gain de hauteur.
+  *Vote : (a) — colonne unique, lecture verticale, scaling vertical
+  trivial si on ajoute une 7e section plus tard.*
+
+**Périmètre** :
+
+1. **Refactor `GlobalSettingsHubPopup`** :
+   - Retirer les 6 `<details>` accordion.
+   - Remplacer par une liste verticale de **6 boutons** (button list).
+   - 1 bouton par section, libellés conservés : `Identité projet`,
+     `Inventaire`, `Thème popups`, `Audio`, `Timer & sauvegarde`,
+     `Fins de partie` (FR) + pendants EN.
+   - **Boutons actifs** :
+     - `Identité projet` → ouvre `ProjectIdentitySettingsPopup`
+       (nouveau).
+     - `Thème popups` → ouvre `PopupThemeCustomizationPopup`
+       existante via `onOpenPopupTheme` (inchangé).
+   - **Boutons désactivés** (4) avec tooltip « Bientôt — C10.2.x » :
+     `Inventaire` (C10.2.b), `Audio` (C10.2.d), `Timer & sauvegarde`
+     (C10.2.e), `Fins de partie` (C10.2.f).
+
+2. **Créer `ProjectIdentitySettingsPopup`** dans
+   `xflow/react/src/view/popups/` :
+   - Wrapper `PalettePopupModal` (titre « Identité projet » /
+     « Project identity »).
+   - Body : champ « Titre du projet » lié à `meta.title` (réutiliser
+     le binding déjà branché en C10.2.a — `setMetaTitle` + flush).
+   - Footer : bouton « Terminé » / « Done » qui ferme la popup.
+   - Forward-looking : structure prête à recevoir d'autres champs
+     identité plus tard (URL Netlify C11, mode escape/visite, page
+     de titre…). Ne **pas** les ajouter ici, juste prévoir la place
+     visuelle (laisser l'espace, pas de gabarit fixe qui contraint).
+
+3. **Mettre à jour les tests Vitest** :
+   - `c102aGlobalSettingsHub.test.tsx` :
+     - Remplacer les tests accordion (« 6 sections, 1 ouverte par
+       défaut, clic toggle ») par tests bouton-liste (6 boutons
+       rendus, 4 `disabled`, clic sur `Identité projet` ouvre la
+       popup, clic sur `Thème popups` appelle `onOpenPopupTheme`).
+     - Garder le test round-trip `meta.settings` (inchangé — la
+       structure du modèle ne change pas).
+   - Ajouter un fichier `c102aFixProjectIdentityPopup.test.tsx`
+     (ou étendre l'existant) pour `ProjectIdentitySettingsPopup` :
+     rendering, binding `meta.title`, fermeture.
+
+4. **Nettoyer `GlobalSettingsHubPopup.css`** :
+   - Retirer les styles spécifiques accordion (`<details>`,
+     `<summary>`, transitions chevron…).
+   - Conserver / ajouter styles bouton-liste cohérents avec
+     `PublishGamePopup`.
+
+5. **Pas de changement modèle/store/sérialisation** : le pivot UX
+   ne touche pas `ProjectMeta`, `setMetaTitle`, le flush DOM, ni la
+   sérialisation V2. Toutes ces couches restent comme livrées en
+   C10.2.a.
+
+**Critères de fin** :
+
+- Hub affiche 6 boutons en colonne (pas d'accordion).
+- 2 boutons actifs (`Identité projet`, `Thème popups`) ouvrent leur
+  popup respective.
+- 4 boutons `disabled` avec tooltip « Bientôt — C10.2.x ».
+- `ProjectIdentitySettingsPopup` créé, branché sur `meta.title`.
+- Tests Vitest mis à jour (couverture ≥ celle de C10.2.a — pas de
+  régression).
+- **Recettes manuelles inchangées par rapport à C10.2.a** (titre
+  dans modale → `#gameTitle` legacy → bundle → publier — toujours
+  OK, juste via la nouvelle popup dédiée). Re-consigner en journal
+  pour confirmer.
+
+**Branche / commit** :
+
+- Branche : `feat/c10-autonomy`.
+- Commit : `feat(nodal): C10.2.a-fix hub bouton-liste +
+  ProjectIdentitySettingsPopup`.
+- Annexe D — Journal : entrée 2-3 lignes (pivot UX, popup identité
+  créée, tests réécrits, recettes confirmées).
+
 ### Plan détaillé C10.2.b — Inventaire HUD
 
 **Pré-requis** : C10.2.a livré (accordion + conventions).
@@ -2487,9 +2629,13 @@ binding, etc.). Pas de question structurelle inattendue.
    number; textColor: string }`. Adapter les types stricts (enum
    `position`) si Cursor identifie une liste fermée dans le legacy.
 
-2. **Section UI** « Inventaire » : checkbox `enabled` toujours
-   visible ; les 5 autres champs cachés tant que `enabled === false`
-   (cohérent legacy `#inv-settings-container`).
+2. **Popup dédiée `InventoryGlobalSettingsPopup`** (nouveau,
+   `xflow/react/src/view/popups/`, wrapper `PalettePopupModal`) :
+   checkbox `enabled` toujours visible ; les 5 autres champs cachés
+   tant que `enabled === false` (cohérent legacy
+   `#inv-settings-container`). Activer le bouton « Inventaire » du
+   hub `GlobalSettingsHubPopup` (retirer `disabled` + tooltip,
+   brancher `onClick` qui ouvre la popup).
 
 3. **Store mutation** : `setMetaSettingsInventory(patch: Partial<...>)`.
 
@@ -2573,9 +2719,13 @@ déclenchent le re-render avec la même fréquence que le slice actuel.
    tous les sélecteurs (`useStore(s => s.playerPopupTheme...)` →
    `useStore(s => s.meta.settings?.popupTheme?...)`).
 
-3. **Section UI** : remplacer le contenu actuel de la section
-   `Thème popups` par le binding sur `meta.settings.popupTheme`.
-   Préserver l'UI existante (champs et aperçu).
+3. **Popup `PopupThemeCustomizationPopup`** (existante, créée en C7.2,
+   déjà branchée sur le bouton « Thème popups » du hub depuis
+   C10.2.a-fix) : conserver l'UI existante (champs + aperçu live).
+   Mettre à jour le binding pour lire/écrire
+   `meta.settings.popupTheme` au lieu du slice racine
+   `playerPopupTheme`. **Pas** de nouveau composant, **pas** de
+   modification du hub (déjà branché). Seul le binding store change.
 
 4. **Flush DOM** : `projectPlayerPopupThemeToDom` doit lire
    `meta.settings.popupTheme` (ou continuer à recevoir les valeurs en
@@ -2626,7 +2776,10 @@ déclenchent le re-render avec la même fréquence que le slice actuel.
 **Périmètre** :
 
 1. Type `audio = { enabled: boolean; url: string; volume: number }`.
-2. Section UI `Audio` : checkbox + 2 champs (URL + slider volume).
+2. Popup dédiée `AudioGlobalSettingsPopup` (nouveau,
+   `xflow/react/src/view/popups/`, wrapper `PalettePopupModal`) :
+   checkbox + 2 champs (URL + slider volume). Activer le bouton
+   « Audio » du hub `GlobalSettingsHubPopup`.
 3. Store mutation `setMetaSettingsAudio`.
 4. Flush DOM sur les 3 ids.
 5. Sérialisation/Hydrate `meta.settings.audio`.
@@ -2672,8 +2825,11 @@ déclenchent le re-render avec la même fréquence que le slice actuel.
              autoStart: boolean; pauseWhenPopupOpen: boolean }
    playerSave = { mode: PlayerSaveMode }
    ```
-2. Section UI unique « Timer & sauvegarde » avec sous-bloc timer
-   (masqué si `!enabled`) et bloc `playerSave` toujours visible.
+2. Popup dédiée `TimerAndSavePlayerSettingsPopup` (nouveau,
+   `xflow/react/src/view/popups/`, wrapper `PalettePopupModal`) :
+   sous-bloc timer (masqué si `!enabled`) + bloc `playerSave`
+   toujours visible. Activer le bouton « Timer & sauvegarde » du
+   hub `GlobalSettingsHubPopup`.
 3. Mutations `setMetaSettingsTimer` + `setMetaSettingsPlayerSave`.
 4. Flush DOM sur les 6 ids.
 5. Sérialisation/Hydrate `meta.settings.timer` + `meta.settings.playerSave`.
@@ -2727,8 +2883,11 @@ sélecteur de scène).
      victory: { title: string; bodyHtml: string; buttonLabel: string };
    }
    ```
-2. Section UI « Fins de partie » : 2 sélecteurs scène + 6 champs
-   (3 par fin) avec Quill sur les `bodyHtml`.
+2. Popup dédiée `EndScreensSettingsPopup` (nouveau,
+   `xflow/react/src/view/popups/`, wrapper `PalettePopupModal`) :
+   2 sélecteurs scène + 6 champs (3 par fin) avec Quill sur les
+   `bodyHtml`. Activer le bouton « Fins de partie » du hub
+   `GlobalSettingsHubPopup`.
 3. Mutations `setMetaSettingsEndScreens(...)`.
 4. Flush DOM sur les 8 ids. Pour `bodyHtml` : passer par
    `flushRichEditorsIn` après mise à jour pour que Quill soit synchro.
