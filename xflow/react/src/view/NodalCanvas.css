@@ -775,6 +775,50 @@
   width: 100%;
 }
 
+/* C18.2-fix — wrapper pour superposer le viseur central au panorama. */
+.nodal-canvas-layout .nodal-panorama-viewer-frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  width: 100%;
+}
+
+.nodal-canvas-layout .nodal-panorama-viewer-frame > .nodal-panorama-viewer-host {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+/* C18.2-fix — viseur central (croix) en mode picker, ne bloque pas la souris. */
+.nodal-canvas-layout .nodal-picker-crosshair-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+
+.nodal-canvas-layout .nodal-picker-crosshair-overlay::before,
+.nodal-canvas-layout .nodal-picker-crosshair-overlay::after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+.nodal-canvas-layout .nodal-picker-crosshair-overlay::before {
+  width: 2px;
+  height: 28px;
+}
+
+.nodal-canvas-layout .nodal-picker-crosshair-overlay::after {
+  width: 28px;
+  height: 2px;
+}
+
 .nodal-canvas-layout .nodal-scene-preview-modal__empty {
   padding: 32px 24px;
   text-align: center;

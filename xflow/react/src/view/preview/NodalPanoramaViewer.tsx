@@ -9,6 +9,8 @@ type PannellumViewer = {
   destroy: () => void;
   mouseEventToCoords?: (e: MouseEvent) => [number, number];
   on?: (ev: string, cb: () => void) => void;
+  getPitch?: () => number;
+  getYaw?: () => number;
 };
 
 type PannellumApi = {
@@ -88,34 +90,45 @@ export function NodalPanoramaViewer({
     };
   }, [panoramaUrl, hotSpots, initialPitch, initialYaw, onReady]);
 
+  /**
+   * C18.2-fix — viseur central : pitch/yaw lus en continu sur le centre
+   * caméra (Pannellum `getPitch()` / `getYaw()`). Le clic ne pilote plus
+   * la sélection — il sert au drag normal de la vue 360.
+   */
   useEffect(() => {
     if (mode !== "picker" || !onPick) return;
-    const el = hostRef.current;
-    if (!el) return;
-    const onClick = (ev: MouseEvent) => {
+    let lastP = Number.NaN;
+    let lastY = Number.NaN;
+    const read = () => {
       const v = viewerRef.current;
-      if (!v?.mouseEventToCoords) return;
-      const coords = v.mouseEventToCoords(ev);
-      if (!coords) return;
-      onPick(coords[0], coords[1]);
+      if (!v?.getPitch || !v.getYaw) return;
+      const p = v.getPitch();
+      const y = v.getYaw();
+      if (!Number.isFinite(p) || !Number.isFinite(y)) return;
+      if (p === lastP && y === lastY) return;
+      lastP = p;
+      lastY = y;
+      onPick(p, y);
     };
-    el.addEventListener("click", onClick);
-    return () => el.removeEventListener("click", onClick);
+    read();
+    const id = window.setInterval(read, 120);
+    return () => window.clearInterval(id);
   }, [mode, onPick]);
 
   return (
-    <div
-      ref={hostRef}
-      id={stableIdRef.current}
-      className="nodal-panorama-viewer-host"
-      data-mode={mode}
-    />
+    <div className="nodal-panorama-viewer-frame" data-mode={mode}>
+      <div
+        ref={hostRef}
+        id={stableIdRef.current}
+        className="nodal-panorama-viewer-host"
+        data-mode={mode}
+      />
+      {mode === "picker" ? <PickerCrosshairOverlay /> : null}
+    </div>
   );
 }
 
-/**
- * // Q-C18-4 fallback — réactiver si UX clic-position jugée insuffisante
- */
+/** Viseur central (croix) — superposé en mode picker, n'intercepte pas la souris. */
 export function PickerCrosshairOverlay() {
   return <div className="nodal-picker-crosshair-overlay" aria-hidden />;
 }

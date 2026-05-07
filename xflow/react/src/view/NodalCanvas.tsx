@@ -1780,6 +1780,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
           onClose={() => setScenePreviewSceneId(null)}
         />
         <CoordsPickerModal
+          key={coordsPickerSatelliteId ?? "none"}
           satelliteId={coordsPickerSatelliteId}
           onClose={() => setCoordsPickerSatelliteId(null)}
         />

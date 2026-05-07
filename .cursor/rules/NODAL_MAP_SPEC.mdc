@@ -2513,4 +2513,14 @@ Annexe D*. Questions résiduelles éventuelles :
   `findSceneOfHotspotSatellite`, CSS picker (z-index au-dessus des popups),
   tests `c18CoordsPickerModal.test.tsx`, mocks `NodalUiContext` étendus
   (`c18ScenePreviewModal.test.tsx`).
+- 2026-05-08 — **C18.2-fix** : passage du picker en mode « viseur central »
+  (legacy formulaire) — le clic sur le panorama ne capture plus les coords
+  (il ré-orientait la caméra et empêchait le drag 360°). Le viseur (croix
+  superposée, `pointer-events: none`) est rendu par `NodalPanoramaViewer`
+  en mode `picker` ; pitch/yaw lus en continu via Pannellum
+  `getPitch()`/`getYaw()` (poll 120 ms) et reflétés dans le header live.
+  `CoordsPickerModal` utilise un `useState` lazy-init + `key={satelliteId}`
+  côté `NodalCanvas` pour éviter qu'un useEffect parent n'écrase la
+  première lecture du viewer. Test `c18CoordsPickerModal.test.tsx`
+  adapté (mock `getPitch`/`getYaw`, vérif crosshair présent).
 

@@ -74,21 +74,25 @@ export function CoordsPickerModal({ satelliteId, onClose }: CoordsPickerModalPro
   const satellite = satelliteId ? snap.satellites[satelliteId] : undefined;
   const isCoords = satellite?.satelliteType === "coords-options";
 
-  const [live, setLive] = useState({ pitch: 0, yaw: 0 });
+  /**
+   * C18.2-fix — `live` est initialisé une fois (lazy) aux coords du satellite.
+   * Le composant est remonté via `key={satelliteId}` côté parent à chaque
+   * ouverture, donc pas besoin d'un useEffect qui écraserait les valeurs
+   * lues en continu par le viewer (`getPitch()` / `getYaw()`).
+   */
+  const [live, setLive] = useState(() => {
+    if (!satelliteId) return { pitch: 0, yaw: 0 };
+    const s = store.getState().satellites[satelliteId];
+    if (!s || s.satelliteType !== "coords-options") return { pitch: 0, yaw: 0 };
+    return {
+      pitch: Number(s.data.pitch) || 0,
+      yaw: Number(s.data.yaw) || 0,
+    };
+  });
 
   const onPick = useCallback((p: number, y: number) => {
     setLive({ pitch: p, yaw: y });
   }, []);
-
-  useEffect(() => {
-    if (!satelliteId) return;
-    const s = store.getState().satellites[satelliteId];
-    if (!s || s.satelliteType !== "coords-options") return;
-    setLive({
-      pitch: Number(s.data.pitch) || 0,
-      yaw: Number(s.data.yaw) || 0,
-    });
-  }, [satelliteId, store]);
 
   const effectivePanoramaUrl = useMemo(() => {
     if (!resolved) return "";

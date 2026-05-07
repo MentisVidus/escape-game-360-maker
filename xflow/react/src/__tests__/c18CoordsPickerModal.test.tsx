@@ -125,7 +125,8 @@ beforeEach(() => {
     viewer: vi.fn((_el: HTMLElement, _cfg: Record<string, unknown>) => ({
       destroy: vi.fn(),
       on: vi.fn(),
-      mouseEventToCoords: vi.fn(() => [15.5, -22.25] as [number, number]),
+      getPitch: vi.fn(() => 15.5),
+      getYaw: vi.fn(() => -22.25),
     })),
   };
 });
@@ -187,8 +188,21 @@ describe("C18.2 — CoordsOptionsPopup", () => {
   });
 });
 
-describe("C18.2 — CoordsPickerModal", () => {
-  it("met à jour le header après clic (picker) puis Valider commit pitch/yaw sans effacer appearance", async () => {
+describe("C18.2 — CoordsPickerModal (viseur central)", () => {
+  it("affiche le viseur central (crosshair) en mode picker", async () => {
+    const { store, coordsSat } = setupHotspotWithCoordsSat();
+    renderTree(
+      <NodalUiContext.Provider value={mockNodalUi(store)}>
+        <CoordsPickerModal satelliteId={coordsSat.id} onClose={() => {}} />
+      </NodalUiContext.Provider>
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(container.querySelector(".nodal-picker-crosshair-overlay")).toBeTruthy();
+  });
+
+  it("lit pitch/yaw via getPitch()/getYaw() (centre caméra) puis Valider commit sans toucher aux autres champs", async () => {
     const { store, coordsSat } = setupHotspotWithCoordsSat();
     const snapBefore = store.getState().satellites[coordsSat.id] as CoordsOptionsSatelliteNode;
     const preserved = {
@@ -198,21 +212,14 @@ describe("C18.2 — CoordsPickerModal", () => {
       hotspotCssExpert: snapBefore.data.hotspotCssExpert,
     };
     const onClose = vi.fn();
-    const ui = mockNodalUi(store);
     renderTree(
-      <NodalUiContext.Provider value={ui}>
+      <NodalUiContext.Provider value={mockNodalUi(store)}>
         <CoordsPickerModal satelliteId={coordsSat.id} onClose={onClose} />
       </NodalUiContext.Provider>
     );
 
     await act(async () => {
-      await Promise.resolve();
-    });
-
-    const host = container.querySelector(".nodal-panorama-viewer-host") as HTMLElement | null;
-    expect(host).toBeTruthy();
-    act(() => {
-      host!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     expect(container.textContent).toContain("15.5");
