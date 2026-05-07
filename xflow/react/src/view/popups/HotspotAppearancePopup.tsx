@@ -8,6 +8,9 @@ import {
   mergeHotspotAppearance,
 } from "../../model/hotspotAppearance";
 
+import { MediaUploadButton } from "../components/MediaUploadButton";
+import { MEDIA_ACCEPT_IMAGE_LOOSE } from "../components/mediaUploadAccept";
+
 export type HotspotAppearanceSavePayload = {
   appearance: HotspotAppearanceUi;
   customCss: string;
@@ -196,13 +199,24 @@ export function HotspotAppearancePopup({
               </label>
               <label className="nodal-popup-field">
                 <span>Image URL (optionnel)</span>
-                <input
-                  type="text"
-                  value={appearance.ui_img}
-                  disabled={expert}
-                  onChange={(e) => patchAppearance({ ui_img: e.target.value })}
-                  placeholder="ex. icône.png ou https://…"
-                />
+                <div className="nodal-url-with-upload">
+                  <input
+                    className="nodal-url-with-upload__input"
+                    type="text"
+                    value={appearance.ui_img}
+                    disabled={expert}
+                    onChange={(e) => patchAppearance({ ui_img: e.target.value })}
+                    placeholder="ex. icône.png ou https://…"
+                  />
+                  <MediaUploadButton
+                    accept={MEDIA_ACCEPT_IMAGE_LOOSE}
+                    disabled={expert}
+                    currentUrl={(appearance.ui_img || "").trim().startsWith("blob:")
+                      ? (appearance.ui_img || "").trim()
+                      : undefined}
+                    onPicked={(next) => patchAppearance({ ui_img: next })}
+                  />
+                </div>
               </label>
             </div>
 

@@ -2,6 +2,12 @@
 
 **Statut** : **clôturé** — voir Annexe B — C9 + ce journal pour le détail.
 
+> **Note post-clôture (2026-05-05)** : suite retours terrain, le drop
+> d’une action sur s-box n’auto-attache plus la node à la scène et ne
+> crée plus d’edge flow automatique. Motif : limiter les liaisons
+> involontaires ; alignement UX avec le drop sur fond de carte.
+> Les drops selector / REQ-PWD ne changent pas.
+
 **Date d'ouverture** : 2026-05-05.
 **Branche** : `feat/c9-palette-dnd` (depuis `feat/nodal-map`).
 

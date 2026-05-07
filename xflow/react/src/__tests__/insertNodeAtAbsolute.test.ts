@@ -74,7 +74,7 @@ describe("insertNodeAtAbsolute + palette D&D (C9.1)", () => {
     expect(m.get(scene.id)).toEqual({ x: abs0.x + 100, y: abs0.y + 200 });
   });
 
-  it("C9.2 — drop action sur s-box → parent s-box + edge flow scène→action", () => {
+  it("drop action sur s-box → orphelin top-level (pas d’auto-edge)", () => {
     const scene: SceneNode = {
       id: asSceneNodeId("scn-drop"),
       nodeType: "scene",
@@ -95,9 +95,9 @@ describe("insertNodeAtAbsolute + palette D&D (C9.1)", () => {
     const newAct = Object.values(after.actions).find((a) => a.actionType === "goto");
     expect(newAct).toBeTruthy();
     const aid = newAct!.id;
-    expect(after.layout[aid]?.parentId).toBe(bid);
+    expect(after.layout[aid]?.parentId ?? null).toBeNull();
     const flow = after.edges.find((e) => e.family === "flow" && e.sourceId === scene.id && e.targetId === aid);
-    expect(flow).toBeTruthy();
+    expect(flow).toBeFalsy();
   });
 
   it("C9.2 — drop média sur s-box → orphelin (pas d’edge flow)", () => {

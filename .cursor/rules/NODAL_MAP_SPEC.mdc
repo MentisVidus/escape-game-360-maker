@@ -2,24 +2,58 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.8.6 (5 mai 2026)
+> **Version** : 1.9 (7 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
 
-> **Changelog v1.8.6** : intégration nouveau chantier **C11 —
+> **Changelog v1.9** : clôture **chantier C10** — autonomie carte nodale
+> (authoring standalone). Synthèse **Annexe B — C10**. Livré :
+> **C10.0** audit globals ; **C10.1** **[Publier]** + modale publication +
+> flush on-demand (defense-in-depth save / generate / ZIP) +
+> suppression flush 8 s ; **C10.2.a–f** `meta.settings` + hub Paramètres
+> globaux + projection DOM (titre, inventaire, popup theme, audio,
+> timer/sauvegarde joueur, fins de partie) ; **C10.3** ouverture par
+> défaut sur la carte nodale ; **C10.5** upload média local depuis la
+> carte ; **C10.4** vue de vérification legacy + bandeau + **[Vérifier]**
+> (absorbe **C6.1**). Journal : `docs/archives/chantier_10.md`.
+>
+> **Écartés** : autosave brouillon 100 % mutations carte seules
+> (`noteDirty` — journal C10.1) ; éditeur URL panorama dédié React ;
+> **Déployer** → **C11**.
+
+> **Changelog v1.8.7** : ouverture **chantier C10** (autonomie carte
+> nodale — authoring standalone). Cadrage validé en phase questions
+> (Q-C10-1 à Q-C10-bis-4). Annexe D ouverte avec scope figé +
+> découpage en **5 sous-chantiers** : **C10.0** audit globals
+> (doc-only, fil directeur) ; **C10.1** bouton « Publier » dans le
+> bas de palette + modale « Publication du jeu » (HTML autonome +
+> ZIP web hors-ligne, placeholder Deploy pour C11) + flush DOM
+> synchrone garanti, suppression du flush périodique 8 s ;
+> **C10.2.x** rapatriement des paramètres globaux dans la modale
+> « Paramètres globaux » existante (sous-découpage `.a/.b/.c…`
+> figé après l'audit C10.0) ; **C10.3** ouverture par défaut de
+> `editeur.html` / `editor_en.html` directement sur la carte
+> nodale (bouton **[Vérifier]** remplaçant **[Formulaire]**) ;
+> **C10.4** désactivation legacy + bandeau (absorbe **C6.1**).
+> Branche `feat/c10-autonomy` créée depuis `feat/nodal-map`. Plan
+> détaillé **C10.0** rédigé (plans C10.1+ au fil de l’eau). À l’époque,
+> **v1.9** réservée à la clôture C10. Doc-only d’ouverture.
+
+> **Changelog v1.8.2** : intégration nouveau chantier **C11 —
 > Déploiement Netlify intégré** (« Deploy Game », complément du
 > Generate Game existant) avec persistance idempotente du `siteId`
 > dans `project.json`. **Renumérotation** des chantiers suivants :
 > ancien C11 → **C12** (logique de jeu : conditions et combinaisons) ;
 > C12 → **C13** (logique temporelle) ; C13 → **C14** (bibliothèques) ;
 > C14 → **C15** (mode visite virtuelle) ; C15 → **C16** (médias
-> avancés) ; C16 → **C17** (médias partagés et portables). v1.9
-> toujours réservée à la clôture **C10**. Doc-only.
+> avancés) ; C16 → **C17** (médias partagés et portables). *(À l’époque,
+> v1.9 était réservée à la future clôture C10 — désormais **livrée**.)*
+> Doc-only.
 
-> **Changelog v1.8.5** : extension §7 roadmap — formalisation des
+> **Changelog v1.8.1** : extension §7 roadmap — formalisation des
 > chantiers **C10 → C16** : autonomie carte nodale (**C10**, bouton
 > *Générer le jeu* + paramètres globaux + timer global) ; logique de
 > jeu enrichie (**C11**, REQ multi-objets, crafting, récompense
@@ -27,8 +61,8 @@
 > hotspot conditionnel) ; bibliothèques productivité (**C13**, styles
 > hotspot + icônes) ; mode visite virtuelle (**C14**) ; médias
 > avancés (**C15**, vidéo 360° + transitions) ; médias partagés et
-> portables (**C16**, IndexedDB + bibliothèque). v1.9 réservée à la
-> clôture **C10**. Mise à jour §0.1 et §7 introduction. Aucun
+> portables (**C16**, IndexedDB + bibliothèque). *(À l’époque, réservation
+> de **v1.9** pour C10 — aujourd’hui livrée.)* Mise à jour §0.1 et §7 introduction. Aucun
 > changement de règle métier §1–§6 ; doc-only.
 
 > **Changelog v1.8** : clôture **chantier C9** — drag & drop depuis la
@@ -168,7 +202,7 @@ valider l'intention produit. Il décrit :
 - Les règles de cohérence et warnings (§6).
 - La roadmap d'implémentation (§7).
 - Les règles de collaboration avec l'agent (§8).
-- Les annexes A–C (chantiers **C1–C9 livrés** — v1.5 → v1.8 ; voir
+- Les annexes A–C (chantiers **C1–C10 livrés** — v1.5 → v1.9 ; voir
   **Annexe B** par chantier ; journaux archivés sous `docs/archives/`).
 
 ### 0.2 Règles transversales produit
@@ -180,13 +214,11 @@ Ces règles contraignent toutes les décisions d'implémentation.
    modification métier passe par une action sur ce modèle. Aucune
    écriture dans le DOM legacy ne fait autorité.
 
-2. **Cible produit : le formulaire DOM legacy en lecture seule.** À terme,
-   tous les inputs, selects, textarea et boutons d’édition seront
-   désactivés pour n’offrir qu’une **vue de vérification** (chantier **C6.1**,
-   optionnel — **non bloquant** pour C6 livré v1.5 : tant que **C6.1** n’est
-   pas fait, l’utilisateur peut encore éditer le legacy ; la **carte nodale**
-   et le **bundle** restent la source de vérité pour la persistance et
-   l’export).
+2. **Cible produit : le formulaire DOM legacy en lecture seule.** Les contrôles
+   du formulaire principal sont **désactivés** ; seule une **vue de vérification**
+   avec bandeau est proposée ; l’édition se fait sur la **carte nodale**
+   (**C10.4** — absorbe l’option **C6.1**). La carte et le bundle restent la
+   source de vérité pour la persistance et l’export.
 
 3. **Format V2 exclusivement.** Le modèle carte se sérialise vers un
    `project.json` au format V2 (schéma d'action unifié avec `type`,
@@ -236,7 +268,7 @@ Formulaire DOM (conflit)
 ```
 Modèle carte en mémoire (source de vérité)
     ├→ Rendu React Flow (vue principale, éditable)
-    ├→ Formulaire DOM legacy (vue secondaire ; cible lecture seule **C6.1**)
+    ├→ Formulaire DOM legacy (vue secondaire ; lecture seule **C10.4**)
     └→ Sérialisation V2 → project.json
            └→ generate-game.js (inchangé pour l'instant)
 ```
@@ -800,8 +832,8 @@ centre la vue sur le nœud concerné.
 
 ## 7. Roadmap d'implémentation
 
-Chantiers numérotés pour référence dans les commits. **C1–C9 livrés**
-(v1.5 → v1.8) ; **C10–C17 planifiés** ci-dessous. La numérotation
+Chantiers numérotés pour référence dans les commits. **C1–C10 livrés**
+(v1.5 → v1.9) ; **C11–C17 planifiés** ci-dessous. La numérotation
 au-delà de C10 est indicative — l’ordre peut être réarrangé selon
 priorité produit. Chaque chantier passe par la phase questions §8.1
 au démarrage et ouvre une **Annexe D** vivante refondue à la clôture
@@ -876,9 +908,8 @@ au démarrage et ouvre une **Annexe D** vivante refondue à la clôture
 - **Livré** : projection **nodale → DOM** (`editor-shared-nodal-to-dom.js`)
   + abonnement store + flush après load / hydrate ; le legacy reflète le
   graphe pour debug / `generateGame()` sans être source métier.
-- **C6.1 optionnel** (hors périmètre immédiat) : désactivation systématique
-  des contrôles legacy + bandeau « miroir nodal » — voir **Changelog v1.5**
-  et §0.2.
+- **C6.1** : absorbé par **C10.4** (vue de vérification legacy) — voir
+  **Annexe B — C10** et §0.2 règle 2.
 
 ### C7 — Popups d'édition de contenu *(et extensions associées) — livré v1.6*
 
@@ -964,39 +995,23 @@ ou backlog produit).
 
 ### C10 — Autonomie de la carte nodale *(authoring standalone)*
 
-Objectif : **dissocier l’authoring** du formulaire legacy. Tout ce
-qui est nécessaire pour générer un jeu doit être disponible depuis
-la carte nodale, sans bascule d’onglet. Conditionne la mise en
-**lecture seule** du formulaire legacy (§0.2 règle 2, **C6.1**).
+- **Livré** (2026-05-07) — synthèse **Annexe B — C10**, journal
+  `docs/archives/chantier_10.md`. Branche : `feat/c10-autonomy`.
 
-**Axe A — Bouton « Générer le jeu »** (cf. `editeur.html` /
-`editor_en.html` côté legacy) :
+- **Objectif** : authoring **carte nodale** sans exposer un formulaire
+  legacy éditable ; legacy en **vue de vérification** (C10.4) ; ouverture
+  par défaut sur la carte (C10.3). **C6.1** absorbé.
 
-- Exposer `generateGame()` depuis la carte (palette ou dock à cadrer).
-- Garantir un flush DOM préalable complet (le miroir nodal → DOM doit
-  être à jour avant l’appel — cf. `editor-shared-nodal-to-dom.js`).
-- Comportement post-génération : modale résultat / téléchargement
-  direct / bascule onglet legacy → à trancher en phase questions.
+- **Axes livrés (rappel)** : **[Publier]** + flush on-demand ;
+  **`meta.settings`** (hub + popups + projection DOM : titre, inventaire,
+  thème popups, audio, timer/sauvegarde, fins de partie) ; **upload média**
+  local depuis la carte (C10.5) ; **bandeau + désactivation** formulaire +
+  bouton palette **[Vérifier]** / **[Verify]**.
 
-**Axe B — Paramètres globaux du projet** :
+- **Écartés** : autosave brouillon 100 % depuis les seules mutations carte ;
+  éditeur URL panorama dédié React ; bouton **Déployer** (C11).
 
-- Inventaire des champs globaux du formulaire legacy (titre, langue,
-  thème visuel global, `meta.startSceneId`, **timer global**, **styles
-  globaux**, **sons globaux**, **textes de fin de partie**).
-- Statut actuel par champ : déjà dans le store nodal ? déjà projeté
-  vers le DOM via `flushNodalStoreToEditorDom` ? sérialisé dans
-  `project.json` V2 ? — à dresser au démarrage.
-- Rapatrier dans la carte nodale ceux qui manquent ; popups dédiés ou
-  panneau « Paramètres globaux » (à cadrer).
-
-**Axe C — Désactivation legacy (C6.1)** :
-
-- Trancher si C10 est le bon moment pour passer définitivement les
-  contrôles legacy en lecture seule + bandeau « miroir nodal ».
-- Hors scope possible si la couverture B est partielle.
-
-Découpage attendu (à valider §8.1) : **C10.1** generateGame ; **C10.2**
-paramètres globaux ; **C10.3** désactivation legacy si retenu.
+*Découpage détaillé, plans et journal au fil de l’eau : `chantier_10.md`.*
 
 ### C11 — Déploiement Netlify intégré *(« Deploy Game »)*
 
@@ -1435,8 +1450,8 @@ poursuit sur **`feat/nodal-map`** uniquement.
    vérification, sérialisation existante et `generateGame()` — jamais
    une source métier pour les mutations carte.
 2. **C6.1** (désactivation systématique des champs legacy + bandeau) :
-   **optionnel**, non requis pour considérer C6 livré ; peut être ajouté
-   plus tard pour éviter l’édition manuelle du formulaire en parallèle.
+   était **optionnel au moment de la clôture C6 seule** (v1.5).
+   **Livré plus tard dans C10.4** — voir **Annexe B — C10**.
 3. **REQ / PWD — chaînes multiples** : l’**option C** (un palier garanti)
    valait **avant C7.1**. Depuis **v1.6**, le **lot C7.1** étend schéma V2,
    projection DOM et runtime pour **plusieurs paliers** sur un même hotspot
@@ -1479,7 +1494,7 @@ poursuit sur **`feat/nodal-map`** uniquement.
 - **Drawflow** : `xflow/draw/project-graph.css` — cohabitation modale si
   retouches visuelles.
 
-**Règles résiduelles pour la suite (C7 / C6.1)**
+**Règles résiduelles pour la suite (C7+)**
 
 - Ne pas introduire de `document.querySelector` sur le DOM legacy dans
   **`xflow/react`** (§8.6) : projection et mutations DOM restent dans **`js/*`**.
@@ -1648,6 +1663,15 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_9.md`.
 - **C9.4** — Ghost node pendant drag (apparence type nœud canvas,
   `setDragImage`).
 
+**Note post-clôture (2026-05-05)** :
+
+- UX : le drop d’une **action** sur s-box ne crée plus d’attache hotspot
+  ni d’auto-edge flow. Le comportement est aligné sur un drop fond de
+  carte (nœud orphelin top-level), pour éviter des liaisons non désirées
+  en usage courant.
+- Les drops **selector** (état 3) et **REQ/PWD** (état 4) restent
+  inchangés.
+
 **Reste éventuel (hors clôture stricte C9)** :
 
 - **« Retour vers scène »** (référence par select / anti-spaghetti edges) —
@@ -1656,6 +1680,47 @@ détaillé** (plans + décisions de design) : `docs/archives/chantier_9.md`.
   manuelle (journal C9.4).
 - **DRY** — mutualiser `findDeepestDropContainer` avec `onNodeDragStop` :
   reporté, non bloquant.
+
+### C10 — Autonomie de la carte nodale *(clôture chantier 2026-05-07)*
+
+**Branche** : `feat/c10-autonomy` (depuis `feat/nodal-map`). **Journal
+détaillé** (plans, scope, journal au fil de l’eau) :
+`docs/archives/chantier_10.md`.
+
+**Périmètre livré (synthèse)** :
+
+- **C10.0** — Audit globals (tableau legacy ↔ store nodal ↔ flush DOM ↔
+  `project.json` V2) ; fil directeur §7 + découpage **C10.2.a–g** initial.
+- **C10.1** — Bouton **[Publier]** + `PublishGamePopup` ; bridge
+  `__escape360NodalChrome.generateGameHtml` / `exportGameWebZip` ; flush
+  **defense in depth** dans `saveProject`, `generateGame`, `exportGameWebZip`
+  (FR + EN) ; **suppression** du flush périodique 8 s ; composant
+  `PalettePopupModal` ; tests `c10PaletteModalAndPublish.test.tsx`.
+- **C10.2.a–f** — Hub **Paramètres globaux** (liste verticale de sections) ;
+  `meta.settings` structuré : titre jeu (`meta.title`), inventaire HUD,
+  thème popups (migration depuis layout), audio global, timer + sauvegarde
+  joueur, fins de partie (Quill) ; popups dédiées + extension
+  `editor-shared-nodal-to-dom.js` ; Vitest `c102*.test.tsx` (hub, identité,
+  inventaire, thème, audio, timer, end screens).
+- **C10.3** — Ouverture **par défaut** sur la carte nodale
+  (`escape360TryOpenDefaultNodalMap`, post-chargement `.escapegame`) ;
+  `c103DefaultNodalMapVisible.test.tsx`.
+- **C10.5** — Upload média local : `EditorSharedBundle.pickLocalMediaFromBundle`,
+  bridge `pickLocalBundleMedia`, composant `MediaUploadButton` + popups URL
+  (audio global, inventaire icône, média image/audio, hotspot, objet) ;
+  `c105MediaUploadButton.test.tsx`. Pas d’éditeur panorama 360 dédié en React.
+- **C10.4** — Legacy **vue de vérification** :
+  `js/editor-shared-legacy-verify-mode.js` (bandeau, `disabled` +
+  gel Quill + `MutationObserver`, barre d’outils : seuls les boutons carte
+  restent actifs) ; `css/editor.css` ; palette **[Vérifier]** / **[Verify]**
+  + tooltip read-only (`c104NodePaletteVerify.test.tsx`). Absorbe **C6.1**.
+
+**Écartés (hors clôture stricte)** :
+
+- **Autosave brouillon 100 % nodal** — les mutations purement carte ne marquent
+  pas `noteDirty` (cf. journal C10.1) ; refonte store-driven = chantier ultérieur.
+- **Deploy** dans la modale Publication — réservé **C11** (placeholder laissé
+  jusqu’à implémentation Netlify).
 
 ## Annexe C — Glossaire
 

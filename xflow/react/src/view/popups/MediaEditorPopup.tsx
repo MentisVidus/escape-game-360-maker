@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import type { MediaAudioNode, MediaNode } from "../../model/nodes";
+import { MediaUploadButton } from "../components/MediaUploadButton";
+import { MEDIA_ACCEPT_AUDIO, MEDIA_ACCEPT_PANORAMA_IMAGE } from "../components/mediaUploadAccept";
 
 type Props = {
   media: MediaNode | null;
@@ -53,7 +55,30 @@ export function MediaEditorPopup({ media, onChange, onClose }: Props) {
         </label>
         <label className="nodal-popup-field">
           <span>URL</span>
-          <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} onBlur={flushUrl} />
+          <div className="nodal-url-with-upload">
+            <input
+              className="nodal-url-with-upload__input"
+              type="text"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onBlur={flushUrl}
+            />
+            <MediaUploadButton
+              accept={isAudio ? MEDIA_ACCEPT_AUDIO : MEDIA_ACCEPT_PANORAMA_IMAGE}
+              currentUrl={url.trim().startsWith("blob:") ? url.trim() : undefined}
+              onPicked={(next) => {
+                setUrl(next);
+                const nextLabel = label.trim();
+                if (isAudio) {
+                  const v = Number(volume);
+                  const vol = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
+                  onChange({ label: nextLabel, url: next, volume: vol });
+                } else {
+                  onChange({ label: nextLabel, url: next });
+                }
+              }}
+            />
+          </div>
         </label>
         {!isAudio && url.trim() ? (
           <div className="nodal-popup-media-preview">

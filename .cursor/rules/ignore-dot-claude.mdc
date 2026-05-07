@@ -7,6 +7,8 @@ alwaysApply: true
 
 - **Ne pas** lire, ouvrir, citer, résumer ni intégrer le contenu de `.claude/` (fichiers, sous-dossiers, transcripts, settings) dans les réponses ou les commits, **sauf** si l’utilisateur demande **explicitement** d’utiliser un chemin sous `.claude/` (fichier nommé, action ponctuelle).
 
+- Ignorer **explicitement** le fichier `.claude/worktrees/loving-joliot-1ca2d7/.claude/CLAUDE.md` et `.cursor/rules/CLAUDE.md` dans le contexte agent, même s’il est présent dans le dépôt ; cette consigne ne nécessite **pas** d’entrée `.gitignore`.
+
 - **Ne pas** proposer d’explorer `.claude/` pour « comprendre le projet » ; la source de vérité reste le dépôt versionné (code, `docs/`, `.cursor/rules/*.mdc`, etc.).
 
 - Si une tâche semble dépendre d’informations uniquement présentes sous `.claude/`, **demander** à l’utilisateur de recopier ou de déplacer l’information dans un fichier versionné (ex. `docs/`, spec) plutôt que d’ouvrir `.claude/`.

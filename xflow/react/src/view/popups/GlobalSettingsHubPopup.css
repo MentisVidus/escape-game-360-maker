@@ -1,0 +1,29 @@
+/* C10.2.a-fix — hub paramètres globaux en liste de boutons. */
+
+.nodal-canvas-layout .nodal-popup-panel--global-hub {
+  max-width: min(480px, 94vw);
+}
+
+.nodal-canvas-layout .nodal-global-hub-section-body {
+  padding: 0 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nodal-canvas-layout .nodal-global-hub-label {
+  font-size: 12px;
+  opacity: 0.9;
+  color: var(--palette-heading);
+}
+
+.nodal-canvas-layout .nodal-global-hub-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  font: inherit;
+}

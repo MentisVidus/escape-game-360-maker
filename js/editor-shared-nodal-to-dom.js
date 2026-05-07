@@ -516,7 +516,7 @@
             media: raw.media,
             edges: raw.edges,
             layout: raw.layout,
-            playerPopupTheme: raw.playerPopupTheme || null
+            popupTheme: (raw.meta && raw.meta.settings && raw.meta.settings.popupTheme) || null
         };
     }
 
@@ -531,14 +531,14 @@
         var popBtnBg = document.getElementById("pop-btn-bg");
         var popBtnCol = document.getElementById("pop-btn-col");
 
-        if (useCustom) useCustom.checked = !!theme.useCustomPopup;
+        if (useCustom) useCustom.checked = !!theme.useCustom;
         if (container && useCustom) container.style.display = useCustom.checked ? "flex" : "none";
-        if (popFont && theme.popFont != null) popFont.value = String(theme.popFont);
-        if (popColor && theme.popColor != null) popColor.value = String(theme.popColor);
-        if (popBgc && theme.popBgc != null) popBgc.value = String(theme.popBgc);
-        if (popBga && theme.popBga != null) popBga.value = String(theme.popBga);
-        if (popBtnBg && theme.popBtnBg != null) popBtnBg.value = String(theme.popBtnBg);
-        if (popBtnCol && theme.popBtnCol != null) popBtnCol.value = String(theme.popBtnCol);
+        if (popFont && theme.font != null) popFont.value = String(theme.font);
+        if (popColor && theme.color != null) popColor.value = String(theme.color);
+        if (popBgc && theme.bg != null) popBgc.value = String(theme.bg);
+        if (popBga && theme.bgAlpha != null) popBga.value = String(theme.bgAlpha);
+        if (popBtnBg && theme.btnBg != null) popBtnBg.value = String(theme.btnBg);
+        if (popBtnCol && theme.btnColor != null) popBtnCol.value = String(theme.btnColor);
 
         if (typeof global.updatePreview === "function") global.updatePreview();
         if (typeof global.updateQuillTheme === "function") global.updateQuillTheme();
@@ -551,7 +551,115 @@
         var st = snapProjectSlice(storeApi.getState());
         if (!st) return { ok: false, reason: "empty state" };
         var out = applyNodalStateToLegacyDom(st);
-        projectPlayerPopupThemeToDom(st.playerPopupTheme);
+        projectPlayerPopupThemeToDom(st.popupTheme);
+        /* C10.2.a — identité projet : titre formulaire legacy. */
+        var gameTitleEl = typeof document !== "undefined" ? document.getElementById("gameTitle") : null;
+        if (gameTitleEl && st.meta && st.meta.title != null) {
+            gameTitleEl.value = String(st.meta.title);
+        }
+        /* C10.2.b — inventaire HUD (`meta.settings.inventoryGlobal`). */
+        var inv = st.meta && st.meta.settings && st.meta.settings.inventoryGlobal;
+        if (inv) {
+            var useInventory = document.getElementById("useInventory");
+            var invPos = document.getElementById("inv-pos");
+            var invIcon = document.getElementById("inv-icon");
+            var invBgc = document.getElementById("inv-bgc");
+            var invBga = document.getElementById("inv-bga");
+            var invColor = document.getElementById("inv-color");
+            if (useInventory) {
+                useInventory.checked = !!inv.enabled;
+                useInventory.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            if (invPos && inv.position != null) invPos.value = String(inv.position);
+            if (invIcon && inv.icon != null) invIcon.value = String(inv.icon);
+            if (invBgc && inv.panelBg != null) invBgc.value = String(inv.panelBg);
+            if (invBga && inv.panelBgAlpha != null) invBga.value = String(inv.panelBgAlpha);
+            if (invColor && inv.textColor != null) invColor.value = String(inv.textColor);
+            if (typeof global.updatePreview === "function") global.updatePreview();
+        }
+        /* C10.2.d — audio global (`meta.settings.audio`). */
+        var audio = st.meta && st.meta.settings && st.meta.settings.audio;
+        if (audio) {
+            var useGlobalAudio = document.getElementById("useGlobalAudio");
+            var globalAudioUrl = document.getElementById("globalAudioUrl");
+            var globalAudioVol = document.getElementById("globalAudioVol");
+            if (useGlobalAudio) {
+                useGlobalAudio.checked = !!audio.enabled;
+                useGlobalAudio.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            if (globalAudioUrl && audio.url != null) globalAudioUrl.value = String(audio.url);
+            if (globalAudioVol && audio.volume != null) {
+                globalAudioVol.value = String(audio.volume);
+                globalAudioVol.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        }
+        /* C10.2.e — timer global + sauvegarde joueur (`meta.settings.timer` / `playerSave`). */
+        var timer = st.meta && st.meta.settings && st.meta.settings.timer;
+        if (timer) {
+            var useTimer = document.getElementById("useTimer");
+            var timerMode = document.getElementById("timerMode");
+            var timerStartSeconds = document.getElementById("timerStartSeconds");
+            var timerAutoStart = document.getElementById("timerAutoStart");
+            var timerPauseOnPopup = document.getElementById("timerPauseOnPopup");
+            if (useTimer) {
+                useTimer.checked = !!timer.enabled;
+                useTimer.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            if (timerMode && timer.mode != null) timerMode.value = String(timer.mode);
+            if (timerStartSeconds && timer.startSeconds != null) timerStartSeconds.value = String(timer.startSeconds);
+            if (timerAutoStart) timerAutoStart.checked = !!timer.autoStart;
+            if (timerPauseOnPopup) timerPauseOnPopup.checked = !!timer.pauseWhenPopupOpen;
+        }
+        var playerSave = st.meta && st.meta.settings && st.meta.settings.playerSave;
+        if (playerSave) {
+            var playerSaveMode = document.getElementById("playerSaveMode");
+            if (playerSaveMode && playerSave.mode != null) playerSaveMode.value = String(playerSave.mode);
+        }
+        /* C10.2.f — fins de partie (`meta.settings.endScreens`). */
+        var endScreens = st.meta && st.meta.settings && st.meta.settings.endScreens;
+        if (endScreens) {
+            var victorySceneId = document.getElementById("victorySceneId");
+            var gameOverSceneId = document.getElementById("gameOverSceneId");
+            var endGameOverTitle = document.getElementById("endGameOverTitle");
+            var endGameOverBody = document.getElementById("endGameOverBody");
+            var endGameOverBtn = document.getElementById("endGameOverBtn");
+            var endVictoryTitle = document.getElementById("endVictoryTitle");
+            var endVictoryBody = document.getElementById("endVictoryBody");
+            var endVictoryBtn = document.getElementById("endVictoryBtn");
+            if (victorySceneId && endScreens.victorySceneExternalId != null) {
+                victorySceneId.value = String(endScreens.victorySceneExternalId);
+            }
+            if (gameOverSceneId && endScreens.gameOverSceneExternalId != null) {
+                gameOverSceneId.value = String(endScreens.gameOverSceneExternalId);
+            }
+            if (endGameOverTitle && endScreens.gameOver && endScreens.gameOver.title != null) {
+                endGameOverTitle.value = String(endScreens.gameOver.title);
+            }
+            if (endGameOverBody && endScreens.gameOver && endScreens.gameOver.bodyHtml != null) {
+                endGameOverBody.value = String(endScreens.gameOver.bodyHtml);
+            }
+            if (endGameOverBtn && endScreens.gameOver && endScreens.gameOver.buttonLabel != null) {
+                endGameOverBtn.value = String(endScreens.gameOver.buttonLabel);
+            }
+            if (endVictoryTitle && endScreens.victory && endScreens.victory.title != null) {
+                endVictoryTitle.value = String(endScreens.victory.title);
+            }
+            if (endVictoryBody && endScreens.victory && endScreens.victory.bodyHtml != null) {
+                endVictoryBody.value = String(endScreens.victory.bodyHtml);
+            }
+            if (endVictoryBtn && endScreens.victory && endScreens.victory.buttonLabel != null) {
+                endVictoryBtn.value = String(endScreens.victory.buttonLabel);
+            }
+            var endScreensContainer = document.getElementById("end-screens-form-container");
+            var domApi = getApi();
+            if (
+                endScreensContainer &&
+                domApi &&
+                typeof domApi.flushRichEditorsIn === "function"
+            ) {
+                domApi.flushRichEditorsIn(endScreensContainer);
+            }
+        }
         return out;
     }
 

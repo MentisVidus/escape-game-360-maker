@@ -1,20 +1,17 @@
 import {
   asActionNodeId,
-  asEdgeId,
   asMediaNodeId,
   type ActionNodeId,
   type AnyNodeId,
   type MediaNodeId,
-  type SceneNodeId,
 } from "../model/ids";
-import type { FlowEdge } from "../model/edges";
 import type { ActionNode, MediaNode, SceneNode } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import { stableSceneNodeIdFromExternal } from "../serialize/fromProjectJson";
-import { absoluteFlowPositionInPane, computeContainerBounds, reanchorSBox } from "../view/nesting/containerBounds";
+import { absoluteFlowPositionInPane, computeContainerBounds } from "../view/nesting/containerBounds";
 import { findDeepestDropContainer } from "./dropContainerResolve";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
-import { reconcileSceneBoxes, sboxIdFromScene } from "./reconcileSceneBoxes";
+import { reconcileSceneBoxes } from "./reconcileSceneBoxes";
 
 /** Ré-export tests / appels externes (C9.2). */
 export { findDeepestDropContainer, findSceneBoxAtFlowPoint, rewardZoneFlowRect } from "./dropContainerResolve";
@@ -136,26 +133,6 @@ function growSelectorIfContentOverflowsProject(next: NodalProject, selectorId: A
   }
 }
 
-/** Effets layout d’un edge flow scène→action (aligné sur `nodalProjectStore.connect`). */
-function applyFlowEdgeSceneToAction(next: NodalProject, edge: FlowEdge): boolean {
-  if (!(edge.sourceId in next.scenes) || !(edge.targetId in next.actions)) return false;
-  const bid = sboxIdFromScene(edge.sourceId as SceneNodeId);
-  const childLayout = next.layout[edge.targetId as AnyNodeId];
-  const boxLayout = next.layout[bid];
-  if (!childLayout || !boxLayout || childLayout.parentId != null) return false;
-  if (wouldCreateCycle(next.layout as Record<string, { parentId?: AnyNodeId | null }>, String(bid), String(edge.targetId))) {
-    return false;
-  }
-  next.layout[edge.targetId as AnyNodeId] = {
-    ...childLayout,
-    x: childLayout.x - boxLayout.x,
-    y: childLayout.y - boxLayout.y,
-    parentId: bid,
-  };
-  reanchorSBox(next, bid);
-  return true;
-}
-
 function attachActionUnderParent(
   next: NodalProject,
   childId: ActionNodeId,
@@ -186,7 +163,7 @@ function attachActionUnderParent(
 
 /**
  * C9.1 — insertion top-level à une position flow absolue.
- * C9.2 — drop sur s-box : hotspot + edge flow.
+ * C9.2 (retiré en UX) — drop sur s-box revient au comportement top-level.
  * C9.3 — selector / REQ-PWD (zone récompense) avant s-box (`findDeepestDropContainer`).
  */
 export function insertNodeAtAbsolute(
@@ -241,23 +218,9 @@ export function insertNodeAtAbsolute(
         next.layout[id] = orphanLayout(position.x, position.y);
       }
     } else if (hit?.kind === "sceneBox") {
-      const sceneId = next.sceneBoxes[hit.id]?.sceneId as SceneNodeId | undefined;
-      if (sceneId != null) {
-        next.actions[id] = node;
-        next.layout[id] = orphanLayout(position.x, position.y);
-        const edge: FlowEdge = {
-          id: asEdgeId(nextAutoId("edge")),
-          family: "flow",
-          sourceId: sceneId,
-          targetId: id,
-        };
-        if (applyFlowEdgeSceneToAction(next, edge)) {
-          next.edges.push(edge);
-        }
-      } else {
-        next.actions[id] = node;
-        next.layout[id] = orphanLayout(position.x, position.y);
-      }
+      // UX 2026-05 : le drop sur s-box n'attache plus automatiquement l'action.
+      next.actions[id] = node;
+      next.layout[id] = orphanLayout(position.x, position.y);
     } else {
       next.actions[id] = node;
       next.layout[id] = orphanLayout(position.x, position.y);

@@ -60,7 +60,10 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           snapshot: "Local snapshot",
           saveJson: "Save .json",
           load: "Load…",
-          form: "Form editor",
+          publish: "Publish",
+          publishHint: "Publish your game (HTML / ZIP / deploy)",
+          form: "Verify",
+          formHint: "Verification view (read-only)",
           shortcuts: "Shortcuts",
           shortcutsHint: "Shortcuts (?)",
         }
@@ -75,7 +78,10 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
           snapshot: "Snapshot local",
           saveJson: "Sauver .json",
           load: "Charger…",
-          form: "Formulaire",
+          publish: "Publier",
+          publishHint: "Publication du jeu (HTML / ZIP / déploiement)",
+          form: "Vérifier",
+          formHint: "Vue de vérification (read-only)",
           shortcuts: "Raccourcis",
           shortcutsHint: "Raccourcis (?)",
         };
@@ -229,7 +235,15 @@ export function NodePalette({ store, canvasRef, searchFieldRef }: PaletteProps) 
         <button type="button" onClick={() => runChrome((c) => c.triggerLoadEscapegame())}>
           {labels.load}
         </button>
-        <button type="button" onClick={() => runChrome((c) => c.closeProjectMapModal())}>
+        <button
+          type="button"
+          className="nodal-palette-btn-publish"
+          title={labels.publishHint}
+          onClick={() => ui.setPublishHubOpen(true)}
+        >
+          {labels.publish}
+        </button>
+        <button type="button" title={labels.formHint} onClick={() => runChrome((c) => c.closeProjectMapModal())}>
           {labels.form}
         </button>
       </div>

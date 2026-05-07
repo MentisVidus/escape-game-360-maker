@@ -42,8 +42,8 @@
         <button class="btn-save" onclick="saveProject()">💾 Save project (.json)</button>
         <button type="button" class="btn-save" onclick="void saveProjectBundle()" title="ZIP archive renamed: project.json + assets/ folder">💾 Save project (.escapegame)</button>
         <button class="btn-load" onclick="document.getElementById('file-import').click()">📂 Load project (.json / .escapegame)</button>
-        <button type="button" class="btn-load" onclick="openProjectMap()" title="Graph view of scenes and transitions">🗺️ Show map</button>
-        <button type="button" class="btn-load" onclick="openNodalMapEditor()" title="Open React Flow map directly">🧠 Nodal Editor</button>
+        <button type="button" id="toolbar-open-drawflow-map" class="btn-load" onclick="openProjectMap()" title="Graph view of scenes and transitions">🗺️ Show map</button>
+        <button type="button" id="toolbar-open-nodal-map" class="btn-load" onclick="openNodalMapEditor()" title="Open React Flow map directly">🧠 Nodal Editor</button>
         <!-- JSON or portable bundle (.escapegame); separate input for local media pickers -->
         <input type="file" id="file-import" style="display:none;" accept=".json,.escapegame,application/json,application/zip" onchange="loadProject(event)">
         <input type="file" id="bundle-media-file" style="display:none;" onchange="onBundleLocalMediaSelected(event)">
@@ -500,5 +500,6 @@
     <script src="xflow/draw/project-graph.js" defer></script>
     <script src="xflow/react/dist/editor-map.js" defer></script>
     <script src="js/editor-nodal-map-bootstrap.js" defer></script>
+    <script src="js/editor-shared-legacy-verify-mode.js" defer></script>
 </body>
 </html>

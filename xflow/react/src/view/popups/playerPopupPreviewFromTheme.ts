@@ -5,7 +5,7 @@ import type { PlayerPopupTheme } from "./playerPopupDomRead";
 
 /** Boîte démo (popup thème nodale) : fond + texte + police. */
 export function playerPopupThemeToDemoBoxStyle(s: PlayerPopupTheme): Pick<CSSProperties, "backgroundColor" | "color" | "fontFamily"> {
-  if (!s.useCustomPopup) {
+  if (!s.useCustom) {
     return {
       backgroundColor: hexToRgba("#000000", 0.95),
       color: "#ffffff",
@@ -13,17 +13,17 @@ export function playerPopupThemeToDemoBoxStyle(s: PlayerPopupTheme): Pick<CSSPro
     };
   }
   return {
-    backgroundColor: hexToRgba(s.popBgc, s.popBga),
-    color: s.popColor,
-    fontFamily: s.popFont,
+    backgroundColor: hexToRgba(s.bg, s.bgAlpha),
+    color: s.color,
+    fontFamily: s.font,
   };
 }
 
 export function playerPopupThemeToDemoBtnStyle(s: PlayerPopupTheme): Pick<CSSProperties, "backgroundColor" | "color" | "fontFamily"> {
-  if (!s.useCustomPopup) {
+  if (!s.useCustom) {
     return { backgroundColor: "#27ae60", color: "#ffffff", fontFamily: "inherit" };
   }
-  return { backgroundColor: s.popBtnBg, color: s.popBtnCol, fontFamily: "inherit" };
+  return { backgroundColor: s.btnBg, color: s.btnColor, fontFamily: "inherit" };
 }
 
 /** Aperçu runtime `afficherPopup` joueur (viewport sombre + panneau + boutons). */

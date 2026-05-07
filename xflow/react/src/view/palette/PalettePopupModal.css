@@ -1,0 +1,92 @@
+/* C10.1 — styles partagés pour les modales déclenchées depuis la palette
+ * (PalettePopupModal). S’appuient sur les variables / classes nodal-popup-*
+ * définies dans NodalCanvas.css. */
+
+.nodal-canvas-layout .nodal-popup-panel {
+  position: relative;
+}
+
+.nodal-canvas-layout .palette-popup-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--node-text);
+  font-size: 20px;
+  line-height: 26px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.nodal-canvas-layout .palette-popup-close:hover {
+  background: var(--palette-button-hover);
+  border-color: var(--palette-button-border);
+}
+
+.nodal-canvas-layout .palette-popup-close:focus-visible {
+  outline: 2px solid var(--node-selected-outline);
+  outline-offset: 2px;
+}
+
+.nodal-canvas-layout .palette-popup-body {
+  display: block;
+}
+
+/* Modale Publication — variante de panneau. */
+.nodal-canvas-layout .nodal-popup-panel--publish {
+  max-width: min(440px, 92vw);
+}
+
+.nodal-canvas-layout .nodal-publish-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0 14px;
+}
+
+.nodal-canvas-layout .nodal-publish-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nodal-canvas-layout .nodal-publish-btn:hover:not(:disabled) {
+  background: var(--palette-button-hover);
+}
+
+.nodal-canvas-layout .nodal-publish-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nodal-canvas-layout .nodal-publish-btn--primary {
+  font-weight: 700;
+  border-color: var(--node-selected-outline);
+  background: color-mix(in srgb, var(--node-selected-outline) 14%, var(--palette-button-bg));
+}
+
+/* Footer actions (C10.2.a-fix2 — bouton Retour à gauche). */
+.nodal-canvas-layout .nodal-popup-actions--only-back {
+  justify-content: flex-start;
+}
+
+.nodal-canvas-layout .nodal-popup-actions--with-back {
+  justify-content: space-between;
+}
+
+.nodal-canvas-layout .nodal-popup-actions-left,
+.nodal-canvas-layout .nodal-popup-actions-right {
+  display: flex;
+  align-items: center;
+}

@@ -1583,6 +1583,10 @@ function updateHsFields(hId, opts) {
 
 
 function saveProject() {
+    /* C10.1 — defense in depth (Q-C10.1.x-3) : tout caller (barre d’outils legacy,
+     * pont palette nodale `__escape360NodalChrome`, dev console) a la garantie que
+     * le DOM legacy reflète le store nodal avant la lecture de `getCurrentProjectData`. */
+    if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
     const project = getCurrentProjectData();
     var embedList =
         typeof window.collectPortableBundleEmbeds === "function"
@@ -1811,6 +1815,10 @@ function loadProject(event) {
                             return refreshLocalDraftStatusUi();
                         }).then(function () {
                             inputEl.value = "";
+                            /* C10.3 — carte nodale après hydrate bundle (Q-C10.3-1 (c)). */
+                            if (typeof window.escape360TryOpenDefaultNodalMap === "function") {
+                                window.escape360TryOpenDefaultNodalMap("loadProject.zip");
+                            }
                         });
                     })
                     .catch(fail);
@@ -1904,14 +1912,20 @@ function updatePreview() {
 
 window.updatePreview = updatePreview;
 
-/** Pont palette carte nodale (`xflow/react`) — sauvegarde / chargement / fermeture modale. */
+/** Pont palette carte nodale (`xflow/react`) — sauvegarde / chargement / publication / fermeture modale.
+ *
+ *  C10.1 — defense in depth (Q-C10.1.x-3) : `saveProject` / `generateGame` /
+ *  `exportGameWebZip` flushent désormais le store nodal eux-mêmes avant lecture
+ *  du DOM legacy. Les méthodes bridge correspondantes n’ont plus besoin de
+ *  flusher en amont. `saveProjectBundle` ne lit pas le DOM legacy
+ *  (`serializeForBundle` lit le store directement). `flushThenLocalDraftSnapshot`
+ *  conserve son flush explicite : `captureSnapshot` (`editor-shared-local-draft.js`)
+ *  ne flushe pas — refonte autosave store-driven hors scope C10.1. */
 window.__escape360NodalChrome = {
     saveEscapegameBundle: function () {
-        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
         void saveProjectBundle();
     },
     flushThenSaveJson: function () {
-        if (typeof flushNodalStoreToEditorDom === "function") flushNodalStoreToEditorDom();
         saveProject();
     },
     flushThenLocalDraftSnapshot: async function () {
@@ -1924,6 +1938,21 @@ window.__escape360NodalChrome = {
     },
     closeProjectMapModal: function () {
         if (typeof closeProjectMap === "function") closeProjectMap();
+    },
+    /** C10.1 — Publication HTML autonome. `generateGame` flushe en interne. */
+    generateGameHtml: function () {
+        if (typeof generateGame === "function") generateGame();
+    },
+    /** C10.1 — Publication ZIP web hors-ligne. `exportGameWebZip` flushe en interne. */
+    exportGameWebZip: function () {
+        if (typeof exportGameWebZip === "function") return exportGameWebZip();
+        return Promise.resolve();
+    },
+    /** C10.5 — fichier local → URL `blob:` (session bundle) pour la palette nodale. */
+    pickLocalBundleMedia: function (accept) {
+        var b = typeof EditorSharedBundle !== "undefined" ? EditorSharedBundle : null;
+        if (!b || typeof b.pickLocalMediaFromBundle !== "function") return Promise.resolve(null);
+        return b.pickLocalMediaFromBundle(accept);
     },
     updatePreview: updatePreview
 };
@@ -1950,6 +1979,15 @@ window.__escape360EditorDomApi = {
 
 window.addEventListener("load", function () {
     setTimeout(function () {
-        initLocalDraftFeature();
+        Promise.resolve(initLocalDraftFeature())
+            .catch(function () {
+                /* init échoue rarement ; on ouvre la carte même pour rester prévisible */
+            })
+            .finally(function () {
+                /** C10.3 — après init brouillon (prompt restore synchrone inclus), vue nodale active. Q-C10.3-2 (a) sans localStorage. */
+                if (typeof window.escape360TryOpenDefaultNodalMap === "function") {
+                    window.escape360TryOpenDefaultNodalMap("load");
+                }
+            });
     }, 80);
 });
