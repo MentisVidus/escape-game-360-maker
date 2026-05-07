@@ -2308,6 +2308,12 @@ séparé).
   la popup dédiée + active son bouton dans le hub (retire `disabled`
   + tooltip, branche `onClick`). Le binding popup → store → DOM input
   → `setMetaSettings<Group>(...)` au `onChange`.
+- **Bouton Retour générique** (depuis **C10.2.a-fix2**) : toute popup
+  hub-origin expose `PalettePopupModal.onBack` qui ferme la popup et
+  ré-ouvre le hub `GlobalSettingsHubPopup`. Bouton `[Retour]` /
+  `[Back]` en footer-gauche, rendu auto par `PalettePopupModal` quand
+  `onBack` est fourni. Pour les futures popups (C10.2.d/e/f),
+  intégrer `onBack` dès création.
 - **Tests Vitest** par sous-chantier :
   - **Round-trip** : `serialize → deserialize → equality` sur le
     sous-objet `meta.settings.<group>`.
@@ -2593,6 +2599,134 @@ popup dédiée même pour un champ unique.
   ProjectIdentitySettingsPopup`.
 - Annexe D — Journal : entrée 2-3 lignes (pivot UX, popup identité
   créée, tests réécrits, recettes confirmées).
+
+### Plan détaillé C10.2.a-fix2 — Bouton Retour générique sur popups hub
+
+**Pré-requis** : C10.2.a-fix (commit `34bbbda`), C10.2.b (commit
+`e043eec`), C10.2.c (commit `5efefaa`) tous livrés sur
+`feat/c10-autonomy`.
+
+**Contexte** : finalisation du pattern hub navigation introduit par
+C10.2.a-fix. Le bouton **Retour** existe déjà dans
+`PopupThemeCustomizationPopup` (footer-gauche, ferme la popup +
+réouvre le hub) avec une logique custom locale. Il manque sur
+`ProjectIdentitySettingsPopup` (créé en a-fix) et
+`InventoryGlobalSettingsPopup` (créé en .b). Sans Retour, l'utilisateur
+doit fermer puis rouvrir le hub manuellement à chaque fois — friction
+inutile.
+
+**Objectif** : factoriser le pattern Retour dans `PalettePopupModal`
+via un prop `onBack` auto-rendu, l'appliquer aux 3 popups existantes,
+et acter la convention pour les futures (C10.2.d/e/f).
+
+**Pas de changement** : modèle `ProjectMeta`, store mutations,
+sérialisation V2, flush DOM legacy. Pure UX / composant.
+
+**Fichiers à lire avant de coder** :
+
+- `xflow/react/src/view/palette/PalettePopupModal.tsx` — composant à
+  étendre.
+- `xflow/react/src/view/palette/PalettePopupModal.css` — styles footer
+  (compléter pour le slot footer-gauche si nécessaire).
+- `xflow/react/src/view/popups/PopupThemeCustomizationPopup.tsx` —
+  logique Retour custom à retirer (relever l'implémentation actuelle
+  pour comprendre le pattern à généraliser).
+- `xflow/react/src/view/popups/ProjectIdentitySettingsPopup.tsx` —
+  popup à équiper.
+- `xflow/react/src/view/popups/InventoryGlobalSettingsPopup.tsx` —
+  popup à équiper.
+- `xflow/react/src/view/NodalCanvas.tsx` — états des modales
+  (`projectIdentitySettingsOpen`, `inventoryGlobalSettingsOpen`,
+  `popupThemeOpen`, `globalSettingsHubOpen`) pour câbler les `onBack`
+  handlers (`close + open hub`).
+- Tests existants : `c102aGlobalSettingsHub.test.tsx`,
+  `c102bInventoryGlobalSettings.test.tsx`,
+  `c102cPopupThemeMigration.test.tsx`,
+  `c10PaletteModalAndPublish.test.tsx` — étendre / vérifier non-régression.
+
+**Phase questions (workflow §8.1)** — Cursor pose ses
+Q-C10.2.a-fix2-Y :
+
+- **Q-C10.2.a-fix2-1** — API du prop `onBack` :
+  *(a)* `onBack?: () => void` — le caller fait le `close + open hub`
+  manuellement ; `PalettePopupModal` rend juste le bouton Retour qui
+  appelle `onBack`.
+  *(b)* prop dédié `onCloseToHub?: () => void` qui combine close + back
+  côté `PalettePopupModal` (interne).
+  *Vote : (a) — plus simple, plus testable. Le caller détient la
+  logique d'enchaînement. Pattern cohérent avec `onClose`.*
+- **Q-C10.2.a-fix2-2** — Layout footer quand `onBack` ET
+  `footerActions` sont fournis :
+  *(a)* Retour à gauche + `footerActions` à droite (justify-between).
+  *(b)* tout aligné à droite (Retour en premier).
+  *Vote : (a) — convention UI courante (action primaire à droite,
+  navigation à gauche).*
+- **Q-C10.2.a-fix2-3** — Libellés bilingues. *Vote : « Retour » /
+  « Back ».*
+- **Q-C10.2.a-fix2-4** — Bouton Retour conditionnel : si `onBack` est
+  `undefined`, **rien n'est rendu** (pas de placeholder désactivé).
+  *Confirmer simplement.*
+
+**Périmètre** :
+
+1. **Étendre `PalettePopupModal`** :
+   - Nouveau prop `onBack?: () => void`.
+   - Quand `onBack` fourni : rendu d'un bouton `[Retour]` / `[Back]`
+     en footer-gauche avec `onClick={onBack}`.
+   - Quand absent : aucun rendu (pas de placeholder).
+   - Compat : la modale Publication (`PublishGamePopup`, qui n'utilise
+     pas `onBack`) reste inchangée — tests C10.1 passent toujours.
+
+2. **Migrer `PopupThemeCustomizationPopup`** :
+   - Retirer la logique Retour custom locale.
+   - Passer `onBack={() => { closePopupTheme();
+     openGlobalSettingsHub(); }}` (noms réels selon
+     `NodalCanvas.tsx`).
+   - Vérifier rendu identique (un seul bouton Retour, plus de
+     duplication).
+
+3. **Équiper `ProjectIdentitySettingsPopup`** :
+   - Passer `onBack={() => { closeProjectIdentitySettings();
+     openGlobalSettingsHub(); }}`.
+   - Le bouton « Terminé » dans `footerActions` reste à droite.
+
+4. **Équiper `InventoryGlobalSettingsPopup`** :
+   - Idem `ProjectIdentitySettingsPopup`.
+
+5. **Tests Vitest** :
+   - `PalettePopupModal` : bouton Retour rendu si `onBack` fourni,
+     absent sinon ; le clic appelle `onBack` ; layout footer respecté
+     (Retour gauche + `footerActions` droite si les deux présents).
+   - `ProjectIdentitySettingsPopup` : clic Retour appelle bien le
+     handler combiné close + hub-open (mocks).
+   - `InventoryGlobalSettingsPopup` : idem.
+   - `PopupThemeCustomizationPopup` : bouton Retour migré fonctionne
+     identique à avant.
+   - Vérifier que `c10PaletteModalAndPublish.test.tsx` (C10.1) passe
+     toujours (pas de régression sur la modale Publication).
+
+**Critères de fin** :
+
+- `PalettePopupModal` accepte `onBack?: () => void` et le rend
+  conditionnellement en footer-gauche.
+- 3 popups hub-origin (Identité, Inventaire, Thème popups) ont un
+  bouton Retour fonctionnel qui ferme la popup + réouvre le hub.
+- Plus de logique Retour custom résiduelle dans les popups.
+- Tests Vitest verts (couverture étendue, pas de régression C10.1).
+- **Recette manuelle** (à consigner journal) : ouvrir le hub →
+  cliquer Identité → cliquer Retour → hub réouvert (idem Inventaire
+  et Thème popups).
+- Convention Annexe D (préambule conventions communes) mise à jour
+  par cette doc — Cursor n'a pas à la modifier.
+
+**Branche / commit** :
+
+- Branche : `feat/c10-autonomy`.
+- Commit : `feat(nodal): C10.2.a-fix2 bouton Retour générique sur
+  popups hub`.
+- Annexe D — Journal : entrée 2-3 lignes
+  (`PalettePopupModal.onBack` ajouté, 3 popups équipées, factor
+  unifiée, recette manuelle confirmée).
 
 ### Plan détaillé C10.2.b — Inventaire HUD
 
