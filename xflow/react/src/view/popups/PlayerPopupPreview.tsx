@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 
 type ButtonVariant = {
   kind: "button";
@@ -22,6 +22,25 @@ type SelectorDropdownVariant = {
 
 type PreviewVariant = ButtonVariant | InputVariant | SelectorButtonsVariant | SelectorDropdownVariant;
 
+/**
+ * C18.5.1 — quand fourni, active les contrôles de la popup (boutons cliquables,
+ * curseur pointer). Rétrocompatible : si `interactive` est `undefined`,
+ * comportement legacy "preview disabled" inchangé (utilisé par
+ * `MsgContentPopup` / `PickContentPopup` / etc. pour leur aperçu d'éditeur).
+ *
+ * - `onClose` : clic sur le bouton de fermeture (X).
+ * - `onConfirm` : clic sur le bouton principal (variant `button` / `input`).
+ *   Optionnel : si absent, le bouton agit comme `onClose`.
+ * - `onChoice` : clic sur un choix selector (variant `selector-buttons`) ou
+ *   changement de sélection (variant `selector-dropdown`). Reçoit l'index du
+ *   choix dans le tableau `choices`.
+ */
+export type PlayerPopupPreviewInteractive = {
+  onClose: () => void;
+  onConfirm?: () => void;
+  onChoice?: (index: number) => void;
+};
+
 type Props = {
   viewportStyle: CSSProperties;
   panelStyle: CSSProperties;
@@ -31,6 +50,14 @@ type Props = {
   html: string;
   titleText?: string;
   variant: PreviewVariant;
+  /** C18.5.1 — si fourni, active les contrôles (sinon : preview disabled, legacy). */
+  interactive?: PlayerPopupPreviewInteractive;
+  /**
+   * C18.5.1 — clic sur le viewport (backdrop) hors panel → ferme l'overlay.
+   * Vérifie `event.target === event.currentTarget` pour ne pas réagir aux
+   * clics qui ont bullé depuis le panel.
+   */
+  onBackdropClick?: () => void;
 };
 
 export function PlayerPopupPreview({
@@ -42,11 +69,32 @@ export function PlayerPopupPreview({
   html,
   titleText,
   variant,
+  interactive,
+  onBackdropClick,
 }: Props) {
+  const isInteractive = !!interactive;
+  const interactiveCloseBtnStyle: CSSProperties = isInteractive
+    ? { ...closeBtnStyle, cursor: "pointer", opacity: 1 }
+    : closeBtnStyle;
+  const interactiveBtnStyle: CSSProperties = isInteractive
+    ? { ...buttonStyle, cursor: "pointer" }
+    : buttonStyle;
+
+  const handleViewportClick = (ev: ReactMouseEvent<HTMLDivElement>) => {
+    if (!onBackdropClick) return;
+    if (ev.target === ev.currentTarget) onBackdropClick();
+  };
+
   return (
-    <div style={viewportStyle}>
+    <div style={viewportStyle} onClick={onBackdropClick ? handleViewportClick : undefined}>
       <div className="nodal-msg-preview-chrome" style={panelStyle}>
-        <button type="button" aria-label={closeAriaLabel} disabled style={closeBtnStyle}>
+        <button
+          type="button"
+          aria-label={closeAriaLabel}
+          disabled={!isInteractive}
+          style={interactiveCloseBtnStyle}
+          onClick={interactive?.onClose}
+        >
           ✕
         </button>
         {titleText ? (
@@ -57,14 +105,32 @@ export function PlayerPopupPreview({
         <div className="play-html-rich" dangerouslySetInnerHTML={{ __html: html }} />
         <br />
         {variant.kind === "button" ? (
-          <button type="button" disabled style={buttonStyle}>
+          <button
+            type="button"
+            disabled={!isInteractive}
+            style={interactiveBtnStyle}
+            onClick={interactive?.onConfirm ?? interactive?.onClose}
+          >
             {variant.label}
           </button>
         ) : null}
         {variant.kind === "input" ? (
           <>
-            <input type="text" value="" disabled style={{ width: "100%", marginTop: "8px", boxSizing: "border-box" }} />
-            <button type="button" disabled style={buttonStyle}>
+            {/* C18.5.1 — input pwd reste désactivé en preview (pas de check
+                amené dans le périmètre Q-C18.5-2 amendée). Le bouton ferme. */}
+            <input
+              type="text"
+              value=""
+              disabled
+              style={{ width: "100%", marginTop: "8px", boxSizing: "border-box" }}
+              readOnly
+            />
+            <button
+              type="button"
+              disabled={!isInteractive}
+              style={interactiveBtnStyle}
+              onClick={interactive?.onConfirm ?? interactive?.onClose}
+            >
               {variant.buttonLabel}
             </button>
           </>
@@ -72,16 +138,33 @@ export function PlayerPopupPreview({
         {variant.kind === "selector-buttons" ? (
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {variant.choices.map((choice, index) => (
-              <button key={`${index}-${choice}`} type="button" disabled style={buttonStyle}>
+              <button
+                key={`${index}-${choice}`}
+                type="button"
+                disabled={!isInteractive}
+                style={interactiveBtnStyle}
+                onClick={isInteractive ? () => interactive!.onChoice?.(index) : undefined}
+              >
                 {choice}
               </button>
             ))}
           </div>
         ) : null}
         {variant.kind === "selector-dropdown" ? (
-          <select disabled style={{ width: "100%", padding: "6px 8px", boxSizing: "border-box" }}>
+          <select
+            disabled={!isInteractive}
+            style={{ width: "100%", padding: "6px 8px", boxSizing: "border-box" }}
+            onChange={
+              isInteractive
+                ? (ev) => interactive!.onChoice?.(ev.target.selectedIndex)
+                : undefined
+            }
+            defaultValue=""
+          >
             {variant.choices.map((choice, index) => (
-              <option key={`${index}-${choice}`}>{choice}</option>
+              <option key={`${index}-${choice}`} value={String(index)}>
+                {choice}
+              </option>
             ))}
           </select>
         ) : null}

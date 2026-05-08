@@ -2142,7 +2142,7 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 | **C18.2** | Modale picker (modale plein écran) ouverte depuis bouton ajouté à `CoordsOptionsPopup` ; viseur central `pointer-events:none` + poll `getPitch`/`getYaw` 120 ms ; hotspots autres en gris dashed pour contexte ; Valider/Annuler/Échap/Enter ; commit pitch + yaw via `updateNodeData` sur le satellite | C18.1 (réutilise `<NodalPanoramaViewer>`) | code | livré (2026-05-08) — 2 fixes (viseur central + initialPitch via ref) |
 | **C18.3** | Drag direct des hotspots dans l'aperçu scène : toggle « Éditer les hotspots » dans le header ; en mode édition, `pointerdown` sur hotspot → drag local avec overlay fantôme CSS ; `NodalPanoramaViewer` étendu en `forwardRef` exposant `mouseEventToCoords` ; auto-save pitch/yaw au release ; Échap annule | C18.1, C18.2 | code | livré (2026-05-08) |
 | **C18.4** | Resize des hotspots dans l'aperçu via **handles aux 4 coins** (façon logiciel de dessin) ; sélection au clic simple en mode édition ; resize ancré au centre (pitch/yaw fixes) ; Shift = ratio fixe ; bornes 16-800 px ; bordure dashed rouge décalée (`outline-offset` ~6 px) pour rester visible sur hotspot transparent | C18.3 | code | livré (2026-05-08) |
-| **C18.5** | Aperçu interactif « comme en jeu » en mode read-only : clic sur hotspot → popup joueur preview (msg / pick / goto / req / pwd / selector mono-niveau) via iframe sandbox `srcDoc` ; affichage seul + bouton fermer ; pas de simulation d'inventaire ni de visibility-rules | C18.3 | code | cadré (2026-05-08) |
+| **C18.5** | Aperçu interactif « comme en jeu » en mode read-only : clic sur hotspot → popup joueur preview (msg / pick / goto / req / pwd / selector multi-niveau) via overlay React `<PlayerPreviewOverlay>` (option (a-i) revisitée — réutilisation `PlayerPopupPreview` étendu avec prop `interactive`, voir amendement plan en tête section C18.5) ; affichage seul + bouton fermer ; pas de simulation d'inventaire ni de visibility-rules | C18.3 | code | C18.5.1 livré (2026-05-08) ; C18.5.2 + C18.5.3 à venir |
 
 Convention : un commit par sous-chantier ; fixes numérotés
 `C18.x.y-fix` si correctifs en cours de chantier (cf. §8.2 + §2.2 du
@@ -3517,6 +3517,51 @@ sandbox iframe.
   Tests `c18HotspotResize.test.tsx` étendus (9 cas) — vérification
   que le viewer n'est pas re-créé après commit pointerup, et que
   `setUpdate` n'est jamais appelé quand le renderer est null.
+- 2026-05-08 — **C18.5.1 livré** : infrastructure overlay preview joueur
+  + actions msg + pick. Selon plan amendé (option a-i) :
+  - **`PlayerPopupPreview`** étendu avec prop optionnelle `interactive?:
+    { onClose, onConfirm?, onChoice? }` (rétrocompatible — les éditeurs
+    `MsgContentPopup` / `PickContentPopup` / `GotoContentPopup` /
+    `ReqContentPopup` / `PwdContentPopup` / `SelectorContentPopup` ne
+    passent pas la prop, leur preview reste disabled comme avant). Quand
+    `interactive` est fourni : `disabled=false`, `cursor: "pointer"`,
+    handlers branchés. Ajout d'une prop `onBackdropClick?` (ferme au
+    clic hors panel — vérification `event.target === event.currentTarget`
+    pour ne pas fermer au clic dans le panel).
+  - **`playerPopupThemeToPlayerOverlayChrome`** : variante de
+    `MsgPreviewChrome` avec viewport `position: fixed; inset: 0;
+    z-index: 10050; cursor: pointer` (reste du panel inchangé pour
+    fidélité visuelle 100%).
+  - **`buildPlayerPreviewVariant(action, locale)`** helper pur (pas de
+    React, pas de store) : retourne `{ kind, html, buttonLabel,
+    titleText? }` pour msg + pick. Les autres types renvoient `null`
+    (à compléter en C18.5.2).
+  - **`<PlayerPreviewOverlay>`** : abonné au store via
+    `useSyncExternalStore`, lit l'action courante, monte
+    `<PlayerPopupPreview>` avec mode interactive + viewport plein
+    écran. Aucune mutation du store. Échap géré par le parent
+    (`<ScenePreviewModal>`) avec priorité (1) overlay → (2) resize →
+    (3) drag → (4) selection → (5) ferme modale.
+  - **`<ScenePreviewModal>`** branché : `onBodyPointerDown` distingue
+    désormais 4 cas (édition + hotspot → drag candidate ; édition +
+    hors hotspot → désélection ; **read-only + hotspot → ouvre overlay
+    preview joueur** ; read-only + hors hotspot → no-op). Bascule
+    toggle off (`exitEditMode`) et bascule toggle on (nouveau
+    `enterEditMode`) ferment l'overlay si actif. `data-edit-mode` /
+    `data-player-preview` exposés sur l'élément racine pour CSS et
+    tests. Curseur `pointer` read-only / `grab` édition via style
+    inline conditionnel.
+  - **`c18PlayerPreview.test.tsx`** : 12 tests (clic read-only ouvre
+    overlay msg avec bodyHtml + label ; clic pick affiche titleText
+    itemName ; clic édition n'ouvre pas overlay ; clic bouton
+    principal ferme ; Échap ferme overlay sans fermer modale ; toggle
+    on pendant overlay ferme overlay ; rétrocompat sans `interactive`
+    = boutons disabled ; clic backdrop ferme ; clic dans panel ne ferme
+    pas ; aucune mutation du store ; clic hors hotspot ne fait rien ;
+    diagnostic auto-création coords-options).
+  Suite C18 globale : 43 tests verts (5 fichiers).
+  Commit : `feat(nodal): C18.5.1 overlay preview joueur (msg + pick)
+  via PlayerPopupPreview interactif`.
 - 2026-05-08 — **Amendement plan C18.5** : avant ouverture de
   C18.5.1, exploration de l'existant côté React révèle un composant
   `PlayerPopupPreview` (popups+thème) déjà utilisé par tous les

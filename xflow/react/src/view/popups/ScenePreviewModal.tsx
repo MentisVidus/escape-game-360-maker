@@ -17,6 +17,7 @@ import {
 import { NodalPanoramaViewer, type NodalPanoramaViewerHandle } from "../preview/NodalPanoramaViewer";
 import { collectSceneHotspotProjections, type PannellumHotSpotProjection } from "../preview/sceneHotspotProjections";
 import { resolveScenePanoramaDisplayUrl } from "../preview/scenePanoramaDisplay";
+import { PlayerPreviewOverlay } from "../playerPreview/PlayerPreviewOverlay";
 
 type Locale = "fr" | "en";
 
@@ -166,6 +167,12 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
   const [drag, setDrag] = useState<DragState | null>(null);
   const [selection, setSelection] = useState<HotspotSelection | null>(null);
   const [resize, setResize] = useState<ResizeState | null>(null);
+  /**
+   * C18.5.1 — id de l'action dont la popup joueur est ouverte au-dessus de
+   * l'aperçu (mode read-only uniquement). `null` quand aucune popup n'est
+   * affichée. Toute bascule en mode édition la ferme automatiquement.
+   */
+  const [playerPreviewActionId, setPlayerPreviewActionId] = useState<ActionNodeId | null>(null);
   const viewerHandleRef = useRef<NodalPanoramaViewerHandle | null>(null);
 
   /** Mapping cssClass → projection — utilisé pour identifier le hotspot au pointerdown. */
@@ -183,17 +190,24 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
       setDragCandidate(null);
       setSelection(null);
       setResize(null);
+      setPlayerPreviewActionId(null);
     }
   }, [sceneId]);
 
   /**
-   * Échap : priorité (1) annule un resize, (2) annule un drag, (3) désélectionne,
-   * (4) ferme la modale (comportement C18.1).
+   * Échap : priorité (1) ferme la popup preview joueur (C18.5.1), (2) annule
+   * un resize, (3) annule un drag, (4) désélectionne, (5) ferme la modale
+   * (comportement C18.1).
    */
   useEffect(() => {
     if (!sceneId) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (playerPreviewActionId) {
+        e.preventDefault();
+        setPlayerPreviewActionId(null);
+        return;
+      }
       if (resize) {
         e.preventDefault();
         setResize(null);
@@ -214,24 +228,28 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [sceneId, onClose, drag, dragCandidate, selection, resize]);
+  }, [sceneId, onClose, drag, dragCandidate, selection, resize, playerPreviewActionId]);
 
   /**
-   * Pointerdown sur le body de la modale — distingue 3 cibles :
-   *   1. hotspot existant en mode édition → init `dragCandidate` (clic vs drag décidé au move/up).
-   *   2. handle de resize (intercepté en amont par `<HotspotResizeHandles>` qui stopPropagation).
-   *   3. ailleurs (panorama nu, header, …) en mode édition → désélectionne et clear resize.
+   * Pointerdown sur le body de la modale — distingue 4 cibles :
+   *   1. hotspot existant en mode **édition** → init `dragCandidate` (clic vs drag
+   *      décidé au move/up).
+   *   2. hotspot existant en mode **read-only** (C18.5.1) → ouvre la popup preview
+   *      joueur via `playerPreviewActionId`. Pas de drag, pas de selection.
+   *   3. handle de resize (intercepté en amont par `<HotspotResizeHandles>` qui
+   *      stopPropagation).
+   *   4. ailleurs (panorama nu, header, …) en mode édition → désélectionne et clear
+   *      resize. En read-only : no-op.
    */
   const onBodyPointerDown = useCallback(
     (ev: React.PointerEvent<HTMLDivElement>) => {
-      if (!editMode) return;
       const target = ev.target as Element | null;
       if (!target) return;
       const handleEl = target.closest && target.closest(".nodal-hotspot-handle");
       if (handleEl) return;
       const node = target.closest && (target.closest("[class*='prev-hs-']") as Element | null);
       if (!node) {
-        if (selection || resize) {
+        if (editMode && (selection || resize)) {
           setSelection(null);
           setResize(null);
         }
@@ -241,7 +259,20 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
       const cssClass = classes.find((c) => c.startsWith("prev-hs-"));
       if (!cssClass) return;
       const proj = cssClassIndex.get(cssClass);
-      if (!proj || !proj.coordsSatelliteId) return;
+      if (!proj) return;
+
+      // C18.5.1 — read-only : clic sur hotspot ouvre la popup preview joueur.
+      // Aucune mutation du store. Coords-satellite non requis (on n'a besoin
+      // que de l'`actionId`).
+      if (!editMode) {
+        ev.stopPropagation();
+        ev.preventDefault();
+        setPlayerPreviewActionId(proj.actionId);
+        return;
+      }
+
+      // Édition : init drag candidate (logique C18.3 inchangée).
+      if (!proj.coordsSatelliteId) return;
       ev.stopPropagation();
       ev.preventDefault();
       setDragCandidate({
@@ -459,6 +490,16 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
     setResize(null);
   }, []);
 
+  /**
+   * C18.5.1 — Bascule vers le mode édition (toggle on) : ferme automatiquement
+   * une popup preview joueur encore ouverte (cohérence : pas de drag pendant
+   * qu'une popup couvre l'écran ; cf. Q-C18.5-4).
+   */
+  const enterEditMode = useCallback(() => {
+    setPlayerPreviewActionId(null);
+    setEditMode(true);
+  }, []);
+
   if (sceneId == null || !scene) return null;
 
   const title = `${L.previewTitlePrefix} ${scene.label || scene.sceneId}`;
@@ -478,6 +519,7 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
       aria-labelledby={`nodal-scene-preview-h-${styleId}`}
       data-edit-mode={editMode ? "1" : "0"}
       data-selection={selection ? "1" : "0"}
+      data-player-preview={playerPreviewActionId ? "1" : "0"}
     >
       <div className="nodal-scene-preview-modal__backdrop" onClick={onClose} aria-hidden />
       <div className="nodal-scene-preview-modal__panel">
@@ -494,7 +536,7 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
                 if (editMode) {
                   exitEditMode();
                 } else {
-                  setEditMode(true);
+                  enterEditMode();
                 }
               }}
             >
@@ -530,6 +572,10 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
               {cssText ? (
                 <style id={`nodal-scene-preview-hs-${styleId}`}>{cssText}</style>
               ) : null}
+              <style id={`nodal-scene-preview-cursor-${styleId}`}>
+                {`.nodal-scene-preview-modal[data-edit-mode="1"] [class*="prev-hs-"] { cursor: grab !important; }
+                  .nodal-scene-preview-modal[data-edit-mode="0"] [class*="prev-hs-"] { cursor: pointer !important; }`}
+              </style>
               {resize ? (
                 <style id={`nodal-scene-preview-hs-resize-${styleId}`}>
                   {`.${resize.cssClass} { width: ${Math.round(resize.currentW)}px !important; height: ${Math.round(resize.currentH)}px !important; }`}
@@ -559,6 +605,14 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
                   viewerContainer={viewerHandleRef.current?.getViewerContainer() ?? null}
                   onResizeStart={onResizeStart}
                   overrideRect={resizeOverrideRect}
+                />
+              ) : null}
+              {playerPreviewActionId ? (
+                <PlayerPreviewOverlay
+                  actionId={playerPreviewActionId}
+                  store={store}
+                  locale={detectLocale()}
+                  onClose={() => setPlayerPreviewActionId(null)}
                 />
               ) : null}
             </>
