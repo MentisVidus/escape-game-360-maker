@@ -7,6 +7,12 @@ export type PannellumHotSpotProjection = {
   pitch: number;
   yaw: number;
   cssClass: string;
+  /** C18.3 — actionId source (pour identifier le hotspot au pointerdown en mode édition). */
+  actionId: ActionNodeId;
+  /** C18.3 — id du satellite coords-options qui porte pitch/yaw (`null` si pas encore relié). */
+  coordsSatelliteId: SatelliteNodeId | null;
+  /** C18.3 — CSS du satellite (sans outline preview), pour cloner visuellement le fantôme drag. */
+  ghostBaseCss: string;
 };
 
 function sanitizeCssDeclarationText(value: string): string {
@@ -95,7 +101,14 @@ export function collectSceneHotspotProjections(
     const opacity = variant === "picker-bg" ? "opacity: 0.5; " : "";
     cssText += `.${cssClass} { ${rawCss} outline: 3px dashed ${outlineColor} !important; outline-offset: 2px; pointer-events: ${pointerPe}; ${opacity}display: flex; align-items: center; justify-content: center; }\n`;
     cssText += `.${cssClass}::after { content: '${hsIdText}'; background: black; color: white; padding: 2px 5px; font-size: 12px; font-weight: bold; border-radius: 3px; }\n`;
-    projections.push({ pitch, yaw, cssClass });
+    projections.push({
+      pitch,
+      yaw,
+      cssClass,
+      actionId,
+      coordsSatelliteId: sat?.id ?? null,
+      ghostBaseCss: rawCss,
+    });
   });
 
   return { projections, cssText };

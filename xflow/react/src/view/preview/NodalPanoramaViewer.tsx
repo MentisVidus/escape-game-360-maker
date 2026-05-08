@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef } from "react";
 
 import { normalizePanoramaUrl } from "./panoramaUrl";
 import type { PannellumHotSpotProjection } from "./sceneHotspotProjections";
@@ -33,18 +33,21 @@ export type NodalPanoramaViewerProps = {
   onReady?: () => void;
 };
 
+/** Handle imperative — expose la résolution clientX/Y → pitch/yaw via Pannellum. */
+export type NodalPanoramaViewerHandle = {
+  /** Retourne `[pitch, yaw]` pour la position écran d'un MouseEvent (ou `null` si indisponible). */
+  mouseEventToCoords: (ev: MouseEvent) => [number, number] | null;
+};
+
 /**
- * Viewer Pannellum equirectangulaire — preview (C18.1) ou picker (C18.2).
+ * Viewer Pannellum equirectangulaire — preview (C18.1), picker (C18.2),
+ * ou aperçu interactif (C18.3 — drag des hotspots, géré par le parent
+ * via le handle `mouseEventToCoords`).
  */
-export function NodalPanoramaViewer({
-  panoramaUrl,
-  mode,
-  hotSpots,
-  initialPitch,
-  initialYaw,
-  onPick,
-  onReady,
-}: NodalPanoramaViewerProps) {
+export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPanoramaViewerProps>(function NodalPanoramaViewer(
+  { panoramaUrl, mode, hotSpots, initialPitch, initialYaw, onPick, onReady },
+  outerRef
+) {
   const hostRef = useRef<HTMLDivElement>(null);
   const reactId = useId().replace(/:/g, "");
   const stableIdRef = useRef(`nodal-pnm-${reactId}`);
@@ -127,6 +130,20 @@ export function NodalPanoramaViewer({
     return () => window.clearInterval(id);
   }, [mode, onPick]);
 
+  useImperativeHandle(
+    outerRef,
+    () => ({
+      mouseEventToCoords(ev: MouseEvent) {
+        const v = viewerRef.current;
+        if (!v?.mouseEventToCoords) return null;
+        const c = v.mouseEventToCoords(ev);
+        if (!c || !Number.isFinite(c[0]) || !Number.isFinite(c[1])) return null;
+        return [c[0], c[1]];
+      },
+    }),
+    []
+  );
+
   return (
     <div className="nodal-panorama-viewer-frame" data-mode={mode}>
       <div
@@ -138,7 +155,7 @@ export function NodalPanoramaViewer({
       {mode === "picker" ? <PickerCrosshairOverlay /> : null}
     </div>
   );
-}
+});
 
 /** Viseur central (croix) — superposé en mode picker, n'intercepte pas la souris. */
 export function PickerCrosshairOverlay() {

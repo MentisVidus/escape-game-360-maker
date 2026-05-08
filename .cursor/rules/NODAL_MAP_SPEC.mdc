@@ -1220,14 +1220,18 @@ Découpage figé (cadrage Q-C18, v1.9.2 — voir **Annexe D — Chantier
 C18**) : **C18.1** Aperçu scène 360° read-only ouvert depuis le menu
 contextuel s-box (modale plein écran, hotspots existants visibles en
 outline rouge) ; **C18.2** Modale placement coords hotspots éditable
-depuis `coords-options` (clic-pour-positionner Pannellum, hotspots
-autres en gris dashed pour contexte). **Follow-up post-C18** (chantier
-séparé à formaliser ultérieurement, numéro non figé) : **drag direct
-du hotspot** dans le viewer + **resize via encarts** (largeur/hauteur
-manipulables visuellement) — initialement noté C18.3 optionnel,
-retiré du périmètre C18 pour livrer un premier itéré rapidement et
-parce que le resize ouvre un périmètre UX propre (poignées de
-redimensionnement, contraintes de proportions, snap, etc.).
+depuis `coords-options` (viseur central Pannellum legacy, hotspots
+autres en gris dashed pour contexte) ; **C18.3** Drag direct des
+hotspots dans l'aperçu scène — toggle « Éditer les hotspots » dans
+le header de la modale C18.1, fantôme CSS qui suit le curseur (clone
+visuel atténué via `appearance.customCss`), commit immédiat au
+release via `updateNodeData`, Échap annule le drag courant.
+**Follow-up post-C18** (numéros indicatifs, chantiers à formaliser
+ultérieurement) : **C18.4** resize des hotspots (réutilisation
+`HotspotAppearancePopup` existante depuis le mode édition, pas de
+poignées DOM ad-hoc) ; **C18.5** aperçu interactif « comme en jeu »
+(clic sur hotspot en read-only affiche la popup associée pour
+prévisualisation pédagogique).
 
 ### C19 — Audio preview / écouter
 
@@ -2496,13 +2500,19 @@ Annexe D*. Questions résiduelles éventuelles :
 ### Journal de chantier
 
 - 2026-05-08 — Ouverture Annexe D. Cadrage validé en phase questions
-  (Q-C18-1 à Q-C18-12). Découpage 2 sous-chantiers (C18.1 + C18.2) ;
-  item drag direct + resize hotspots reporté en chantier séparé
-  post-C18 (numéro non figé). Branche
+  (Q-C18-1 à Q-C18-12). Découpage initial 2 sous-chantiers
+  (C18.1 + C18.2) ; item drag direct + resize hotspots reporté en
+  chantier séparé post-C18 (numéro non figé). Branche
   `feat/c18-360-preview-and-picker` créée depuis `feat/nodal-map`.
   Plans détaillés C18.1 et C18.2 rédigés en one-shot dans cette
   Annexe D, prêts à être livrés à Cursor sous-chantier par
   sous-chantier.
+- 2026-05-08 — **Ré-extension du périmètre C18** : ajout d'un C18.3
+  drag direct des hotspots (cadrage Q-C18.3-1 à -11). Le resize
+  reste en C18.4 (follow-up) — réutilisation de la popup
+  `HotspotAppearancePopup` existante (déclenchement depuis le mode
+  édition aperçu), pas de poignées DOM ad-hoc. Aperçu interactif
+  « comme en jeu » (clic en read-only) noté C18.5 follow-up.
 - 2026-05-08 — **C18.1 livré (code)** : menu s-box « Tester la scène 360° »,
   `ScenePreviewModal` + `NodalPanoramaViewer` (Pannellum global),
   `collectSceneHotspotProjections`, `sceneIdFromSboxId`, tests Vitest
@@ -2532,4 +2542,21 @@ Annexe D*. Questions résiduelles éventuelles :
   côté `NodalCanvas` pour éviter qu'un useEffect parent n'écrase la
   première lecture du viewer. Test `c18CoordsPickerModal.test.tsx`
   adapté (mock `getPitch`/`getYaw`, vérif crosshair présent).
+- 2026-05-08 — **C18.3 livré (code)** : drag direct des hotspots dans
+  l'aperçu scène. `ScenePreviewModal` étendu avec un toggle « Éditer
+  les hotspots » dans le header (off par défaut) ; en mode édition,
+  un `pointerdown` sur un hotspot (matching `[class*="prev-hs-"]`)
+  ouvre un drag local — un overlay fantôme (clone CSS du hotspot via
+  `appearance.customCss`, opacité 0.55 + grayscale léger) suit le
+  curseur via listeners `pointermove`/`pointerup` sur `document`.
+  `NodalPanoramaViewer` passé en `forwardRef` + `useImperativeHandle`
+  expose `mouseEventToCoords(ev)` pour traduire la position écran en
+  pitch/yaw via Pannellum. Au release, `updateNodeData` écrit
+  pitch+yaw dans le satellite `coords-options` (auto-save direct).
+  Échap pendant un drag annule sans commit. `sceneHotspotProjections`
+  étendu : chaque projection porte `actionId`, `coordsSatelliteId` et
+  `ghostBaseCss` (CSS d'apparence sans le wrapper preview, pour le
+  fantôme). Tests `c18HotspotDragInPreview.test.tsx` (5 cas — toggle,
+  hint, drag → commit, Échap → annule, pointerdown hors mode édition
+  ignoré). Polyfill `PointerEvent = MouseEvent` pour jsdom.
 
