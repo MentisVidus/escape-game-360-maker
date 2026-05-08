@@ -279,6 +279,85 @@ describe("C18.3 — drag direct hotspot", () => {
     expect(after.data.yaw).toBe(beforeYaw);
   });
 
+  it("C18.4-fix.4 — recréation viewer après commit drag réutilise pitch/yaw/hfov courants (pas de saut caméra)", async () => {
+    const viewerMock = (window as unknown as { pannellum: { viewer: ReturnType<typeof vi.fn> } })
+      .pannellum.viewer;
+    // Re-définit le mock avec getPitch/getYaw/getHfov qui retournent une vue
+    // décentrée (utilisateur a tourné la caméra) — la recréation doit la préserver.
+    const CAMERA_PITCH = 12.5;
+    const CAMERA_YAW = -47.3;
+    const CAMERA_HFOV = 75;
+    (window as unknown as { pannellum: { viewer: ReturnType<typeof vi.fn> } }).pannellum.viewer =
+      vi.fn((_el: HTMLElement, _cfg: Record<string, unknown>) => ({
+        destroy: vi.fn(),
+        on: vi.fn(),
+        mouseEventToCoords: vi.fn((ev: MouseEvent) => {
+          return [ev.clientX / 10, ev.clientY / 10] as [number, number];
+        }),
+        getPitch: vi.fn(() => CAMERA_PITCH),
+        getYaw: vi.fn(() => CAMERA_YAW),
+        getHfov: vi.fn(() => CAMERA_HFOV),
+      }));
+
+    const { store, scene, sat } = setupSceneWithOneHotspot();
+    renderTree(
+      <NodalUiContext.Provider value={mockNodalUi(store)}>
+        <ScenePreviewModal sceneId={scene.id} onClose={() => {}} />
+      </NodalUiContext.Provider>
+    );
+
+    const newViewerMock = (window as unknown as { pannellum: { viewer: ReturnType<typeof vi.fn> } })
+      .pannellum.viewer;
+    const initialCallsCount = newViewerMock.mock.calls.length;
+
+    // Bascule en mode édition + drag complet (pointerdown + move > 4 px + up).
+    const editToggle = container.querySelector(
+      ".nodal-scene-preview-modal__edit-toggle"
+    ) as HTMLButtonElement;
+    act(() => {
+      editToggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const body = container.querySelector(".nodal-scene-preview-modal__body") as HTMLDivElement;
+    const hsClass = `prev-hs-${String(scene.id).replace(/[^a-zA-Z0-9_-]/g, "_")}-0`;
+    const hsEl = document.createElement("div");
+    hsEl.className = hsClass;
+    body.appendChild(hsEl);
+    act(() => {
+      hsEl.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, clientX: 100, clientY: 100 })
+      );
+    });
+    act(() => {
+      document.dispatchEvent(
+        new PointerEvent("pointermove", { bubbles: true, clientX: 200, clientY: 200 })
+      );
+    });
+    act(() => {
+      document.dispatchEvent(
+        new PointerEvent("pointerup", { bubbles: true, clientX: 200, clientY: 200 })
+      );
+    });
+
+    // Le commit a changé pitch/yaw du satellite → hotSpotsKey diffère →
+    // useEffect re-run → viewer recréé.
+    expect(newViewerMock.mock.calls.length).toBeGreaterThan(initialCallsCount);
+
+    // La dernière création doit utiliser les coords courantes capturées au cleanup,
+    // PAS les initialPitch/Yaw figés au mount (0/0 ici).
+    const lastConfig = newViewerMock.mock.calls.at(-1)![1] as Record<string, unknown>;
+    expect(lastConfig.pitch).toBe(CAMERA_PITCH);
+    expect(lastConfig.yaw).toBe(CAMERA_YAW);
+    expect(lastConfig.hfov).toBe(CAMERA_HFOV);
+
+    // Sanity : le commit a bien eu lieu côté store.
+    const updated = store.getState().satellites[sat.id] as CoordsOptionsSatelliteNode;
+    expect(updated.data.pitch).toBeCloseTo(20);
+    expect(updated.data.yaw).toBeCloseTo(20);
+
+    // Garde-fou TS sur le mock initial inutilisé.
+    expect(viewerMock).toBeDefined();
+  });
+
   it("hors mode édition, pointerdown sur un hotspot ne déclenche aucun drag", async () => {
     const { store, scene } = setupSceneWithOneHotspot();
     renderTree(

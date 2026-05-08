@@ -11,6 +11,8 @@ type PannellumViewer = {
   on?: (ev: string, cb: () => void) => void;
   getPitch?: () => number;
   getYaw?: () => number;
+  /** C18.4-fix.4 — hfov courant (zoom). Capturé à la cleanup pour réutilisation. */
+  getHfov?: () => number;
   /**
    * C18.4-fix.1 — `setUpdate(false)` déclenche en interne `G()` puis `ca()`,
    * qui exécute `Fa()` (`hotSpots.forEach(Ca)`) une fois et repositionne
@@ -90,9 +92,17 @@ export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPa
    * poll picker (sinon le drag est interrompu en permanence).
    * Pour ré-initialiser à de nouvelles coords (changement de cible),
    * remonter le composant via une `key` côté parent.
+   *
+   * C18.4-fix.4 — Ces refs sont aussi mises à jour à la cleanup du
+   * `useEffect` ci-dessous (lecture `getPitch`/`getYaw`/`getHfov`)
+   * pour qu'une recréation **légitime** du viewer (pitch/yaw d'un
+   * hotspot modifiés via drag C18.3, ce qui change `hotSpotsKey`)
+   * reprenne la caméra à la position courante au lieu de sauter à
+   * la position initiale.
    */
   const initialPitchRef = useRef(initialPitch ?? 0);
   const initialYawRef = useRef(initialYaw ?? 0);
+  const initialHfovRef = useRef<number | undefined>(undefined);
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
 
@@ -135,7 +145,7 @@ export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPa
         cssClass: h.cssClass,
       })) ?? [];
 
-    const viewer = api.viewer(el, {
+    const viewerConfig: Record<string, unknown> = {
       type: "equirectangular",
       panorama: normalizePanoramaUrl(panoramaUrl),
       autoLoad: true,
@@ -149,13 +159,39 @@ export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPa
       // molette reste actif (mouseZoom non désactivé).
       disableKeyboardCtrl: true,
       keyboardZoom: false,
-    });
+    };
+    // C18.4-fix.4 — n'écrit `hfov` que s'il a été capturé (sinon on laisse le
+    // défaut Pannellum 100°). Évite de figer un hfov à 0 au tout premier mount.
+    if (typeof initialHfovRef.current === "number" && Number.isFinite(initialHfovRef.current)) {
+      viewerConfig.hfov = initialHfovRef.current;
+    }
+    const viewer = api.viewer(el, viewerConfig);
     viewerRef.current = viewer;
 
     const onLoad = () => onReadyRef.current?.();
     viewer.on?.("load", onLoad);
 
     return () => {
+      // C18.4-fix.4 — capture la position caméra courante avant destroy.
+      // Une recréation légitime (changement `hotSpotsKey` après commit drag
+      // C18.3 — pitch/yaw d'un hotspot modifiés) reprend la vue à
+      // l'identique au lieu de sauter aux valeurs initiales.
+      try {
+        if (typeof viewer.getPitch === "function") {
+          const p = viewer.getPitch();
+          if (Number.isFinite(p)) initialPitchRef.current = p;
+        }
+        if (typeof viewer.getYaw === "function") {
+          const y = viewer.getYaw();
+          if (Number.isFinite(y)) initialYawRef.current = y;
+        }
+        if (typeof viewer.getHfov === "function") {
+          const h = viewer.getHfov();
+          if (Number.isFinite(h)) initialHfovRef.current = h;
+        }
+      } catch {
+        /* viewer non initialisé — on garde les refs telles quelles. */
+      }
       viewer.destroy();
       if (viewerRef.current === viewer) viewerRef.current = null;
     };

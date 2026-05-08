@@ -3458,4 +3458,22 @@ sandbox iframe.
   Tests `c18HotspotResize.test.tsx` étendus (9 cas) — vérification
   que le viewer n'est pas re-créé après commit pointerup, et que
   `setUpdate` n'est jamais appelé quand le renderer est null.
+- 2026-05-08 — **C18.4-fix.4** : la caméra Pannellum sautait à la
+  position initiale (0/0) au pointerup d'un drag de hotspot (C18.3),
+  parce que la recréation du viewer (légitime cette fois — le drag
+  change pitch/yaw du hotspot, donc `hotSpotsKey` change, donc
+  l'effect re-run) repartait sur `initialPitchRef.current` /
+  `initialYawRef.current` figés au mount. Avant fix.3 le bug était
+  masqué par le flash de chargement panorama (`hotSpots` ref
+  changeait à chaque pointerup, recréation systématique → on ne
+  voyait pas le saut comme une régression). **Fix** : à la cleanup
+  du `useEffect`, capturer `viewer.getPitch()` / `getYaw()` /
+  `getHfov()` (ajouté au type `PannellumViewer`) dans les refs
+  `initialPitchRef` / `initialYawRef` / `initialHfovRef` (nouveau)
+  avant `destroy()`. Le viewer recréé reprend la vue à l'identique.
+  L'`hfov` n'est passé au config que s'il a été capturé (sinon on
+  laisse le défaut Pannellum 100°, évitant un `hfov: 0` au tout
+  premier mount). Test `c18HotspotDragInPreview.test.tsx` étendu
+  (6 cas) — vérification que le pitch/yaw/hfov de la dernière
+  création viewer correspondent à ceux capturés pré-cleanup.
 
