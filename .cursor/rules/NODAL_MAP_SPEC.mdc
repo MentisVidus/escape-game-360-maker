@@ -3064,6 +3064,65 @@ futures C18*).
 
 ### Plan détaillé C18.5 — directives pour Cursor
 
+> **Amendements plan C18.5 (2026-05-08, post-exploration code par
+> Cursor)** — décisions intermédiaires révisées avant ouverture de
+> C18.5.1, après lecture de l'existant `xflow/react/src/view/popups/`
+> et `js/editeur-generate.js`. **Texte original conservé** ci-dessous
+> pour traçabilité ; les Q amendées sont annotées en marge.
+>
+> 1. **Q-C18.5-1 amendée** → bascule sur **(a-i)** *(« option (a)
+>    revisitée »)* au lieu de **(b) iframe sandbox**. Justification :
+>    découverte qu'il existe déjà côté React un composant
+>    `xflow/react/src/view/popups/PlayerPopupPreview.tsx` (utilisé
+>    par `MsgContentPopup`, `PickContentPopup`, `GotoContentPopup`,
+>    `ReqContentPopup`, `PwdContentPopup`, `SelectorContentPopup`)
+>    avec déjà 4 variantes (`button` / `input` / `selector-buttons`
+>    / `selector-dropdown`), abonné au thème via `usePlayerPopupTheme`
+>    et stylé via `playerPopupThemeToMsgPreviewChrome`. La crainte
+>    initiale (« code dupliqué entre runtime joueur et React preview
+>    ; risque divergence visuelle ») **est déjà mitigée** par
+>    l'existence de ce composant et son usage généralisé. (a-i)
+>    **étend** `PlayerPopupPreview` avec une prop optionnelle
+>    `interactive?: { onChoice, onClose, onConfirm }` (rétrocompatible
+>    — les éditeurs continuent de passer un mode disabled). Pas
+>    d'iframe `srcDoc`, pas de helper string-templating
+>    `buildPreviewActionHtml`, pas de `postMessage`. Si à l'usage
+>    une fidélité supérieure est nécessaire (cas non identifié pour
+>    le moment), bascule (b) reste possible en chantier futur.
+> 2. **Q-C18.5-2 amendée — selector multi-niveau full_nav** au lieu
+>    de « 1 niveau au plus ». Justification : c'est précisément le
+>    selector qui demande le plus un aperçu pour valider l'arborescence
+>    de choix (raison originelle qui avait fait pencher pour iframe
+>    sandbox). Stack interne `SelectorLevel[]` côté overlay : clic
+>    sur un choix → push si sous-selector, swap vers popup terminale
+>    (msg/pick/goto/req/pwd) sinon. Le reste du périmètre Q-C18.5-2
+>    reste inchangé : pas de simulation inventaire / possession /
+>    mot-de-passe / changement de scène — uniquement la nav selector
+>    est cliquable.
+> 3. **Q-C18.5-7 amendée** — **image promue de C18.5.3 → C18.5.2**.
+>    Audio reste en C18.5.3. Justification : image apparaît plus
+>    couramment dans les body Quill (cf. usages projet) et le rendu
+>    `<img>` est trivial à valider en même temps que goto/req/pwd
+>    /selector. Audio (`<audio>` HTML5) sera traité après en polish.
+> 4. **Périmètre / Communication iframe ↔ parent** *(de la spec
+>    initiale)* — **désactivés** par le passage à (a-i) : pas de
+>    `srcDoc`, pas de `sandbox`, pas de `postMessage`. Remplacés
+>    par : composant React `<PlayerPreviewOverlay>` plein écran
+>    (overlay au-dessus de `<ScenePreviewModal>`), fermeture via
+>    bouton X / Échap (listener `keydown`) / clic backdrop. Pas de
+>    sécurité communication inter-frame nécessaire.
+> 5. **Découpage révisé** :
+>    - **C18.5.1** : extension `PlayerPopupPreview` + overlay infra
+>      + helper `buildPlayerPreviewVariant(action)` + branchement
+>      `<ScenePreviewModal>` (state `playerPreviewActionId`, click
+>      read-only ouvre overlay, toggle on ferme overlay) + curseur
+>      `pointer` read-only / `grab` édition + actions **msg + pick**.
+>    - **C18.5.2** : actions **goto + req + pwd** (popups statiques,
+>      bouton "fermer" actif, no-op autres) + **selector full_nav
+>      multi-niveau** + **image** dans `play-html-rich`.
+>    - **C18.5.3** : **audio** (`<audio>` HTML5) + ajustements de
+>      fidélité visuelle si écarts repérés au smoke test.
+
 **Pré-requis** : C18.3 livré (mode édition aperçu, le toggle est
 maintenant le pivot UX qui distingue read-only de édition).
 
@@ -3104,7 +3163,7 @@ sandbox iframe.
 **Phase questions (workflow §8.1)** — *cadrage validé avec l'user
 (2026-05-08, échange post-rédaction draft Annexe D)* :
 
-- **Q-C18.5-1 (validé)** — Stratégie de rendu de la popup joueur :
+- **Q-C18.5-1 (validé — amendé 2026-05-08, voir bloc en tête)** — Stratégie de rendu de la popup joueur :
   choix technique laissé à Cursor entre :
   - (a) Réécriture React des popups joueur dans
     `xflow/react/src/view/playerPreview/`. Code dupliqué entre
@@ -3121,7 +3180,7 @@ sandbox iframe.
   technique impérative de basculer vers (a), le signaler en phase
   questions C18.5.X (mais (b) reste la cible).
 
-- **Q-C18.5-2 (validé)** — Périmètre de la simulation : **affichage
+- **Q-C18.5-2 (validé — amendé 2026-05-08, voir bloc en tête : selector full_nav)** — Périmètre de la simulation : **affichage
   seul + bouton de fermeture fonctionnel**. Aucune simulation
   d'état joueur (inventaire, hotspot consommé, transition) ; aucune
   modification du store pendant la preview. Précisions issues de
@@ -3157,7 +3216,7 @@ sandbox iframe.
   pick, goto, req, pwd, selector) sont rendues, avec boutons no-op
   pour la logique. Pas de filtre par type d'action.
 
-- **Q-C18.5-7 (validé)** — Découpage géré par Cursor selon
+- **Q-C18.5-7 (validé — amendé 2026-05-08, voir bloc en tête : image promue de 5.3 → 5.2)** — Découpage géré par Cursor selon
   feedback. **Cible suggérée** :
   - **C18.5.1** : infrastructure preview (iframe sandbox + helper
     `buildPreviewActionHtml`) + actions simples (msg, pick).
@@ -3458,6 +3517,18 @@ sandbox iframe.
   Tests `c18HotspotResize.test.tsx` étendus (9 cas) — vérification
   que le viewer n'est pas re-créé après commit pointerup, et que
   `setUpdate` n'est jamais appelé quand le renderer est null.
+- 2026-05-08 — **Amendement plan C18.5** : avant ouverture de
+  C18.5.1, exploration de l'existant côté React révèle un composant
+  `PlayerPopupPreview` (popups+thème) déjà utilisé par tous les
+  éditeurs nodaux. Bascule cible Q-C18.5-1 de **(b) iframe sandbox**
+  → **(a-i) extension `PlayerPopupPreview`** (prop `interactive`
+  rétrocompatible). Q-C18.5-2 amendée pour selector multi-niveau
+  full_nav (au lieu de 1 niveau) — c'est le selector qui motivait
+  initialement l'iframe. Q-C18.5-7 amendée pour image en C18.5.2
+  (au lieu de 5.3). Audio reste en 5.3. Texte de la spec annoté
+  "voir bloc d'amendements en tête" ; rien n'est supprimé pour
+  traçabilité. Si à l'usage la fidélité (a-i) s'avère insuffisante,
+  bascule (b) reste possible en chantier futur.
 - 2026-05-08 — **C18.4-fix.4** : la caméra Pannellum sautait à la
   position initiale (0/0) au pointerup d'un drag de hotspot (C18.3),
   parce que la recréation du viewer (légitime cette fois — le drag
