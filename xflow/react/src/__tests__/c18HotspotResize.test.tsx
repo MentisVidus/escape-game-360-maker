@@ -403,6 +403,82 @@ describe("C18.4 — resize via handles", () => {
     ).toBeFalsy();
   });
 
+  it("C18.4-fix.3 — commit pointerup ne recrée pas le viewer Pannellum (signature pitch/yaw/cssClass stable)", () => {
+    const { store, scene } = setupSceneWithOneHotspot();
+    renderTree(
+      <NodalUiContext.Provider value={mockNodalUi(store)}>
+        <ScenePreviewModal sceneId={scene.id} onClose={() => {}} />
+      </NodalUiContext.Provider>
+    );
+
+    selectHotspot(scene);
+    flushRaf();
+
+    const viewerMock = (window as unknown as { pannellum: { viewer: ReturnType<typeof vi.fn> } })
+      .pannellum.viewer;
+    const callsBeforeResize = viewerMock.mock.calls.length;
+
+    const handleSe = container.querySelector(".nodal-hotspot-handle--se") as HTMLDivElement;
+    act(() => {
+      handleSe.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, clientX: 160, clientY: 180 })
+      );
+    });
+    act(() => {
+      document.dispatchEvent(
+        new PointerEvent("pointermove", { bubbles: true, clientX: 250, clientY: 240 })
+      );
+    });
+    act(() => {
+      document.dispatchEvent(
+        new PointerEvent("pointerup", { bubbles: true, clientX: 250, clientY: 240 })
+      );
+    });
+
+    // Le pointerup régénère customCss via updateNodeData, mais pitch/yaw/cssClass
+    // restent identiques → la signature ne change pas → pas de re-création du viewer.
+    expect(viewerMock.mock.calls.length).toBe(callsBeforeResize);
+  });
+
+  it("C18.4-fix.3 — forceHotSpotsRecompute skippe quand le renderer est null (viewer en cours de destruction)", () => {
+    const setUpdateSpy = vi.fn();
+    const getRendererSpy = vi.fn().mockReturnValue(null);
+    (window as unknown as { pannellum: { viewer: ReturnType<typeof vi.fn> } }).pannellum.viewer =
+      vi.fn(() => ({
+        destroy: vi.fn(),
+        on: vi.fn(),
+        mouseEventToCoords: vi.fn(() => [0, 0] as [number, number]),
+        setUpdate: setUpdateSpy,
+        getRenderer: getRendererSpy,
+      }));
+
+    const { store, scene } = setupSceneWithOneHotspot();
+    renderTree(
+      <NodalUiContext.Provider value={mockNodalUi(store)}>
+        <ScenePreviewModal sceneId={scene.id} onClose={() => {}} />
+      </NodalUiContext.Provider>
+    );
+
+    selectHotspot(scene);
+    flushRaf();
+
+    const handleSe = container.querySelector(".nodal-hotspot-handle--se") as HTMLDivElement;
+    act(() => {
+      handleSe.dispatchEvent(
+        new PointerEvent("pointerdown", { bubbles: true, clientX: 160, clientY: 180 })
+      );
+    });
+    act(() => {
+      document.dispatchEvent(
+        new PointerEvent("pointermove", { bubbles: true, clientX: 250, clientY: 240 })
+      );
+    });
+
+    // Renderer null → setUpdate ne doit jamais être appelé pendant le resize.
+    expect(getRendererSpy).toHaveBeenCalled();
+    expect(setUpdateSpy).not.toHaveBeenCalled();
+  });
+
   it("Échap pendant un resize → annule sans commit (taille initiale restaurée)", () => {
     const { store, scene, sat } = setupSceneWithOneHotspot();
     renderTree(

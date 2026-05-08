@@ -3429,4 +3429,33 @@ sandbox iframe.
   molette reste actif (`mouseZoom` non touché). Aligné avec l'usage
   éditeur : pas de navigation clavier dans l'aperçu, seul l'effet
   visuel compte.
+- 2026-05-08 — **C18.4-fix.3** : crash WebGL au pointerup du resize
+  (« your browser does not have the necessary WebGL support… » +
+  `WebGL: INVALID_VALUE: texImage2D: no image`). **Cause racine**
+  identifiée via la trace + lecture de `pannellum.js@2.5.7` :
+  `setUpdate(a)` (ligne 105) fait `C===p?pa():G()` — si le renderer
+  interne `C` est `undefined` (viewer en cours de destruction ou pas
+  fini de s'initialiser), `setUpdate` retombe dans `pa()` qui
+  ré-initialise WebGL et tente un `texImage2D` sur une texture pas
+  encore chargée → crash. Le viewer était en re-création parce que
+  l'`useEffect [panoramaUrl, hotSpots]` détruit + recrée à chaque
+  changement de référence du tableau `hotSpots` ; le commit
+  `updateNodeData` régénère `projections` (nouvelle référence) à
+  chaque pointerup, même si pitch/yaw/cssClass restent identiques.
+  **Double fix** :
+  1. Stabilisation du dep dans `NodalPanoramaViewer` :
+     `hotSpotsKey` (signature `pitch|yaw|cssClass` joinée) remplace
+     la référence brute. Pannellum n'utilise que ce triplet — les
+     autres champs (`ghostBaseCss`, etc.) sont consommés via
+     `hotSpotsRef.current` à la prochaine création légitime du
+     viewer (changement réel de pitch/yaw ou ajout/retrait de
+     hotspot). Bénéfice secondaire : plus de flash de chargement
+     panorama à chaque pointerup C18.4 (et C18.3).
+  2. Safety check dans `forceHotSpotsRecompute` :
+     `getRenderer()` consulté avant `setUpdate(false)` ; si renderer
+     null/undefined → skip silencieux. Couvre les cas résiduels où
+     un appel concurrent frapperait pendant un destroy/init.
+  Tests `c18HotspotResize.test.tsx` étendus (9 cas) — vérification
+  que le viewer n'est pas re-créé après commit pointerup, et que
+  `setUpdate` n'est jamais appelé quand le renderer est null.
 

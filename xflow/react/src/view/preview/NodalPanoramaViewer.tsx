@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useId, useImperativeHandle, useRef } from "react";
+import { forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef } from "react";
 
 import { normalizePanoramaUrl } from "./panoramaUrl";
 import type { PannellumHotSpotProjection } from "./sceneHotspotProjections";
@@ -19,6 +19,15 @@ type PannellumViewer = {
    * `f[0] += (p - offsetWidth) / 2`) appelée dans la boucle d'animation `Fa`.
    */
   setUpdate?: (a: boolean) => unknown;
+  /**
+   * C18.4-fix.3 — `getRenderer()` retourne le renderer interne `C` (pannellum
+   * 2.5.7 ligne 105). `null/undefined` quand le viewer est en cours de
+   * destruction ou n'a pas fini sa première initialisation. Utilisé comme
+   * garde dans `forceHotSpotsRecompute` pour éviter que `setUpdate(false)`
+   * ne re-déclenche `pa()` (re-init complète) → erreur WebGL `texImage2D: no
+   * image`.
+   */
+  getRenderer?: () => unknown;
 };
 
 type PannellumApi = {
@@ -87,6 +96,25 @@ export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPa
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
 
+  /**
+   * C18.4-fix.3 — Signature stable de la liste de hotspots transmis à
+   * Pannellum. Pannellum ne dépend que du triplet `(pitch, yaw, cssClass)`
+   * pour positionner les hotspots ; les autres champs (`actionId`,
+   * `coordsSatelliteId`, `ghostBaseCss`) sont consommés uniquement côté
+   * parent (drag, resize). Sans cette stabilisation, chaque mutation du
+   * store qui régénère `projections` (ex. commit ui_w/ui_h en C18.4)
+   * changeait la référence du tableau `hotSpots` → l'effect ci-dessous
+   * détruisait + recréait le viewer à chaque pointerup → flash de
+   * chargement panorama + race condition WebGL si un appel concurrent
+   * (`forceHotSpotsRecompute`) frappait pendant l'init.
+   */
+  const hotSpotsKey = useMemo(
+    () => (hotSpots ?? []).map((h) => `${h.pitch}|${h.yaw}|${h.cssClass}`).join(";"),
+    [hotSpots]
+  );
+  const hotSpotsRef = useRef(hotSpots);
+  hotSpotsRef.current = hotSpots;
+
   useEffect(() => {
     const el = hostRef.current;
     if (!el || !panoramaUrl.trim()) return;
@@ -100,7 +128,7 @@ export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPa
     }
 
     const hs =
-      hotSpots?.map((h) => ({
+      hotSpotsRef.current?.map((h) => ({
         pitch: h.pitch,
         yaw: h.yaw,
         type: "info" as const,
@@ -131,7 +159,11 @@ export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPa
       viewer.destroy();
       if (viewerRef.current === viewer) viewerRef.current = null;
     };
-  }, [panoramaUrl, hotSpots]);
+    // C18.4-fix.3 — `hotSpotsKey` (signature pitch/yaw/cssClass) au lieu de la
+    // référence de tableau. Les autres champs (ghostBaseCss, etc.) ne touchent
+    // pas Pannellum et sont consommés via `hotSpotsRef.current` à la prochaine
+    // recréation.
+  }, [panoramaUrl, hotSpotsKey]);
 
   /**
    * C18.2-fix — viseur central : pitch/yaw lus en continu sur le centre
@@ -174,9 +206,16 @@ export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPa
       forceHotSpotsRecompute() {
         const v = viewerRef.current;
         if (!v?.setUpdate) return;
-        // setUpdate(false) → G() → ca() → Fa() → forEach(Ca) une fois.
-        // Ne déclenche aucune animation visible (pitch/yaw/hfov inchangés).
+        // C18.4-fix.3 — Pannellum `setUpdate(C===p?pa():G())` : si le renderer
+        // interne `C` est `undefined` (viewer en cours de destruction ou
+        // d'initialisation), `setUpdate` retombe dans `pa()` (re-init complète,
+        // re-upload texture) → `texImage2D: no image` si la texture n'est pas
+        // encore chargée. On garde `setUpdate` derrière un check renderer.
         try {
+          if (typeof v.getRenderer === "function") {
+            const renderer = v.getRenderer();
+            if (renderer == null) return;
+          }
           v.setUpdate(false);
         } catch {
           /* viewer pas encore prêt — silencieux. */
