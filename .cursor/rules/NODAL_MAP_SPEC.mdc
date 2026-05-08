@@ -3400,9 +3400,33 @@ sandbox iframe.
   `sceneHotspotProjections` passe à `outline-offset: 6px` (la
   variante `picker-bg` garde `2px`). Hint enrichi FR/EN — drag /
   sélection / resize / Shift = ratio fixe ; live `↔ W×H` pendant un
-  resize. Tests `c18HotspotResize.test.tsx` (7 cas — sélection au
+  resize.   Tests `c18HotspotResize.test.tsx` (7 cas — sélection au
   clic court, désélection au clic ailleurs, reset au toggle off,
   resize centré, ratio Shift, commit pointerup, Échap annule).
   Tests C18.3 mis à jour : `pointerdown` n'ouvre plus le ghost
   immédiatement → ajout d'un `pointermove` > 4 px avant la vérif.
+- 2026-05-08 — **C18.4-fix.1** : centrage Pannellum après changement
+  de `width/height`. Diagnostic via la source `pannellum.js@2.5.7`
+  (CDN jsDelivr) — `Ca(a)` (ligne ~75) centre via
+  `f[0]+=(canvasW-a.div.offsetWidth)/2` à chaque appel ; `Ca` est
+  invoqué dans la boucle `Fa()` (ligne ~66, `b.hotSpots.forEach(Ca)`)
+  qui ne tourne qu'en présence d'animation ou de drag caméra. Sans
+  rotation, modifier `width/height` via CSS laisse la transform
+  Pannellum stale → le hotspot paraît grandir vers le bas-droite
+  (top-left visuellement fixe). Solution : exposer
+  `forceHotSpotsRecompute()` sur `NodalPanoramaViewerHandle` qui
+  invoque `viewer.setUpdate(false)` (déclenche `G() → ca() → Fa()`
+  une fois, sans changement de pitch/yaw/hfov visible). Appel
+  systématique pendant chaque `pointermove` du resize, et après chaque
+  transition `resize !== null → null` (commit / Échap / toggle off)
+  via un `useEffect` gardé par `prevResizeRef` (sinon le rAF parasite
+  consommait le slot des tests). Q-C18.4-3 (ancrage centre) reste
+  valable et fonctionne désormais visuellement.
+- 2026-05-08 — **C18.4-fix.2** : `disableKeyboardCtrl: true` +
+  `keyboardZoom: false` ajoutés à la config `pannellum.viewer(...)`.
+  Sans ce fix, Shift maintenu pendant le resize ratio-fixe
+  déclenchait un zoom Pannellum (raccourci clavier). Le zoom à la
+  molette reste actif (`mouseZoom` non touché). Aligné avec l'usage
+  éditeur : pas de navigation clavier dans l'aperçu, seul l'effet
+  visuel compte.
 

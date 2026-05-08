@@ -11,6 +11,14 @@ type PannellumViewer = {
   on?: (ev: string, cb: () => void) => void;
   getPitch?: () => number;
   getYaw?: () => number;
+  /**
+   * C18.4-fix.1 — `setUpdate(false)` déclenche en interne `G()` puis `ca()`,
+   * qui exécute `Fa()` (`hotSpots.forEach(Ca)`) une fois et repositionne
+   * tous les hotspots en fonction de leur `offsetWidth/Height` courant.
+   * Source : pannellum 2.5.7, fonction `Ca` (centrage via
+   * `f[0] += (p - offsetWidth) / 2`) appelée dans la boucle d'animation `Fa`.
+   */
+  setUpdate?: (a: boolean) => unknown;
 };
 
 type PannellumApi = {
@@ -43,6 +51,14 @@ export type NodalPanoramaViewerHandle = {
    * hotspots projetés et y aligner les handles overlay.
    */
   getViewerContainer: () => HTMLElement | null;
+  /**
+   * C18.4-fix.1 — force Pannellum à exécuter `Fa()` une fois pour
+   * repositionner tous les hotspots. Indispensable quand on modifie
+   * `width/height` d'un hotspot via CSS : sans appel, la transform
+   * Pannellum reste figée avec l'ancienne `offsetWidth/2` → le hotspot
+   * paraît grandir vers le bas-droite (top-left visuellement fixe).
+   */
+  forceHotSpotsRecompute: () => void;
 };
 
 /**
@@ -99,6 +115,12 @@ export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPa
       pitch: initialPitchRef.current,
       yaw: initialYawRef.current,
       showControls: false,
+      // C18.4-fix.2 — Désactive l'intégralité des raccourcis clavier Pannellum
+      // (W/A/S/D, +, -, Shift+keys, …). Sinon Shift maintenu pendant le resize
+      // (ratio fixe) déclenche un zoom Pannellum non voulu. Le zoom à la
+      // molette reste actif (mouseZoom non désactivé).
+      disableKeyboardCtrl: true,
+      keyboardZoom: false,
     });
     viewerRef.current = viewer;
 
@@ -148,6 +170,17 @@ export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPa
       },
       getViewerContainer() {
         return hostRef.current;
+      },
+      forceHotSpotsRecompute() {
+        const v = viewerRef.current;
+        if (!v?.setUpdate) return;
+        // setUpdate(false) → G() → ca() → Fa() → forEach(Ca) une fois.
+        // Ne déclenche aucune animation visible (pitch/yaw/hfov inchangés).
+        try {
+          v.setUpdate(false);
+        } catch {
+          /* viewer pas encore prêt — silencieux. */
+        }
       },
     }),
     []

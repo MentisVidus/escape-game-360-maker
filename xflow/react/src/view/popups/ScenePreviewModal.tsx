@@ -354,6 +354,12 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
         newH = clamp(resize.initialH * scale, RESIZE_MIN_PX, RESIZE_MAX_PX);
       }
       setResize((cur) => (cur ? { ...cur, currentW: newW, currentH: newH } : cur));
+      // C18.4-fix.1 — Pannellum centre les hotspots via `(canvasW - offsetWidth)/2` à chaque
+      // appel à `Ca` (cf. pannellum.js ligne ~75). Sans recompute, sa transform reste figée
+      // avec l'ancienne `offsetWidth/2` → le hotspot paraît grandir vers le bas-droite (le
+      // coin top-left visuellement fixe). On force un appel à `Fa()` pour que la transform
+      // se ré-aligne sur la nouvelle taille → centrage propre sur le pitch/yaw projeté.
+      viewerHandleRef.current?.forceHotSpotsRecompute();
     };
     const onUp = () => {
       const cur = store.getState().satellites[resize.satelliteId];
@@ -373,6 +379,9 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
         } as never);
       }
       setResize(null);
+      // C18.4-fix.1 — recompute final déclenché par l'effet `resize === null`
+      // ci-dessous, qui s'exécute après que React a appliqué le re-render
+      // (et donc la régénération du cssText à partir du nouveau customCss).
     };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
@@ -381,6 +390,25 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
       document.removeEventListener("pointerup", onUp);
     };
   }, [resize, store]);
+
+  /**
+   * C18.4-fix.1 — Quand `resize` repasse à null **après** avoir été non-null
+   * (commit pointerup, Échap, ou bascule toggle off), un recompute final
+   * synchronise Pannellum avec la taille effective (override style retiré,
+   * customCss éventuellement restauré). Un ref évite de déclencher au mount
+   * initial où `resize` est déjà null.
+   */
+  const prevResizeRef = useRef<ResizeState | null>(null);
+  useEffect(() => {
+    const wasResizing = prevResizeRef.current !== null;
+    prevResizeRef.current = resize;
+    if (resize !== null) return;
+    if (!wasResizing) return;
+    const id = window.requestAnimationFrame(() => {
+      viewerHandleRef.current?.forceHotSpotsRecompute();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [resize]);
 
   /**
    * Pointerdown sur un handle (`<HotspotResizeHandles>` propage `onResizeStart`).
