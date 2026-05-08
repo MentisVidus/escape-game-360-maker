@@ -864,10 +864,10 @@ centre la vue sur le nœud concerné.
 ## 7. Roadmap d'implémentation
 
 Chantiers numérotés pour référence dans les commits. **C1–C10 livrés**
-(v1.5 → v1.9) ; **C11–C21 planifiés** ci-dessous. La numérotation
+(v1.5 → v1.9) ; **C11–C22 planifiés** ci-dessous. La numérotation
 au-delà de C10 est indicative — l’ordre peut être réarrangé selon
 priorité produit (priorité produit annoncée v1.9.1 : **C18 et C19
-prioritaires sur C11–C17**). Chaque chantier passe par la phase
+prioritaires sur C11–C17** ; C22 dépend de C18.4 livré). Chaque chantier passe par la phase
 questions §8.1 au démarrage et ouvre une **Annexe D** vivante refondue
 à la clôture (cf. §8.4 et `docs/archives/chantier_*.md`).
 
@@ -1369,6 +1369,84 @@ Découpage attendu (à valider §8.1) : **C21.1** Modèle (`endRole` +
 textes scène) + clic droit menu contextuel + popup d'édition par
 scène-fin ; **C21.2** Migration des projets C10.2.f → C21 + retrait
 sélecteur global de `EndScreensSettingsPopup`.
+
+### C22 — Hotspots responsives *(scaling proportionnel à l'image)*
+
+Refonte transverse de la sémantique de taille des hotspots pour qu'ils
+**couvrent la même portion d'image panoramique quel que soit l'écran**
+(repéré pendant le cadrage C18.4, 2026-05-08). Aujourd'hui,
+`appearance.ui_w` / `ui_h` sont des **pixels CSS bruts**
+(`js/editor-shared-ui-utils.js:74-83`,
+`xflow/react/src/model/hotspotAppearance.ts:47-66`) → un hotspot 120 px
+créé en 2K paraît plus gros (en proportion d'image) sur écran HD.
+
+**Cœur technique** :
+
+- Choisir une nouvelle unité de stockage : pourcentage du container
+  Pannellum (`ui_w_pct`, `ui_h_pct`) ou degrés FOV. Le pourcentage de
+  largeur container est la solution la plus simple à implémenter
+  (calcul CSS direct au render).
+- Migration JSON : ajout de `ui_w_pct` / `ui_h_pct` en complément
+  (priorité s'ils existent) **ou** bump à `schemaVersion: 3`. Le
+  premier évite le bump majeur ; le second est plus propre à long terme.
+- Recalcul des dimensions DOM à chaque resize de fenêtre / container :
+  `width = (container.offsetWidth * ui_w_pct / 100) + "px"`. Listener
+  sur `resize` (window) + `pannellum.viewer.on("zoomchange")` si l'on
+  souhaite que les hotspots restent fixes en taille d'image (et non
+  en taille d'affichage) — à trancher.
+- Adaptations runtime joueur (`js/editeur-generate.js`,
+  `js/editor-en-generate.js` — template literal `buildPlayerHtmlTemplate`).
+- Adaptations éditeur React : `buildCustomCssFromAppearance`,
+  `<HotspotAppearancePopup>`, resize C18.4 (formule `clamp` →
+  bornes en pourcentage), aperçu C18.1/C18.3, picker C18.2.
+- Adaptations éditeur legacy : `editor-shared-ui-utils.js:buildCss`,
+  formulaires `.scene-block` (champs `ui-w`, `ui-h`).
+
+**Périmètre fonctionnel** :
+
+- Choix d'une dimension de référence pour la migration des projets
+  existants (assomption ex. 1920×1080 horizontal). Ou saisie utilisateur
+  à l'ouverture d'un projet pré-C22 (« Quelle était la résolution
+  d'édition d'origine ? »).
+- Conversion des valeurs `ui_w` / `ui_h` (px) → `ui_w_pct` / `ui_h_pct`
+  au chargement d'un projet legacy ; conservation des champs anciens
+  pour rétro-affichage (ou suppression si bump schemaVersion 3).
+- Bornes : redéfinies en pourcentage (ex. `[1 ; 50]` pour `ui_w_pct` :
+  hotspot couvre entre 1 % et 50 % de la largeur du container).
+- Smoke FR/EN : ouvrir un projet créé en 2K, vérifier que le rendu
+  joueur sur HD donne la même proportion d'image couverte ; idem
+  inverse.
+
+**Points à cadrer en phase questions** :
+
+- Unité retenue : pourcentage container Pannellum, pourcentage du FOV
+  horizontal, degrés FOV ? *(Recommandation : pourcentage container
+  pour simplicité.)*
+- Migration : ajout de champs `_pct` complémentaires (chemin doux) ou
+  bump `schemaVersion: 3` (chemin propre, plus de retravail par la
+  suite) ? Si bump : impact sur `EditorCore` (validation), sur les
+  fixtures de tests, sur les `.escapegame` archivés.
+- Stratégie de référence pour la migration : assomption fixe (ex.
+  1920 px) ou prompt utilisateur ?
+- Comportement au zoom Pannellum (HFOV change) : les hotspots
+  restent-ils proportionnels au container DOM (taille apparente
+  fixe) ou à l'image panoramique (taille fixe par rapport à
+  l'image, donc grossissent au zoom) ? *(Recommandation : par
+  rapport à l'image, c'est ce que l'utilisateur attend
+  intuitivement.)*
+- Refactoring opportuniste : extraire un module partagé
+  `js/editor-shared-hotspot-css.js` consommé par legacy +
+  `hotspotAppearance.ts` (réécriture en TS pure côté React).
+
+Découpage attendu (à valider §8.1) : **C22.1** Choix unité +
+extension modèle (ajout `ui_w_pct` / `ui_h_pct` ou bump
+schemaVersion) + helper de calcul partagé ; **C22.2** Adaptation
+runtime joueur (template literal) + smoke export joueur ; **C22.3**
+Adaptation éditeur React (popup apparence, resize C18.4, aperçu,
+picker) + tests Vitest ; **C22.4** Adaptation éditeur legacy
+(formulaire `.scene-block`, `editor-shared-ui-utils.js`) + miroir
+`editor-shared-nodal-to-dom.js` ; **C22.5** Migration projets
+pré-C22 (au load).
 
 ---
 
@@ -2058,14 +2136,31 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 
 ### Stratégie de découpage
 
-| # | Périmètre | Dépend de | Type |
-|---|-----------|-----------|------|
-| **C18.1** | Aperçu scène 360° read-only (modale plein écran) ouvert depuis menu contextuel s-box ; composant partagé `<NodalPanoramaViewer>` en mode `preview` ; hotspots existants visibles en outline rouge dashed avec label tronqué | — | code |
-| **C18.2** | Modale picker (modale plein écran) ouverte depuis bouton ajouté à `CoordsOptionsPopup` ; clic-pour-positionner via Pannellum `mouseEventToCoords` ; hotspots autres en gris dashed pour contexte ; Valider/Annuler/Échap/Enter ; commit pitch + yaw via `updateNodeData` sur le satellite | C18.1 (réutilise `<NodalPanoramaViewer>`) | code |
+| # | Périmètre | Dépend de | Type | Statut |
+|---|-----------|-----------|------|--------|
+| **C18.1** | Aperçu scène 360° read-only (modale plein écran) ouvert depuis menu contextuel s-box ; composant partagé `<NodalPanoramaViewer>` en mode `preview` ; hotspots existants visibles en outline rouge dashed avec label tronqué | — | code | livré (2026-05-08) |
+| **C18.2** | Modale picker (modale plein écran) ouverte depuis bouton ajouté à `CoordsOptionsPopup` ; viseur central `pointer-events:none` + poll `getPitch`/`getYaw` 120 ms ; hotspots autres en gris dashed pour contexte ; Valider/Annuler/Échap/Enter ; commit pitch + yaw via `updateNodeData` sur le satellite | C18.1 (réutilise `<NodalPanoramaViewer>`) | code | livré (2026-05-08) — 2 fixes (viseur central + initialPitch via ref) |
+| **C18.3** | Drag direct des hotspots dans l'aperçu scène : toggle « Éditer les hotspots » dans le header ; en mode édition, `pointerdown` sur hotspot → drag local avec overlay fantôme CSS ; `NodalPanoramaViewer` étendu en `forwardRef` exposant `mouseEventToCoords` ; auto-save pitch/yaw au release ; Échap annule | C18.1, C18.2 | code | livré (2026-05-08) |
+| **C18.4** | Resize des hotspots dans l'aperçu via **handles aux 4 coins** (façon logiciel de dessin) ; sélection au clic simple en mode édition ; resize ancré au centre (pitch/yaw fixes) ; Shift = ratio fixe ; bornes 16-800 px ; bordure dashed rouge décalée (`outline-offset` ~6 px) pour rester visible sur hotspot transparent | C18.3 | code | cadré (2026-05-08) |
+| **C18.5** | Aperçu interactif « comme en jeu » en mode read-only : clic sur hotspot → popup joueur preview (msg / pick / goto / req / pwd / selector mono-niveau) via iframe sandbox `srcDoc` ; affichage seul + bouton fermer ; pas de simulation d'inventaire ni de visibility-rules | C18.3 | code | cadré (2026-05-08) |
 
 Convention : un commit par sous-chantier ; fixes numérotés
 `C18.x.y-fix` si correctifs en cours de chantier (cf. §8.2 + §2.2 du
-briefing CLAUDE.md).
+briefing CLAUDE.md). Les sous-chantiers C18.4 et C18.5 sont
+indépendants (tous deux dérivent de C18.3) — ordre d'exécution libre,
+mais en pratique C18.4 d'abord (plus simple, plus prioritaire UX).
+
+> **Note transverse repérée pendant le cadrage C18.4** (2026-05-08) :
+> les dimensions `appearance.ui_w` / `ui_h` sont en **pixels CSS bruts**
+> dans le legacy (`js/editor-shared-ui-utils.js:74-83`) comme dans la
+> couche React (`xflow/react/src/model/hotspotAppearance.ts:47-66`).
+> Sur écran différent, un même hotspot **ne couvre pas la même
+> proportion** de l'image panoramique → bug d'architecture présent
+> dans tout le projet. C18.4 livre sur la sémantique pixels actuelle
+> (cohérent legacy) ; un nouveau chantier **C22 — Hotspots
+> responsives** est ajouté au backlog §7 pour traiter le scaling
+> proportionnel (`ui_w_pct` / `ui_h_pct` ou bump schemaVersion 3 + format de
+> stockage proportionnel). C18.4 et C18.5 ne sont pas bloqués par C22.
 
 ### Décisions de design
 
@@ -2497,6 +2592,688 @@ Annexe D*. Questions résiduelles éventuelles :
   depuis CoordsOptionsPopup`.
 - **Annexe D — Journal de chantier** : entrée 1-2 lignes au commit.
 
+### Plan détaillé C18.3 — directives pour Cursor
+
+**Pré-requis** : C18.1 livré (modale aperçu + `<NodalPanoramaViewer>`
++ `collectSceneHotspotProjections`) + C18.2 livré et stabilisé (fixes
+viseur central / drag fluide).
+
+**Contexte** : étendre `<ScenePreviewModal>` (C18.1, jusque-là
+read-only) avec un mode **édition** qui permet de **déplacer les
+hotspots** directement par drag souris dans le panorama. Le legacy
+n'avait pas cette fonctionnalité (placement via viseur central
+uniquement, un hotspot à la fois — voir `js/editor-shared-preview
+-picker.js:33-82`). Comportement attendu : un toggle « Éditer les
+hotspots » (off par défaut, conserve le comportement C18.1) ; en
+mode édition, `pointerdown` sur un hotspot ouvre un drag local,
+overlay fantôme CSS qui suit le curseur (clone visuel du hotspot
+atténué — pas un simple cercle), header live qui affiche
+pitch/yaw du curseur, commit immédiat au release via
+`updateNodeData`. Échap pendant un drag annule sans commit.
+Cohabite avec le picker C18.2 (deux UX complémentaires : picker =
+placement précis viseur central pour 1 hotspot ciblé ; aperçu
+édition = manipulation directe multi-hotspots).
+
+**Fichiers à lire avant de coder** :
+
+- `xflow/react/src/view/popups/ScenePreviewModal.tsx` (C18.1) — modale
+  à étendre.
+- `xflow/react/src/view/preview/NodalPanoramaViewer.tsx` — composant
+  viewer à passer en `forwardRef` + `useImperativeHandle` pour
+  exposer `mouseEventToCoords(ev)` au parent.
+- `xflow/react/src/view/preview/sceneHotspotProjections.ts` — étendre
+  `PannellumHotSpotProjection` avec `actionId`,
+  `coordsSatelliteId`, `ghostBaseCss`.
+- `xflow/react/src/store/nodalProjectStore.ts` (`updateNodeData`)
+  pour écrire pitch/yaw au release.
+- `xflow/react/src/model/hotspotAppearance.ts` — pour comprendre
+  comment `ghostBaseCss` est dérivé (`buildCustomCssFromAppearance`
+  + `customCss` raw du satellite).
+- `js/editor-shared-preview-picker.js:33-82` — référence comparative
+  (le legacy n'a pas de drag, juste viseur central — donc pas de
+  comportement à porter, mais utile pour comprendre les conventions
+  de coords).
+- Spec §3.4 (satellite `coords-options`) + §0.2-1 (carte source de
+  vérité, écriture via `updateNodeData`).
+
+**Phase questions (workflow §8.1)** — *réalisé en pré-rédaction
+Annexe D (Q-C18.3-1 à Q-C18.3-11, 2026-05-08)*. Décisions clés :
+
+- **Q-C18.3-1** — Lieu du drag : extension de la modale aperçu C18.1
+  (vs nouvelle modale dédiée vs ajout au picker C18.2). *Choix :
+  extension C18.1.* Cohérence : un seul écran "aperçu" qui peut être
+  consulté ou édité.
+- **Q-C18.3-2** — Activation du mode édition : toggle dans le header
+  (vs drag toujours actif vs modificateur clavier). *Choix : toggle
+  off par défaut.* Préserve le comportement C18.1 read-only.
+- **Q-C18.3-3** — Persistance : auto-save au mouseup (vs Valider /
+  Annuler dans footer vs auto-save + bouton "Annuler tout").
+  *Choix : auto-save direct.* Direct manipulation classique ; undo
+  global de la carte couvre le rollback.
+- **Q-C18.3-4** — Drag seul ou drag + resize ? *Choix : drag seul,
+  resize reporté en C18.4* (réutilisera `HotspotAppearancePopup`
+  existante depuis le mode édition aperçu — pas de poignées DOM
+  ad-hoc).
+- **Q-C18.3-5** — Mécanique technique : `pointerdown` sur hotspot
+  + `stopPropagation()` + listeners globaux `pointermove`/
+  `pointerup` + `viewer.mouseEventToCoords(ev)` pour pitch/yaw.
+  *Choix validé.* Granulaire (pan Pannellum reste actif tant qu'on
+  ne touche pas un hotspot).
+- **Q-C18.3-6** — Feedback pendant le drag : fantôme CSS overlay
+  clonant la forme/couleur du hotspot avec opacité réduite (vs
+  re-create du hotSpot Pannellum à chaque pointermove vs pas de
+  feedback continu). *Choix : fantôme CSS atténué.* Compromis
+  UX/perf ; le hotspot Pannellum réel est repositionné au release.
+- **Q-C18.3-7** — Échap pendant un drag : annule le drag courant
+  (vs ferme la modale vs pas de gestion). *Choix : annule.*
+- **Q-C18.3-8** — Affichage live des coords pendant le drag : header
+  + (mini-tooltip optionnel). *Choix : header seul* (le fantôme
+  visualise déjà la position cible ; texte pitch/yaw redondant mais
+  pédagogiquement utile).
+- **Q-C18.3-9** — Hotspot en édition vs autres : autres restent
+  actifs et cliquables. *Choix validé.*
+- **Q-C18.3-10** — Découpage : un seul commit C18.3. *Choix validé*
+  (périmètre cohésif, pas de pré-requis qui justifie un split).
+- **Q-C18.3-11** (edge) — Drag aussi dans le picker C18.2 ?
+  *Choix : non.* Le picker reste mono-cible (viseur central) ;
+  l'aperçu édition couvre le drag multi-hotspots.
+
+**Périmètre** :
+
+- **Étendre `sceneHotspotProjections.ts`** : ajouter `actionId`,
+  `coordsSatelliteId`, `ghostBaseCss` dans
+  `PannellumHotSpotProjection`. `ghostBaseCss` = chaîne CSS du
+  hotspot **sans** le wrapper preview (pas de `outline: dashed
+  red`, pas de `pointer-events: auto`) — utilisé pour cloner
+  visuellement dans l'overlay fantôme.
+- **Étendre `NodalPanoramaViewer.tsx`** :
+  - Passer en `forwardRef<NodalPanoramaViewerHandle, …Props>`.
+  - `useImperativeHandle` exposant `mouseEventToCoords(ev:
+    MouseEvent): [number, number] | null` (wrap de
+    `viewerRef.current.mouseEventToCoords` avec garde Number.isFinite).
+  - Pas d'autre changement de comportement (le mode `preview` reste
+    pareil ; le drag est géré par le parent via le handle).
+- **Étendre `ScenePreviewModal.tsx`** :
+  - State local : `editMode: boolean` (off par défaut), `drag:
+    DragState | null`.
+  - `DragState = { actionId, satelliteId, cssClass, ghostBaseCss,
+    clientX, clientY, livePitch, liveYaw }`.
+  - Header : ajouter un bouton « ✏ Éditer les hotspots » à droite
+    du titre (toggle, `data-active="1"` quand actif). Style
+    secondaire (highlight `--node-selected-outline` quand actif).
+  - Bandeau hint (visible seulement en mode édition) : « Glissez un
+    hotspot pour le déplacer (Échap pour annuler). » remplacé par
+    « 📍 Pitch X | Yaw Y » pendant un drag actif.
+  - Listener `onPointerDown` sur le `__body` de la modale (handler
+    `onBodyPointerDown`) :
+    - Si `!editMode` → return.
+    - `target.closest("[class*='prev-hs-']")` → identifier le hotspot.
+    - Lookup dans `cssClassIndex` (Map cssClass → projection)
+      pour récupérer `actionId`, `coordsSatelliteId`,
+      `ghostBaseCss`.
+    - `stopPropagation()` + `preventDefault()` + init `setDrag(...)`.
+  - `useEffect` actif quand `drag != null` :
+    - `pointermove` global : maj `clientX/Y` + recalcul
+      `livePitch/Yaw` via `viewerHandleRef.current.mouseEventToCoords(ev)`.
+    - `pointerup` global : commit via
+      `store.getState().updateNodeData(satelliteId, { data: {
+      ...sat.data, pitch, yaw } })` puis `setDrag(null)`.
+    - Cleanup : remove listeners.
+  - `useEffect` Échap : si `drag` actif → `setDrag(null)` ; sinon
+    `onClose()`.
+  - Render conditionnel `<div className="nodal-hotspot-ghost"
+    style={{ left: drag.clientX, top: drag.clientY }}>` qui contient
+    `<div className="nodal-hotspot-ghost__inner" style=
+    {cssTextToStyleObject(drag.ghostBaseCss)} />`. Helper
+    `cssTextToStyleObject` parse une chaîne CSS `"width: 120px;
+    background: …"` en objet React style (camelCase).
+  - Attribut `data-edit-mode={editMode ? "1" : "0"}` sur l'overlay
+    racine — utilisé par le CSS pour passer les hotspots en
+    `cursor: grab`.
+- **Style** (`xflow/react/src/view/NodalCanvas.css`) :
+  - `.nodal-scene-preview-modal__edit-toggle` (bouton secondaire,
+    highlight quand `data-active="1"`).
+  - `.nodal-scene-preview-modal__edit-hint` (bandeau bleuté
+    `color-mix(--node-selected-outline 8%, --palette-bg)`).
+  - `.nodal-scene-preview-modal[data-edit-mode="1"]
+    [class*="prev-hs-"] { cursor: grab; }` + `:active { cursor:
+    grabbing; }`.
+  - `.nodal-hotspot-ghost` : `position: fixed; z-index: 9999;
+    pointer-events: none; transform: translate(-50%, -50%);
+    opacity: 0.55; filter: grayscale(0.25);`.
+  - `.nodal-hotspot-ghost__inner` : `outline: 2px dashed rgba(255,
+    255, 255, 0.85); outline-offset: 2px;`.
+
+**Critères de fin** :
+
+- Toggle « Éditer les hotspots » présent dans le header de la modale
+  aperçu, off par défaut, bascule visuellement (highlight) au clic.
+- En mode édition : `pointerdown` sur un hotspot init un fantôme qui
+  suit le curseur ; le pan Pannellum continue de fonctionner si
+  `pointerdown` ailleurs (pas sur un hotspot).
+- Pendant le drag : le header affiche pitch/yaw live ; le fantôme
+  conserve la forme/couleur CSS du hotspot avec opacité 0.55.
+- Au `pointerup` : pitch/yaw écrits dans le satellite
+  `coords-options` via `updateNodeData` ; les autres champs
+  (`visibility`, `appearance`, `customCss`, `sfx`, `hotspotCssExpert`)
+  restent intacts.
+- Échap pendant un drag : annule le drag (fantôme disparaît, store
+  inchangé) ; modale ne ferme pas.
+- Échap hors drag : ferme la modale (comportement C18.1 préservé).
+- **Tests Vitest** : `c18HotspotDragInPreview.test.tsx` couvrant —
+  (i) toggle présent + bascule `data-active` ;
+  (ii) hint visible en mode édition ;
+  (iii) `pointerdown` (mode édition) sur élément avec classe
+  `prev-hs-…` → fantôme rendu, `pointermove` met à jour pitch/yaw
+  live, `pointerup` commit dans le store ;
+  (iv) Échap pendant drag → fantôme disparaît, store inchangé ;
+  (v) `pointerdown` hors mode édition → aucun drag déclenché.
+  **Pannellum mocké** ; polyfill `PointerEvent = MouseEvent` pour
+  jsdom au top du fichier de test.
+- Smoke FR/EN : ouvrir une scène avec ≥2 hotspots, basculer en
+  édition, drag un hotspot, vérifier que la nouvelle position
+  apparaît bien dans la carte nodale (popup `CoordsOptionsPopup` du
+  satellite affiche les nouvelles coords) et persiste après round-trip
+  `.escapegame`.
+
+**Branche / commit** :
+
+- Branche : `feat/c18-360-preview-and-picker`.
+- Commit : `feat(nodal): C18.3 drag direct hotspots dans aperçu
+  scène (mode édition)`.
+- **Annexe D — Journal de chantier** : entrée 1-2 lignes au commit.
+
+### Plan détaillé C18.4 — directives pour Cursor
+
+**Pré-requis** : C18.3 livré (mode édition aperçu + drag des hotspots
++ extension `sceneHotspotProjections` avec `actionId` /
+`coordsSatelliteId`).
+
+**Contexte** : compléter le drag de C18.3 avec le **redimensionnement
+visuel** des hotspots **directement dans l'aperçu**, via des
+**poignées de coin** (handles) classiques façon logiciel de dessin
+(InDesign / Figma / Inkscape). Pas de réouverture de
+`HotspotAppearancePopup` ; la popup existante reste accessible via
+`CoordsOptionsPopup` pour ajuster couleur / bordure / transparence —
+ce qui sort du périmètre C18.4 (et est noté en *Évolution future*).
+
+Périmètre concret de C18.4 :
+
+- En mode édition (toggle « Éditer les hotspots » actif), un clic
+  simple sur un hotspot le **sélectionne** : 4 poignées carrées
+  apparaissent aux 4 coins (NW, NE, SW, SE).
+- Le drag d'une poignée recalcule `appearance.ui_w` /
+  `appearance.ui_h` (largeur / hauteur en pixels du wrapper hotspot)
+  en temps réel, **ancré au centre** (le pitch / yaw — donc le centre
+  du hotspot — reste fixe pendant le resize).
+- Au release : commit de la nouvelle taille via `updateNodeData`
+  (auto-save). Échap pendant un resize annule.
+- Désélection : clic en dehors d'un hotspot, Échap (sans drag actif),
+  ou bascule du toggle vers read-only.
+- **Bordure dashed rouge de l'aperçu rendue plus large que le hotspot
+  réel** (ex. `outline-offset: 6-8px`) pour rester visible quand le
+  hotspot est transparent ou quand on lui donne une taille très
+  réduite. C'est aussi cette "marge de visibilité" qui donne au
+  dragger une zone de saisie confortable autour des très petits
+  hotspots.
+
+Les changements de couleur / transparence / bordure restent dans
+`HotspotAppearancePopup` (accessible via `CoordsOptionsPopup`) et
+seront refactorés UI dans un chantier ultérieur (cf. *Évolutions
+futures C18*).
+
+**Fichiers à lire avant de coder** :
+
+- `xflow/react/src/view/popups/ScenePreviewModal.tsx` (C18.3) —
+  modale à étendre : ajout d'un état `selectedHotspot`, gestion du
+  resize, rendu des handles overlay.
+- `xflow/react/src/view/preview/sceneHotspotProjections.ts` (C18.3) —
+  CSS du hotspot à ajuster pour décaler la bordure dashed rouge
+  (`outline-offset`) et réutiliser la classe CSS pour repérer le
+  hotspot DOM (sélection).
+- `xflow/react/src/view/preview/NodalPanoramaViewer.tsx` (C18.3) —
+  exposition `mouseEventToCoords` déjà en place ; vérifier qu'on
+  peut accéder au `<div>` host du viewer pour y attacher l'overlay
+  des handles (`ref` interne ou prop forwardée).
+- `xflow/react/src/model/hotspotAppearance.ts` —
+  `buildCustomCssFromAppearance`, `mergeHotspotAppearance`,
+  `DEFAULT_HOTSPOT_APPEARANCE`. `ui_w` / `ui_h` ∈ [bornes mini /
+  maxi à définir], defaults 120 / 120.
+- `xflow/react/src/store/nodalProjectStore.ts` — `updateNodeData`
+  pour persister `appearance.ui_w` / `ui_h` au release.
+- `xflow/react/src/view/NodalCanvas.css` — section
+  `.nodal-scene-preview-modal` (C18.1/C18.3) à étendre pour les
+  styles handles et la bordure dashed plus large.
+
+**Phase questions (workflow §8.1)** — *cadrage validé avec l'user
+(2026-05-08, échange post-rédaction draft Annexe D)* :
+
+- **Q-C18.4-1 (validé)** — Mode d'édition : **handles aux 4 coins**
+  apparaissant à la sélection (clic simple sur hotspot en mode
+  édition), façon logiciel de dessin classique. Pas de double-clic
+  vers `HotspotAppearancePopup` (réservé à un chantier ultérieur
+  pour couleur / bordure).
+- **Q-C18.4-2 (validé)** — Le resize ne change que `appearance.ui_w`
+  et `appearance.ui_h` (déjà dans `coords-options.data.appearance`,
+  édité par `HotspotAppearancePopup` via `mergeHotspotAppearance` +
+  `buildCustomCssFromAppearance`). Pas de nouveau champ contexte
+  UI ; gestion locale dans `<ScenePreviewModal>`.
+- **Q-C18.4-3 (validé)** — Stratégie de resize : **ancré au centre**
+  (pitch / yaw fixes). Drag d'un coin → `new_w = 2 * |clientX -
+  centerX|`, `new_h = 2 * |clientY - centerY|`. Symétrique sur tous
+  les coins. Plus simple que l'ancrage au coin opposé (qui aurait
+  obligé à recalculer pitch / yaw pour conserver le coin opposé
+  fixe en pixels — fragile car la projection 3D n'est pas linéaire).
+- **Q-C18.4-4 (validé)** — Resize libre par défaut (largeur et
+  hauteur indépendantes). **Touche Shift maintenue → ratio fixé**
+  (préservation de l'aspect ratio courant). Conforme aux conventions
+  des outils de dessin.
+- **Q-C18.4-5 (validé)** — Sélection unique (1 hotspot à la fois).
+  Sélectionner un autre hotspot désélectionne le précédent.
+- **Q-C18.4-6 (validé)** — Couleur / transparence / bordure du
+  hotspot **hors périmètre C18.4** ; resté accessible via
+  `CoordsOptionsPopup` → bouton « Personnaliser l'apparence » →
+  `HotspotAppearancePopup` (déjà en place). Évolution future : modale
+  flottante à côté du hotspot sélectionné dans l'aperçu (cf.
+  *Évolutions futures C18*).
+- **Q-C18.4-7 (validé)** — Bordure dashed rouge de l'aperçu :
+  `outline-offset` augmenté (~6-8px) pour qu'elle soit plus large
+  que le hotspot réel. Permet (i) de rester visible sur hotspot
+  transparent, (ii) d'agrandir la zone de pointage pour les
+  petits hotspots, (iii) de loger les handles sans qu'ils chevauchent
+  le hotspot lui-même.
+- **Q-C18.4-8 (validé)** — Bornes : `ui_w` / `ui_h` ∈ [16 ; 800]
+  pixels. Mini 16 px évite les hotspots invisibles ; maxi 800 px
+  laisse la marge nécessaire pour les hotspots-images larges sur
+  grand écran (≥ 2K). Les bornes resteront en pixels jusqu'au
+  chantier C22 (responsive) qui changera potentiellement l'unité.
+
+- **Q-C18.4-9 (validé — note architecture)** — Sémantique
+  pixels : `ui_w` / `ui_h` restent en **pixels CSS bruts** pour C18.4
+  (cohérent avec legacy `editor-shared-ui-utils.js:74-83`). Le
+  scaling proportionnel à la dimension de l'image panoramique
+  (sujet remonté par l'user pendant le cadrage : un hotspot doit
+  couvrir la même portion d'image quel que soit l'écran) est
+  reporté à un chantier dédié **C22 — Hotspots responsives**
+  (cf. §7). C18.4 livre l'UI de resize ; C22 changera l'unité
+  derrière sans retravail majeur de l'UI.
+
+**Périmètre** :
+
+- **Étendre `sceneHotspotProjections.ts`** :
+  - Augmenter `outline-offset` à `6px` (au lieu de `0` ou `2px`
+    selon état actuel) pour la variante `cssVariant: "preview"`.
+    Conserver l'outline rouge dashed actuel ; juste décaler.
+  - La variante `picker-bg` (background gris dashed dans le picker
+    C18.2) garde son `outline-offset` actuel — on n'éditera pas de
+    là-bas.
+  - Pas de changement structurel sur les champs déjà ajoutés en
+    C18.3 (`actionId`, `coordsSatelliteId`, `ghostBaseCss`).
+
+- **Étendre `<NodalPanoramaViewer>`** :
+  - Forwarder un `ref` ou exposer via `useImperativeHandle` un
+    accès au container DOM (`getViewerContainer(): HTMLElement |
+    null`). Le parent en aura besoin pour attacher l'overlay des
+    handles dans le bon repère DOM (le BoundingClientRect des
+    hotspots Pannellum est calculé dans ce container).
+  - Optionnel : exposer un mécanisme de notification quand Pannellum
+    redessine (rotation, zoom) pour que les handles puissent
+    suivre le hotspot. *Stratégie alternative* (plus simple) :
+    `requestAnimationFrame` permanent côté
+    `<ScenePreviewModal>` quand sélection active, qui re-aligne
+    les handles sur le `getBoundingClientRect()` du DOM hotspot.
+    Coût négligeable. **Choix : la stratégie rAF.**
+
+- **Étendre `<ScenePreviewModal>`** :
+  - State local : `selection: { actionId, satelliteId, cssClass } |
+    null` (le DOMRect est lu en live via rAF, pas stocké).
+  - State local : `resize: { handle: "nw" | "ne" | "sw" | "se";
+    initialW, initialH, initialAspectRatio, centerX, centerY } |
+    null`.
+  - **Single-clic en mode édition** sur un hotspot : si pas de drag
+    en cours (C18.3) et si un single-clic court (`ev.detail === 1`,
+    pointerup peu après pointerdown sans déplacement significatif
+    → seuil 4 px), alors `setSelection({ ... })`. Pour distinguer
+    drag vs clic-pour-sélectionner, on temporise : un pointerdown
+    sur hotspot ouvre **soit** un drag (déplacement) **soit** une
+    sélection (si pointerup sans déplacement). Logique simple :
+    sur pointerdown init `dragCandidate` ; sur pointermove > seuil
+    → bascule en drag (C18.3) ; sur pointerup avant seuil → clic
+    de sélection.
+  - **Single-clic en mode édition hors hotspot** (autre que sur un
+    handle) : désélectionne (`setSelection(null)`).
+  - **Pointerdown sur un handle** : init `setResize({ handle, ... })`
+    et `stopPropagation()` pour ne pas re-trigger le drag du
+    hotspot.
+  - **Pointermove pendant resize** :
+    `delta = { x: ev.clientX - center.x, y: ev.clientY - center.y }`.
+    Calcul de la nouvelle taille selon le coin (peu importe lequel,
+    formule symétrique grâce à l'ancrage centre) :
+    `new_w = clamp(2 * |delta.x|, 16, 800)` ;
+    `new_h = clamp(2 * |delta.y|, 16, 800)`.
+    Si `ev.shiftKey` : `ratio = initialAspectRatio` ; choisir la
+    dimension dominante et appliquer le ratio à l'autre.
+  - **Pointerup pendant resize** : commit via
+    `store.updateNodeData(satelliteId, { data: {
+    ...sat.data, appearance: mergeHotspotAppearance(sat.data
+    .appearance, { ui_w, ui_h }), customCss:
+    buildCustomCssFromAppearance(merged) } })` ; `setResize(null)`.
+    *Réutiliser les helpers existants* — pas de manipulation
+    directe de `customCss`.
+  - **Échap pendant resize** : `setResize(null)` (annule sans
+    commit).
+  - **Échap sans resize, avec sélection** : `setSelection(null)`.
+  - **Échap sans sélection ni resize** : `onClose()` (comportement
+    C18.1 préservé).
+  - **Bascule du toggle édition vers off** : `setSelection(null)` +
+    `setResize(null)` automatiquement.
+
+- **Composant `<HotspotResizeHandles>`** (nouveau, sous-composant
+  interne de `<ScenePreviewModal>` ou exporté de
+  `xflow/react/src/view/preview/HotspotResizeHandles.tsx`) :
+  - Props : `{ selection: NonNullable<...>; viewerContainer:
+    HTMLElement; onResizeStart: (handle, init) => void }`.
+  - rAF loop : à chaque frame, lit le DOM via
+    `viewerContainer.querySelector('.' + selection.cssClass)` →
+    `getBoundingClientRect()` → re-positionne les 4 divs handles
+    (`position: fixed`, `left/top` calculé depuis le rect).
+  - Si l'élément n'est plus dans le DOM (cas hotspot caché par
+    rotation hors champ Pannellum) → handles invisibles
+    (`display: none`).
+  - 4 divs `.nodal-hotspot-handle` (un par coin), classes utilitaires
+    `--nw`, `--ne`, `--sw`, `--se` pour le `cursor` (`nwse-resize`
+    / `nesw-resize`).
+  - `onPointerDown` sur chaque handle : appelle `onResizeStart` avec
+    le coin + valeurs initiales.
+
+- **Style** (`xflow/react/src/view/NodalCanvas.css`) :
+  - `.nodal-hotspot-handle` : `position: fixed; width: 12px;
+    height: 12px; transform: translate(-50%, -50%); background:
+    var(--node-selected-outline); border: 1.5px solid white;
+    border-radius: 2px; z-index: 9998; pointer-events: auto;`.
+  - `.nodal-hotspot-handle--nw, --se { cursor: nwse-resize; }
+    .--ne, --sw { cursor: nesw-resize; }`.
+  - Bordure dashed rouge décalée : ajuster
+    `outline-offset` dans la CSS générée par
+    `sceneHotspotProjections.ts` (variante `preview`).
+  - Hint header en mode édition : compléter le texte existant
+    (« Glissez un hotspot pour le déplacer ») en
+    « Glissez un hotspot pour le déplacer • Cliquez pour
+    sélectionner / redimensionner • Shift = ratio fixe ». Texte
+    EN aligné.
+
+**Critères de fin** :
+
+- En mode édition, **clic simple** sur un hotspot → 4 handles
+  apparaissent aux coins (sélection visible).
+- **Drag d'un handle** → hotspot se redimensionne en direct (CSS
+  régénéré à chaque pointermove) ; le centre reste fixe (pitch / yaw
+  inchangés).
+- **Shift maintenu** pendant le resize : ratio préservé.
+- **Pointerup** : `appearance.ui_w` / `ui_h` persistés via
+  `updateNodeData` ; `customCss` recalculé.
+- **Échap pendant resize** : annule (taille restaurée à la valeur
+  d'avant resize).
+- **Échap sans resize avec sélection** : désélectionne.
+- **Clic en dehors d'un hotspot** (et pas sur un handle) :
+  désélectionne.
+- **Bascule du toggle édition vers off** : sélection et resize
+  réinitialisés ; handles disparaissent.
+- **Bordure dashed rouge** plus large que le hotspot réel (visible
+  même sur hotspot transparent ou très petit).
+- **Drag du hotspot** (déplacement, C18.3) toujours fonctionnel sur
+  pointerdown + déplacement > 4 px.
+- **Tests Vitest** : `c18HotspotResize.test.tsx` couvrant —
+  (i) clic simple sur hotspot en mode édition → state `selection`
+  défini, handles rendus dans le DOM ;
+  (ii) `pointerdown` sur handle « se » + `pointermove` →
+  `cssText` régénéré contient nouveau `width` / `height` (ancré au
+  centre) ;
+  (iii) Shift + resize → `new_h = new_w * initialRatio` ;
+  (iv) `pointerup` → `updateNodeData` appelé avec
+  `appearance.ui_w` / `ui_h` mis à jour ;
+  (v) Échap pendant resize → state `resize` null, taille restaurée ;
+  (vi) clic hors hotspot et hors handle → `selection: null` ;
+  (vii) bascule toggle vers off → sélection et resize réinitialisés.
+- Smoke FR/EN : redimensionner un hotspot via les handles, vérifier
+  apparence direct + persistance round-trip `.escapegame`. Tester
+  aussi avec hotspot transparent (`appearance.ui_bg = "transparent"`)
+  pour valider la bordure dashed plus large.
+
+**Évolutions futures C18 (hors périmètre C18.4)** :
+
+- **Édition couleur / transparence / bordure depuis l'aperçu** :
+  modale flottante à côté du hotspot sélectionné (sans masquer
+  l'aperçu) éditant les champs `appearance.ui_bg`, `ui_opacity`,
+  `ui_border_*`. Pourrait réutiliser les sous-blocs internes de
+  `HotspotAppearancePopup`. À cadrer comme C18.6 ou C18.7 si jugé
+  utile.
+- **Resize 8 points** : ajout de 4 handles aux milieux d'arête
+  (N, S, E, W) pour resize unidimensionnel. À ajouter si retour
+  utilisateur le justifie.
+- **Snap aux multiples de 10** : option (Alt maintenu ?) pour
+  arrondir `ui_w` / `ui_h` à des paliers réguliers.
+
+**Branche / commit** :
+
+- Branche : `feat/c18-360-preview-and-picker` (continuation après
+  C18.3).
+- Commit : `feat(nodal): C18.4 redimensionnement hotspots via
+  handles aux coins dans aperçu scène`.
+- **Annexe D — Journal de chantier** : entrée 1-2 lignes au commit.
+
+### Plan détaillé C18.5 — directives pour Cursor
+
+**Pré-requis** : C18.3 livré (mode édition aperçu, le toggle est
+maintenant le pivot UX qui distingue read-only de édition).
+
+**Contexte** : transformer l'aperçu scène en **aperçu interactif
+"comme en jeu"** quand on est **en mode read-only** (toggle édition
+off). Concrètement, un clic sur un hotspot affiche la popup associée
+à son action (msg, pick, goto, req, pwd, selector) avec son contenu
+réel (`bodyHtml` Quill rendu, libellé bouton, etc.) — comme le
+joueur le verrait. Limitation : la **logique de jeu** (ajout
+d'objet à l'inventaire, transition de scène, vérification
+mot-de-passe…) n'est **pas exécutée** ; on reste dans un mode
+"prévisualisation visuelle". L'inventaire / état partie / variables
+de session ne sont pas simulés. C'est un gain pédagogique majeur
+pour les EPN qui veulent visualiser le rendu joueur sans avoir à
+lancer la génération HTML complète. Chantier **complexe** : nécessite
+soit (a) la **réécriture en React** des popups joueur (msg /
+pick / goto / req / pwd / selector), soit (b) la **réutilisation du
+runtime joueur** existant (template literal `buildPlayerHtmlTemplate`
+généré côté `editeur-generate.js` / `editor-en-generate.js`) via une
+sandbox iframe.
+
+**Fichiers à lire avant de coder** :
+
+- `js/editeur-generate.js:200-…` (`buildPlayerHtmlTemplate`) —
+  template joueur, popups msg / pick / goto / req / pwd / selector
+  rendus en HTML/CSS/JS classique.
+- `js/editor-en-generate.js` — version EN miroir.
+- `xflow/react/src/view/popups/MsgContentPopup.tsx` (et siblings
+  Pick / Goto / Req / Pwd / Selector) — éditeurs nodaux qui rendent
+  déjà du Quill côté React (peut-être base réutilisable pour le
+  rendu joueur ?).
+- `xflow/react/src/view/popups/ScenePreviewModal.tsx` (C18.3) —
+  modale à étendre avec gestion du clic en read-only.
+- `xflow/react/src/store/nodalProjectStore.ts` — lecture des actions
+  + payload (`copy`, `nested`, `answer`, etc.).
+- Spec §3.3 (actions État 2 unifiées, `payload.copy`).
+
+**Phase questions (workflow §8.1)** — *cadrage validé avec l'user
+(2026-05-08, échange post-rédaction draft Annexe D)* :
+
+- **Q-C18.5-1 (validé)** — Stratégie de rendu de la popup joueur :
+  choix technique laissé à Cursor entre :
+  - (a) Réécriture React des popups joueur dans
+    `xflow/react/src/view/playerPreview/`. Code dupliqué entre
+    runtime joueur et React preview ; risque divergence visuelle.
+  - (b) **Iframe sandbox** : `<iframe srcDoc={…}>` au-dessus de la
+    modale aperçu, fragment HTML généré par une variante allégée
+    de `buildPlayerHtmlTemplate`. Réutilise la source de vérité
+    visuelle du runtime joueur.
+  - (c) Composants React partagés (refactor architectural majeur,
+    hors scope C18.5).
+
+  *Vote retenu : (b) iframe sandbox.* Faible coût, rendu fidèle au
+  joueur réel, dette technique nulle. Si Cursor identifie une raison
+  technique impérative de basculer vers (a), le signaler en phase
+  questions C18.5.X (mais (b) reste la cible).
+
+- **Q-C18.5-2 (validé)** — Périmètre de la simulation : **affichage
+  seul + bouton de fermeture fonctionnel**. Aucune simulation
+  d'état joueur (inventaire, hotspot consommé, transition) ; aucune
+  modification du store pendant la preview. Précisions issues de
+  l'échange utilisateur :
+  - **Goto** : afficher la popup texte de transition (sans
+    navigation effective). Aucun changement de scène réel.
+  - **Pick** : afficher la popup standard ; pas d'ajout réel à
+    l'inventaire.
+  - **Req / Pwd** : afficher la popup standard ; **pas** de
+    vérification possession / mot-de-passe en C18.5. Le rendu
+    "branche succès" vs "branche échec" est explicitement reporté
+    à un chantier futur (cf. *Évolutions futures C18*).
+  - **Selector** : afficher l'arborescence de choix sans logique de
+    navigation imbriquée. Le clic sur une branche affiche la popup
+    enfant (au plus 1 niveau de profondeur en MVP) ou no-op au-delà.
+
+- **Q-C18.5-3 (validé)** — Curseur sur hotspot : `pointer` en
+  read-only (curseur jeu) ; `grab` en édition. Pédagogiquement
+  explicite "jeu vs édition".
+
+- **Q-C18.5-4 (validé)** — Bascule du toggle « Éditer les hotspots »
+  vers on pendant qu'une popup preview joueur est ouverte ferme
+  automatiquement la preview (état cohérent ; pas de drag pendant
+  qu'une popup couvre l'écran).
+
+- **Q-C18.5-5 (validé)** — Médias (audio, image) référencés : rendus
+  si l'URL est résolvable (URL absolue ou bundle local C10.5 résolu
+  en `blob:`). Audio HTML5 + `<img>` standard, comme dans le runtime
+  joueur. Si Cursor rencontre un cas non résolvable simplement,
+  fallback texte « Média : <URL> ».
+
+- **Q-C18.5-6 (validé)** — Toutes les actions affichables (msg,
+  pick, goto, req, pwd, selector) sont rendues, avec boutons no-op
+  pour la logique. Pas de filtre par type d'action.
+
+- **Q-C18.5-7 (validé)** — Découpage géré par Cursor selon
+  feedback. **Cible suggérée** :
+  - **C18.5.1** : infrastructure preview (iframe sandbox + helper
+    `buildPreviewActionHtml`) + actions simples (msg, pick).
+  - **C18.5.2** : actions complexes (goto, req, pwd, selector) +
+    selector mono-niveau.
+  - **C18.5.3** *(optionnel si pas couvert dans 5.1/5.2)* : médias
+    audio + image dans popups, ajustements de fidélité visuelle.
+  Commits réguliers, messages clairs (`feat(nodal): C18.5.X
+  <description>`) ; **chaque sous-commit met à jour le journal
+  Annexe D**.
+
+**Périmètre** :
+
+- **Composant `<PlayerPreviewLayer>`** (nouveau, hypothèse iframe
+  sandbox retenue) : monte une `<iframe>` plein écran au-dessus de
+  la modale aperçu quand un hotspot est cliqué en read-only.
+  `srcDoc` = HTML auto-contenu (style joueur + popup ciblée +
+  bouton fermer + `postMessage` listener pour communiquer la
+  fermeture au parent).
+- **Helper `buildPreviewActionHtml(action, sceneState, locale,
+  store)`** : variante allégée de `buildPlayerHtmlTemplate` qui
+  prend une action + son contexte minimum et produit un HTML
+  autonome (style inline, Quill rendu côté React puis sérialisé
+  ou rendu côté iframe via Quill global). Branche dans le helper
+  pour chaque type d'action (msg / pick / goto / req / pwd /
+  selector). Mutualiser le maximum avec `buildPlayerHtmlTemplate`
+  (extraire les sous-fonctions de rendu de popup en helpers
+  réutilisables si possible).
+- **`<ScenePreviewModal>`** :
+  - En mode read-only, `onPointerDown` simple-clic sur un hotspot
+    → `setPlayerPreviewActionId(actionId)`.
+  - Render conditionnel `<PlayerPreviewLayer actionId={…}
+    onClose={() => setPlayerPreviewActionId(null)} />`.
+  - Curseur : `pointer` en read-only sur les hotspots, `grab` en
+    édition (CSS conditionnel sur `data-edit-mode`).
+  - Bascule du toggle vers on : `setPlayerPreviewActionId(null)` en
+    plus des reset C18.4 (selection, resize).
+- **Contexte UI** : pas de nouveau champ obligatoire (state local
+  `<ScenePreviewModal>`).
+- **Communication iframe ↔ parent — standards industrie sécurité** :
+  - Iframe lancée avec `sandbox="allow-scripts allow-same-origin"`
+    (permissions minimales — `allow-scripts` requis pour le
+    listener clavier interne et le bouton fermer ; `allow-same-origin`
+    pour permettre `window.opener` / `postMessage` synchrone si
+    Quill est chargé depuis le même origin).
+  - **Pas de `dangerouslySetInnerHTML` côté React** : on passe par
+    `srcDoc` (le contenu HTML est attribué via la prop, le browser
+    crée un document isolé propre).
+  - `window.postMessage` pour la fermeture : le HTML iframe émet
+    `{ type: "nodal-preview-close" }` au clic du bouton fermer ou
+    sur Échap interne ; le parent écoute et **vérifie** :
+    `event.source === iframeRef.current?.contentWindow` avant de
+    réagir (protection contre les messages tiers).
+  - Échap parent : listener `keydown` sur `document` au niveau
+    `<ScenePreviewModal>` qui ferme aussi la preview (redondance
+    contre le cas où l'iframe perd le focus — comportement attendu
+    par les utilisateurs).
+  - Pas de payload sensible dans les messages (juste un `type`
+    string).
+
+**Critères de fin** :
+
+- En read-only : clic sur un hotspot affiche la popup joueur avec
+  contenu rendu (Quill, boutons, libellés) — visuellement similaire
+  au joueur réel.
+- En mode édition (toggle on) : clic sur hotspot init la
+  sélection/resize ou le drag (comportements C18.3 + C18.4
+  préservés ; aucune popup preview joueur).
+- Bouton de fermeture de la popup preview revient à l'aperçu
+  simple ; aucun effet de bord sur le store.
+- Actions msg, pick, goto, req, pwd, selector au moins affichées
+  (boutons no-op sauf bouton fermer).
+- Médias (audio, image) joués si présents (sinon fallback texte).
+- Pas de modification de l'état du store pendant la preview joueur.
+- **Tests Vitest** par sous-chantier (`c18PlayerPreview.test.tsx`,
+  scope au sous-chantier livré) couvrant —
+  (i) clic en read-only sur hotspot msg → layer preview monté avec
+  bodyHtml du msg ;
+  (ii) clic en édition → drag/resize init (preview inactive) ;
+  (iii) `postMessage` `{ type: "nodal-preview-close" }` →
+  `setPlayerPreviewActionId(null)` ;
+  (iv) bascule toggle vers on pendant preview → preview fermée.
+- Smoke FR/EN : 4-5 actions différentes prévisualisées, vérifier
+  alignement visuel avec le joueur réel généré (`generateGame`).
+
+**Évolutions futures C18 (hors périmètre C18.5)** :
+
+- **Inventaire virtuel éditable** : bandeau supérieur (ou modale
+  dédiée) listant tous les objets du projet (remontés depuis la
+  base d'objets via les satellites `object`), avec une case à cocher
+  par objet. Cocher = "objet possédé" dans la simulation. Les
+  actions REQ et PWD utilisent cet inventaire mock pour afficher
+  la branche succès vs échec ; les visibility-rules des hotspots
+  les masquent / révèlent en conséquence. Permettrait de tester
+  des chemins de jeu complets sans génération HTML. Chantier
+  conséquent (UI + simulateur de visibility-rules + simulateur
+  REQ/PWD), à cadrer comme C19+.
+- **Sélection de variantes** (PWD : "saisie correcte" / "incorrecte")
+  via un mini-toggle dans la popup preview avant simulation.
+- **Persistance des choix selector** : visualiser plus d'un niveau
+  de profondeur en preview.
+
+**Branche / commits** :
+
+- Branche : `feat/c18-360-preview-and-picker` (continuation après
+  C18.4) ou nouvelle branche `feat/c18-player-preview` si volume
+  code important (à décider par Cursor à l'ouverture du sous-chantier).
+- Commits réguliers et clairs :
+  `feat(nodal): C18.5.1 infrastructure preview joueur (msg + pick)`,
+  `feat(nodal): C18.5.2 actions complexes (goto + req + pwd +
+  selector mono-niveau)`,
+  `feat(nodal): C18.5.3 médias audio/image dans popup preview`
+  *(si nécessaire)*.
+- **Annexe D — Journal de chantier** : entrée 1-2 lignes au commit
+  par sous-chantier.
+
 ### Journal de chantier
 
 - 2026-05-08 — Ouverture Annexe D. Cadrage validé en phase questions
@@ -2523,15 +3300,6 @@ Annexe D*. Questions résiduelles éventuelles :
   `findSceneOfHotspotSatellite`, CSS picker (z-index au-dessus des popups),
   tests `c18CoordsPickerModal.test.tsx`, mocks `NodalUiContext` étendus
   (`c18ScenePreviewModal.test.tsx`).
-- 2026-05-08 — **C18.2-fix.2** : `initialPitch`/`initialYaw` figés dans
-  un ref dans `NodalPanoramaViewer` — auparavant ils étaient dans les
-  deps de l'effet de création du viewer Pannellum, donc à chaque tick
-  du poll `getPitch()`/`getYaw()` (120 ms) le viewer était détruit et
-  recréé, ce qui interrompait le drag souris. Comportement aligné sur
-  legacy `js/editor-shared-preview-picker.js:50-62` (le viewer existe
-  une seule fois ; le poll lit les coords du centre caméra). Pour
-  ré-initialiser à de nouvelles coords : remount via `key` côté parent
-  (déjà en place pour `CoordsPickerModal`).
 - 2026-05-08 — **C18.2-fix** : passage du picker en mode « viseur central »
   (legacy formulaire) — le clic sur le panorama ne capture plus les coords
   (il ré-orientait la caméra et empêchait le drag 360°). Le viseur (croix
@@ -2542,6 +3310,15 @@ Annexe D*. Questions résiduelles éventuelles :
   côté `NodalCanvas` pour éviter qu'un useEffect parent n'écrase la
   première lecture du viewer. Test `c18CoordsPickerModal.test.tsx`
   adapté (mock `getPitch`/`getYaw`, vérif crosshair présent).
+- 2026-05-08 — **C18.2-fix.2** : `initialPitch`/`initialYaw` figés dans
+  un ref dans `NodalPanoramaViewer` — auparavant ils étaient dans les
+  deps de l'effet de création du viewer Pannellum, donc à chaque tick
+  du poll `getPitch()`/`getYaw()` (120 ms) le viewer était détruit et
+  recréé, ce qui interrompait le drag souris. Comportement aligné sur
+  legacy `js/editor-shared-preview-picker.js:50-62` (le viewer existe
+  une seule fois ; le poll lit les coords du centre caméra). Pour
+  ré-initialiser à de nouvelles coords : remount via `key` côté parent
+  (déjà en place pour `CoordsPickerModal`).
 - 2026-05-08 — **C18.3 livré (code)** : drag direct des hotspots dans
   l'aperçu scène. `ScenePreviewModal` étendu avec un toggle « Éditer
   les hotspots » dans le header (off par défaut) ; en mode édition,
@@ -2559,4 +3336,47 @@ Annexe D*. Questions résiduelles éventuelles :
   fantôme). Tests `c18HotspotDragInPreview.test.tsx` (5 cas — toggle,
   hint, drag → commit, Échap → annule, pointerdown hors mode édition
   ignoré). Polyfill `PointerEvent = MouseEvent` pour jsdom.
+- 2026-05-08 — **Plan détaillé C18.3 rétrospectif** ajouté à l'Annexe D
+  (format aligné C18.1 / C18.2 — pré-requis, fichiers à lire, phase
+  questions Q-C18.3-1 à -11, périmètre, critères de fin). Permet de
+  garder trace du cadrage en cas de retour debug ou d'archivage.
+- 2026-05-08 — **Tableau Stratégie de découpage Annexe D mis à jour**
+  (statuts C18.1–C18.5, ajout colonne « Statut »). Note transverse
+  ajoutée sur la sémantique pixels brute de `appearance.ui_w` /
+  `ui_h`, avec renvoi vers le nouveau chantier C22 ouvert au backlog
+  §7 (cf. ci-dessous).
+- 2026-05-08 — **Nouveau chantier C22 — Hotspots responsives** ajouté
+  au backlog §7 (point soulevé par l'utilisateur en cadrage C18.4) :
+  les dimensions hotspot doivent couvrir la même portion d'image
+  panoramique quel que soit l'écran, ce qui n'est pas le cas
+  aujourd'hui (legacy `editor-shared-ui-utils.js:74-83` + React
+  `hotspotAppearance.ts:47-66` stockent en pixels CSS bruts). C22
+  cadre la migration : choix d'unité (pourcentage container vs
+  degrés FOV), ajout `ui_w_pct` / `ui_h_pct` ou bump schemaVersion 3,
+  adaptations runtime joueur + éditeur React + éditeur legacy +
+  migration projets pré-C22. **C18.4 et C18.5 ne sont pas bloqués
+  par C22** — ils livrent sur la sémantique pixels actuelle (cohérent
+  legacy) ; C22 changera l'unité derrière sans retravail majeur de
+  l'UI de C18.4.
+- 2026-05-08 — **Plans détaillés C18.4 et C18.5 cadrés (validation
+  utilisateur)**.
+  - **C18.4 — pivot d'approche** : abandon de la réutilisation de
+    `HotspotAppearancePopup` (draft initial). Périmètre redéfini
+    autour de **handles aux 4 coins** apparaissant à la sélection
+    en mode édition (façon logiciel de dessin), resize ancré au
+    centre, Shift = ratio fixe, bornes 16-480px sur `ui_w` /
+    `ui_h`. Bordure dashed rouge de l'aperçu ajustée
+    (`outline-offset` ~6-8px) pour rester visible sur hotspot
+    transparent/petit. Couleur / transparence / bordure restent
+    accessibles via `CoordsOptionsPopup` → `HotspotAppearancePopup`
+    pour C18.4 ; modale flottante d'apparence dans l'aperçu notée
+    en *Évolutions futures C18*.
+  - **C18.5 — précisions périmètre** : iframe sandbox confirmée
+    (Q-C18.5-1 retenue (b)). Affichage seul + bouton fermer
+    fonctionnel ; aucune simulation d'état joueur. REQ / PWD
+    affichés sans logique succès/échec (renvoyé en *Évolutions
+    futures* — chantier "inventaire virtuel éditable" : bandeau
+    avec checkboxes par objet + simulateur de visibility-rules).
+    Selector affiché mono-niveau de profondeur en MVP. Découpage
+    en 2-3 sous-commits laissé à Cursor.
 
