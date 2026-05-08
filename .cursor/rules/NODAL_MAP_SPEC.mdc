@@ -2141,7 +2141,7 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 | **C18.1** | Aperçu scène 360° read-only (modale plein écran) ouvert depuis menu contextuel s-box ; composant partagé `<NodalPanoramaViewer>` en mode `preview` ; hotspots existants visibles en outline rouge dashed avec label tronqué | — | code | livré (2026-05-08) |
 | **C18.2** | Modale picker (modale plein écran) ouverte depuis bouton ajouté à `CoordsOptionsPopup` ; viseur central `pointer-events:none` + poll `getPitch`/`getYaw` 120 ms ; hotspots autres en gris dashed pour contexte ; Valider/Annuler/Échap/Enter ; commit pitch + yaw via `updateNodeData` sur le satellite | C18.1 (réutilise `<NodalPanoramaViewer>`) | code | livré (2026-05-08) — 2 fixes (viseur central + initialPitch via ref) |
 | **C18.3** | Drag direct des hotspots dans l'aperçu scène : toggle « Éditer les hotspots » dans le header ; en mode édition, `pointerdown` sur hotspot → drag local avec overlay fantôme CSS ; `NodalPanoramaViewer` étendu en `forwardRef` exposant `mouseEventToCoords` ; auto-save pitch/yaw au release ; Échap annule | C18.1, C18.2 | code | livré (2026-05-08) |
-| **C18.4** | Resize des hotspots dans l'aperçu via **handles aux 4 coins** (façon logiciel de dessin) ; sélection au clic simple en mode édition ; resize ancré au centre (pitch/yaw fixes) ; Shift = ratio fixe ; bornes 16-800 px ; bordure dashed rouge décalée (`outline-offset` ~6 px) pour rester visible sur hotspot transparent | C18.3 | code | cadré (2026-05-08) |
+| **C18.4** | Resize des hotspots dans l'aperçu via **handles aux 4 coins** (façon logiciel de dessin) ; sélection au clic simple en mode édition ; resize ancré au centre (pitch/yaw fixes) ; Shift = ratio fixe ; bornes 16-800 px ; bordure dashed rouge décalée (`outline-offset` ~6 px) pour rester visible sur hotspot transparent | C18.3 | code | livré (2026-05-08) |
 | **C18.5** | Aperçu interactif « comme en jeu » en mode read-only : clic sur hotspot → popup joueur preview (msg / pick / goto / req / pwd / selector mono-niveau) via iframe sandbox `srcDoc` ; affichage seul + bouton fermer ; pas de simulation d'inventaire ni de visibility-rules | C18.3 | code | cadré (2026-05-08) |
 
 Convention : un commit par sous-chantier ; fixes numérotés
@@ -3379,4 +3379,30 @@ sandbox iframe.
     avec checkboxes par objet + simulateur de visibility-rules).
     Selector affiché mono-niveau de profondeur en MVP. Découpage
     en 2-3 sous-commits laissé à Cursor.
+- 2026-05-08 — **C18.4 livré (code)** : resize des hotspots via 4 handles
+  aux coins dans l'aperçu scène en mode édition. `<ScenePreviewModal>`
+  étendu avec états `dragCandidate` / `selection` / `resize` ; le
+  pointerdown sur un hotspot ouvre désormais un *candidat* — promotion
+  en drag dès que le pointer franchit 4 px, sinon pointerup avant seuil
+  → sélection (handles visibles). Resize ancré au centre (`pitch`/`yaw`
+  fixes) : `new_w = clamp(2*|dx|, 16, 800)`, idem `h` ; Shift maintenu
+  → échelle dominante appliquée aux 2 dimensions (ratio préservé).
+  Pendant le drag d'un handle, un `<style>` override transitoire
+  (`.{cssClass} { width / height }`) donne le feedback visuel sans
+  écrire dans le store ; `pointerup` commit `appearance.ui_w / ui_h`
+  via `mergeHotspotAppearance` + `buildCustomCssFromAppearance` ;
+  Échap annule sans commit (override retiré, taille initiale
+  restaurée). Nouveau composant `HotspotResizeHandles.tsx` (rAF qui
+  re-aligne les 4 divs sur le `getBoundingClientRect()` du hotspot,
+  fallback sur `document` quand le viewer container n'a pas le
+  hotspot — utile en tests). `NodalPanoramaViewer` étend son handle
+  imperative avec `getViewerContainer()`. Variante CSS `preview` de
+  `sceneHotspotProjections` passe à `outline-offset: 6px` (la
+  variante `picker-bg` garde `2px`). Hint enrichi FR/EN — drag /
+  sélection / resize / Shift = ratio fixe ; live `↔ W×H` pendant un
+  resize. Tests `c18HotspotResize.test.tsx` (7 cas — sélection au
+  clic court, désélection au clic ailleurs, reset au toggle off,
+  resize centré, ratio Shift, commit pointerup, Échap annule).
+  Tests C18.3 mis à jour : `pointerdown` n'ouvre plus le ghost
+  immédiatement → ajout d'un `pointermove` > 4 px avant la vérif.
 

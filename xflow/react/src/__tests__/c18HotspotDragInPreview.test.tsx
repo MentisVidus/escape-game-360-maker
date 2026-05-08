@@ -205,13 +205,16 @@ describe("C18.3 — drag direct hotspot", () => {
       );
     });
 
-    expect(container.querySelector(".nodal-hotspot-ghost")).toBeTruthy();
-
+    // C18.4 — `pointerdown` ouvre désormais un `dragCandidate` (pas un drag actif)
+    // tant que le seuil 4 px n'est pas franchi. On émet un `pointermove` significatif
+    // pour promouvoir en drag (ghost visible + commit au release).
     act(() => {
       document.dispatchEvent(
         new PointerEvent("pointermove", { bubbles: true, clientX: 350, clientY: 220 })
       );
     });
+
+    expect(container.querySelector(".nodal-hotspot-ghost")).toBeTruthy();
 
     // Header live : pitch = 350/10 = 35.0, yaw = 220/10 = 22.0.
     expect(container.textContent).toMatch(/35\.0/);
@@ -254,6 +257,13 @@ describe("C18.3 — drag direct hotspot", () => {
     act(() => {
       hsEl.dispatchEvent(
         new PointerEvent("pointerdown", { bubbles: true, clientX: 100, clientY: 100 })
+      );
+    });
+
+    // C18.4 — promotion explicite en drag via un `pointermove` > seuil 4 px.
+    act(() => {
+      document.dispatchEvent(
+        new PointerEvent("pointermove", { bubbles: true, clientX: 200, clientY: 200 })
       );
     });
 

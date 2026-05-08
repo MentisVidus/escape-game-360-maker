@@ -99,7 +99,16 @@ export function collectSceneHotspotProjections(
 
     const pointerPe = variant === "picker-bg" ? "none" : "auto";
     const opacity = variant === "picker-bg" ? "opacity: 0.5; " : "";
-    cssText += `.${cssClass} { ${rawCss} outline: 3px dashed ${outlineColor} !important; outline-offset: 2px; pointer-events: ${pointerPe}; ${opacity}display: flex; align-items: center; justify-content: center; }\n`;
+    /**
+     * C18.4 — la variante `preview` décale l'outline rouge dashed
+     * (`outline-offset: 6px`) pour qu'elle reste visible sur hotspot
+     * transparent ou très petit, et pour loger les handles de resize
+     * sans qu'ils chevauchent le hotspot lui-même. La variante
+     * `picker-bg` (background gris dans le picker) garde l'offset 2px
+     * historique.
+     */
+    const outlineOffset = variant === "picker-bg" ? "2px" : "6px";
+    cssText += `.${cssClass} { ${rawCss} outline: 3px dashed ${outlineColor} !important; outline-offset: ${outlineOffset}; pointer-events: ${pointerPe}; ${opacity}display: flex; align-items: center; justify-content: center; }\n`;
     cssText += `.${cssClass}::after { content: '${hsIdText}'; background: black; color: white; padding: 2px 5px; font-size: 12px; font-weight: bold; border-radius: 3px; }\n`;
     projections.push({
       pitch,

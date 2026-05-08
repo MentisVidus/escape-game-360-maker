@@ -37,6 +37,12 @@ export type NodalPanoramaViewerProps = {
 export type NodalPanoramaViewerHandle = {
   /** Retourne `[pitch, yaw]` pour la position écran d'un MouseEvent (ou `null` si indisponible). */
   mouseEventToCoords: (ev: MouseEvent) => [number, number] | null;
+  /**
+   * C18.4 — accès au container DOM du viewer (host Pannellum). Utilisé par
+   * `<HotspotResizeHandles>` pour lire les `getBoundingClientRect()` des
+   * hotspots projetés et y aligner les handles overlay.
+   */
+  getViewerContainer: () => HTMLElement | null;
 };
 
 /**
@@ -139,6 +145,9 @@ export const NodalPanoramaViewer = forwardRef<NodalPanoramaViewerHandle, NodalPa
         const c = v.mouseEventToCoords(ev);
         if (!c || !Number.isFinite(c[0]) || !Number.isFinite(c[1])) return null;
         return [c[0], c[1]];
+      },
+      getViewerContainer() {
+        return hostRef.current;
       },
     }),
     []

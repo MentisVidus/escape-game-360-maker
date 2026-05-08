@@ -834,6 +834,36 @@
   justify-content: center;
 }
 
+/*
+ * C18.4 — handles de resize aux 4 coins du hotspot sélectionné.
+ * Position fixe (alignée sur le `getBoundingClientRect()` du hotspot,
+ * relayé par rAF dans `<HotspotResizeHandles>`). Les handles sont
+ * centrés sur le coin via `translate(-50%, -50%)`.
+ */
+.nodal-canvas-layout .nodal-hotspot-handle {
+  position: fixed;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  background: var(--node-selected-outline, #ff7a00);
+  border: 1.5px solid #ffffff;
+  border-radius: 2px;
+  z-index: 9998;
+  pointer-events: auto;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  touch-action: none;
+}
+
+.nodal-canvas-layout .nodal-hotspot-handle--nw,
+.nodal-canvas-layout .nodal-hotspot-handle--se {
+  cursor: nwse-resize;
+}
+
+.nodal-canvas-layout .nodal-hotspot-handle--ne,
+.nodal-canvas-layout .nodal-hotspot-handle--sw {
+  cursor: nesw-resize;
+}
+
 /* C18.2-fix — wrapper pour superposer le viseur central au panorama. */
 .nodal-canvas-layout .nodal-panorama-viewer-frame {
   position: relative;
