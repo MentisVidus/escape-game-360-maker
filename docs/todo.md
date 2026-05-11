@@ -49,6 +49,12 @@ Document de suivi : **prioriser par chantier**, éviter de tout mélanger dans u
 
 Synthèse des pistes à traiter **plus tard** (pas tout en parallèle). Détail volontairement ici pour ne pas perdre le fil.
 
+### UX carte nodale — retours tests (mai 2026)
+
+- **S-BOX au premier plan** *(régression possible)* — Si une S-BOX (cadre de scène) recouvre un nœud nouvellement ajouté (ex. nœud image hors S-BOX), il faut déplacer toute la scène pour accéder au nœud (clic intercepté). **Attendu** : la S-BOX reste **toujours en arrière-plan** (cadre décoratif), les autres nœuds (scene, action, satellite, media) sont **toujours au-dessus**, indépendamment de l'ordre d'ajout ou de la sélection. Piste : forcer `style.zIndex = -1` (ou similaire) dans `toReactFlowNodes` côté `sceneBoxNode` ; vérifier que ça n'altère pas le rendu des scènes enfants. ⇒ *tenté en commit (à valider visuellement)*.
+- **Démo d'accueil — nœud image par défaut** — La scène par défaut (à l'ouverture de la carte sans projet chargé) contient 2 scènes + 2 actions (msg + goto). Ajouter un **nœud image** (média placeholder) connecté à l'une des actions pour illustrer le pattern média (compréhension immédiate de la structure projet). Voir `xflow/react/src/view/demoProject.ts`. ⇒ *tenté en commit*.
+- **Menu volant S-BOX (compatibilité tablette)** — Le clic droit (menu contextuel) n'est pas accessible sur tablette. Proposition : quand une S-BOX est **sélectionnée**, afficher un petit **menu flottant** (bouton ou barre flottante, mobile-friendly) à proximité avec au minimum « Éditer hotspots / aperçu scène / supprimer ». Cas plus large : faire pareil pour les autres types de nœuds (action, scene). À cadrer comme chantier UI (sélection state + positionnement + design tactile). Touches : `nodalContextMenuModel` (actions déjà disponibles), `NodalCanvas.tsx` (sélection / overlay).
+
 ### UX éditeur (retours tests — suite)
 
 - ~~**Placeholders grisés partout**~~ — **Fait** : `js/editor-shared-export-text.js` (`readExportAwareFieldValue`, catalogue snippets FR/EN, HTML « vide » Quill, `sanitizeSelectorChoicesForExport`) ; branchement sérialisation (`editor-shared-hotspot-dom-mapper.js`, `editor-shared-hotspot-serialization.js`, `editor-shared-selector-core.js`, `editor-shared-timer.js`, `editor-shared-project-serialization.js`) ; gabarits hotspots + selector + titres menu (`editeur-app.js` / `editor-en-app.js`) : champs riches en **placeholder** + valeurs vides, boutons de transition vides + placeholder, titres d’écran de fin traités comme **usine** si inchangés.
