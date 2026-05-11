@@ -11,7 +11,16 @@ import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import { asActionNodeId, asEdgeId, asSceneNodeId } from "../model/ids";
-import type { ActionNode, CoordsOptionsSatelliteNode, MsgActionNode, PickActionNode, SceneNode } from "../model/nodes";
+import type {
+  ActionNode,
+  GotoActionNode,
+  MsgActionNode,
+  PickActionNode,
+  PwdActionNode,
+  ReqActionNode,
+  SceneNode,
+  SelectorActionNode,
+} from "../model/nodes";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 import type { NodalUiContextValue } from "../view/nodalUiContext";
 import { NodalUiContext } from "../view/nodalUiContext";
@@ -490,5 +499,319 @@ describe("C18.5.1 — Player preview overlay (msg + pick)", () => {
       );
     });
     expect(document.querySelector(".nodal-player-preview-overlay")).toBeFalsy();
+  });
+});
+
+const VIS = { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true as const };
+const SFX = { url: "", volume: 1 };
+
+function setupSceneWithGotoOnly() {
+  const store = createNodalProjectStore();
+  const scene: SceneNode = {
+    id: asSceneNodeId("scn-goto"),
+    nodeType: "scene",
+    sceneId: "goto-scene",
+    label: "S",
+    panoramaUrl: "https://example.com/p.jpg",
+  };
+  const goto: GotoActionNode = {
+    id: asActionNodeId("act-goto"),
+    nodeType: "action",
+    actionType: "goto",
+    label: "Vers ailleurs",
+    payload: {
+      target: "other",
+      copy: { bodyHtml: "<p>Texte transition</p>", buttonLabel: "Partir" },
+    },
+    sfx: SFX,
+    visibility: VIS,
+  };
+  store.getState().addScene(scene, { x: 0, y: 0 });
+  store.getState().addAction(goto, { x: 80, y: 80 });
+  store.getState().connect({
+    id: asEdgeId("flow-goto"),
+    family: "flow",
+    sourceId: scene.id,
+    targetId: goto.id,
+  });
+  return { store, scene, goto };
+}
+
+function setupSceneWithReqOnly() {
+  const store = createNodalProjectStore();
+  const scene: SceneNode = {
+    id: asSceneNodeId("scn-req"),
+    nodeType: "scene",
+    sceneId: "req-scene",
+    label: "S",
+    panoramaUrl: "https://example.com/p.jpg",
+  };
+  const req: ReqActionNode = {
+    id: asActionNodeId("act-req"),
+    nodeType: "action",
+    actionType: "req",
+    label: "Besoin clef",
+    payload: {
+      itemId: "key",
+      copy: { bodyHtml: "<p>Objet manquant</p>", buttonLabel: "Dommage" },
+    },
+    rewardActionId: null,
+    sfx: SFX,
+    visibility: VIS,
+  };
+  store.getState().addScene(scene, { x: 0, y: 0 });
+  store.getState().addAction(req, { x: 80, y: 80 });
+  store.getState().connect({
+    id: asEdgeId("flow-req"),
+    family: "flow",
+    sourceId: scene.id,
+    targetId: req.id,
+  });
+  return { store, scene, req };
+}
+
+function setupSceneWithPwdOnly() {
+  const store = createNodalProjectStore();
+  const scene: SceneNode = {
+    id: asSceneNodeId("scn-pwd"),
+    nodeType: "scene",
+    sceneId: "pwd-scene",
+    label: "S",
+    panoramaUrl: "https://example.com/p.jpg",
+  };
+  const pwd: PwdActionNode = {
+    id: asActionNodeId("act-pwd"),
+    nodeType: "action",
+    actionType: "pwd",
+    label: "Code",
+    payload: {
+      answer: "abc",
+      copy: { bodyHtml: "<p>Énigme ici</p>", buttonLabel: "Valider" },
+    },
+    rewardActionId: null,
+    sfx: SFX,
+    visibility: VIS,
+  };
+  store.getState().addScene(scene, { x: 0, y: 0 });
+  store.getState().addAction(pwd, { x: 80, y: 80 });
+  store.getState().connect({
+    id: asEdgeId("flow-pwd"),
+    family: "flow",
+    sourceId: scene.id,
+    targetId: pwd.id,
+  });
+  return { store, scene, pwd };
+}
+
+function setupSceneWithSelectorTwoMsgs() {
+  const store = createNodalProjectStore();
+  const scene: SceneNode = {
+    id: asSceneNodeId("scn-sel"),
+    nodeType: "scene",
+    sceneId: "sel-scene",
+    label: "S",
+    panoramaUrl: "https://example.com/p.jpg",
+  };
+  const sel: SelectorActionNode = {
+    id: asActionNodeId("act-sel"),
+    nodeType: "action",
+    actionType: "selector",
+    label: "Menu",
+    payload: {
+      nested: {
+        title: "Titre menu",
+        copy: { bodyHtml: "<p>Intro menu</p>", buttonLabel: "-" },
+        displayMode: "buttons",
+      },
+    },
+    sfx: SFX,
+    visibility: VIS,
+  };
+  const m1: MsgActionNode = {
+    id: asActionNodeId("act-m1"),
+    nodeType: "action",
+    actionType: "msg",
+    label: "Choix A",
+    payload: { copy: { bodyHtml: "<p>Réponse A</p>", buttonLabel: "OK" } },
+    sfx: SFX,
+    visibility: VIS,
+  };
+  const m2: MsgActionNode = {
+    id: asActionNodeId("act-m2"),
+    nodeType: "action",
+    actionType: "msg",
+    label: "Choix B",
+    payload: { copy: { bodyHtml: "<p>Réponse B</p>", buttonLabel: "OK" } },
+    sfx: SFX,
+    visibility: VIS,
+  };
+  store.getState().addScene(scene, { x: 0, y: 0 });
+  store.getState().addAction(sel, { x: 120, y: 80 });
+  store.getState().addAction(m1, { x: 120, y: 180 });
+  store.getState().addAction(m2, { x: 120, y: 280 });
+  store.getState().connect({
+    id: asEdgeId("f-sel"),
+    family: "flow",
+    sourceId: scene.id,
+    targetId: sel.id,
+  });
+  store.getState().connect({
+    id: asEdgeId("f-s1"),
+    family: "flow",
+    sourceId: sel.id,
+    targetId: m1.id,
+  });
+  store.getState().connect({
+    id: asEdgeId("f-s2"),
+    family: "flow",
+    sourceId: sel.id,
+    targetId: m2.id,
+  });
+  return { store, scene, sel, m1, m2 };
+}
+
+function setupSceneWithMsgRelativeImg() {
+  const store = createNodalProjectStore();
+  const scene: SceneNode = {
+    id: asSceneNodeId("scn-img"),
+    nodeType: "scene",
+    sceneId: "img-scene",
+    label: "S",
+    panoramaUrl: "https://example.com/p.jpg",
+  };
+  const msg: MsgActionNode = {
+    id: asActionNodeId("act-img"),
+    nodeType: "action",
+    actionType: "msg",
+    label: "Msg",
+    payload: {
+      copy: {
+        bodyHtml: '<p>Voir</p><img src="./assets/missing.png" alt="x" />',
+        buttonLabel: "Fermer",
+      },
+    },
+    sfx: SFX,
+    visibility: VIS,
+  };
+  store.getState().addScene(scene, { x: 0, y: 0 });
+  store.getState().addAction(msg, { x: 80, y: 80 });
+  store.getState().connect({
+    id: asEdgeId("f-img"),
+    family: "flow",
+    sourceId: scene.id,
+    targetId: msg.id,
+  });
+  return { store, scene, msg };
+}
+
+describe("C18.5.2 — Player preview (goto + req + pwd + selector + img fallback)", () => {
+  it("goto : body transition + libellé bouton", () => {
+    const { store, scene } = setupSceneWithGotoOnly();
+    renderTree(
+      <NodalUiContext.Provider value={mockNodalUi(store)}>
+        <ScenePreviewModal sceneId={scene.id} onClose={() => {}} />
+      </NodalUiContext.Provider>
+    );
+    const body = container.querySelector(".nodal-scene-preview-modal__body") as HTMLDivElement;
+    const hsEl = injectHotspotEl(body, scene.id, 0);
+    act(() => {
+      hsEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10 }));
+    });
+    const overlay = document.querySelector(".nodal-player-preview-overlay") as HTMLDivElement;
+    expect(overlay.dataset.actionType).toBe("goto");
+    expect(overlay.querySelector(".play-html-rich")?.innerHTML).toContain("transition");
+    const goBtn = Array.from(overlay.querySelectorAll("button")).find((b) => b.textContent?.trim() === "Partir");
+    expect(goBtn).toBeTruthy();
+  });
+
+  it("req : message KO (sans vérif inventaire)", () => {
+    const { store, scene } = setupSceneWithReqOnly();
+    renderTree(
+      <NodalUiContext.Provider value={mockNodalUi(store)}>
+        <ScenePreviewModal sceneId={scene.id} onClose={() => {}} />
+      </NodalUiContext.Provider>
+    );
+    const body = container.querySelector(".nodal-scene-preview-modal__body") as HTMLDivElement;
+    const hsEl = injectHotspotEl(body, scene.id, 0);
+    act(() => {
+      hsEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10 }));
+    });
+    const overlay = document.querySelector(".nodal-player-preview-overlay") as HTMLDivElement;
+    expect(overlay.dataset.actionType).toBe("req");
+    expect(overlay.querySelector(".play-html-rich")?.innerHTML).toContain("manquant");
+  });
+
+  it("pwd : variante input + bouton Valider", () => {
+    const { store, scene } = setupSceneWithPwdOnly();
+    renderTree(
+      <NodalUiContext.Provider value={mockNodalUi(store)}>
+        <ScenePreviewModal sceneId={scene.id} onClose={() => {}} />
+      </NodalUiContext.Provider>
+    );
+    const body = container.querySelector(".nodal-scene-preview-modal__body") as HTMLDivElement;
+    const hsEl = injectHotspotEl(body, scene.id, 0);
+    act(() => {
+      hsEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10 }));
+    });
+    const overlay = document.querySelector(".nodal-player-preview-overlay") as HTMLDivElement;
+    expect(overlay.dataset.actionType).toBe("pwd");
+    expect(overlay.querySelector(".play-html-rich")?.innerHTML).toContain("Énigme");
+    expect(overlay.querySelector("input[type=\"text\"][disabled]")).toBeTruthy();
+  });
+
+  it("selector : drill vers un enfant msg puis Retour", () => {
+    const { store, scene } = setupSceneWithSelectorTwoMsgs();
+    renderTree(
+      <NodalUiContext.Provider value={mockNodalUi(store)}>
+        <ScenePreviewModal sceneId={scene.id} onClose={() => {}} />
+      </NodalUiContext.Provider>
+    );
+    const body = container.querySelector(".nodal-scene-preview-modal__body") as HTMLDivElement;
+    const hsEl = injectHotspotEl(body, scene.id, 0);
+    act(() => {
+      hsEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10 }));
+    });
+    let overlay = document.querySelector(".nodal-player-preview-overlay") as HTMLDivElement;
+    expect(overlay.dataset.actionType).toBe("selector");
+    expect(overlay.querySelector("strong")?.textContent).toBe("Titre menu");
+    expect(overlay.querySelector(".play-html-rich")?.innerHTML).toContain("Intro menu");
+
+    const choiceBtn = Array.from(overlay.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "Choix A"
+    ) as HTMLButtonElement;
+    expect(choiceBtn).toBeTruthy();
+    act(() => {
+      choiceBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    overlay = document.querySelector(".nodal-player-preview-overlay") as HTMLDivElement;
+    expect(overlay.dataset.actionType).toBe("msg");
+    expect(overlay.querySelector(".play-html-rich")?.innerHTML).toContain("Réponse A");
+
+    const back = overlay.querySelector(".nodal-player-preview-back") as HTMLButtonElement;
+    expect(back).toBeTruthy();
+    act(() => {
+      back.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    overlay = document.querySelector(".nodal-player-preview-overlay") as HTMLDivElement;
+    expect(overlay.dataset.actionType).toBe("selector");
+    expect(overlay.querySelector(".play-html-rich")?.innerHTML).toContain("Intro menu");
+  });
+
+  it("img src relatif : fallback texte Média (FR)", () => {
+    const { store, scene } = setupSceneWithMsgRelativeImg();
+    renderTree(
+      <NodalUiContext.Provider value={mockNodalUi(store)}>
+        <ScenePreviewModal sceneId={scene.id} onClose={() => {}} />
+      </NodalUiContext.Provider>
+    );
+    const body = container.querySelector(".nodal-scene-preview-modal__body") as HTMLDivElement;
+    const hsEl = injectHotspotEl(body, scene.id, 0);
+    act(() => {
+      hsEl.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 10, clientY: 10 }));
+    });
+    const overlay = document.querySelector(".nodal-player-preview-overlay") as HTMLDivElement;
+    const rich = overlay.querySelector(".play-html-rich") as HTMLElement;
+    expect(rich.innerHTML).toContain("Média : ./assets/missing.png");
+    expect(rich.querySelectorAll("img").length).toBe(0);
   });
 });

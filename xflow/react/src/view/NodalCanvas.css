@@ -1063,3 +1063,23 @@
   min-height: 280px;
   width: 100%;
 }
+
+/* C18.5.2 — bouton retour selector multi-niveau (au-dessus du viewport overlay z-index 10050) */
+.nodal-player-preview-back {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 10051;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.nodal-player-preview-back:hover {
+  background: rgba(0, 0, 0, 0.75);
+}

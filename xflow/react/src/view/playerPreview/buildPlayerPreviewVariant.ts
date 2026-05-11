@@ -1,4 +1,11 @@
-import type { ActionNode, MsgActionNode, PickActionNode } from "../../model/nodes";
+import type {
+  ActionNode,
+  GotoActionNode,
+  MsgActionNode,
+  PickActionNode,
+  PwdActionNode,
+  ReqActionNode,
+} from "../../model/nodes";
 
 export type PlayerPreviewVariantSpec =
   | {
@@ -33,14 +40,18 @@ const DEFAULT_BTN_LABEL: Record<PlayerPreviewLocale, string> = {
   en: "Close",
 };
 
+const PWD_SUBMIT_FALLBACK: Record<PlayerPreviewLocale, string> = {
+  fr: "Valider",
+  en: "Submit",
+};
+
 /**
- * C18.5.1 — Sélection de la variante visuelle de `PlayerPopupPreview` à partir
- * d'une action. Couvre **msg** et **pick** dans ce sous-jalon ; les autres
- * types renvoient `null` (à étendre en C18.5.2 — goto / req / pwd / selector).
+ * C18.5.1 / C18.5.2 — Variante visuelle `PlayerPopupPreview` pour une action
+ * **terminale** (msg, pick, goto, req, pwd). Les **selector** sont rendus
+ * dans `<PlayerPreviewOverlay>` via `getOrderedSelectorChildActionIds` +
+ * navigation par stack (pas via ce helper — il renverrait `null`).
  *
- * Aucune logique métier : pas de check inventaire, pas de simulation, pas de
- * lecture du store. C'est une fonction pure des données de l'action — testable
- * sans React ni store.
+ * Aucune logique métier : pas de check inventaire, pas de simulation.
  */
 export function buildPlayerPreviewVariant(
   action: ActionNode,
@@ -65,6 +76,33 @@ export function buildPlayerPreviewVariant(
       html: String(pick.payload?.copy?.bodyHtml ?? ""),
       buttonLabel: pickLabel(pick.payload?.copy?.buttonLabel, fallbackBtn),
       titleText: itemName || undefined,
+    };
+  }
+
+  if (action.actionType === "goto") {
+    const g = action as GotoActionNode;
+    return {
+      kind: "button",
+      html: String(g.payload?.copy?.bodyHtml ?? ""),
+      buttonLabel: pickLabel(g.payload?.copy?.buttonLabel, fallbackBtn),
+    };
+  }
+
+  if (action.actionType === "req") {
+    const r = action as ReqActionNode;
+    return {
+      kind: "button",
+      html: String(r.payload?.copy?.bodyHtml ?? ""),
+      buttonLabel: pickLabel(r.payload?.copy?.buttonLabel, fallbackBtn),
+    };
+  }
+
+  if (action.actionType === "pwd") {
+    const p = action as PwdActionNode;
+    return {
+      kind: "input",
+      html: String(p.payload?.copy?.bodyHtml ?? ""),
+      buttonLabel: pickLabel(p.payload?.copy?.buttonLabel, PWD_SUBMIT_FALLBACK[locale]),
     };
   }
 
