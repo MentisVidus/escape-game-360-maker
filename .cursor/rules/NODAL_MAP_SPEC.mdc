@@ -3562,6 +3562,25 @@ sandbox iframe.
   Suite C18 globale : 43 tests verts (5 fichiers).
   Commit : `feat(nodal): C18.5.1 overlay preview joueur (msg + pick)
   via PlayerPopupPreview interactif`.
+- 2026-05-11 — **Retours UX carte nodale (post-C18.5.1) — validation
+  manuelle OK** (utilisateur, après tests navigateur) :
+  - **S-BOX au premier plan** : correctif `style.zIndex: -1` sur les
+    nœuds `sceneBoxNode` dans `toReactFlowNodes`
+    (`xflow/react/src/view/nodalReactFlowProjection.ts`) pour forcer
+    le cadre S-BOX en arrière-plan ; les médias / actions ajoutés hors
+    parentId ne sont plus interceptés par la hitbox du cadre. Commit
+    `fix(nodal): UX carte — S-BOX en arrière-plan + nœud image dans
+    démo` (`4d0526e`, puis push). Backlog complété `docs/todo.md`.
+  - **Démo d'accueil enrichie** : un nœud **image média par scène**
+    (Hall + Lab), lié par **edge meta** `scène → media-image` (pas
+    flow), URL par défaut = placeholder grille équirectangulaire
+    (`DEFAULT_MEDIA_IMAGE_PLACEHOLDER_URL`, aligné
+    `EditorCore.DEFAULT_SCENE_PANORAMA_PLACEHOLDER_URL`). Commit
+    `fix(nodal): démo d'accueil — un nœud image par scène avec edge
+    meta + URL placeholder` (`e1cb736`). `resolveScenePanoramaDisplayUrl`
+    sert l'aperçu 360° sans `panoramaUrl` renseigné sur chaque scène.
+  - **Menu flottant S-BOX (tablette)** : inchangé — reste noté dans
+    `docs/todo.md` (alternative au clic droit, chantier UI futur).
 - 2026-05-08 — **Amendement plan C18.5** : avant ouverture de
   C18.5.1, exploration de l'existant côté React révèle un composant
   `PlayerPopupPreview` (popups+thème) déjà utilisé par tous les
