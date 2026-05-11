@@ -58,6 +58,20 @@ type Props = {
    * clics qui ont bullé depuis le panel.
    */
   onBackdropClick?: () => void;
+  /**
+   * C18.5.2-fix — bouton « ← Retour » intégré dans le panel (top bar
+   * gauche), aligné sur le runtime joueur `openSelector` /
+   * `renderSelectorPanel` qui place le retour dans la popup elle-même
+   * (pas en overlay externe). Si fourni : bouton visible et cliquable.
+   * Si `undefined` : top bar absent (legacy / niveau racine).
+   * `backLabel` : texte du bouton (défaut « ← Retour » / « ← Back »).
+   *
+   * Note : `| undefined` explicite pour cohabiter avec
+   * `exactOptionalPropertyTypes: true` côté `PlayerPreviewOverlay` où on
+   * passe `undefined` conditionnellement (niveau racine vs profond).
+   */
+  onBack?: (() => void) | undefined;
+  backLabel?: string | undefined;
 };
 
 export function PlayerPopupPreview({
@@ -71,6 +85,8 @@ export function PlayerPopupPreview({
   variant,
   interactive,
   onBackdropClick,
+  onBack,
+  backLabel,
 }: Props) {
   const isInteractive = !!interactive;
   const interactiveCloseBtnStyle: CSSProperties = isInteractive
@@ -85,9 +101,32 @@ export function PlayerPopupPreview({
     if (ev.target === ev.currentTarget) onBackdropClick();
   };
 
+  // C18.5.2-fix — bouton retour intégré au panel (style aligné runtime joueur
+  // `editeur-generate.js` `renderSelectorPanel` : padding 6/10, fond
+  // semi-transparent, radius 4, font hérité, couleur héritée).
+  const backBtnStyle: CSSProperties = {
+    cursor: "pointer",
+    padding: "6px 10px",
+    border: "none",
+    borderRadius: 4,
+    background: "rgba(255,255,255,0.15)",
+    color: "inherit",
+    font: "inherit",
+  };
+
   return (
     <div style={viewportStyle} onClick={onBackdropClick ? handleViewportClick : undefined}>
       <div className="nodal-msg-preview-chrome" style={panelStyle}>
+        {onBack ? (
+          <button
+            type="button"
+            className="nodal-player-popup-back"
+            style={backBtnStyle}
+            onClick={onBack}
+          >
+            {backLabel || "← Retour"}
+          </button>
+        ) : null}
         <button
           type="button"
           aria-label={closeAriaLabel}

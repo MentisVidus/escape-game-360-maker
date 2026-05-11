@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
 import type { ActionNodeId } from "../../model/ids";
@@ -19,6 +19,12 @@ const CLOSE_ARIA: Record<PlayerPreviewLocale, string> = {
   en: "Close",
 };
 
+/**
+ * C18.5.2-fix — libellé du bouton « ← Retour » aligné sur runtime joueur
+ * (`editeur-generate.js` ligne ~2286). Passé en prop à `<PlayerPopupPreview>`
+ * via `backLabel`. Le bouton est rendu **à l'intérieur du panel** (top bar
+ * gauche), comme dans le runtime — pas en overlay externe.
+ */
 const BACK_LABEL: Record<PlayerPreviewLocale, string> = {
   fr: "← Retour",
   en: "← Back",
@@ -77,12 +83,11 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose }: Playe
 
   if (!action) return null;
 
-  const backBtn: ReactNode =
-    navStack.length > 1 ? (
-      <button type="button" className="nodal-player-preview-back" onClick={handlePop}>
-        {BACK_LABEL[locale]}
-      </button>
-    ) : null;
+  // C18.5.2-fix — bouton retour rendu **dans le panel** (via prop `onBack`
+  // de `<PlayerPopupPreview>`). `undefined` au niveau racine ⇒ pas de
+  // bouton (comportement runtime joueur : top bar absent sur la racine).
+  const onBack = navStack.length > 1 ? handlePop : undefined;
+  const backLabel = BACK_LABEL[locale];
 
   if (action.actionType === "selector") {
     return (
@@ -91,7 +96,8 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose }: Playe
         snap={snap}
         locale={locale}
         styles={styles}
-        backBtn={backBtn}
+        onBack={onBack}
+        backLabel={backLabel}
         htmlFor={htmlFor}
         onClose={onClose}
         onDrill={(childId) => setNavStack((s) => [...s, childId])}
@@ -113,7 +119,6 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose }: Playe
 
   return (
     <div className="nodal-player-preview-overlay" data-action-type={action.actionType}>
-      {backBtn}
       <PlayerPopupPreview
         viewportStyle={styles.viewport}
         panelStyle={styles.panel}
@@ -128,6 +133,8 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose }: Playe
           onConfirm: onClose,
         }}
         onBackdropClick={onClose}
+        onBack={onBack}
+        backLabel={backLabel}
       />
     </div>
   );
@@ -138,7 +145,8 @@ function SelectorPreviewBranch({
   snap,
   locale,
   styles,
-  backBtn,
+  onBack,
+  backLabel,
   htmlFor,
   onClose,
   onDrill,
@@ -147,7 +155,8 @@ function SelectorPreviewBranch({
   snap: ReturnType<StoreApi<NodalProjectStore>["getState"]>;
   locale: PlayerPreviewLocale;
   styles: ChromeStyles;
-  backBtn: ReactNode;
+  onBack: (() => void) | undefined;
+  backLabel: string;
   htmlFor: (raw: string) => string;
   onClose: () => void;
   onDrill: (childId: ActionNodeId) => void;
@@ -171,7 +180,6 @@ function SelectorPreviewBranch({
         data-action-type="selector"
         data-selector-empty="1"
       >
-        {backBtn}
         <PlayerPopupPreview
           viewportStyle={styles.viewport}
           panelStyle={styles.panel}
@@ -186,6 +194,8 @@ function SelectorPreviewBranch({
             onConfirm: onClose,
           }}
           onBackdropClick={onClose}
+          onBack={onBack}
+          backLabel={backLabel}
         />
       </div>
     );
@@ -198,7 +208,6 @@ function SelectorPreviewBranch({
 
   return (
     <div className="nodal-player-preview-overlay" data-action-type="selector">
-      {backBtn}
       <PlayerPopupPreview
         viewportStyle={styles.viewport}
         panelStyle={styles.panel}
@@ -217,6 +226,8 @@ function SelectorPreviewBranch({
           },
         }}
         onBackdropClick={onClose}
+        onBack={onBack}
+        backLabel={backLabel}
       />
     </div>
   );

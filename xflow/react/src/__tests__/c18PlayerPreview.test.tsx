@@ -787,7 +787,10 @@ describe("C18.5.2 — Player preview (goto + req + pwd + selector + img fallback
     expect(overlay.dataset.actionType).toBe("msg");
     expect(overlay.querySelector(".play-html-rich")?.innerHTML).toContain("Réponse A");
 
-    const back = overlay.querySelector(".nodal-player-preview-back") as HTMLButtonElement;
+    // C18.5.2-fix : bouton retour est maintenant intégré dans le panel
+    // (classe `nodal-player-popup-back`, top bar gauche), pas en overlay
+    // externe. Aligné sur runtime joueur `renderSelectorPanel`.
+    const back = overlay.querySelector(".nodal-player-popup-back") as HTMLButtonElement;
     expect(back).toBeTruthy();
     act(() => {
       back.dispatchEvent(new MouseEvent("click", { bubbles: true }));
