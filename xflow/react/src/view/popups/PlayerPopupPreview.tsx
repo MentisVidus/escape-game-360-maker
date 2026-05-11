@@ -1,4 +1,4 @@
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { useId, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 
 type ButtonVariant = {
   kind: "button";
@@ -114,9 +114,25 @@ export function PlayerPopupPreview({
     font: "inherit",
   };
 
+  // C18.5.3 — IDs locaux pour ARIA. `role="dialog"` + `aria-modal="true"`
+  // marquent la popup comme modale pour les lecteurs d'écran. `aria-labelledby`
+  // référence le titre si présent (titleText), sinon on retombe sur
+  // `aria-label={closeAriaLabel}` (lecteur d'écran annonce au moins
+  // "Fermer" comme repère). `aria-describedby` référence le corps Quill.
+  const titleId = useId();
+  const bodyId = useId();
+  const hasTitle = !!titleText;
+
   return (
     <div style={viewportStyle} onClick={onBackdropClick ? handleViewportClick : undefined}>
-      <div className="nodal-msg-preview-chrome" style={panelStyle}>
+      <div
+        className="nodal-msg-preview-chrome"
+        style={panelStyle}
+        role="dialog"
+        aria-modal="true"
+        {...(hasTitle ? { "aria-labelledby": titleId } : { "aria-label": closeAriaLabel })}
+        aria-describedby={bodyId}
+      >
         {onBack ? (
           <button
             type="button"
@@ -138,10 +154,10 @@ export function PlayerPopupPreview({
         </button>
         {titleText ? (
           <p>
-            <strong>{titleText}</strong>
+            <strong id={titleId}>{titleText}</strong>
           </p>
         ) : null}
-        <div className="play-html-rich" dangerouslySetInnerHTML={{ __html: html }} />
+        <div id={bodyId} className="play-html-rich" dangerouslySetInnerHTML={{ __html: html }} />
         <br />
         {variant.kind === "button" ? (
           <button

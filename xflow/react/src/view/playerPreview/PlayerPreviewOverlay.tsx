@@ -11,6 +11,7 @@ import {
   buildPlayerPreviewVariant,
   type PlayerPreviewLocale,
 } from "./buildPlayerPreviewVariant";
+import { resolveActionSfx } from "./playerPreviewAudio";
 import { rewriteQuillHtmlForPlayerPreview } from "./rewriteQuillHtmlForPlayerPreview";
 import { getOrderedSelectorChildActionIds } from "./selectorPreviewChildren";
 
@@ -45,11 +46,33 @@ const SELECTOR_NO_CHILD_CLOSE: Record<PlayerPreviewLocale, string> = {
   en: "Close",
 };
 
+/**
+ * C18.5.3 — badge discret « Aperçu interactif » affiché au-dessus du panel
+ * pour distinguer visuellement l'aperçu vs l'édition (data-attribut
+ * `data-player-preview="1"` était déjà présent mais sans affordance
+ * visuelle). Rendu côté wrapper overlay, `pointer-events: none` pour ne
+ * pas bloquer le clic backdrop.
+ */
+const PREVIEW_BADGE_LABEL: Record<PlayerPreviewLocale, string> = {
+  fr: "Aperçu interactif (lecture seule)",
+  en: "Interactive preview (read-only)",
+};
+
 export type PlayerPreviewOverlayProps = {
   actionId: ActionNodeId;
   store: StoreApi<NodalProjectStore>;
   locale: PlayerPreviewLocale;
   onClose: () => void;
+  /**
+   * C18.5.3 — callback déclenché à chaque clic d'un choix selector pour
+   * jouer le SFX de l'action enfant (alignement runtime joueur
+   * `runSelectorChoice` qui appelle `audioSys.playSFX(choice.sfxUrl,
+   * choice.sfxVolume)` avant le drill ou l'exécution). Le SFX initial
+   * du hotspot (au moment où la popup s'ouvre) est joué par
+   * `<ScenePreviewModal>` directement via le useEffect
+   * `playerPreviewActionId`.
+   */
+  onPlaySfx?: (url: string, volume: number) => void;
 };
 
 type ChromeStyles = ReturnType<typeof playerPopupThemeToPlayerOverlayChrome>;
@@ -61,7 +84,7 @@ type ChromeStyles = ReturnType<typeof playerPopupThemeToPlayerOverlayChrome>;
  * images à risque (`rewriteQuillHtmlForPlayerPreview`). Aucune mutation
  * du store.
  */
-export function PlayerPreviewOverlay({ actionId, store, locale, onClose }: PlayerPreviewOverlayProps) {
+export function PlayerPreviewOverlay({ actionId, store, locale, onClose, onPlaySfx }: PlayerPreviewOverlayProps) {
   const [navStack, setNavStack] = useState<ActionNodeId[]>([actionId]);
 
   useEffect(() => {
@@ -89,6 +112,8 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose }: Playe
   const onBack = navStack.length > 1 ? handlePop : undefined;
   const backLabel = BACK_LABEL[locale];
 
+  const badge = <PreviewBadge label={PREVIEW_BADGE_LABEL[locale]} />;
+
   if (action.actionType === "selector") {
     return (
       <SelectorPreviewBranch
@@ -98,9 +123,21 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose }: Playe
         styles={styles}
         onBack={onBack}
         backLabel={backLabel}
+        badge={badge}
         htmlFor={htmlFor}
         onClose={onClose}
-        onDrill={(childId) => setNavStack((s) => [...s, childId])}
+        onDrill={(childId) => {
+          // C18.5.3 — joue le SFX du choix avant de descendre. Le runtime
+          // joueur le fait dans `runSelectorChoice` (`audioSys.playSFX`).
+          if (onPlaySfx) {
+            const child = snap.actions[childId];
+            if (child) {
+              const sfx = resolveActionSfx(child);
+              if (sfx) onPlaySfx(sfx.url, sfx.volume);
+            }
+          }
+          setNavStack((s) => [...s, childId]);
+        }}
       />
     );
   }
@@ -119,6 +156,7 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose }: Playe
 
   return (
     <div className="nodal-player-preview-overlay" data-action-type={action.actionType}>
+      {badge}
       <PlayerPopupPreview
         viewportStyle={styles.viewport}
         panelStyle={styles.panel}
@@ -140,6 +178,32 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose }: Playe
   );
 }
 
+function PreviewBadge({ label }: { label: string }) {
+  return (
+    <div
+      className="nodal-player-preview-badge"
+      role="status"
+      aria-live="polite"
+      style={{
+        position: "fixed",
+        top: 16,
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 10051,
+        pointerEvents: "none",
+        padding: "6px 14px",
+        borderRadius: 4,
+        background: "rgba(0, 0, 0, 0.55)",
+        color: "#ffffff",
+        font: "13px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+        letterSpacing: "0.02em",
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
 function SelectorPreviewBranch({
   selector,
   snap,
@@ -147,6 +211,7 @@ function SelectorPreviewBranch({
   styles,
   onBack,
   backLabel,
+  badge,
   htmlFor,
   onClose,
   onDrill,
@@ -157,6 +222,7 @@ function SelectorPreviewBranch({
   styles: ChromeStyles;
   onBack: (() => void) | undefined;
   backLabel: string;
+  badge: import("react").ReactNode;
   htmlFor: (raw: string) => string;
   onClose: () => void;
   onDrill: (childId: ActionNodeId) => void;
@@ -180,6 +246,7 @@ function SelectorPreviewBranch({
         data-action-type="selector"
         data-selector-empty="1"
       >
+        {badge}
         <PlayerPopupPreview
           viewportStyle={styles.viewport}
           panelStyle={styles.panel}
@@ -208,6 +275,7 @@ function SelectorPreviewBranch({
 
   return (
     <div className="nodal-player-preview-overlay" data-action-type="selector">
+      {badge}
       <PlayerPopupPreview
         viewportStyle={styles.viewport}
         panelStyle={styles.panel}

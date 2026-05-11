@@ -425,8 +425,11 @@ describe("C18.5.1 — Player preview overlay (msg + pick)", () => {
     const overlay = document.querySelector(".nodal-player-preview-overlay") as HTMLDivElement;
     expect(overlay).toBeTruthy();
 
-    // Le viewport (1er enfant de l'overlay : div avec le chrome) reçoit le clic.
-    const viewport = overlay.querySelector("div") as HTMLDivElement;
+    // C18.5.3 — le viewport est le parent du chrome ; on ne peut plus utiliser
+    // `overlay.querySelector("div")` car le badge "Aperçu interactif" est
+    // désormais le 1er enfant `<div>` (avec `pointer-events: none`).
+    const chrome = overlay.querySelector(".nodal-msg-preview-chrome") as HTMLDivElement;
+    const viewport = chrome.parentElement as HTMLDivElement;
     act(() => {
       viewport.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });

@@ -2142,7 +2142,7 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 | **C18.2** | Modale picker (modale plein écran) ouverte depuis bouton ajouté à `CoordsOptionsPopup` ; viseur central `pointer-events:none` + poll `getPitch`/`getYaw` 120 ms ; hotspots autres en gris dashed pour contexte ; Valider/Annuler/Échap/Enter ; commit pitch + yaw via `updateNodeData` sur le satellite | C18.1 (réutilise `<NodalPanoramaViewer>`) | code | livré (2026-05-08) — 2 fixes (viseur central + initialPitch via ref) |
 | **C18.3** | Drag direct des hotspots dans l'aperçu scène : toggle « Éditer les hotspots » dans le header ; en mode édition, `pointerdown` sur hotspot → drag local avec overlay fantôme CSS ; `NodalPanoramaViewer` étendu en `forwardRef` exposant `mouseEventToCoords` ; auto-save pitch/yaw au release ; Échap annule | C18.1, C18.2 | code | livré (2026-05-08) |
 | **C18.4** | Resize des hotspots dans l'aperçu via **handles aux 4 coins** (façon logiciel de dessin) ; sélection au clic simple en mode édition ; resize ancré au centre (pitch/yaw fixes) ; Shift = ratio fixe ; bornes 16-800 px ; bordure dashed rouge décalée (`outline-offset` ~6 px) pour rester visible sur hotspot transparent | C18.3 | code | livré (2026-05-08) |
-| **C18.5** | Aperçu interactif « comme en jeu » en mode read-only : clic sur hotspot → popup joueur preview (msg / pick / goto / req / pwd / selector multi-niveau) via overlay React `<PlayerPreviewOverlay>` (option (a-i) revisitée — réutilisation `PlayerPopupPreview` étendu avec prop `interactive`, voir amendement plan en tête section C18.5) ; affichage seul + bouton fermer ; pas de simulation d'inventaire ni de visibility-rules | C18.3 | code | C18.5.1 + C18.5.2 livrés (2026-05-11) ; **C18.5.2-fix.1** bouton retour dans le panel (alignement runtime) ; **C18.5.3** (audio + polish) à venir |
+| **C18.5** | Aperçu interactif « comme en jeu » en mode read-only : clic sur hotspot → popup joueur preview (msg / pick / goto / req / pwd / selector multi-niveau) via overlay React `<PlayerPreviewOverlay>` (option (a-i) revisitée — réutilisation `PlayerPopupPreview` étendu avec prop `interactive`, voir amendement plan en tête section C18.5) ; affichage seul + bouton fermer ; pas de simulation d'inventaire ni de visibility-rules | C18.3 | code | **C18.5.1 + C18.5.2 + C18.5.3 livrés** (2026-05-11) ; chantier C18.5 clôturé |
 
 Convention : un commit par sous-chantier ; fixes numérotés
 `C18.x.y-fix` si correctifs en cours de chantier (cf. §8.2 + §2.2 du
@@ -3589,6 +3589,50 @@ sandbox iframe.
   (goto + req + pwd + selector + img fallback)`.
   **Validation manuelle** utilisateur post-C18.5.1 (S-BOX z-order,
   démo image) déjà notée entrée 2026-05-11 ci-dessus.
+- 2026-05-11 — **C18.5.3 livré — audio + polish (ARIA + badge)**.
+  Réponses utilisateur (cadrage) : Q1 (c) audio complet — SFX hotspot +
+  SFX selector + ambiance scène en loop ; Q2 = ARIA + audit responsive
+  + badge mode preview (pas de focus management ni de fade) ; Q3 (c) =
+  pas de test automatisé pour l'audio (validation manuelle navigateur,
+  JSDOM ne joue pas l'audio).
+  Nouveau module `playerPreviewAudio.ts` : classe
+  `PreviewAudioController` (deux canaux — SFX monoflux et ambiance loop
+  idempotente) + helpers `resolveSceneAmbiance(state, sceneId)` (premier
+  `MediaAudioNode` lié par edge meta scène → media-audio, miroir
+  `resolveScenePanoramaDisplayUrl`) et `resolveActionSfx(action)`
+  (source canonique = `action.sfx`, cohérent avec sérialisation
+  `toProjectJson`). Volume borné [0..1], `Audio.play()` enveloppé en
+  `try/catch` (politique autoplay : tous les SFX sont déclenchés par
+  un clic utilisateur, donc ça passe en pratique).
+  `<ScenePreviewModal>` instancie le contrôleur lazy via `useRef` +
+  `getAudioCtrl()` ; 3 `useEffect` : reset à la fermeture
+  (`sceneId == null`) → `destroy()` ; lecture/maj ambiance scène à
+  chaque changement de scène ou de snap (volume édité) ; lecture SFX
+  hotspot à l'ouverture de `playerPreviewActionId`, stop à la
+  fermeture (équivalent runtime joueur `audioSys.stopSFX()` avant
+  chaque popup).
+  `<PlayerPreviewOverlay>` accepte une prop optionnelle `onPlaySfx` ;
+  `SelectorPreviewBranch.onDrill` la déclenche avec le SFX de l'enfant
+  avant le push `navStack` (alignement runtime `runSelectorChoice`
+  ligne ~2105 `editeur-generate.js`). Côté `<ScenePreviewModal>`,
+  `onPlaySfx` est relayé vers `getAudioCtrl().playSfx`.
+  ARIA : `<PlayerPopupPreview>` enrichi avec `role="dialog"`,
+  `aria-modal="true"`, `aria-labelledby={titleId}` (si `titleText`) ou
+  `aria-label={closeAriaLabel}` (fallback), `aria-describedby={bodyId}`
+  pointant vers le `<div.play-html-rich>`. IDs via `useId()`.
+  Badge **« Aperçu interactif (lecture seule) »** : composant
+  `<PreviewBadge>` rendu dans le wrapper `<PlayerPreviewOverlay>`,
+  `position: fixed; top: 16; centered; z-index: 10051; pointer-events:
+  none` — `role="status"`, `aria-live="polite"`. Affiché aussi dans
+  `SelectorPreviewBranch` (passé en prop pour ne pas dupliquer).
+  **Audit responsive** : `panel` déjà `maxWidth: 420; width: 100%;
+  maxHeight: 85%` + viewport `padding: 24; flex centered` ⇒ mobile et
+  tablette OK sans changement CSS supplémentaire. Documenté.
+  Test backdrop adapté (recherche viewport via parent du chrome au lieu
+  du 1er `<div>` — qui est désormais le badge). Suite C18 : **48**
+  tests verts. Aucune nouvelle erreur typecheck (3 erreurs préexistantes
+  vérifiées baseline). Commit : `feat(nodal): C18.5.3 preview joueur
+  audio + ARIA + badge (chantier C18.5 clos)`.
 - 2026-05-11 — **C18.5.2-fix.1 — bouton retour dans le panel**
   (retour utilisateur : « il manque les boutons de retour, dans les
   selector vu qu'il est un peu différent que celui du generate
