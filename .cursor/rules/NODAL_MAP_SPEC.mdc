@@ -2842,3 +2842,8 @@ Attendre validation user.
   popups ; C19.2 bandeau aperçu). Branche `feat/c19-audio-preview`
   créée depuis `feat/nodal-map`. Plans détaillés C19.1 et C19.2
   rédigés en one-shot, prêts pour Cursor.
+- **2026-05-14** — **C19.2 livré** : bandeau audio repliable + mute
+  `stopAll({ clearLastSfx: false })`, modes Interactif/Édition, auto-play
+  global+ambient, `lastSfx` + sliders persistants, **C19.2-fix** navigation
+  goto au confirm (`resolveGotoTargetSceneId`), tests `c19_2_*` +
+  `vitest.setup.ts` (pause/load jsdom).
