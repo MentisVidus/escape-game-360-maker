@@ -1785,6 +1785,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <ScenePreviewModal
           sceneId={scenePreviewSceneId}
           onClose={() => setScenePreviewSceneId(null)}
+          onNavigateToScene={(id) => setScenePreviewSceneId(id)}
         />
         <CoordsPickerModal
           key={coordsPickerSatelliteId ?? "none"}

@@ -23,6 +23,19 @@ export function resolveSceneAmbiance(
   state: NodalProject,
   sceneId: SceneNodeId
 ): { url: string; volume: number } | null {
+  const meta = resolveSceneAmbianceMeta(state, sceneId);
+  if (!meta) return null;
+  return { url: meta.url, volume: meta.volume };
+}
+
+/**
+ * C19.2 — Même résolution que `resolveSceneAmbiance` + id du nœud média
+ * (pour persister le volume depuis le bandeau).
+ */
+export function resolveSceneAmbianceMeta(
+  state: NodalProject,
+  sceneId: SceneNodeId
+): { url: string; volume: number; mediaNodeId: MediaNodeId } | null {
   for (const e of state.edges) {
     if (e.family !== "meta" || e.sourceId !== sceneId) continue;
     const tid = e.targetId as MediaNodeId;
@@ -31,7 +44,7 @@ export function resolveSceneAmbiance(
     const url = String(m.data.url ?? "").trim();
     if (!url) continue;
     const volume = typeof m.data.volume === "number" ? m.data.volume : 1;
-    return { url, volume };
+    return { url, volume, mediaNodeId: tid };
   }
   return null;
 }
@@ -45,13 +58,28 @@ export function resolveActionSfx(
   state: NodalProject,
   action: ActionNode
 ): { url: string; volume: number } | null {
+  const o = resolveActionSfxPlayOpts(state, action);
+  if (!o) return null;
+  return { url: o.url, volume: o.volume };
+}
+
+/**
+ * C19.2 — SFX + identifiant de persistance (`nodeId` service = média lié
+ * ou id d’action pour `action.sfx`).
+ */
+export function resolveActionSfxPlayOpts(
+  state: NodalProject,
+  action: ActionNode
+): { url: string; volume: number; nodeId: string } | null {
   const linked = resolveLinkedMediaAudioSfxForAction(state, action.id);
-  if (linked?.url) return linked;
+  if (linked?.url) {
+    return { url: linked.url, volume: linked.volume, nodeId: linked.mediaNodeId };
+  }
 
   const sfx = action?.sfx;
   if (!sfx) return null;
   const url = String(sfx.url ?? "").trim();
   if (!url) return null;
   const volume = typeof sfx.volume === "number" ? sfx.volume : 1;
-  return { url, volume };
+  return { url, volume, nodeId: action.id };
 }

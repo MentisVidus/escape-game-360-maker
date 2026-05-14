@@ -150,7 +150,7 @@ describe("C18.3 — toggle édition", () => {
     );
     const btn = container.querySelector(".nodal-scene-preview-modal__edit-toggle") as HTMLButtonElement | null;
     expect(btn).toBeTruthy();
-    expect(btn!.textContent).toMatch(/Éditer/);
+    expect(btn!.textContent).toMatch(/Édit/);
     expect(btn!.getAttribute("data-active")).toBe("0");
     act(() => {
       btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));

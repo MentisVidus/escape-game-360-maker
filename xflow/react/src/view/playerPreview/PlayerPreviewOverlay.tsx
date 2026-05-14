@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import type { ActionNodeId } from "../../model/ids";
+import type { ActionNodeId, SceneNodeId } from "../../model/ids";
+import { resolveGotoTargetSceneId } from "../../model/resolveGotoTargetSceneId";
 import type { SelectorActionNode } from "../../model/nodes";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
 import { PlayerPopupPreview } from "../popups/PlayerPopupPreview";
@@ -11,7 +12,7 @@ import {
   buildPlayerPreviewVariant,
   type PlayerPreviewLocale,
 } from "./buildPlayerPreviewVariant";
-import { resolveActionSfx } from "./playerPreviewAudio";
+import { resolveActionSfxPlayOpts } from "./playerPreviewAudio";
 import { rewriteQuillHtmlForPlayerPreview } from "./rewriteQuillHtmlForPlayerPreview";
 import { getOrderedSelectorChildActionIds } from "./selectorPreviewChildren";
 
@@ -72,7 +73,12 @@ export type PlayerPreviewOverlayProps = {
    * `<ScenePreviewModal>` directement via le useEffect
    * `playerPreviewActionId`.
    */
-  onPlaySfx?: (url: string, volume: number) => void;
+  onPlaySfx?: (url: string, volume: number, nodeId?: string) => void;
+  /**
+   * C19.2-fix — au confirm d’une action `goto` en preview interactif,
+   * navigation vers la scène cible (arête `transition`).
+   */
+  onGotoTransition?: (targetSceneId: SceneNodeId) => void;
 };
 
 type ChromeStyles = ReturnType<typeof playerPopupThemeToPlayerOverlayChrome>;
@@ -84,7 +90,14 @@ type ChromeStyles = ReturnType<typeof playerPopupThemeToPlayerOverlayChrome>;
  * images à risque (`rewriteQuillHtmlForPlayerPreview`). Aucune mutation
  * du store.
  */
-export function PlayerPreviewOverlay({ actionId, store, locale, onClose, onPlaySfx }: PlayerPreviewOverlayProps) {
+export function PlayerPreviewOverlay({
+  actionId,
+  store,
+  locale,
+  onClose,
+  onPlaySfx,
+  onGotoTransition,
+}: PlayerPreviewOverlayProps) {
   const [navStack, setNavStack] = useState<ActionNodeId[]>([actionId]);
 
   useEffect(() => {
@@ -132,8 +145,8 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose, onPlayS
           if (onPlaySfx) {
             const child = snap.actions[childId];
             if (child) {
-              const sfx = resolveActionSfx(snap, child);
-              if (sfx) onPlaySfx(sfx.url, sfx.volume);
+              const sfx = resolveActionSfxPlayOpts(snap, child);
+              if (sfx) onPlaySfx(sfx.url, sfx.volume, sfx.nodeId);
             }
           }
           setNavStack((s) => [...s, childId]);
@@ -154,6 +167,17 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose, onPlayS
       ? { kind: "button" as const, label: variantSpec.buttonLabel }
       : { kind: "input" as const, buttonLabel: variantSpec.buttonLabel };
 
+  const onConfirmTerminal =
+    action.actionType === "goto" && onGotoTransition
+      ? () => {
+          const target = resolveGotoTargetSceneId(snap, action.id);
+          if (target) {
+            onGotoTransition(target);
+          }
+          onClose();
+        }
+      : onClose;
+
   return (
     <div className="nodal-player-preview-overlay" data-action-type={action.actionType}>
       {badge}
@@ -168,7 +192,7 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose, onPlayS
         variant={variant}
         interactive={{
           onClose,
-          onConfirm: onClose,
+          onConfirm: onConfirmTerminal,
         }}
         onBackdropClick={onClose}
         onBack={onBack}

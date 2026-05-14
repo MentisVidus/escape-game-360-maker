@@ -10,16 +10,17 @@ import type { NodalProject } from "./project";
 export function resolveLinkedMediaAudioSfxForAction(
   state: NodalProject,
   actionId: ActionNodeId
-): { url: string; volume: number } | null {
+): { url: string; volume: number; mediaNodeId: MediaNodeId } | null {
   for (const e of state.edges) {
     if (e.family !== "meta" || e.sourceId !== actionId) continue;
-    const m = state.media[e.targetId as MediaNodeId];
+    const mid = e.targetId as MediaNodeId;
+    const m = state.media[mid];
     if (!m || m.mediaType !== "media-audio" || !m.data) continue;
     const url = String(m.data.url ?? "").trim();
     const rawVol = m.data.volume;
     const volume =
       typeof rawVol === "number" && !Number.isNaN(rawVol) ? Math.max(0, Math.min(1, rawVol)) : 1;
-    return { url, volume };
+    return { url, volume, mediaNodeId: mid };
   }
   return null;
 }

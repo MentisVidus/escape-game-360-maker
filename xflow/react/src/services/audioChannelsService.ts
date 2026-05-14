@@ -18,7 +18,7 @@ export interface AudioChannelsService {
   pause(channel: AudioChannel): void;
   resume(channel: AudioChannel): void;
   stop(channel: AudioChannel): void;
-  stopAll(): void;
+  stopAll(opts?: { clearLastSfx?: boolean }): void;
   setVolume(channel: AudioChannel, volume: number): void;
   subscribe(channel: AudioChannel, listener: (state: AudioChannelState) => void): () => void;
   getState(channel: AudioChannel): AudioChannelState;
@@ -201,6 +201,10 @@ class AudioChannelsServiceImpl implements AudioChannelsService {
     const el = this.audio[channel];
     const v = clamp01(volume);
     if (el) el.volume = v;
+    if (channel === "sfx" && this.state.sfx.lastSfx) {
+      const ls = this.state.sfx.lastSfx;
+      this.state.sfx.lastSfx = { ...ls, volume: v };
+    }
     this.emit(channel);
   }
 
@@ -244,11 +248,14 @@ class AudioChannelsServiceImpl implements AudioChannelsService {
     this.emit(channel);
   }
 
-  stopAll(): void {
+  stopAll(opts?: { clearLastSfx?: boolean }): void {
+    const clearLast = opts?.clearLastSfx !== false;
     this.stop("global");
     this.stop("ambient");
     this.stop("sfx");
-    this.state.sfx.lastSfx = null;
+    if (clearLast) {
+      this.state.sfx.lastSfx = null;
+    }
     this.emit("sfx");
   }
 
