@@ -215,7 +215,8 @@ nettoyer manuellement par l'utilisateur s'il veut libérer.
 
 ## 3. État courant (snapshot dynamique)
 
-**Plutôt que figer l'état ici** (ça vieillit vite), interroge la spec :
+**Plutôt que figer l'état ici** (ça vieillit vite), interroge la spec
+et le ROADMAP :
 
 ```bash
 # version courante
@@ -229,10 +230,20 @@ grep "^### C" .cursor/rules/NODAL_MAP_SPEC.mdc | head -30
 
 # Annexe D ouverte ?
 grep "^## Annexe D" .cursor/rules/NODAL_MAP_SPEC.mdc
+
+# Backlog ordonné (suggestions priorité d'implémentation)
+cat ROADMAP.md
 ```
 
 Au démarrage de session, fais ce check et résume en 2-3 lignes à
 l'utilisateur.
+
+**Index ordonné des chantiers** : `ROADMAP.md` à la racine du repo —
+livrés (table avec versions) + backlog avec ordre d'implémentation
+suggéré, raison du choix, et descriptif court de l'apport. Format
+minimal qui renvoie à `NODAL_MAP_SPEC.mdc` et aux archives pour les
+détails. **À tenir à jour à chaque clôture de chantier** (déplacer
+livré + ajuster ordre backlog si priorité produit a évolué).
 
 **Archives chantiers** : `docs/archives/chantier_<N>.md` pour C8 et
 ultérieurs. Y trouver le journal détaillé, plans Cursor, décisions de
@@ -555,23 +566,43 @@ d'entrée utilisateur (`hydrateFromBundle` complet, pas
 
 ### 7.8 Le worktree de Claude (.claude/) vs le repo principal
 
-Cette `CLAUDE.md` vit dans `.claude/worktrees/.../CLAUDE.md`,
-**gitignoré** et **non lu par Cursor**. Le repo principal est à
-`C:/Users/RenaldGauthier/Documents/GitHub/escape-game-360-maker`.
+Cette `CLAUDE.md` vit **à la racine du repo principal**
+(`C:/Users/RenaldGauthier/Documents/GitHub/escape-game-360-maker/CLAUDE.md`)
+et est **versionnée** dans Git. Le dossier `.claude/worktrees/.../` est
+un espace harness auto-créé par Claude Code à chaque session, **gitignoré**.
 
-Pour modifier `NODAL_MAP_SPEC.mdc` ou les sources, **toujours**
-travailler sur le chemin du repo principal :
+**Règle stricte (directive utilisateur)** : Claude doit **TOUJOURS**
+travailler sur les fichiers du repo principal et **NE JAMAIS** créer
+une branche dédiée à Claude (genre `claude/<slug-auto>`). Le harness
+peut auto-créer un worktree et y poser une branche `claude/...` —
+**l'ignorer**. Tous les `git`, `Read`, `Edit`, `Write`, `Bash` doivent
+cibler explicitement
 `C:/Users/RenaldGauthier/Documents/GitHub/escape-game-360-maker/...`.
 
-L'utilisateur travaille en parallèle dans Cursor sur la même branche
-que toi — coordonner via git status / git pull avant d'éditer.
+Cursor et Claude **partagent les mêmes branches** :
+- `feat/nodal-map` — branche d'intégration (édition doc transverse,
+  ajout chantier au backlog).
+- `feat/cN-<slug>` — branche du chantier en cours, créée à l'ouverture
+  selon §4.3, supprimée après merge selon §2.7 étape 9. **Cette
+  branche est partagée avec Cursor** — `git pull` / `git status` avant
+  toute édition pour rester synchro.
+
+Pour modifier `NODAL_MAP_SPEC.mdc`, `ROADMAP.md`, `CLAUDE.md` ou les
+sources : **toujours** sur le chemin du repo principal, sur la branche
+`feat/nodal-map` (doc transverse) ou `feat/cN-<slug>` (travail de
+chantier). Jamais sur une branche `claude/...`.
+
+Si une session démarre dans un worktree `.claude/worktrees/.../`
+(working directory imposé par le harness), continuer mais cibler le
+repo principal via chemins absolus dans toutes les commandes.
 
 ### 7.9 Cursor ne lit pas `.claude/`
 
-Confirmé par l'utilisateur : `.claude/` est dans `.gitignore` ET non
-indexé par Cursor (`.cursorignore`). Cette `CLAUDE.md` est invisible
-pour Cursor. Elle est uniquement pour toi (Claude) lors d'une nouvelle
-session.
+`.claude/` est dans `.gitignore` ET non indexé par Cursor
+(`.cursorignore`). Le contenu de `.claude/worktrees/.../` est invisible
+pour Cursor. En revanche, **`CLAUDE.md` à la racine du repo est
+versionnée et indexée par Cursor** — toute modification y est visible
+de Cursor au prochain pull.
 
 ---
 
@@ -635,6 +666,7 @@ quand ça aide. Prohibition des fioritures (pas de « Excellent ! »,
 | « prépare le chantier C10 » / « cadrons C12 » / « on attaque C11 » | §4 |
 | « clôture C10 » / « on prépare la PR de C11 » / « archive le chantier » | §2.7 |
 | « ajoute un chantier C18 qui fait Y » / « rajoute le chantier visite virtuelle » | §5 |
+| « quoi faire ensuite ? » / « quel chantier après ? » / « le prochain c'est quoi ? » | `ROADMAP.md` (backlog ordonné) |
 | « Cursor coince sur CN.X » / « le bug persiste » / « tests verts mais visuellement cassé » | §6 |
 | « état du projet ? » / « où on en est ? » | §3 (snapshot dynamique) |
 | Question architecture / comportement | NODAL_MAP_SPEC.mdc d'abord, §7 (pièges) ensuite |
