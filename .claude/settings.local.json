@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"C:/Users/RenaldGauthier/Documents/GitHub/escape-game-360-maker\" branch --show-current)",
+      "Bash(git -C \"C:/Users/RenaldGauthier/Documents/GitHub/escape-game-360-maker\" log --oneline -10)",
+      "Bash(git -C \"C:/Users/RenaldGauthier/Documents/GitHub/escape-game-360-maker\" status --short)",
+      "Bash(git -C \"C:/Users/RenaldGauthier/Documents/GitHub/escape-game-360-maker\" diff --stat .cursor/rules/NODAL_MAP_SPEC.mdc)"
+    ]
+  }
+}

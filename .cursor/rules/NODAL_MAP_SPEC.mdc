@@ -2,12 +2,30 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.10.1 (14 mai 2026)
+> **Version** : 1.10.2 (14 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+
+> **Changelog v1.10.2** : ajout du **chantier C23** (Persistance bundle
+> audio — global + ambient + reconnexion blob au reload) en §7 backlog,
+> **bug pré-existant identifié pendant le smoke test C19.1** (2026-05-14).
+> Résultat smoke : sur le commit `2294253` (post-merge C18, AVANT C19),
+> 0/3 médias audio bundle local présents dans le `.escapegame` ; après
+> C19.1 (qui câble la projection `media-audio → action.sfx`), 1/3
+> présents (le SFX) — confirmant que la projection ambient (`media-audio`
+> enfant scène → `scene.media.ambiance`) et global (`meta.settings.audio.url`)
+> ne sont **pas** alimentées par le `toProjectJson` React, et que la
+> reconnexion blob `./assets/...` → nœud media-audio au reload n'est
+> pas restaurée. Bug latent pré-C18, révélé par les tests audio
+> systématiques C19. **Priorité haute** (bloquant pour les utilisateurs
+> qui sauvent des projets avec audio bundle local) mais traité **après
+> clôture C19** pour ne pas fragmenter le chantier en cours. ROADMAP.md
+> mis à jour (C23 en position 2 du backlog suggéré, juste après C19,
+> avant C22). §7 intro ajusté : « C11–C17 et C19–C23 planifiés ».
+> Doc-only.
 
 > **Changelog v1.10.1** : ouverture **chantier C19** (Audio preview /
 > écouter — pré-mix audio en authoring). Cadrage validé en phase
@@ -913,10 +931,12 @@ centre la vue sur le nœud concerné.
 ## 7. Roadmap d'implémentation
 
 Chantiers numérotés pour référence dans les commits. **C1–C10 + C18 livrés**
-(v1.5 → v1.9 pour C1–C10 ; **C18** en v1.10) ; **C11–C17 et C19–C22 planifiés** ci-dessous. La numérotation
+(v1.5 → v1.9 pour C1–C10 ; **C18** en v1.10) ; **C11–C17 et C19–C23 planifiés** ci-dessous. La numérotation
 au-delà de C10 est indicative — l’ordre peut être réarrangé selon
 priorité produit (priorité produit annoncée v1.9.1 : **C19
-prioritaire sur C11–C17** désormais que **C18** est livré ; **C22** — cf. §7). Chaque chantier passe par la phase
+prioritaire sur C11–C17** désormais que **C18** est livré ; **C23**
+priorité haute après C19 — bug bundle audio identifié pendant smoke
+C19.1, voir §7 → C23 ; **C22** — cf. §7). Chaque chantier passe par la phase
 questions §8.1 au démarrage et ouvre une **Annexe D** vivante refondue
 à la clôture (cf. §8.4 et `docs/archives/chantier_*.md`).
 
@@ -1497,6 +1517,76 @@ picker) + tests Vitest ; **C22.4** Adaptation éditeur legacy
 (formulaire `.scene-block`, `editor-shared-ui-utils.js`) + miroir
 `editor-shared-nodal-to-dom.js` ; **C22.5** Migration projets
 pré-C22 (au load).
+
+### C23 — Persistance bundle audio *(global + ambient + reconnexion blob au reload)*
+
+Bug pré-existant identifié pendant le smoke C19.1 (2026-05-14, cf.
+Changelog v1.10.2). Sur un projet contenant 3 médias audio bundle
+local (1 global, 1 ambient via `media-audio` enfant scène, 1 SFX via
+`media-audio` enfant action) :
+
+- **Avant C19.1** : 0/3 dans le `.escapegame` exporté.
+- **Après C19.1** : 1/3 (le SFX, grâce à la projection
+  `actionSfxProjection.ts` câblée dans `toProjectJson`).
+- **Reload** : même quand le SFX est embarqué dans `./assets/`, le
+  blob ne se reconnecte pas au nœud `media-audio` source au load.
+
+**Cœur technique** :
+
+- **Côté collecte bundle** (export `.escapegame`) : la collecte
+  d'URLs blob: depuis le projet sérialisé doit couvrir tous les
+  emplacements audio :
+  - **Global** : `meta.settings.audio.url` — à projeter depuis
+    `meta.settings.audio` (vérifier comment `toProjectJson` le
+    sérialise aujourd'hui).
+  - **Ambient** : aujourd'hui le `toProjectJson` React **ne projette
+    pas** `scene.media.ambiance` depuis le `media-audio` enfant
+    scène. À ajouter : helper symétrique à `actionSfxProjection.ts`
+    (`sceneAmbianceProjection.ts` ?) consommé par `toProjectJson` ;
+    OU côté collecte bundle, parcourir directement les nœuds
+    `media-audio` du store et collecter leurs URLs blob: même hors
+    sérialisation (chemin alternatif). À cadrer.
+  - **SFX** : OK depuis C19.1 via `actionSfxProjection.ts`.
+- **Côté reload** (load `.escapegame`) : au chargement d'un bundle
+  contenant `./assets/...`, les URLs `./assets/...` dans le projet
+  doivent reconnecter aux blobs réels via `bundleAssetPathBlobs`
+  (mécanisme existant côté legacy — `editor-shared-bundle.js`). Côté
+  React, la projection retour vers les nœuds `media-audio` du store
+  doit être faite (probablement dans `fromProjectJson` ou un effet
+  post-load).
+
+**Périmètre fonctionnel** :
+
+- Audit complet du flux **save** des médias audio (3 chemins :
+  global / ambient / sfx).
+- Audit complet du flux **load** + reconnexion blob.
+- Étendre la couverture symétriquement (probablement helpers
+  miroir des fonctions React existantes `serializeNodal*` /
+  `hydrateNodal*`).
+- **Vérifier en passant** si le même bug touche les médias **image**
+  (panoramas blob: enfants scène) — peu probable car les panoramas
+  sont sérialisés via `scene.panoramaUrl` direct, mais à valider en
+  audit.
+- Tests Vitest round-trip avec fixtures contenant 3 mp3 mock blob:.
+
+**Points à cadrer en phase questions** :
+
+- Approche projection vs collecte directe : (a) projeter ambient
+  dans `toProjectJson` (helper `sceneAmbianceProjection.ts`
+  symétrique à C19.1) puis collecte standard via le projet
+  sérialisé ; (b) collecter directement depuis les nœuds
+  `media-audio` du store sans passer par la projection
+  `scene.media.ambiance` ?
+- Reconnexion blob au load : étendre `bundleAssetPathBlobs` côté
+  React, ou réutiliser le mécanisme legacy via un pont ?
+- Périmètre étendu aux médias image bundle local : à confirmer en
+  audit.
+
+Découpage attendu (à valider §8.1) : **C23.1** Audit complet flux
+save/load des 3 chemins audio + symétrie image éventuelle ;
+**C23.2** Projection ambient + global dans `toProjectJson` (ou
+collecte directe du store selon Q) + tests round-trip ; **C23.3**
+Reconnexion blob au load + tests round-trip complet (3 mp3 mock).
 
 ---
 
