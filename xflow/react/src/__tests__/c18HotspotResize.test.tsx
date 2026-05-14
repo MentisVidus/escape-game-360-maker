@@ -274,11 +274,11 @@ describe("C18.4 — sélection au clic simple", () => {
     flushRaf();
     expect(container.querySelectorAll(".nodal-hotspot-handle").length).toBe(4);
 
-    const editToggle = container.querySelector(
-      ".nodal-scene-preview-modal__edit-toggle"
-    ) as HTMLButtonElement;
+    const interactBtn = Array.from(
+      container.querySelectorAll(".nodal-scene-preview-modal__mode-btn")
+    ).find((b) => b.textContent?.trim() === "Interactif") as HTMLButtonElement;
     act(() => {
-      editToggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      interactBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(container.querySelector(".nodal-scene-preview-modal")?.getAttribute("data-edit-mode")).toBe(

@@ -2,12 +2,116 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.10 (14 mai 2026)
+> **Version** : 1.11 (15 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+
+> **Changelog v1.11** : clôture **chantier C19** — Audio preview /
+> écouter. Synthèse **Annexe B — C19**. Livré : **C19.1** service
+> `audioChannelsService` (3 channels indépendants global/ambient/
+> sfx, loop dérivé du channel) + composant partagé
+> `<AudioPreviewButton>` + intégration popups (`AudioGlobalSettingsPopup`,
+> `MediaEditorPopup` avec channel résolu via `getMediaAudioChannel`)
+> + projection `action.sfx` depuis media-audio lié
+> (`actionSfxProjection.ts` + `toProjectJson` étendu) + refactor
+> `playerPreviewAudio.ts` (suppression `PreviewAudioController`,
+> branchement direct `ScenePreviewModal` + `PlayerPreviewOverlay`
+> sur le service) ; **C19.2** bandeau audio collapsable dans
+> aperçu scène 360° (icône 🔊▾, sliders Global/Ambiance/Dernier
+> SFX, replay dernier SFX, mute global) + 2 modes UX segmented
+> `Interactif | Édition` (défaut Interactif) + auto-play global+
+> ambient au mount + lastSfx persistent entre switches de scène +
+> mini-fix jsdom (no-op pause/load) ; **C19.2-fix (intégré)**
+> navigation goto fonctionnelle en mode interactif
+> (`resolveGotoTargetSceneId` + câblage `onGotoTransition` →
+> `setScenePreviewSceneId`). Journal :
+> `docs/archives/chantier_19.md`.
+>
+> **Écartés** : aucun.
+>
+> **Reste éventuel** : **C23** — Persistance bundle audio (bug
+> pré-existant identifié pendant smoke C19.1, inscrit §7 +
+> ROADMAP) ; idée future **mode Audio** (3e mode clic = SFX +
+> slider sans popup, à évaluer après usage de C19.2).
+
+> **Changelog v1.10.3** : amendements **plan détaillé C19.2** suite
+> phase questions post-smoke C19.1 (Q-C19.2-2/3/5/6/8 résolues
+> 2026-05-14). Changements structurants : (1) **2 modes UX
+> mutuellement exclusifs** dans la modale aperçu 360° — `Édition`
+> (clic = sélection/manipulation hotspot, C18.3-4) ↔ `Interactif`
+> (clic = popup runtime + déclenchement SFX, comportement joueur
+> C18.5), défaut au mount = `Interactif` (cas d'usage le plus fréquent,
+> zéro risque d'écrasement de position). Audit obligatoire C19.2 :
+> consolider l'activation actuelle du mode interactif si elle passe
+> par un toggle séparé du toggle Édition. (2) **Bandeau audio en
+> panneau collapsable** (icône 🔊 dans header → déplie sous-panneau),
+> état par défaut `fermé`, ouverture/fermeture **manuelles
+> uniquement** (pas d'auto-fermeture sur clic ailleurs ni `onBlur`).
+> (3) **`lastSfx` conservé entre switches de scène** (reset uniquement
+> au unmount modale, `stopAll()`) — permet de régler les SFX de goto
+> en navigant vers la scène cible puis replay. (4) Inclus en C19.2 :
+> mini-fix cosmétique des warnings jsdom `HTMLMediaElement.prototype.pause/load`
+> (try/catch silencieux dans `strictCleanup` ou mock global dans
+> `vitest.setup.ts`). **Idée future hors scope C19.2** : mode `Audio`
+> (3e mode où clic = joue le SFX + slider volume sans ouvrir la popup
+> runtime ni manipuler le hotspot). Avantage : permettrait de régler
+> les SFX des goto et choix sans parcours complet. Limitation : ne
+> couvre pas les choix dans un selector qui nécessitent un parcours.
+> À évaluer après usage de C19.2 si le besoin se confirme.
+> Doc-only.
+
+> **Changelog v1.10.2** : ajout du **chantier C23** (Persistance bundle
+> audio — global + ambient + reconnexion blob au reload) en §7 backlog,
+> **bug pré-existant identifié pendant le smoke test C19.1** (2026-05-14).
+> Résultat smoke : sur le commit `2294253` (post-merge C18, AVANT C19),
+> 0/3 médias audio bundle local présents dans le `.escapegame` ; après
+> C19.1 (qui câble la projection `media-audio → action.sfx`), 1/3
+> présents (le SFX) — confirmant que la projection ambient (`media-audio`
+> enfant scène → `scene.media.ambiance`) et global (`meta.settings.audio.url`)
+> ne sont **pas** alimentées par le `toProjectJson` React, et que la
+> reconnexion blob `./assets/...` → nœud media-audio au reload n'est
+> pas restaurée. Bug latent pré-C18, révélé par les tests audio
+> systématiques C19. **Priorité haute** (bloquant pour les utilisateurs
+> qui sauvent des projets avec audio bundle local) mais traité **après
+> clôture C19** pour ne pas fragmenter le chantier en cours. ROADMAP.md
+> mis à jour (C23 en position 2 du backlog suggéré, juste après C19,
+> avant C22). §7 intro ajusté : « C11–C17 et C19–C23 planifiés ».
+> Doc-only.
+
+> **Changelog v1.10.1** : ouverture **chantier C19** (Audio preview /
+> écouter — pré-mix audio en authoring). Cadrage validé en phase
+> questions (Q-C19-1 à Q-C19-18, 2026-05-14). **Scope élargi** vs spec
+> §7 → C19 initiale : preview audio sur **3 channels en parallèle**
+> (global / ambient / sfx) à **2 endroits** — (1) bouton play unitaire
+> dans chaque popup audio (global = `AudioGlobalSettingsPopup` ;
+> ambient + sfx = `MediaEditorPopup` quand `node.type === "media-audio"`,
+> channel résolu via `getMediaAudioChannel(state, mediaNodeId)` :
+> parent scène via edge meta → `ambient`, parent action (hotspot/choice)
+> via edge meta → `sfx`) avec slider volume live, auto-stop
+> SON channel à fermeture popup, sans interférence avec les autres
+> channels ; (2) bandeau audio dans la barre haut de l'aperçu scène
+> 360° (modale C18.1/C18.5) avec sliders Global / Ambiance / Dernier
+> SFX + bouton replay dernier SFX, auto-play global+ambient à
+> l'ouverture (toggle 🔊 par défaut ON), déclenchement SFX au clic
+> hotspot en mode interactif C18.5 (audit goto C18.5 obligatoire).
+> **Annexe D ouverte** (cadrage + plans détaillés C19.1 et C19.2
+> rédigés en one-shot). **Découpage** : **C19.1** Service
+> `audioChannelsService.ts` (3 channels indépendants, loop sur global+
+> ambient, auto-stop sur sfx, volume 1:1 avec valeur stockée) +
+> composant `<AudioPreviewButton>` partagé + intégration popups
+> (`AudioGlobalSettingsPopup`, `MediaEditorPopup` pour media-audio,
+> distinction ambient/sfx dérivée du parent du nœud) ; **C19.2**
+> Bandeau audio dans aperçu scène 360° (auto-play global+ambient au
+> mount, sliders 3-channels en header, bouton replay dernier SFX,
+> déclenchement SFX au clic hotspot mode interactif, audit goto C18.5
+> + transition ambient au switch de scène). **Audit obligatoire C19.1**
+> : `xflow/react/src/view/playerPreview/playerPreviewAudio.ts` existe
+> déjà (posé en C18.5.3) — vérifier interaction / réutilisation pour
+> ne pas dupliquer. Branche `feat/c19-audio-preview` créée depuis
+> `feat/nodal-map`. Doc-only.
 
 > **Changelog v1.10** : clôture **chantier C18** — Aperçu de scène
 > 360° + placement coords hotspots. Synthèse **Annexe B — C18**.
@@ -249,8 +353,8 @@ valider l'intention produit. Il décrit :
 - Les règles de cohérence et warnings (§6).
 - La roadmap d'implémentation (§7).
 - Les règles de collaboration avec l'agent (§8).
-- Les annexes A–C (chantiers **C1–C10 + C18 livrés** — v1.5 → v1.9 puis
-  v1.10 pour C18 ; voir **Annexe B** par chantier ; journaux archivés
+- Les annexes A–C (chantiers **C1–C10 + C18 + C19 livrés** — v1.5 → v1.9 puis
+  v1.10 pour C18, v1.11 pour C19 ; voir **Annexe B** par chantier ; journaux archivés
   sous `docs/archives/`).
 
 ### 0.2 Règles transversales produit
@@ -880,11 +984,11 @@ centre la vue sur le nœud concerné.
 
 ## 7. Roadmap d'implémentation
 
-Chantiers numérotés pour référence dans les commits. **C1–C10 + C18 livrés**
-(v1.5 → v1.9 pour C1–C10 ; **C18** en v1.10) ; **C11–C17 et C19–C22 planifiés** ci-dessous. La numérotation
+Chantiers numérotés pour référence dans les commits. **C1–C10 + C18 + C19 livrés**
+(v1.5 → v1.9 pour C1–C10 ; **C18** en v1.10 ; **C19** en v1.11) ; **C11–C17 et C20–C23 planifiés** ci-dessous. La numérotation
 au-delà de C10 est indicative — l’ordre peut être réarrangé selon
-priorité produit (priorité produit annoncée v1.9.1 : **C19
-prioritaire sur C11–C17** désormais que **C18** est livré ; **C22** — cf. §7). Chaque chantier passe par la phase
+priorité produit (**C23** priorité haute — bug bundle audio identifié pendant smoke
+C19.1, voir §7 → C23 ; **C22** — cf. §7). Chaque chantier passe par la phase
 questions §8.1 au démarrage et ouvre une **Annexe D** vivante refondue
 à la clôture (cf. §8.4 et `docs/archives/chantier_*.md`).
 
@@ -1253,46 +1357,18 @@ prévisualisation pédagogique ; livraisons C18.5.1–.3).
 
 ### C19 — Audio preview / écouter
 
-Objectif : pouvoir **tester un fichier audio** (URL ou bundle local)
-directement depuis la carte, avec contrôle volume actif. Permet le
-**pré-mix réaliste** des volumes sur l'audio global et les media nodes
-audio en authoring. Aujourd'hui l'utilisateur règle les volumes à
-l'aveugle. **Priorité : haute (annoncée v1.9.1).**
+- **Livré** (2026-05-15) — synthèse **Annexe B — C19**, journal
+  `docs/archives/chantier_19.md`.
 
-**Cœur technique** :
-
-- `<audio>` HTML5 standard (pas de dépendance).
-- Réutilisation possible de `editorAudioPreviewToggle` legacy (cf.
-  `editeur.html` qui appelle déjà cette fonction sur le bouton ▶
-  legacy à côté de `#globalAudioUrl`).
-- Lecture en respectant la valeur `volume` actuellement saisie dans
-  le store.
-
-**Périmètre fonctionnel** :
-
-- Bouton **play/pause** sur les inputs URL audio :
-  - Popup audio global (`AudioGlobalSettingsPopup`, C10.2.d) — pour
-    `meta.settings.audio.url` + slider volume.
-  - Popups audio media nodes (édition d'un nœud `media-audio`).
-- Lecture **single-player partagée** : un seul player actif à la
-  fois ; ouvrir un nouveau preview arrête le précédent. Évite la
-  cacophonie.
-- Le volume slider **influe en temps réel** sur la lecture en
-  cours (mute possible via le slider à 0).
-
-**Points à cadrer en phase questions** :
-
-- Single player partagé (recommandé) ou un par-source ?
-- Comportement à la fin du fichier : auto-stop ou loop ?
-- Indication visuelle de l'état (jauge de progression ? icône ▶/⏸ ?).
-- Le player est-il actif sur l'aperçu complet ou se ferme-t-il à la
-  fermeture de la popup ? (Recommandé : auto-stop à la fermeture
-  popup pour éviter les sons fantômes.)
-
-Découpage attendu (à valider §8.1) : **C19.1** API preview audio
-unifiée + bouton dans `AudioGlobalSettingsPopup` ; **C19.2** Idem
-popups audio media nodes ; **C19.3** Slider volume live + auto-stop à
-fermeture popup.
+Découpage livré (cadrage Q-C19 — synthèse **Annexe B — C19**, détails
+`docs/archives/chantier_19.md`) : **C19.1** service `audioChannelsService`
+(3 channels `global`/`ambient`/`sfx`) + `<AudioPreviewButton>` + intégration
+popups + projection `action.sfx` via `actionSfxProjection` /
+`toProjectJson` + refactor `playerPreviewAudio` ; **C19.2** bandeau audio
+collapsable (🔊▾) + sliders Global/Ambiance/Dernier SFX + segmented
+`Interactif | Édition` + auto-play + mute / replay ; **C19.2-fix (intégré au feat)**
+`resolveGotoTargetSceneId` + câblage `onGotoTransition` →
+`setScenePreviewSceneId`.
 
 ### C20 — Aperçus latéraux globaux
 
@@ -1465,6 +1541,76 @@ picker) + tests Vitest ; **C22.4** Adaptation éditeur legacy
 (formulaire `.scene-block`, `editor-shared-ui-utils.js`) + miroir
 `editor-shared-nodal-to-dom.js` ; **C22.5** Migration projets
 pré-C22 (au load).
+
+### C23 — Persistance bundle audio *(global + ambient + reconnexion blob au reload)*
+
+Bug pré-existant identifié pendant le smoke C19.1 (2026-05-14, cf.
+Changelog v1.10.2). Sur un projet contenant 3 médias audio bundle
+local (1 global, 1 ambient via `media-audio` enfant scène, 1 SFX via
+`media-audio` enfant action) :
+
+- **Avant C19.1** : 0/3 dans le `.escapegame` exporté.
+- **Après C19.1** : 1/3 (le SFX, grâce à la projection
+  `actionSfxProjection.ts` câblée dans `toProjectJson`).
+- **Reload** : même quand le SFX est embarqué dans `./assets/`, le
+  blob ne se reconnecte pas au nœud `media-audio` source au load.
+
+**Cœur technique** :
+
+- **Côté collecte bundle** (export `.escapegame`) : la collecte
+  d'URLs blob: depuis le projet sérialisé doit couvrir tous les
+  emplacements audio :
+  - **Global** : `meta.settings.audio.url` — à projeter depuis
+    `meta.settings.audio` (vérifier comment `toProjectJson` le
+    sérialise aujourd'hui).
+  - **Ambient** : aujourd'hui le `toProjectJson` React **ne projette
+    pas** `scene.media.ambiance` depuis le `media-audio` enfant
+    scène. À ajouter : helper symétrique à `actionSfxProjection.ts`
+    (`sceneAmbianceProjection.ts` ?) consommé par `toProjectJson` ;
+    OU côté collecte bundle, parcourir directement les nœuds
+    `media-audio` du store et collecter leurs URLs blob: même hors
+    sérialisation (chemin alternatif). À cadrer.
+  - **SFX** : OK depuis C19.1 via `actionSfxProjection.ts`.
+- **Côté reload** (load `.escapegame`) : au chargement d'un bundle
+  contenant `./assets/...`, les URLs `./assets/...` dans le projet
+  doivent reconnecter aux blobs réels via `bundleAssetPathBlobs`
+  (mécanisme existant côté legacy — `editor-shared-bundle.js`). Côté
+  React, la projection retour vers les nœuds `media-audio` du store
+  doit être faite (probablement dans `fromProjectJson` ou un effet
+  post-load).
+
+**Périmètre fonctionnel** :
+
+- Audit complet du flux **save** des médias audio (3 chemins :
+  global / ambient / sfx).
+- Audit complet du flux **load** + reconnexion blob.
+- Étendre la couverture symétriquement (probablement helpers
+  miroir des fonctions React existantes `serializeNodal*` /
+  `hydrateNodal*`).
+- **Vérifier en passant** si le même bug touche les médias **image**
+  (panoramas blob: enfants scène) — peu probable car les panoramas
+  sont sérialisés via `scene.panoramaUrl` direct, mais à valider en
+  audit.
+- Tests Vitest round-trip avec fixtures contenant 3 mp3 mock blob:.
+
+**Points à cadrer en phase questions** :
+
+- Approche projection vs collecte directe : (a) projeter ambient
+  dans `toProjectJson` (helper `sceneAmbianceProjection.ts`
+  symétrique à C19.1) puis collecte standard via le projet
+  sérialisé ; (b) collecter directement depuis les nœuds
+  `media-audio` du store sans passer par la projection
+  `scene.media.ambiance` ?
+- Reconnexion blob au load : étendre `bundleAssetPathBlobs` côté
+  React, ou réutiliser le mécanisme legacy via un pont ?
+- Périmètre étendu aux médias image bundle local : à confirmer en
+  audit.
+
+Découpage attendu (à valider §8.1) : **C23.1** Audit complet flux
+save/load des 3 chemins audio + symétrie image éventuelle ;
+**C23.2** Projection ambient + global dans `toProjectJson` (ou
+collecte directe du store selon Q) + tests round-trip ; **C23.3**
+Reconnexion blob au load + tests round-trip complet (3 mp3 mock).
 
 ---
 
@@ -2098,6 +2244,94 @@ pendant le chantier comme C18.3 + C18.4 explicites (cf. journal archivé).
 
 **Journal détaillé** (plans + décisions) : `docs/archives/chantier_18.md`.
 
+### C19 — Audio preview / écouter *(clôture chantier 2026-05-15)*
+
+**Branche** : `feat/c19-audio-preview` (mergée dans `feat/nodal-map`
+le **YYYY-MM-DD** — à compléter au merge).
+
+**Périmètre livré (synthèse)** :
+
+- **C19.1** Service multi-channel + bouton partagé + intégration
+  popups + projection action.sfx :
+  - `xflow/react/src/services/audioChannelsService.ts` — singleton
+    hors React, 3 channels (`global`/`ambient`/`sfx`) indépendants,
+    loop dérivé du channel (global+ambient = loop, sfx = no-loop),
+    observable par channel, cleanup strict (`pause` +
+    `removeAttribute('src')` + `load`).
+  - `xflow/react/src/view/components/AudioPreviewButton.tsx` —
+    composant partagé (▶/⏸ + jauge progress + ARIA + tooltip
+    erreur, auto-stop SON channel à `unmount`).
+  - Helper `getMediaAudioChannel(state, mediaNodeId)` — parent
+    scène (edge meta) → `ambient`, parent action → `sfx`,
+    orphelin → `ambient` par défaut.
+  - Intégration `AudioGlobalSettingsPopup` (channel `global`),
+    `MediaEditorPopup` quand `node.type === "media-audio"`
+    (channel résolu).
+  - `xflow/react/src/model/actionSfxProjection.ts` —
+    `resolveLinkedMediaAudioSfxForAction` (miroir du legacy
+    `mediaAudioLinkedFromAction`) ; intégration dans
+    `serialize/toProjectJson.ts` (priorité au média lié, fallback
+    sur `action.sfx`).
+  - Refactor `playerPreviewAudio.ts` : suppression
+    `PreviewAudioController` (134 lignes nettes) ; conservation
+    `resolveSceneAmbiance` + `resolveActionSfx` étendu en
+    `(state, action)` avec priorité au média lié + helper
+    `resolveActionSfxPlayOpts`. Branchement direct
+    `ScenePreviewModal` + `PlayerPreviewOverlay` sur le service.
+- **C19.2** Bandeau audio dans aperçu scène 360° + 2 modes UX :
+  - Bandeau audio en panneau collapsable dans le header de
+    `ScenePreviewModal` : icône 🔊▾ à droite avant ✕, ouverture/
+    fermeture **manuelles uniquement** (pas d'auto-fermeture).
+  - Sous-panneau : 3 sliders (Global / Ambiance / Dernier SFX,
+    masqués si non applicables) + bouton replay dernier SFX +
+    bouton « Couper tous les sons » / « Réactiver » (mute global via
+    `stopAll({ clearLastSfx: false })` puis reprise auto-play).
+  - Persistance sliders : `setMetaSettingsAudio` (global),
+    `updateNodeData` (média ambiance / SFX lié ou `action.sfx`).
+  - 2 modes UX mutuellement exclusifs : segmented control
+    `Interactif | Édition`, défaut `Interactif`, reset à chaque
+    ouverture. Le clic SFX hotspot actif uniquement en
+    `Interactif` ; en `Édition`, clic = sélection/manipulation
+    hotspot (C18.3-4). Compat tests existants : classe
+    `nodal-scene-preview-modal__edit-toggle` conservée.
+  - Auto-play global+ambient au mount (`useEffect` dans
+    `ScenePreviewModal`, sauf si `audioMuted`). `stopAll()` au
+    unmount modale (`sceneId === null`).
+  - Mini-fix jsdom : `xflow/react/src/vitest.setup.ts` +
+    `vite.config.ts` (setupFiles), no-op sur `pause`/`load` —
+    bruit `Error: Not implemented` éliminé de la sortie test.
+- **C19.2-fix (intégré au feat)** Audit goto C18.5 → bug confirmé
+  (en mode interactif, `onConfirm: onClose` ne navigue pas vers
+  la scène cible). Fix livré :
+  - Helper `xflow/react/src/model/resolveGotoTargetSceneId.ts` —
+    résout l'arête `family: "transition"` depuis l'action goto
+    vers une scène. Une seule cible → scene id ; 0 ou plusieurs →
+    `null` + `console.warn`.
+  - `PlayerPreviewOverlay` appelle `onGotoTransition(targetSceneId)`
+    puis `onClose` au confirm goto.
+  - `NodalCanvas` câble `onNavigateToScene={(id) => setScenePreviewSceneId(id)}`.
+  - Test dédié `c19_2_fix_goto_navigation.test.tsx`.
+
+**Écartés** : aucun. Tous les sous-chantiers cadrés livrés.
+
+**Reste éventuel** :
+
+- **C23 — Persistance bundle audio** : bug pré-existant identifié
+  pendant smoke C19.1 (0/3 médias audio bundle local avant C19.1,
+  1/3 après — projection ambient et global manquantes côté React
+  export, reconnexion blob au reload cassée). Chantier inscrit en
+  `§7 → C23` + `ROADMAP.md` position 1 du backlog suggéré.
+- **Mode `Audio` futur** (idée hors scope C19.2) — 3e mode où
+  clic = joue le SFX + slider volume sans ouvrir la popup runtime
+  ni manipuler le hotspot. Permettrait de régler les SFX des goto
+  et choix sans parcours complet. Limitation : ne couvre pas les
+  choix dans un selector qui nécessitent un parcours. Détail dans
+  Changelog v1.10.3 § « Idée future hors scope C19.2 ». À évaluer
+  après usage si le besoin se confirme.
+
+**Journal détaillé** (plans Cursor + décisions de design + audit
+goto + zigzag SFX) : `docs/archives/chantier_19.md`.
+
 ## Annexe C — Glossaire
 
 - **Action** : unité métier éditable. Types `msg`, `pick`, `goto`,
@@ -2118,3 +2352,4 @@ pendant le chantier comme C18.3 + C18.4 explicites (cf. journal archivé).
   (`coords-options`, `choice-options`, `object`).
 - **Transition** (famille handle) : nouvelle famille dédiée au `goto` —
   couleur bleu vif, forme triangle, edge pointillé animé.
+

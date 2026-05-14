@@ -57,6 +57,7 @@ import type {
 import type { ObjectEntry } from "../model/objects";
 import type { NodalProject } from "../model/project";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
+import { getMediaAudioChannel } from "../services/audioChannelsService";
 import { sceneIdFromSboxId } from "../store/reconcileSceneBoxes";
 import { isNodalClipboardEmpty } from "../store/clipboard";
 import { decodePaletteDragPayload, PALETTE_DRAG_MIME } from "../store/insertNodeAtAbsolute";
@@ -1344,6 +1345,10 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
   const choiceParentAction = findParentAction(choiceEditorSatelliteId);
   const mediaToEdit: MediaNode | null =
     mediaEditorMediaId && state.media[mediaEditorMediaId] ? state.media[mediaEditorMediaId] : null;
+  const mediaEditorAudioChannel =
+    mediaEditorMediaId && mediaToEdit?.mediaType === "media-audio"
+      ? getMediaAudioChannel(state, mediaEditorMediaId)
+      : ("ambient" as const);
   const msgToEdit: MsgActionNode | null =
     msgEditorActionId &&
     state.actions[msgEditorActionId] &&
@@ -1581,6 +1586,8 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         />
         <MediaEditorPopup
           media={mediaToEdit}
+          audioChannel={mediaEditorAudioChannel}
+          mediaNodeId={mediaEditorMediaId}
           onChange={(patch) => {
             if (!mediaEditorMediaId) return;
             const snap = store.getState();
@@ -1778,6 +1785,7 @@ function NodalCanvasInner({ store }: { store: StoreApi<NodalProjectStore> }) {
         <ScenePreviewModal
           sceneId={scenePreviewSceneId}
           onClose={() => setScenePreviewSceneId(null)}
+          onNavigateToScene={(id) => setScenePreviewSceneId(id)}
         />
         <CoordsPickerModal
           key={coordsPickerSatelliteId ?? "none"}

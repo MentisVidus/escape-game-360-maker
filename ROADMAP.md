@@ -23,6 +23,7 @@
 | C9 | Clipboard / paste / refactor | v1.8 | Annexe B — C9, `docs/archives/chantier_9.md` |
 | C10 | Autonomie carte nodale (authoring standalone) | v1.9 | Annexe B — C10, `docs/archives/chantier_10.md` |
 | C18 | Aperçu de scène 360° + placement coords hotspots | v1.10 | Annexe B — C18, `docs/archives/chantier_18.md` |
+| C19 | Audio preview / écouter | v1.11 | Annexe B — C19, `docs/archives/chantier_19.md` |
 
 ---
 
@@ -30,10 +31,10 @@
 
 L'ordre ci-dessous est une **suggestion** de Claude pour le choix du prochain chantier, pas une décision figée. À réviser librement avec le game designer en début de chantier (la numérotation reste celle de la création, l'ordre d'exécution est libre).
 
-### 1. C19 — Audio preview / écouter
-- **Raison** : prioritaire annoncée v1.9.1 (au même rang que C18). Comble la dernière fonction d'authoring legacy non rapatriée — pré-mix réaliste des volumes audio. Aujourd'hui l'utilisateur règle les volumes à l'aveugle.
-- **Apporte** : bouton play/pause + slider volume live sur popups audio (global C10.2.d + media nodes audio). Single player partagé pour éviter la cacophonie. Auto-stop à la fermeture popup.
-- **Détail** : NODAL_MAP_SPEC §7 → C19.
+### 1. C23 — Persistance bundle audio *(global + ambient + reconnexion blob au reload)*
+- **Raison** : bug pré-existant identifié pendant smoke C19.1 (2026-05-14). Sur un projet avec 3 mp3 bundle local (global / ambient / sfx), le `.escapegame` exporté contient 0/3 avant C19.1 et 1/3 après C19.1 (seul le SFX, grâce à la projection câblée). Au reload, même les médias embarqués ne se reconnectent pas aux nœuds source. Bloquant pour les utilisateurs qui sauvent des projets avec audio bundle local.
+- **Apporte** : projection ambient + global symétrique à C19.1 (helper miroir de `actionSfxProjection.ts`) OU collecte directe depuis les nœuds `media-audio` du store ; reconnexion blob `./assets/...` → nœud media-audio au load ; tests round-trip avec fixtures 3 mp3 mock.
+- **Détail** : NODAL_MAP_SPEC §7 → C23.
 
 ### 2. C22 — Hotspots responsives *(scaling proportionnel à l'image)*
 - **Raison** : dette d'archi transverse repérée pendant le cadrage C18.4 — `appearance.ui_w` / `ui_h` sont en pixels CSS bruts, donc un hotspot ne couvre pas la même proportion d'image selon l'écran. Bug d'archi présent dans tout le projet (legacy + React + runtime joueur). À solder avant les chantiers qui multiplient les manipulations hotspot (notamment C16 vidéo 360°).
@@ -41,7 +42,7 @@ L'ordre ci-dessous est une **suggestion** de Claude pour le choix du prochain ch
 - **Détail** : NODAL_MAP_SPEC §7 → C22.
 
 ### 3. C20 — Aperçus latéraux globaux
-- **Raison** : extension naturelle du pattern `PlayerPopupPreview` (C7) — cohérent à enchaîner après C19 qui pose les fondations preview audio. Absorbe l'item ex-`C10.2.b-fix` noté pendant C10.
+- **Raison** : extension naturelle du pattern `PlayerPopupPreview` (C7) — cohérent à enchaîner maintenant que les fondations preview audio (C19 livré) sont en place. Absorbe l'item ex-`C10.2.b-fix` noté pendant C10.
 - **Apporte** : aperçu inventaire HUD + aperçu écrans Game Over / Victory **themed** (avec application du thème popup courant) dans les popups Paramètres globaux. Refit visible+disabled sur la popup inventaire (alignement pattern timer C10.2.e).
 - **Détail** : NODAL_MAP_SPEC §7 → C20.
 

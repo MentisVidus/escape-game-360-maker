@@ -731,19 +731,138 @@
 
 .nodal-canvas-layout .nodal-scene-preview-modal__header {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  flex-shrink: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--palette-border);
+  background: color-mix(in srgb, var(--palette-bg) 88%, var(--node-text));
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__header-row {
+  display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   flex-shrink: 0;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--palette-border);
-  background: color-mix(in srgb, var(--palette-bg) 88%, var(--node-text));
+  min-width: 0;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__header-trail {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__mode-segment {
+  display: inline-flex;
+  border-radius: 8px;
+  border: 1px solid var(--palette-button-border);
+  overflow: hidden;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__mode-btn {
+  padding: 6px 12px;
+  border: none;
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__mode-btn[data-active="1"] {
+  background: color-mix(in srgb, var(--node-selected-outline) 22%, var(--palette-button-bg));
+  font-weight: 600;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__mode-btn:hover {
+  background: var(--palette-button-hover);
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-panel-toggle {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-panel-toggle:hover {
+  background: var(--palette-button-hover);
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-drawer {
+  border-top: 1px solid var(--palette-border);
+  padding: 10px 16px 12px;
+  background: color-mix(in srgb, var(--palette-bg) 94%, var(--node-text));
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-drawer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 420px;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-mute-btn,
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-replay-btn {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-replay-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-slider-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__audio-slider-row input[type="range"] {
+  width: 100%;
 }
 
 .nodal-canvas-layout .nodal-scene-preview-modal__title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nodal-canvas-layout .nodal-scene-preview-modal__close-x {
@@ -775,17 +894,21 @@
   width: 100%;
 }
 
-/* C18.3 — toggle « Éditer les hotspots » dans le header de l'aperçu scène. */
+.nodal-canvas-layout .nodal-scene-preview-modal__mode-segment .nodal-scene-preview-modal__mode-btn + .nodal-scene-preview-modal__mode-btn {
+  border-left: 1px solid var(--palette-button-border);
+}
+
+/* C18.3 / C19.2 — bouton « Édition » du segment (classe legacy pour tests). */
 .nodal-canvas-layout .nodal-scene-preview-modal__edit-toggle {
-  margin-left: auto;
+  margin-left: 0;
   padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--palette-button-border);
-  background: var(--palette-button-bg);
+  border-radius: 0;
+  border: none;
+  background: transparent;
   color: var(--node-text);
   cursor: pointer;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
 .nodal-canvas-layout .nodal-scene-preview-modal__edit-toggle:hover {
@@ -793,7 +916,7 @@
 }
 
 .nodal-canvas-layout .nodal-scene-preview-modal__edit-toggle[data-active="1"] {
-  border-color: var(--node-selected-outline);
+  border-color: transparent;
   background: color-mix(in srgb, var(--node-selected-outline) 18%, var(--palette-button-bg));
   font-weight: 600;
 }

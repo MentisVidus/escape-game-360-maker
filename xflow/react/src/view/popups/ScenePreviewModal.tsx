@@ -15,14 +15,12 @@ import {
   type HotspotSelection,
 } from "../preview/HotspotResizeHandles";
 import { NodalPanoramaViewer, type NodalPanoramaViewerHandle } from "../preview/NodalPanoramaViewer";
+import { ScenePreviewAudioBar } from "../preview/ScenePreviewAudioBar";
 import { collectSceneHotspotProjections, type PannellumHotSpotProjection } from "../preview/sceneHotspotProjections";
 import { resolveScenePanoramaDisplayUrl } from "../preview/scenePanoramaDisplay";
 import { PlayerPreviewOverlay } from "../playerPreview/PlayerPreviewOverlay";
-import {
-  PreviewAudioController,
-  resolveActionSfx,
-  resolveSceneAmbiance,
-} from "../playerPreview/playerPreviewAudio";
+import { resolveActionSfxPlayOpts, resolveSceneAmbiance } from "../playerPreview/playerPreviewAudio";
+import { getAudioChannelsService } from "../../services/audioChannelsService";
 
 type Locale = "fr" | "en";
 
@@ -38,11 +36,21 @@ const COPY: Record<
     missingTitle: string;
     missingBody: string;
     previewTitlePrefix: string;
-    editToggleOn: string;
-    editToggleOff: string;
+    modeInteractif: string;
+    modeEdition: string;
     editHint: string;
     livePrefix: string;
     resizePrefix: string;
+    audioPanelExpand: string;
+    audioPanelCollapse: string;
+    audioBar: {
+      muteAll: string;
+      unmuteAll: string;
+      replaySfx: string;
+      sliderGlobal: string;
+      sliderAmbient: string;
+      sliderLastSfx: string;
+    };
   }
 > = {
   fr: {
@@ -50,30 +58,52 @@ const COPY: Record<
     missingTitle: "Image 360 manquante",
     missingBody: "Renseigner l’URL panorama de la scène ou lier un média image (connexion meta) avec une URL.",
     previewTitlePrefix: "👁 Aperçu :",
-    editToggleOn: "✏ Édition active — quitter",
-    editToggleOff: "✏ Éditer les hotspots",
+    modeInteractif: "Interactif",
+    modeEdition: "Édition",
     editHint:
       "Glissez un hotspot pour le déplacer • Cliquez pour sélectionner / redimensionner • Shift = ratio fixe.",
     livePrefix: "📍 Pitch",
     resizePrefix: "↔",
+    audioPanelExpand: "Afficher les contrôles audio",
+    audioPanelCollapse: "Masquer les contrôles audio",
+    audioBar: {
+      muteAll: "Couper tous les sons",
+      unmuteAll: "Réactiver les sons",
+      replaySfx: "↻ Rejouer le dernier SFX",
+      sliderGlobal: "Global",
+      sliderAmbient: "Ambiance",
+      sliderLastSfx: "Dernier SFX",
+    },
   },
   en: {
     close: "Close",
     missingTitle: "Missing 360 image",
     missingBody: "Set the scene panorama URL or link an image media (meta edge) with a URL.",
     previewTitlePrefix: "👁 Preview:",
-    editToggleOn: "✏ Editing — exit",
-    editToggleOff: "✏ Edit hotspots",
+    modeInteractif: "Interactive",
+    modeEdition: "Edit",
     editHint:
       "Drag a hotspot to move it • Click to select / resize • Shift = lock aspect ratio.",
     livePrefix: "📍 Pitch",
     resizePrefix: "↔",
+    audioPanelExpand: "Show audio controls",
+    audioPanelCollapse: "Hide audio controls",
+    audioBar: {
+      muteAll: "Mute all sounds",
+      unmuteAll: "Unmute sounds",
+      replaySfx: "↻ Replay last SFX",
+      sliderGlobal: "Global",
+      sliderAmbient: "Ambient",
+      sliderLastSfx: "Last SFX",
+    },
   },
 };
 
 export type ScenePreviewModalProps = {
   sceneId: SceneNodeId | null;
   onClose: () => void;
+  /** C19.2-fix — navigation goto en preview interactif (confirm bouton principal). */
+  onNavigateToScene?: (sceneId: SceneNodeId) => void;
 };
 
 /**
@@ -142,7 +172,7 @@ function clamp(value: number, min: number, max: number): number {
  * C18.4 — Sélection d'un hotspot (clic simple en mode édition) + 4 handles de
  * resize aux coins, ancrés au centre. Shift = ratio fixe ; bornes 16-800 px.
  */
-export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) {
+export function ScenePreviewModal({ sceneId, onClose, onNavigateToScene }: ScenePreviewModalProps) {
   const { store } = useNodalUi();
   const L = COPY[detectLocale()];
   const styleId = useId().replace(/:/g, "");
@@ -178,18 +208,11 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
    * affichée. Toute bascule en mode édition la ferme automatiquement.
    */
   const [playerPreviewActionId, setPlayerPreviewActionId] = useState<ActionNodeId | null>(null);
+  /** C19.2 — panneau audio repliable (icône 🔊 dans le header). */
+  const [audioPanelOpen, setAudioPanelOpen] = useState(false);
+  /** C19.2 — mute tous canaux ; `false` = sons actifs (défaut au mount). */
+  const [audioMuted, setAudioMuted] = useState(false);
   const viewerHandleRef = useRef<NodalPanoramaViewerHandle | null>(null);
-  /**
-   * C18.5.3 — contrôleur audio dédié à l'aperçu joueur (ambiance scène
-   * en loop + SFX hotspot/choix). Instancié lazy au premier accès, et
-   * détruit (`destroy()`) à la fermeture de la modale. Voir
-   * `playerPreviewAudio.ts`.
-   */
-  const audioCtrlRef = useRef<PreviewAudioController | null>(null);
-  const getAudioCtrl = useCallback(() => {
-    if (!audioCtrlRef.current) audioCtrlRef.current = new PreviewAudioController();
-    return audioCtrlRef.current;
-  }, []);
 
   /** Mapping cssClass → projection — utilisé pour identifier le hotspot au pointerdown. */
   const cssClassIndex = useMemo(() => {
@@ -198,7 +221,7 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
     return m;
   }, [projections]);
 
-  /** Reset complet à la fermeture (sceneId null) ou à la sortie du mode édition. */
+  /** Reset complet à la fermeture (sceneId null). */
   useEffect(() => {
     if (sceneId == null) {
       setEditMode(false);
@@ -207,55 +230,61 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
       setSelection(null);
       setResize(null);
       setPlayerPreviewActionId(null);
-      // C18.5.3 — coupe ambiance + SFX à la fermeture de la modale.
-      audioCtrlRef.current?.destroy();
-      audioCtrlRef.current = null;
+      setAudioPanelOpen(false);
+      setAudioMuted(false);
+      getAudioChannelsService().stopAll();
     }
   }, [sceneId]);
 
   /**
-   * C18.5.3 — joue (ou met à jour) l'ambiance scène = premier media-audio
-   * relié par edge meta scène → media-audio. Idempotent sur l'URL : si la
-   * scène ne change pas (et que l'URL ambiance reste la même), aucune
-   * interruption. Coupée au unmount via le useEffect ci-dessus.
+   * C19.2 — auto-play global (`meta.settings.audio`) + ambiance scène
+   * tant que la modale est ouverte et que le mute panneau est inactif.
+   * Transition d’ambiance au changement de `sceneId` (ex. goto confirm).
    */
   useEffect(() => {
     if (!sceneId) return;
-    const amb = resolveSceneAmbiance(snap, sceneId);
-    const ctrl = getAudioCtrl();
-    if (amb) {
-      ctrl.playAmbiance(amb.url, amb.volume);
+    if (audioMuted) return;
+    const live = store.getState();
+    const svc = getAudioChannelsService();
+    const g = live.meta.settings?.audio;
+    if (g?.enabled) {
+      const url = String(g.url ?? "").trim();
+      if (url) {
+        svc.play("global", url, { volume: typeof g.volume === "number" ? g.volume : 1 });
+      } else {
+        svc.stop("global");
+      }
     } else {
-      ctrl.stopAmbiance();
+      svc.stop("global");
     }
-    // Dépendance sur `snap` : si le projet change (volume édité dans la
-    // popup média), la lecture est mise à jour via la branche
-    // `audio.volume = ...` de `playAmbiance`.
-  }, [sceneId, snap, getAudioCtrl]);
+    const amb = resolveSceneAmbiance(live, sceneId);
+    if (amb) {
+      svc.play("ambient", amb.url, { volume: amb.volume });
+    } else {
+      svc.stop("ambient");
+    }
+  }, [sceneId, snap, audioMuted, store]);
 
   /**
-   * C18.5.3 — au moment où une popup preview joueur s'ouvre sur un
-   * hotspot (read-only), joue le SFX de l'action. Source canonique :
-   * `action.sfx` (cohérent avec sérialisation `toProjectJson`). À la
-   * fermeture de l'overlay (`playerPreviewActionId === null`), on coupe
-   * le SFX (équivalent runtime joueur `audioSys.stopSFX()`).
+   * C18.5.3 / C19.2 — à l'ouverture d'une popup preview joueur sur un
+   * hotspot, joue le SFX + enregistre `lastSfx` (nodeId pour sliders).
+   * À la fermeture : `stop('sfx')` (ne réinitialise pas `lastSfx` au
+   * switch de scène — reset au unmount modale via `stopAll`).
    */
   useEffect(() => {
-    const ctrl = audioCtrlRef.current;
+    const svc = getAudioChannelsService();
     if (!playerPreviewActionId) {
-      if (ctrl) ctrl.stopSfx();
+      svc.stop("sfx");
       return;
     }
-    const action = snap.actions[playerPreviewActionId];
+    const live = store.getState();
+    const action = live.actions[playerPreviewActionId];
     if (!action) return;
-    const sfx = resolveActionSfx(action);
+    const sfx = resolveActionSfxPlayOpts(live, action);
     if (!sfx) return;
-    getAudioCtrl().playSfx(sfx.url, sfx.volume);
-    // Pas de dépendance `snap` : on ne veut pas relancer le SFX si le
-    // store change pour une raison annexe (ex. ambiance update). On
-    // déclenche seulement à l'ouverture/fermeture de la popup.
+    svc.play("sfx", sfx.url, { volume: sfx.volume, nodeId: sfx.nodeId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerPreviewActionId, getAudioCtrl]);
+  }, [playerPreviewActionId, store]);
 
   /**
    * Échap : priorité (1) ferme la popup preview joueur (C18.5.1), (2) annule
@@ -587,33 +616,74 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
       <div className="nodal-scene-preview-modal__backdrop" onClick={onClose} aria-hidden />
       <div className="nodal-scene-preview-modal__panel">
         <header className="nodal-scene-preview-modal__header">
-          <h2 id={`nodal-scene-preview-h-${styleId}`} className="nodal-scene-preview-modal__title">
-            {title}
-          </h2>
-          {effectivePanoramaUrl ? (
-            <button
-              type="button"
-              className="nodal-scene-preview-modal__edit-toggle"
-              data-active={editMode ? "1" : "0"}
-              onClick={() => {
-                if (editMode) {
-                  exitEditMode();
-                } else {
-                  enterEditMode();
-                }
-              }}
-            >
-              {editMode ? L.editToggleOn : L.editToggleOff}
-            </button>
+          <div className="nodal-scene-preview-modal__header-row">
+            <h2 id={`nodal-scene-preview-h-${styleId}`} className="nodal-scene-preview-modal__title">
+              {title}
+            </h2>
+            {effectivePanoramaUrl ? (
+              <div className="nodal-scene-preview-modal__header-trail">
+                <div className="nodal-scene-preview-modal__mode-segment" role="group" aria-label="Mode aperçu">
+                  <button
+                    type="button"
+                    className="nodal-scene-preview-modal__mode-btn"
+                    data-active={!editMode ? "1" : "0"}
+                    onClick={() => {
+                      if (editMode) exitEditMode();
+                    }}
+                  >
+                    {L.modeInteractif}
+                  </button>
+                  <button
+                    type="button"
+                    className="nodal-scene-preview-modal__edit-toggle nodal-scene-preview-modal__mode-btn"
+                    data-active={editMode ? "1" : "0"}
+                    onClick={() => {
+                      if (!editMode) enterEditMode();
+                    }}
+                  >
+                    {L.modeEdition}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="nodal-scene-preview-modal__audio-panel-toggle"
+                  aria-expanded={audioPanelOpen}
+                  aria-label={audioPanelOpen ? L.audioPanelCollapse : L.audioPanelExpand}
+                  onClick={() => setAudioPanelOpen((o) => !o)}
+                >
+                  🔊 <span aria-hidden>{audioPanelOpen ? "▴" : "▾"}</span>
+                </button>
+                <button
+                  type="button"
+                  className="nodal-scene-preview-modal__close-x"
+                  onClick={onClose}
+                  aria-label={L.close}
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="nodal-scene-preview-modal__close-x"
+                onClick={onClose}
+                aria-label={L.close}
+              >
+                ×
+              </button>
+            )}
+          </div>
+          {audioPanelOpen && effectivePanoramaUrl && sceneId ? (
+            <div className="nodal-scene-preview-modal__audio-drawer">
+              <ScenePreviewAudioBar
+                store={store}
+                sceneId={sceneId}
+                labels={L.audioBar}
+                audioMuted={audioMuted}
+                onAudioMutedChange={setAudioMuted}
+              />
+            </div>
           ) : null}
-          <button
-            type="button"
-            className="nodal-scene-preview-modal__close-x"
-            onClick={onClose}
-            aria-label={L.close}
-          >
-            ×
-          </button>
         </header>
         {editMode && effectivePanoramaUrl ? (
           <div className="nodal-scene-preview-modal__edit-hint">{hintText}</div>
@@ -676,11 +746,9 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
                   store={store}
                   locale={detectLocale()}
                   onClose={() => setPlayerPreviewActionId(null)}
-                  onPlaySfx={(url, volume) => {
-                    // C18.5.3 — relais SFX choix selector (drill-down).
-                    // Le SFX du hotspot initial est déjà géré par le
-                    // useEffect `playerPreviewActionId`.
-                    getAudioCtrl().playSfx(url, volume);
+                  onGotoTransition={onNavigateToScene}
+                  onPlaySfx={(url, volume, nodeId) => {
+                    getAudioChannelsService().play("sfx", url, { volume, nodeId });
                   }}
                 />
               ) : null}
