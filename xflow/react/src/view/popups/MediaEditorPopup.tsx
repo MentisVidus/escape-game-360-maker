@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
 
+import type { MediaNodeId } from "../../model/ids";
 import type { MediaAudioNode, MediaNode } from "../../model/nodes";
+import { AudioPreviewButton } from "../components/AudioPreviewButton";
+import type { AudioChannel } from "../../services/audioChannelsService";
 import { MediaUploadButton } from "../components/MediaUploadButton";
 import { MEDIA_ACCEPT_AUDIO, MEDIA_ACCEPT_PANORAMA_IMAGE } from "../components/mediaUploadAccept";
 
 type Props = {
   media: MediaNode | null;
+  /** C19.1 — canal preview (calculé par le parent). */
+  audioChannel?: Extract<AudioChannel, "ambient" | "sfx">;
+  /** C19.1 — id nœud média (lastSfx C19.2). */
+  mediaNodeId?: MediaNodeId | null;
   onChange: (patch: { label?: string; url?: string; volume?: number }) => void;
   onClose: () => void;
 };
 
-export function MediaEditorPopup({ media, onChange, onClose }: Props) {
+export function MediaEditorPopup({ media, audioChannel = "ambient", mediaNodeId, onChange, onClose }: Props) {
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
   const [volume, setVolume] = useState("1");
@@ -78,6 +85,14 @@ export function MediaEditorPopup({ media, onChange, onClose }: Props) {
                 }
               }}
             />
+            {isAudio ? (
+              <AudioPreviewButton
+                url={url}
+                channel={audioChannel}
+                volume={Number.isFinite(Number(volume)) ? Math.max(0, Math.min(1, Number(volume))) : 1}
+                {...(mediaNodeId ? { nodeId: mediaNodeId } : {})}
+              />
+            ) : null}
           </div>
         </label>
         {!isAudio && url.trim() ? (

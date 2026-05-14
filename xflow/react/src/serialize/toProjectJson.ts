@@ -1,3 +1,4 @@
+import { resolveLinkedMediaAudioSfxForAction } from "../model/actionSfxProjection";
 import type { ActionNodeId, SceneNodeId } from "../model/ids";
 import type { ActionNode, ReqActionNode, PwdActionNode, SelectorActionNode } from "../model/nodes";
 import type { NodalProject, ProjectSettings } from "../model/project";
@@ -85,10 +86,16 @@ const serializeAction = (state: NodalProject, actionId: ActionNodeId): ProjectJs
     };
   }
 
+  const linked = resolveLinkedMediaAudioSfxForAction(state, actionId);
+  const sfx =
+    linked && linked.url.trim() !== ""
+      ? { url: linked.url.trim(), volume: linked.volume }
+      : { ...action.sfx };
+
   return {
     type: actionType,
     payload,
-    sfx: { ...action.sfx },
+    sfx,
     visibility: { ...action.visibility },
   };
 };

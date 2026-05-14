@@ -3,6 +3,7 @@ import type { StoreApi } from "zustand/vanilla";
 
 import type { AudioGlobalSettings } from "../../model/project";
 import type { NodalProjectStore } from "../../store/nodalProjectStore";
+import { AudioPreviewButton } from "../components/AudioPreviewButton";
 import { MediaUploadButton } from "../components/MediaUploadButton";
 import { MEDIA_ACCEPT_AUDIO } from "../components/mediaUploadAccept";
 import { PalettePopupModal } from "../palette/PalettePopupModal";
@@ -127,6 +128,12 @@ export function AudioGlobalSettingsPopup({ open, onClose, onBack, store }: Props
             disabled={!audio.enabled}
             currentUrl={audio.url?.trim()?.startsWith("blob:") ? audio.url.trim() : undefined}
             onPicked={(url) => commit({ url })}
+          />
+          <AudioPreviewButton
+            url={audio.url ?? ""}
+            channel="global"
+            volume={vol}
+            disabled={!audio.enabled}
           />
         </div>
 

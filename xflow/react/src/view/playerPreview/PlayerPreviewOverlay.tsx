@@ -132,7 +132,7 @@ export function PlayerPreviewOverlay({ actionId, store, locale, onClose, onPlayS
           if (onPlaySfx) {
             const child = snap.actions[childId];
             if (child) {
-              const sfx = resolveActionSfx(child);
+              const sfx = resolveActionSfx(snap, child);
               if (sfx) onPlaySfx(sfx.url, sfx.volume);
             }
           }

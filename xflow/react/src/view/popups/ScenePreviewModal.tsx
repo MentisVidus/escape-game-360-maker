@@ -18,11 +18,8 @@ import { NodalPanoramaViewer, type NodalPanoramaViewerHandle } from "../preview/
 import { collectSceneHotspotProjections, type PannellumHotSpotProjection } from "../preview/sceneHotspotProjections";
 import { resolveScenePanoramaDisplayUrl } from "../preview/scenePanoramaDisplay";
 import { PlayerPreviewOverlay } from "../playerPreview/PlayerPreviewOverlay";
-import {
-  PreviewAudioController,
-  resolveActionSfx,
-  resolveSceneAmbiance,
-} from "../playerPreview/playerPreviewAudio";
+import { resolveActionSfx, resolveSceneAmbiance } from "../playerPreview/playerPreviewAudio";
+import { getAudioChannelsService } from "../../services/audioChannelsService";
 
 type Locale = "fr" | "en";
 
@@ -179,17 +176,6 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
    */
   const [playerPreviewActionId, setPlayerPreviewActionId] = useState<ActionNodeId | null>(null);
   const viewerHandleRef = useRef<NodalPanoramaViewerHandle | null>(null);
-  /**
-   * C18.5.3 — contrôleur audio dédié à l'aperçu joueur (ambiance scène
-   * en loop + SFX hotspot/choix). Instancié lazy au premier accès, et
-   * détruit (`destroy()`) à la fermeture de la modale. Voir
-   * `playerPreviewAudio.ts`.
-   */
-  const audioCtrlRef = useRef<PreviewAudioController | null>(null);
-  const getAudioCtrl = useCallback(() => {
-    if (!audioCtrlRef.current) audioCtrlRef.current = new PreviewAudioController();
-    return audioCtrlRef.current;
-  }, []);
 
   /** Mapping cssClass → projection — utilisé pour identifier le hotspot au pointerdown. */
   const cssClassIndex = useMemo(() => {
@@ -207,9 +193,10 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
       setSelection(null);
       setResize(null);
       setPlayerPreviewActionId(null);
-      // C18.5.3 — coupe ambiance + SFX à la fermeture de la modale.
-      audioCtrlRef.current?.destroy();
-      audioCtrlRef.current = null;
+      // C19.1 — coupe ambiance + SFX preview (ne touche pas au canal global).
+      const svc = getAudioChannelsService();
+      svc.stop("ambient");
+      svc.stop("sfx");
     }
   }, [sceneId]);
 
@@ -222,40 +209,33 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
   useEffect(() => {
     if (!sceneId) return;
     const amb = resolveSceneAmbiance(snap, sceneId);
-    const ctrl = getAudioCtrl();
+    const svc = getAudioChannelsService();
     if (amb) {
-      ctrl.playAmbiance(amb.url, amb.volume);
+      svc.play("ambient", amb.url, { volume: amb.volume });
     } else {
-      ctrl.stopAmbiance();
+      svc.stop("ambient");
     }
-    // Dépendance sur `snap` : si le projet change (volume édité dans la
-    // popup média), la lecture est mise à jour via la branche
-    // `audio.volume = ...` de `playAmbiance`.
-  }, [sceneId, snap, getAudioCtrl]);
+  }, [sceneId, snap]);
 
   /**
-   * C18.5.3 — au moment où une popup preview joueur s'ouvre sur un
-   * hotspot (read-only), joue le SFX de l'action. Source canonique :
-   * `action.sfx` (cohérent avec sérialisation `toProjectJson`). À la
-   * fermeture de l'overlay (`playerPreviewActionId === null`), on coupe
-   * le SFX (équivalent runtime joueur `audioSys.stopSFX()`).
+   * C18.5.3 / C19.1 — à l'ouverture d'une popup preview joueur sur un
+   * hotspot, joue le SFX (projection media-audio meta ou `action.sfx`).
+   * À la fermeture : `stop('sfx')`.
    */
   useEffect(() => {
-    const ctrl = audioCtrlRef.current;
+    const svc = getAudioChannelsService();
     if (!playerPreviewActionId) {
-      if (ctrl) ctrl.stopSfx();
+      svc.stop("sfx");
       return;
     }
-    const action = snap.actions[playerPreviewActionId];
+    const live = store.getState();
+    const action = live.actions[playerPreviewActionId];
     if (!action) return;
-    const sfx = resolveActionSfx(action);
+    const sfx = resolveActionSfx(live, action);
     if (!sfx) return;
-    getAudioCtrl().playSfx(sfx.url, sfx.volume);
-    // Pas de dépendance `snap` : on ne veut pas relancer le SFX si le
-    // store change pour une raison annexe (ex. ambiance update). On
-    // déclenche seulement à l'ouverture/fermeture de la popup.
+    svc.play("sfx", sfx.url, { volume: sfx.volume });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerPreviewActionId, getAudioCtrl]);
+  }, [playerPreviewActionId, store]);
 
   /**
    * Échap : priorité (1) ferme la popup preview joueur (C18.5.1), (2) annule
@@ -677,10 +657,7 @@ export function ScenePreviewModal({ sceneId, onClose }: ScenePreviewModalProps) 
                   locale={detectLocale()}
                   onClose={() => setPlayerPreviewActionId(null)}
                   onPlaySfx={(url, volume) => {
-                    // C18.5.3 — relais SFX choix selector (drill-down).
-                    // Le SFX du hotspot initial est déjà géré par le
-                    // useEffect `playerPreviewActionId`.
-                    getAudioCtrl().playSfx(url, volume);
+                    getAudioChannelsService().play("sfx", url, { volume });
                   }}
                 />
               ) : null}
