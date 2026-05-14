@@ -14,8 +14,10 @@
 > questions (Q-C19-1 à Q-C19-18, 2026-05-14). **Scope élargi** vs spec
 > §7 → C19 initiale : preview audio sur **3 channels en parallèle**
 > (global / ambient / sfx) à **2 endroits** — (1) bouton play unitaire
-> dans chaque popup audio (global, media-audio scene = ambient,
-> media-audio hotspot/choice = sfx) avec slider volume live, auto-stop
+> dans chaque popup audio (global = `AudioGlobalSettingsPopup` ;
+> ambient = `MediaEditorPopup` quand `media-audio` ; sfx =
+> `CoordsOptionsPopup` + `ChoiceOptionsPopup` sur le champ
+> `action.sfx.url`) avec slider volume live, auto-stop
 > SON channel à fermeture popup, sans interférence avec les autres
 > channels ; (2) bandeau audio dans la barre haut de l'aperçu scène
 > 360° (modale C18.1/C18.5) avec sliders Global / Ambiance / Dernier
@@ -2169,19 +2171,30 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 - **Périmètre élargi vs spec §7 → C19 initiale** : la spec listait
   uniquement « popup audio global + popups media nodes audio ». Le
   cadrage a confirmé que **toute entrée audio dans l'éditeur** doit
-  bénéficier du preview unitaire :
-  - **Global** — `meta.settings.audio.url` (popup `AudioGlobalSettingsPopup`
-    C10.2.d) ;
-  - **Ambiance** — nœud `media-audio` rattaché à une **scène** ;
-  - **SFX** — nœud `media-audio` rattaché à un **hotspot/choice**.
-- **Distinction ambient/SFX dérivée du parent du nœud `media-audio`**
-  (Q-C19-14 a) — la sémantique n'est pas un flag explicite mais
-  inférée du graphe : parent est une scène → channel `ambient` ;
-  parent est un hotspot ou un choice → channel `sfx`. **Audit
-  obligatoire C19.1** dans `js/editeur-generate.js` /
-  `editor-en-generate.js` pour confirmer que le runtime joueur applique
-  bien cette logique aujourd'hui (loop sur ambient, auto-stop sur sfx).
-  Si divergence → bascule (b) flag explicite à introduire.
+  bénéficier du preview unitaire — **3 stockages distincts** dans des
+  **4 lieux d'édition** distincts :
+  - **Global** — `meta.settings.audio.url` édité dans
+    `AudioGlobalSettingsPopup` (C10.2.d) → channel `global`.
+  - **Ambient** — nœud `media-audio` rattaché à une scène via edge
+    `meta` ; édité dans `MediaEditorPopup` (uniquement quand
+    `node.type === "media-audio"`) → channel `ambient`.
+  - **SFX** — **champ inline** `action.sfx = { url, volume }` sur
+    l'`ActionNode` (PAS un nœud `media-audio` — sérialisé directement
+    par `toProjectJson`, cf. `playerPreviewAudio.ts:144`
+    `resolveActionSfx`). Édité dans deux popups satellites :
+    `CoordsOptionsPopup` (hotspots = État 2) et `ChoiceOptionsPopup`
+    (choix = État 3) → channel `sfx`.
+- **Pas de helper d'inférence channel** (révision Q-C19-14 après audit
+  Cursor 2026-05-14) : chaque popup connaît son channel à la
+  compilation (figé par le lieu d'édition). Pas besoin d'un
+  `getMediaAudioChannel(state, mediaNodeId)` runtime — un nœud
+  `media-audio` est **toujours** ambient (les SFX vivent ailleurs).
+  Le `<AudioPreviewButton>` reçoit `channel` en prop directe par chaque
+  popup. Conséquence : pas non plus de cas « channel null / orphelin »
+  à gérer — les nœuds `media-audio` orphelins (sans edge meta vers une
+  scène) restent éditables avec preview channel `ambient` (résultat :
+  loop, mais pas auto-déclenché en aperçu 360° car
+  `resolveSceneAmbiance` ne les retourne pas).
 - **3 channels parallèles, pas de single player partagé** (Q-C19-3
   amendé) — pour permettre la balance audio en condition de jeu, le
   service expose 3 channels indépendants (global / ambient / sfx),
@@ -2262,7 +2275,7 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 
 | # | Périmètre | Dépend de | Type | Statut |
 |---|-----------|-----------|------|--------|
-| **C19.1** | Service `audioChannelsService.ts` (3 channels indépendants, loop/auto-stop par channel, volume indépendant, error handling, observable) + composant partagé `<AudioPreviewButton>` (▶/⏸ + jauge progress + tooltip erreur, auto-stop SON channel à unmount) + intégration dans `AudioGlobalSettingsPopup` (channel `global`, loop=true) + intégration dans `MediaEditorPopup` pour media-audio (channel `ambient` ou `sfx` dérivé du parent du nœud, loop selon channel) + audit `playerPreviewAudio.ts` existant | — | code | à livrer |
+| **C19.1** | Service `audioChannelsService.ts` (3 channels indépendants, loop dérivé du channel : global+ambient = loop, sfx = no-loop, volume indépendant, error handling, observable) + composant partagé `<AudioPreviewButton>` (▶/⏸ + jauge progress + tooltip erreur, auto-stop SON channel à unmount) + intégration dans **4 popups** : `AudioGlobalSettingsPopup` (channel `global`), `MediaEditorPopup` quand `media-audio` (channel `ambient`), `CoordsOptionsPopup` + `ChoiceOptionsPopup` sur le champ `action.sfx.url` (channel `sfx`) + refactor de `PreviewAudioController` (suppression, branchement direct des 2 sites consommateurs `ScenePreviewModal` + `PlayerPreviewOverlay` sur le service ; conservation des helpers purs `resolveSceneAmbiance` / `resolveActionSfx`) | — | code | à livrer |
 | **C19.2** | Bandeau audio dans header modale aperçu scène 360° (`ScenePreviewModal` + extension `PlayerPreviewOverlay` mode interactif) : toggle 🔊 (par défaut ON), 3 sliders (Global/Ambiance/Dernier SFX, masqués si non applicables), bouton replay dernier SFX. Auto-play global+ambient au mount (si définis). SFX au clic hotspot en mode interactif C18.5 (avec update `lastSfx` exposé par le service). **Audit goto C18.5 préalable** : si bug, fix `C19.2-fix` AVANT transition audio ; si OK, hook `stop('ambient')` + `play('ambient', newAmbientUrl)` sur navigation. `stopAll()` au unmount modale. Toggle OFF → stopAll ; ON → reprise auto-play | C19.1 | code | à livrer |
 
 Convention : un commit par sous-chantier ; fixes numérotés
@@ -2312,23 +2325,35 @@ composant). Ordre d'exécution : C19.1 d'abord, C19.2 ensuite.
   unsubscribe + auto-stop SON channel au unmount. UI : icône ▶/⏸,
   jauge progression CSS sous le bouton (réutilisable en CSS module ou
   inline style), tooltip erreur si `state.error`.
-- **Distinction ambient/SFX** (Q-C19-14 a) : helper
-  `getMediaAudioChannel(state, mediaNodeId): "ambient" | "sfx"` dans
-  `xflow/react/src/services/audioChannelsService.ts` (ou colocated
-  dans `MediaEditorPopup`). Logique : remonter le `parentId` du nœud
-  media-audio dans `state.scenes` / `state.actions` ; si parent est
-  une scène → `ambient`, sinon → `sfx`. **Audit Cursor** au début
-  C19.1 pour confirmer cette logique côté runtime joueur (cf.
-  `js/editeur-generate.js`).
+- **Pas de helper d'inférence channel** (révision Q-C19-14 après audit
+  Cursor) : chaque popup passe le channel en prop directe (figé à la
+  compilation). Pas de `getMediaAudioChannel`. Le `loop` est dérivé
+  du channel **dans le service** (pas exposé dans l'API `play`) :
+  `global`/`ambient` → `loop=true` ; `sfx` → `loop=false`. API
+  simplifiée : `play(channel, url, { volume, nodeId? })`.
 - **Intégration dans `AudioGlobalSettingsPopup`** : ajouter
   `<AudioPreviewButton url={meta.settings.audio.url} channel="global"
-  volume={meta.settings.audio.volume} loop={true} />` à côté de
-  l'input URL. Pas de modification de la structure existante de la
-  popup (Q-C10.2.d cohérence).
-- **Intégration dans `MediaEditorPopup`** : popup partagée pour les
-  media-image et media-audio. Ajouter `<AudioPreviewButton>`
-  conditionnellement quand `node.type === "media-audio"`. Channel
-  dérivé via `getMediaAudioChannel`. Loop = `channel === "ambient"`.
+  volume={meta.settings.audio.volume} />` à côté de l'input URL. Pas
+  de modification de la structure existante de la popup (Q-C10.2.d
+  cohérence).
+- **Intégration dans `MediaEditorPopup`** (popup partagée
+  media-image + media-audio) : ajouter `<AudioPreviewButton>`
+  conditionnellement quand `node.type === "media-audio"`, dans la
+  même ligne que l'input URL + `MediaUploadButton` (placement Q-C19.1-3
+  option A). Channel = `"ambient"` (figé). Volume = `node.data.volume`.
+- **Intégration dans `CoordsOptionsPopup` + `ChoiceOptionsPopup`** :
+  ajouter `<AudioPreviewButton>` à côté du champ `action.sfx.url` (si
+  ce champ existe dans la popup — auditer la structure actuelle).
+  Channel = `"sfx"` (figé). Volume = `action.sfx.volume`.
+- **Refactor `playerPreviewAudio.ts`** : supprimer la classe
+  `PreviewAudioController` (logique dupliquée du service). Conserver
+  les fonctions pures `resolveSceneAmbiance(state, sceneId)` et
+  `resolveActionSfx(action)` — ce sont des résolveurs de graphe
+  alignés avec la sérialisation, réutilisés par C19.2 (auto-play
+  ambient au mount + déclenchement SFX au clic hotspot). Brancher
+  directement les 2 sites consommateurs (`ScenePreviewModal`,
+  `PlayerPreviewOverlay`) sur le service en C19.1 — **zéro double
+  implémentation au merge** (Q-C19.1-1).
 - **Bandeau audio modale aperçu 360°** (C19.2) : nouveau composant
   `<ScenePreviewAudioBar>` dans
   `xflow/react/src/view/preview/ScenePreviewAudioBar.tsx`. Reçoit
@@ -2398,9 +2423,19 @@ popups (audio global + media-audio édité).
 - `xflow/react/src/view/popups/AudioGlobalSettingsPopup.tsx` —
   intégration channel `global`.
 - `xflow/react/src/view/popups/MediaEditorPopup.tsx` — intégration
-  channel `ambient`/`sfx` selon parent.
-- `xflow/react/src/model/nodes.ts` — type `MediaNode`, voir si `parentId`
-  exposé directement ou si lookup via store nécessaire.
+  channel `ambient` (uniquement quand `node.type === "media-audio"`).
+- `xflow/react/src/view/popups/CoordsOptionsPopup.tsx` — intégration
+  channel `sfx` à côté du champ `action.sfx.url` (popup hotspot État 2).
+- `xflow/react/src/view/popups/ChoiceOptionsPopup.tsx` — intégration
+  channel `sfx` à côté du champ `action.sfx.url` (popup choix État 3).
+- `xflow/react/src/model/nodes.ts` — type `ActionNode` (champ
+  `action.sfx: ActionSfx`) + `MediaNode`.
+- `xflow/react/src/view/playerPreview/playerPreviewAudio.ts` — fichier
+  à refactorer (suppression `PreviewAudioController`, conservation
+  `resolveSceneAmbiance` et `resolveActionSfx`).
+- `xflow/react/src/view/popups/ScenePreviewModal.tsx` +
+  `xflow/react/src/view/playerPreview/PlayerPreviewOverlay.tsx` —
+  sites consommateurs à brancher sur le service.
 - `xflow/react/src/store/store.ts` (ou équivalent) — pattern d'accès
   au state (`useNodalStore.getState()` ou hook).
 - `editeur.html` lignes ~globalAudioUrl + `editor_en.html` —
