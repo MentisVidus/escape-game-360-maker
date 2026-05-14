@@ -2,12 +2,38 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.10.2 (14 mai 2026)
+> **Version** : 1.10.3 (14 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
+
+> **Changelog v1.10.3** : amendements **plan détaillé C19.2** suite
+> phase questions post-smoke C19.1 (Q-C19.2-2/3/5/6/8 résolues
+> 2026-05-14). Changements structurants : (1) **2 modes UX
+> mutuellement exclusifs** dans la modale aperçu 360° — `Édition`
+> (clic = sélection/manipulation hotspot, C18.3-4) ↔ `Interactif`
+> (clic = popup runtime + déclenchement SFX, comportement joueur
+> C18.5), défaut au mount = `Interactif` (cas d'usage le plus fréquent,
+> zéro risque d'écrasement de position). Audit obligatoire C19.2 :
+> consolider l'activation actuelle du mode interactif si elle passe
+> par un toggle séparé du toggle Édition. (2) **Bandeau audio en
+> panneau collapsable** (icône 🔊 dans header → déplie sous-panneau),
+> état par défaut `fermé`, ouverture/fermeture **manuelles
+> uniquement** (pas d'auto-fermeture sur clic ailleurs ni `onBlur`).
+> (3) **`lastSfx` conservé entre switches de scène** (reset uniquement
+> au unmount modale, `stopAll()`) — permet de régler les SFX de goto
+> en navigant vers la scène cible puis replay. (4) Inclus en C19.2 :
+> mini-fix cosmétique des warnings jsdom `HTMLMediaElement.prototype.pause/load`
+> (try/catch silencieux dans `strictCleanup` ou mock global dans
+> `vitest.setup.ts`). **Idée future hors scope C19.2** : mode `Audio`
+> (3e mode où clic = joue le SFX + slider volume sans ouvrir la popup
+> runtime ni manipuler le hotspot). Avantage : permettrait de régler
+> les SFX des goto et choix sans parcours complet. Limitation : ne
+> couvre pas les choix dans un selector qui nécessitent un parcours.
+> À évaluer après usage de C19.2 si le besoin se confirme.
+> Doc-only.
 
 > **Changelog v1.10.2** : ajout du **chantier C23** (Persistance bundle
 > audio — global + ambient + reconnexion blob au reload) en §7 backlog,
@@ -2638,6 +2664,64 @@ Attendre validation user avant de coder.
   `playerPreviewAudio.ts` résultat, audit runtime ambient/sfx résultat).
 
 ### Plan détaillé C19.2 — directives pour Cursor
+
+> **Amendements 2026-05-14 (post-smoke C19.1)** — issus de la phase
+> questions Q-C19.2-2/3/5/6/8. **À LIRE AVANT** le reste du plan
+> détaillé : ces décisions amendent / précisent les sections
+> Périmètre, Décisions de design et Critères de fin ci-dessous.
+>
+> **A. Modes UX dans la modale aperçu 360° (Q-C19.2-5/6)** — 2 modes
+> mutuellement exclusifs : `Édition` ↔ `Interactif`.
+> - **Défaut au mount** = `Interactif`.
+> - **Reset à chaque ouverture** de la modale (pas de persistance
+>   localStorage).
+> - **Clic SFX hotspot actif uniquement en `Interactif`** (en
+>   `Édition`, le clic = sélection / drag / resize C18.3-4).
+> - **Auto-play global+ambient actif dans les 2 modes** — le bandeau
+>   audio reste utile en `Édition` (entendre l'ambiance pendant qu'on
+>   ajuste les positions).
+> - **Audit obligatoire** : comment le mode interactif C18.5
+>   (`PlayerPreviewOverlay`) est-il **actuellement activé** dans la
+>   modale ? Si c'est via un toggle séparé du toggle Édition,
+>   **consolider** en un sélecteur 2 modes (segmented control 2
+>   boutons OU toggle "Mode édition" dont OFF = Interactif). Si
+>   c'est déjà bien câblé, juste ajuster le défaut.
+>
+> **B. Bandeau audio en panneau collapsable (Q-C19.2-2)** — pas de
+> seconde ligne permanente dans le header.
+> - Icône 🔊 dans la barre principale du header. Au clic → déplie un
+>   sous-panneau contenant les contrôles audio.
+> - **État par défaut au mount = `fermé`** (mode neutre).
+> - **Ouverture/fermeture manuelles uniquement** : pas d'auto-fermeture
+>   sur `onBlur`, pas de `click outside listener`. Le panneau reste
+>   ouvert tant que l'utilisateur ne le ferme pas explicitement (clic
+>   sur l'icône 🔊 ou un bouton ✕ du panneau).
+> - Sous-panneau contient : 3 sliders (Global / Ambiance / Dernier
+>   SFX, masqués si non applicables) + bouton replay dernier SFX.
+>
+> **C. `lastSfx` persistant entre switches de scène (Q-C19.2-3
+> révisé)** — pas de reset au goto en mode interactif.
+> - `lastSfx` reste valable tant que la modale est ouverte.
+> - Reset uniquement au **unmount de la modale** (cohérent avec
+>   `stopAll()`).
+> - Permet à l'utilisateur de naviguer vers la scène cible d'un goto
+>   puis de replay le SFX du goto pour ajuster son volume — sans
+>   perdre la référence.
+>
+> **D. Mini-fix cosmétique tests jsdom (Q-C19.2-8)** — inclus en
+> C19.2.
+> - Wrapper `audio.pause()` et `audio.load()` dans des `try/catch`
+>   silencieux dans `strictCleanup` (ou mock global
+>   `vi.spyOn(HTMLAudioElement.prototype, 'pause'/'load')` dans
+>   `vitest.setup.ts`).
+> - Objectif : étouffer les warnings `Error: Not implemented:
+>   HTMLMediaElement.prototype.pause/load` qui polluent la sortie de
+>   `npm test`. 5-10 lignes max.
+>
+> **E. Idée future hors scope C19.2** — mode `Audio` (3e mode où
+> clic = joue le SFX + slider volume sans ouvrir popup runtime ni
+> manipuler le hotspot). À évaluer après usage de C19.2 si le besoin
+> se confirme. **Ne pas implémenter en C19.2.**
 
 **Pré-requis** : C19.1 livré (service `audioChannelsService.ts` +
 `<AudioPreviewButton>` disponibles).
