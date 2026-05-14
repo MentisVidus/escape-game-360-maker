@@ -25,10 +25,16 @@ export function SatelliteNodeView({ id, data }: NodeProps) {
 
   const openEditor = useCallback(() => {
     if (node.satelliteType === "object") {
+      ui.setScenePreviewSceneId(null);
+      ui.setCoordsPickerSatelliteId(null);
       ui.setObjectEditorSatelliteId(id as SatelliteNodeId);
     } else if (node.satelliteType === "coords-options") {
+      ui.setScenePreviewSceneId(null);
+      ui.setCoordsPickerSatelliteId(null);
       ui.setCoordsEditorSatelliteId(id as SatelliteNodeId);
     } else if (node.satelliteType === "choice-options") {
+      ui.setScenePreviewSceneId(null);
+      ui.setCoordsPickerSatelliteId(null);
       ui.setChoiceEditorSatelliteId(id as SatelliteNodeId);
     }
   }, [id, node.satelliteType, ui]);

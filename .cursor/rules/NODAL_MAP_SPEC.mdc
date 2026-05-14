@@ -2,13 +2,29 @@
 
 ## Spécification de conception de la carte nodale — Escape Game 360
 
-> **Version** : 1.9.2 (8 mai 2026)
+> **Version** : 1.10 (14 mai 2026)
 > **Branche cible** : `feat/nodal-map` (repartie de `main` propre)
 > **Statut** : document de référence pour Cursor AI et pour le game designer.
 > Cette spec décrit **la cible produit et architecture** de la carte nodale
 > autonome. Elle remplace intégralement la spec v0.6 et la branche
 > `feat/react-map` abandonnée.
 
+> **Changelog v1.10** : clôture **chantier C18** — Aperçu de scène
+> 360° + placement coords hotspots. Synthèse **Annexe B — C18**.
+> Livré : **C18.1** aperçu scène 360° read-only (modale plein écran +
+> `<NodalPanoramaViewer>` partagé + hotspots outline rouge) ;
+> **C18.2** modale picker éditable depuis `CoordsOptionsPopup`
+> (viseur central + commit pitch/yaw + 2 fixes UX) ; **C18.3** drag
+> direct des hotspots dans l'aperçu (toggle « Éditer ») ; **C18.4**
+> resize via handles aux 4 coins (4 fixes — centrage, raccourcis,
+> stabilité hotSpots, préservation caméra) ; **C18.5** aperçu
+> interactif « comme en jeu » read-only (overlay
+> `<PlayerPreviewOverlay>`, 3 livraisons C18.5.1/.2/.3 — msg/pick,
+> goto/req/pwd/selector/img, audio/ARIA/badge). Journal :
+> `docs/archives/chantier_18.md`.
+>
+> **Écartés** : aucun.
+>
 > **Changelog v1.9.2** : ouverture **chantier C18** (Aperçu de scène 360°
 > + modale placement coords hotspots) — premier chantier prioritaire de
 > la vague v1.9.1. Cadrage validé en phase questions (Q-C18-1 à Q-C18-12,
@@ -233,8 +249,9 @@ valider l'intention produit. Il décrit :
 - Les règles de cohérence et warnings (§6).
 - La roadmap d'implémentation (§7).
 - Les règles de collaboration avec l'agent (§8).
-- Les annexes A–C (chantiers **C1–C10 livrés** — v1.5 → v1.9 ; voir
-  **Annexe B** par chantier ; journaux archivés sous `docs/archives/`).
+- Les annexes A–C (chantiers **C1–C10 + C18 livrés** — v1.5 → v1.9 puis
+  v1.10 pour C18 ; voir **Annexe B** par chantier ; journaux archivés
+  sous `docs/archives/`).
 
 ### 0.2 Règles transversales produit
 
@@ -863,11 +880,11 @@ centre la vue sur le nœud concerné.
 
 ## 7. Roadmap d'implémentation
 
-Chantiers numérotés pour référence dans les commits. **C1–C10 livrés**
-(v1.5 → v1.9) ; **C11–C21 planifiés** ci-dessous. La numérotation
+Chantiers numérotés pour référence dans les commits. **C1–C10 + C18 livrés**
+(v1.5 → v1.9 pour C1–C10 ; **C18** en v1.10) ; **C11–C17 et C19–C22 planifiés** ci-dessous. La numérotation
 au-delà de C10 est indicative — l’ordre peut être réarrangé selon
-priorité produit (priorité produit annoncée v1.9.1 : **C18 et C19
-prioritaires sur C11–C17**). Chaque chantier passe par la phase
+priorité produit (priorité produit annoncée v1.9.1 : **C19
+prioritaire sur C11–C17** désormais que **C18** est livré ; **C22** — cf. §7). Chaque chantier passe par la phase
 questions §8.1 au démarrage et ouvre une **Annexe D** vivante refondue
 à la clôture (cf. §8.4 et `docs/archives/chantier_*.md`).
 
@@ -1175,6 +1192,9 @@ Productivité médias et portabilité du snapshot :
 
 ### C18 — Aperçu de scène 360° + placement coords hotspots
 
+- **Livré** (2026-05-14) — synthèse **Annexe B — C18**, journal
+  `docs/archives/chantier_18.md`.
+
 Objectif : porter dans la carte nodale les **deux dernières fonctions
 d'authoring legacy non rapatriées en C10** — visualisation interactive
 du panorama 360° d'une scène et placement des coordonnées de hotspot
@@ -1216,18 +1236,20 @@ disponibles côté formulaire après la clôture C10. **Priorité : haute
 - Intégration des hotspots existants : afficher leurs positions sur
   l'aperçu ? Possibilité de drag pour repositionner ?
 
-Découpage figé (cadrage Q-C18, v1.9.2 — voir **Annexe D — Chantier
-C18**) : **C18.1** Aperçu scène 360° read-only ouvert depuis le menu
+Découpage livré (cadrage Q-C18 — synthèse **Annexe B — C18**, détails
+`docs/archives/chantier_18.md`) : **C18.1** Aperçu scène 360° read-only ouvert depuis le menu
 contextuel s-box (modale plein écran, hotspots existants visibles en
 outline rouge) ; **C18.2** Modale placement coords hotspots éditable
-depuis `coords-options` (clic-pour-positionner Pannellum, hotspots
-autres en gris dashed pour contexte). **Follow-up post-C18** (chantier
-séparé à formaliser ultérieurement, numéro non figé) : **drag direct
-du hotspot** dans le viewer + **resize via encarts** (largeur/hauteur
-manipulables visuellement) — initialement noté C18.3 optionnel,
-retiré du périmètre C18 pour livrer un premier itéré rapidement et
-parce que le resize ouvre un périmètre UX propre (poignées de
-redimensionnement, contraintes de proportions, snap, etc.).
+depuis `coords-options` (viseur central Pannellum legacy, hotspots
+autres en gris dashed pour contexte) ; **C18.3** Drag direct des
+hotspots dans l'aperçu scène — toggle « Éditer les hotspots » dans
+le header de la modale C18.1, fantôme CSS qui suit le curseur (clone
+visuel atténué via `appearance.customCss`), commit immédiat au
+release via `updateNodeData`, Échap annule le drag courant.
+**C18.4** — resize via handles aux 4 coins (ancrage centre, Shift = ratio,
+bornes px) ; **C18.5** — aperçu interactif « comme en jeu » read-only
+(clic sur hotspot en read-only affiche la popup associée pour
+prévisualisation pédagogique ; livraisons C18.5.1–.3).
 
 ### C19 — Audio preview / écouter
 
@@ -1365,6 +1387,84 @@ Découpage attendu (à valider §8.1) : **C21.1** Modèle (`endRole` +
 textes scène) + clic droit menu contextuel + popup d'édition par
 scène-fin ; **C21.2** Migration des projets C10.2.f → C21 + retrait
 sélecteur global de `EndScreensSettingsPopup`.
+
+### C22 — Hotspots responsives *(scaling proportionnel à l'image)*
+
+Refonte transverse de la sémantique de taille des hotspots pour qu'ils
+**couvrent la même portion d'image panoramique quel que soit l'écran**
+(repéré pendant le cadrage C18.4, 2026-05-08). Aujourd'hui,
+`appearance.ui_w` / `ui_h` sont des **pixels CSS bruts**
+(`js/editor-shared-ui-utils.js:74-83`,
+`xflow/react/src/model/hotspotAppearance.ts:47-66`) → un hotspot 120 px
+créé en 2K paraît plus gros (en proportion d'image) sur écran HD.
+
+**Cœur technique** :
+
+- Choisir une nouvelle unité de stockage : pourcentage du container
+  Pannellum (`ui_w_pct`, `ui_h_pct`) ou degrés FOV. Le pourcentage de
+  largeur container est la solution la plus simple à implémenter
+  (calcul CSS direct au render).
+- Migration JSON : ajout de `ui_w_pct` / `ui_h_pct` en complément
+  (priorité s'ils existent) **ou** bump à `schemaVersion: 3`. Le
+  premier évite le bump majeur ; le second est plus propre à long terme.
+- Recalcul des dimensions DOM à chaque resize de fenêtre / container :
+  `width = (container.offsetWidth * ui_w_pct / 100) + "px"`. Listener
+  sur `resize` (window) + `pannellum.viewer.on("zoomchange")` si l'on
+  souhaite que les hotspots restent fixes en taille d'image (et non
+  en taille d'affichage) — à trancher.
+- Adaptations runtime joueur (`js/editeur-generate.js`,
+  `js/editor-en-generate.js` — template literal `buildPlayerHtmlTemplate`).
+- Adaptations éditeur React : `buildCustomCssFromAppearance`,
+  `<HotspotAppearancePopup>`, resize C18.4 (formule `clamp` →
+  bornes en pourcentage), aperçu C18.1/C18.3, picker C18.2.
+- Adaptations éditeur legacy : `editor-shared-ui-utils.js:buildCss`,
+  formulaires `.scene-block` (champs `ui-w`, `ui-h`).
+
+**Périmètre fonctionnel** :
+
+- Choix d'une dimension de référence pour la migration des projets
+  existants (assomption ex. 1920×1080 horizontal). Ou saisie utilisateur
+  à l'ouverture d'un projet pré-C22 (« Quelle était la résolution
+  d'édition d'origine ? »).
+- Conversion des valeurs `ui_w` / `ui_h` (px) → `ui_w_pct` / `ui_h_pct`
+  au chargement d'un projet legacy ; conservation des champs anciens
+  pour rétro-affichage (ou suppression si bump schemaVersion 3).
+- Bornes : redéfinies en pourcentage (ex. `[1 ; 50]` pour `ui_w_pct` :
+  hotspot couvre entre 1 % et 50 % de la largeur du container).
+- Smoke FR/EN : ouvrir un projet créé en 2K, vérifier que le rendu
+  joueur sur HD donne la même proportion d'image couverte ; idem
+  inverse.
+
+**Points à cadrer en phase questions** :
+
+- Unité retenue : pourcentage container Pannellum, pourcentage du FOV
+  horizontal, degrés FOV ? *(Recommandation : pourcentage container
+  pour simplicité.)*
+- Migration : ajout de champs `_pct` complémentaires (chemin doux) ou
+  bump `schemaVersion: 3` (chemin propre, plus de retravail par la
+  suite) ? Si bump : impact sur `EditorCore` (validation), sur les
+  fixtures de tests, sur les `.escapegame` archivés.
+- Stratégie de référence pour la migration : assomption fixe (ex.
+  1920 px) ou prompt utilisateur ?
+- Comportement au zoom Pannellum (HFOV change) : les hotspots
+  restent-ils proportionnels au container DOM (taille apparente
+  fixe) ou à l'image panoramique (taille fixe par rapport à
+  l'image, donc grossissent au zoom) ? *(Recommandation : par
+  rapport à l'image, c'est ce que l'utilisateur attend
+  intuitivement.)*
+- Refactoring opportuniste : extraire un module partagé
+  `js/editor-shared-hotspot-css.js` consommé par legacy +
+  `hotspotAppearance.ts` (réécriture en TS pure côté React).
+
+Découpage attendu (à valider §8.1) : **C22.1** Choix unité +
+extension modèle (ajout `ui_w_pct` / `ui_h_pct` ou bump
+schemaVersion) + helper de calcul partagé ; **C22.2** Adaptation
+runtime joueur (template literal) + smoke export joueur ; **C22.3**
+Adaptation éditeur React (popup apparence, resize C18.4, aperçu,
+picker) + tests Vitest ; **C22.4** Adaptation éditeur legacy
+(formulaire `.scene-block`, `editor-shared-ui-utils.js`) + miroir
+`editor-shared-nodal-to-dom.js` ; **C22.5** Migration projets
+pré-C22 (au load).
 
 ---
 
@@ -1947,6 +2047,57 @@ détaillé** (plans, scope, journal au fil de l’eau) :
 - **Deploy** dans la modale Publication — réservé **C11** (placeholder laissé
   jusqu’à implémentation Netlify).
 
+### C18 — Aperçu de scène 360° + placement coords hotspots *(clôture chantier 2026-05-14)*
+
+**Branche** : `feat/c18-360-preview-and-picker` (mergée dans `feat/nodal-map`
+le **YYYY-MM-DD** — à compléter au merge).
+
+**Périmètre livré (synthèse)** :
+
+- **C18.1** — Aperçu scène 360° read-only en modale plein écran depuis le
+  menu contextuel s-box. Composant partagé `<NodalPanoramaViewer>` (mode
+  `preview`). Hotspots existants en outline rouge dashed + labels tronqués.
+  Fichiers : `xflow/react/src/view/preview/NodalPanoramaViewer.tsx`,
+  `panoramaUrl.ts`, `sceneHotspotProjections.ts` ; entrée menu contextuel
+  s-box ; contexte `nodalUiContext.tsx` (`scenePreviewSceneId`).
+- **C18.2** — Modale picker éditable depuis `CoordsOptionsPopup`. Viseur
+  central + poll `getPitch` / `getYaw` 120 ms (variante `mouseEventToCoords`
+  conservée commentée comme fallback Q-C18-4). Hotspots autres en gris
+  dashed (contexte). Valider / Annuler / Échap / Enter. Commit pitch+yaw
+  via `updateNodeData`. Fixes : viseur central `pointer-events: none`, fige
+  `initialPitch` / `initialYaw` en ref.
+- **C18.3** — Drag direct des hotspots dans l'aperçu : toggle « Éditer les
+  hotspots » dans le header de la modale C18.1 ; `NodalPanoramaViewer`
+  étendu `forwardRef` exposant `mouseEventToCoords` ; auto-save pitch/yaw au
+  release via `updateNodeData` ; Échap annule le drag courant.
+- **C18.4** — Resize des hotspots via **handles aux 4 coins** en mode édition.
+  Sélection clic simple. Resize ancré au centre (pitch/yaw fixes). Shift =
+  ratio fixe. Bornes 16–800 px. Bordure dashed rouge décalée
+  (`outline-offset`). Fixes : centrage Pannellum, désactivation raccourcis
+  clavier, stabilisation `hotSpots` + safety check WebGL (crash pointerup),
+  préservation vue caméra à la recréation légitime du viewer.
+- **C18.5** — Aperçu interactif « comme en jeu » read-only — clic hotspot →
+  popup joueur preview. Option (a-i) finale : réutilisation
+  `PlayerPopupPreview` avec prop `interactive`, overlay
+  `<PlayerPreviewOverlay>`. Livraisons : **C18.5.1** overlay + msg + pick ;
+  **C18.5.2** goto + req + pwd + selector multi-niveau + img fallback + bouton
+  retour aligné runtime joueur ; **C18.5.3** audio + ARIA + badge.
+
+**Écartés** : aucun écarté réel — tous les sous-chantiers cadrés ont été
+livrés. **Note historique** : l'item ex-C18.3 initialement noté optionnel en
+§7 (drag direct) avait été retiré à l'ouverture Annexe D puis ré-intégré
+pendant le chantier comme C18.3 + C18.4 explicites (cf. journal archivé).
+
+**Reste éventuel** :
+
+- **C22 — Hotspots responsives** : chantier séparé identifié pendant le
+  cadrage C18.4 (note transverse Annexe D), déjà inscrit en §7 (**C22**).
+- **Nœud aperçu intégrable au canvas** (mini panorama agrandissable par
+  nœud, préchargement) : idée future notée en Annexe D § Scope figé, non
+  chiffrée — à évoquer si pertinence UX émerge plus tard.
+
+**Journal détaillé** (plans + décisions) : `docs/archives/chantier_18.md`.
+
 ## Annexe C — Glossaire
 
 - **Action** : unité métier éditable. Types `msg`, `pick`, `goto`,
@@ -1967,540 +2118,3 @@ détaillé** (plans, scope, journal au fil de l’eau) :
   (`coords-options`, `choice-options`, `object`).
 - **Transition** (famille handle) : nouvelle famille dédiée au `goto` —
   couleur bleu vif, forme triangle, edge pointillé animé.
-
----
-
-## Annexe D — Chantier C18 (en cours)
-
-> **Vivante** (§8.4) — journal de décisions, plans détaillés, traces
-> de bugs et fixes. Sera synthétisée dans **Annexe B — C18** à la
-> clôture du chantier puis archivée sous `docs/archives/chantier_18.md`.
-
-**Date d'ouverture** : 2026-05-08.
-**Branche** : `feat/c18-360-preview-and-picker` (depuis `feat/nodal-map`).
-**Statut** : cadrage validé en phase questions (Q-C18-1 à Q-C18-12,
-2026-05-08). Plans détaillés **C18.1** et **C18.2** rédigés en one-shot
-dans cette Annexe D — prêts à être livrés à Cursor sous-chantier par
-sous-chantier.
-
-### Scope figé
-
-Synthèse des décisions issues de la phase questions (Claude ↔ user,
-2026-05-08) :
-
-- **Périmètre C18 = 2 sous-chantiers** : aperçu scène 360° read-only
-  (C18.1) + modale picker éditable (C18.2). L'item C18.3 initialement
-  noté optionnel en §7 (drag direct du hotspot dans le viewer) est
-  **retiré du périmètre C18** et reporté en chantier séparé après C18,
-  avec extension de scope : drag + **resize via encarts** (largeur /
-  hauteur du hotspot manipulables visuellement dans le viewer). Numéro
-  non figé pour l'instant (ne créer C22+ que quand le user décidera de
-  l'attaquer).
-- **Réécriture TS pure** côté React (`xflow/react/src/view/preview/`).
-  Pas d'appel au module legacy `js/editor-shared-preview-picker.js` qui
-  est couplé au DOM legacy (`#scene_X .sc-img`, `.hs-pitch`, etc.). Le
-  legacy reste en place tant que la vue de vérification (C10.4) existe.
-- **Pannellum 2.5.7** déjà chargé via CDN dans `editeur.html` /
-  `editor_en.html` (lignes 8-9, balises `<link>` + `<script>`).
-  `window.pannellum` disponible globalement — pas de dépendance npm
-  à ajouter.
-- **Composant React mutualisé** `<NodalPanoramaViewer>` réutilisé en
-  mode `preview` (C18.1) et `picker` (C18.2). Encapsule le cycle
-  `pannellum.viewer(...)` ↔ `destroy()`, expose les hotspots et un
-  callback `onPick(pitch, yaw)` en mode picker.
-- **Source URL panorama** : `scene.panoramaUrl` (string sur `SceneNode`
-  dans `xflow/react/src/model/nodes.ts:52-58`). Normalisation legacy à
-  conserver (`./` préfixé si l'URL ne commence ni par `http` ni par
-  `data:` ni par `blob:` — voir `js/editor-shared-preview-picker.js:25-31`).
-- **Modale plein écran** dans les deux sous-chantiers (Q-C18-2 a) — choix
-  pragmatique pour itérer vite, cohérent avec le legacy
-  (`#scene-preview-modal`, `#picker-modal`). Pannellum a besoin de
-  surface utile.
-- **Idée future à ne pas oublier** : à terme, un **nœud aperçu
-  intégrable au canvas** (taille du nœud, agrandissable / réductible,
-  préchargement en mini format) serait l'UX cible — réservé à un
-  chantier ultérieur compte tenu du risque perf navigateur (charger N
-  panoramas + positions à la fois). À évoquer en clôture C18 si jugé
-  pertinent.
-- **Clic-pour-positionner via `mouseEventToCoords`** (Q-C18-4 b) —
-  Pannellum expose nativement la conversion event → pitch/yaw. Plus
-  intuitif que le viseur croix legacy. **Variante viseur croix
-  conservée commentée / non active** dans le composant comme fallback,
-  pour pouvoir réactiver rapidement si l'usage révèle un besoin.
-- **Hotspots en background dans le picker** (Q-C18-5 a) : tous les
-  hotspots de la scène sont affichés en gris dashed pour donner du
-  contexte spatial pendant le placement, sauf le hotspot en cours
-  d'édition qui apparaît en rouge (cohérent legacy `previewScene`).
-  Règle un manque connu du picker legacy (aucune visibilité des
-  voisins).
-- **Open initial du picker** centré sur le pitch / yaw actuel du
-  satellite (Q-C18-6 a) — UX : moins de rotation à faire pour ajuster
-  à partir d'une position déjà saisie.
-- **Sortie du picker** (Q-C18-7 a) : Valider commit pitch + yaw
-  uniquement (le reste du satellite — `visibility`, `appearance`,
-  `customCss` — reste intact). Échap = Annuler ; Enter = Valider.
-- **Scène sans `panoramaUrl`** (Q-C18-8 a) : la modale s'ouvre quand
-  même avec un message d'erreur explicite « Image 360 manquante —
-  renseigner panoramaUrl » et un bouton Fermer. Donne le feedback
-  dans le bon contexte.
-- **Tests Vitest** (Q-C18-12) : périmètre figé — (i) entrée menu
-  contextuel s-box présente quand C18.1 monté ; (ii) état UI
-  `scenePreviewSceneId` / `coordsPickerSatelliteId` mis à jour ;
-  (iii) callback simulé `onPick(p, y)` → écriture store via
-  `updateNodeData` (vérifié `store.getState()`) ; (iv) résolution
-  satellite → action parente → scène pour récupérer `panoramaUrl`.
-  **Pannellum mocké** (`vi.mock('pannellum')`) — pas de test du rendu
-  3D réel, validation manuelle via smoke FR/EN.
-
-### Stratégie de découpage
-
-| # | Périmètre | Dépend de | Type |
-|---|-----------|-----------|------|
-| **C18.1** | Aperçu scène 360° read-only (modale plein écran) ouvert depuis menu contextuel s-box ; composant partagé `<NodalPanoramaViewer>` en mode `preview` ; hotspots existants visibles en outline rouge dashed avec label tronqué | — | code |
-| **C18.2** | Modale picker (modale plein écran) ouverte depuis bouton ajouté à `CoordsOptionsPopup` ; clic-pour-positionner via Pannellum `mouseEventToCoords` ; hotspots autres en gris dashed pour contexte ; Valider/Annuler/Échap/Enter ; commit pitch + yaw via `updateNodeData` sur le satellite | C18.1 (réutilise `<NodalPanoramaViewer>`) | code |
-
-Convention : un commit par sous-chantier ; fixes numérotés
-`C18.x.y-fix` si correctifs en cours de chantier (cf. §8.2 + §2.2 du
-briefing CLAUDE.md).
-
-### Décisions de design
-
-- **Composant `<NodalPanoramaViewer>`** (nouveau,
-  `xflow/react/src/view/preview/NodalPanoramaViewer.tsx`) — props :
-  `{ panoramaUrl: string; mode: "preview" | "picker"; hotSpots?:
-  PannellumHotSpotProjection[]; initialPitch?: number; initialYaw?:
-  number; onPick?: (pitch: number, yaw: number) => void; onReady?:
-  () => void }`. Init Pannellum au mount (`useEffect`), destroy au
-  unmount. En mode `picker`, attache un `click` listener sur le
-  container Pannellum qui appelle `viewer.mouseEventToCoords(event)`
-  → `onPick(pitch, yaw)`. Variante viseur croix : composant interne
-  `<PickerCrosshairOverlay>` exporté mais **non monté par défaut**
-  (commentaire `// Q-C18-4 fallback — réactiver si UX clic-position
-  jugée insuffisante`).
-- **Normalisation URL panorama** : helper
-  `normalizePanoramaUrl(url)` extrait dans
-  `xflow/react/src/view/preview/panoramaUrl.ts`. Logique : si la
-  chaîne ne commence ni par `http` / `data:` / `blob:` → préfixer
-  `./`. Aligné `js/editor-shared-preview-picker.js:25-31`.
-- **Projection des hotspots de scène vers Pannellum** : helper
-  `collectSceneHotspotProjections(state, sceneId, options)` dans
-  `xflow/react/src/view/preview/sceneHotspotProjections.ts` — parcourt
-  les actions État 2 dont `flow-in` cible la scène, lit le satellite
-  `coords-options` associé pour pitch / yaw / `customCss` (ou dérive
-  de `appearance` si `customCss` vide), et produit le tableau
-  d'hotspots Pannellum avec `{ pitch, yaw, cssClass }`. Les classes
-  CSS sont injectées dynamiquement dans un `<style id="nodal-...">`
-  monté par la modale ; cleanup au démontage.
-- **Style hotspots overlay** : pour C18.1 (mode `preview`) — outline
-  rouge dashed + label noir post-`::after` (cohérent legacy
-  `previewScene`). Pour C18.2 (mode `picker`) — hotspots autres en
-  outline **gris** dashed (faible opacité, label optionnel) ; le
-  hotspot en cours d'édition n'est **pas** affiché dans la liste
-  Pannellum (sa position est en cours de modification).
-- **Contexte UI** (`xflow/react/src/view/nodalUiContext.tsx`) — deux
-  nouveaux champs :
-  ```ts
-  scenePreviewSceneId: SceneNodeId | null;
-  setScenePreviewSceneId: (id: SceneNodeId | null) => void;
-  coordsPickerSatelliteId: SatelliteNodeId | null;
-  setCoordsPickerSatelliteId: (id: SatelliteNodeId | null) => void;
-  ```
-  Ajouter aussi des helpers `openScenePreview(sceneId)` et
-  `openCoordsPicker(satId)` qui réinitialisent les autres popups
-  (cohérent `openMsgContentEditor` etc.).
-- **Menu contextuel s-box** (`xflow/react/src/view/contextMenu/
-  nodalContextMenuModel.ts`) — nouvelle action `preview-scene-360`
-  ajoutée dans le type `NodalContextMenuAction`. Branche
-  `targetId in snap.sceneBoxes` (lignes 89-96) : pousser entrée
-  `{ action: "preview-scene-360", label: t.previewScene360 }`
-  avant `toggle-fold`. Labels : `"Tester la scène 360°"` (FR) /
-  `"Preview scene 360°"` (EN).
-- **Bouton picker dans `CoordsOptionsPopup`**
-  (`xflow/react/src/view/popups/CoordsOptionsPopup.tsx`) — ajout d'un
-  bouton « 📍 Placer sur l'image » sous les inputs pitch / yaw, dans
-  une nouvelle row `nodal-coords-pick-row` (à créer dans
-  `NodalCanvas.css`). Au clic : appel `openCoordsPicker(satellite.id)`
-  via `useNodalUi()`. La modale picker est montée au niveau de
-  `NodalCanvas` (pas dans `CoordsOptionsPopup`), cohérent avec
-  `HotspotAppearancePopup` qui sort par-dessus.
-- **Résolution satellite → scène** dans `<CoordsPickerModal>` :
-  satellite `coords-options` → action parente (cherchée dans
-  `snap.actions` par parcours des satellites attachés) → scène
-  parente (lue via `flow-in` edge ou `parentId` s-box). Helper
-  centralisé dans `xflow/react/src/store/findSceneOfHotspotSatellite.ts`
-  pour réutilisation.
-- **Cycle Pannellum** : `viewer.destroy()` impératif au close de la
-  modale (sinon fuite WebGL + listeners). Encapsulé dans le
-  `useEffect` cleanup de `<NodalPanoramaViewer>`.
-- **Z-index** : modales C18.x au-dessus des popups d'action (msg /
-  selector / etc.) ET au-dessus de `HotspotAppearancePopup`. Variable
-  CSS `--nodal-z-fullscreen-modal` à définir dans `NodalCanvas.css`
-  (suggestion : `2000`, vs popups standard à `1000`).
-- **Fermeture clavier Échap** : intégrer le handler dans les modales
-  C18 sans passer par `isEditingContext` (C8.2.1) puisque le viewer
-  ne contient pas d'input texte. Listener local `useEffect` sur
-  `document.addEventListener("keydown", ...)`, cleanup au unmount.
-
-### Plan détaillé C18.1 — directives pour Cursor
-
-**Pré-requis** : C18 cadrage validé (Annexe D ouverte). Aucune
-dépendance code (point d'entrée du chantier).
-
-**Contexte** : porter dans la couche React le comportement legacy
-`previewScene` (`js/editor-shared-preview-picker.js:99-145`). Une
-nouvelle entrée « 👁 Tester la scène 360° » apparaît dans le menu
-contextuel d'un s-box. Au clic, une modale plein écran s'ouvre avec
-Pannellum chargé sur le panorama de la scène ; les hotspots existants
-de la scène sont affichés en outline rouge dashed avec leur label
-tronqué (cohérent legacy). Fermeture via bouton « Fermer », croix, ou
-Échap. Read-only — aucune édition.
-
-**Fichiers à lire avant de coder** :
-
-- `js/editor-shared-preview-picker.js:99-145` — référence
-  comportementale (`previewScene`, génération CSS hotspots,
-  `closeScenePreview`, cycle `pannellum.viewer` / `destroy`).
-- `editeur.html` lignes 434-441 — markup historique
-  `#scene-preview-modal` (template visuel pour la modale React).
-- `xflow/react/src/view/contextMenu/nodalContextMenuModel.ts`
-  (lignes 5-15 type `NodalContextMenuAction` ; lignes 89-96 branche
-  s-box) — point d'extension menu contextuel.
-- `xflow/react/src/view/contextMenu/NodalContextMenu.tsx` — handler
-  des actions menu (à étendre pour `preview-scene-360`).
-- `xflow/react/src/view/NodalCanvas.tsx` — montage des popups +
-  provider `NodalUiContext` + ajout de la modale
-  `<ScenePreviewModal>`.
-- `xflow/react/src/view/nodalUiContext.tsx` — pattern d'état popup
-  global (`coordsEditorSatelliteId` etc.).
-- `xflow/react/src/view/popups/PublishGamePopup.tsx` — popup plein
-  écran existante (réf style et structure DOM pour `nodal-popup-*`).
-- `xflow/react/src/store/reconcileSceneBoxes.ts` (`sboxIdFromScene`
-  + réciproque) — résoudre `sceneId` à partir du `sceneBoxId` ciblé
-  par le menu contextuel.
-- `xflow/react/src/model/nodes.ts:52-58` — type `SceneNode` avec
-  `panoramaUrl`.
-- Spec §3.4 (satellite `coords-options`) — pour comprendre la lecture
-  pitch/yaw/customCss côté projection hotspots.
-
-**Phase questions (workflow §8.1)** — *réalisé en pré-rédaction
-Annexe D (Q-C18-1 à Q-C18-12)*. Questions résiduelles éventuelles
-à poser par Cursor avant de coder :
-
-- **Q-C18.1-1** — Helper `collectSceneHotspotProjections` : extraire
-  dans un fichier dédié (`view/preview/sceneHotspotProjections.ts`)
-  ou inliner dans `<ScenePreviewModal>` ? *Vote : fichier dédié,
-  réutilisé en C18.2 pour l'affichage gris dashed des hotspots
-  voisins.*
-- **Q-C18.1-2** — Strategy d'injection CSS hotspots : `<style>` monté
-  par la modale et démonté au close, ou className unique injectée
-  dans `nodes.css` ? *Vote : `<style>` dynamique pour éviter la
-  pollution CSS globale et permettre une projection à la volée.*
-- **Q-C18.1-3** — Comportement si la scène n'a pas de hotspots du
-  tout : modale ouverte avec viewer seul (pas de hotspots affichés),
-  ou message « Aucun hotspot dans cette scène » ? *Vote : viewer
-  seul (pas de message — la modale a un titre clair, l'utilisateur
-  comprend).*
-
-**Périmètre** :
-
-- **Composant `<NodalPanoramaViewer>`** (nouveau,
-  `xflow/react/src/view/preview/NodalPanoramaViewer.tsx`) :
-  - Props : `{ panoramaUrl: string; mode: "preview" | "picker";
-    hotSpots?: PannellumHotSpotProjection[]; initialPitch?: number;
-    initialYaw?: number; onPick?: (pitch: number, yaw: number) =>
-    void; onReady?: () => void }`.
-  - Mount : ref `<div>` → `pannellum.viewer(divId, { type:
-    "equirectangular", panorama: normalizePanoramaUrl(url), autoLoad:
-    true, hotSpots, pitch: initialPitch, yaw: initialYaw,
-    showControls: false })`.
-  - Unmount : `viewer.destroy()`.
-  - Mode `picker` (préparé pour C18.2 ; `onPick` non utilisé en
-    C18.1) : listener `click` sur le container ; appelle
-    `viewer.mouseEventToCoords(event)` → `onPick(pitch, yaw)`.
-  - Variante viseur croix : composant **`<PickerCrosshairOverlay>`**
-    exporté du même fichier mais **non monté par défaut** (commenté
-    avec `// Q-C18-4 fallback — réactiver si UX clic-position jugée
-    insuffisante`).
-- **Helper `normalizePanoramaUrl`** (nouveau,
-  `xflow/react/src/view/preview/panoramaUrl.ts`) : reproduire la
-  logique legacy lignes 25-31 de `editor-shared-preview-picker.js`.
-- **Helper `collectSceneHotspotProjections`** (nouveau,
-  `xflow/react/src/view/preview/sceneHotspotProjections.ts`) :
-  signature `collectSceneHotspotProjections(state:
-  NodalProjectStore, sceneId: SceneNodeId, options?: { excludeIds?:
-  ActionNodeId[]; cssVariant?: "preview" | "picker-bg" }):
-  PannellumHotSpotProjection[]`. Pour chaque action État 2 cible de
-  la scène, lit le satellite `coords-options` (pitch, yaw,
-  customCss / appearance dérivé) et produit `{ pitch, yaw, cssClass
-  }`. Le CSS string est retourné séparément (à injecter par le
-  consommateur).
-- **Composant `<ScenePreviewModal>`** (nouveau,
-  `xflow/react/src/view/popups/ScenePreviewModal.tsx`) :
-  - Props : `{ sceneId: SceneNodeId | null; onClose: () => void }`.
-  - Si `sceneId === null` : retourne `null`.
-  - Lit la scène depuis le store (`useNodalUi().store.getState().
-    scenes[sceneId]`).
-  - Si `panoramaUrl === ""` : affiche message « Image 360 manquante
-    — renseigner panoramaUrl » + bouton Fermer (pas de viewer).
-  - Sinon : appelle `collectSceneHotspotProjections(state, sceneId,
-    { cssVariant: "preview" })`, monte un `<style id="nodal-...">`
-    avec les CSS classes générées, monte `<NodalPanoramaViewer
-    mode="preview" panoramaUrl={url} hotSpots={projections} />`.
-  - Header : titre « 👁 Aperçu : <label scène> », bouton Fermer.
-  - Listener clavier : Échap = `onClose()`.
-- **Modèle menu contextuel**
-  (`xflow/react/src/view/contextMenu/nodalContextMenuModel.ts`) :
-  - Ajouter `"preview-scene-360"` dans le type
-    `NodalContextMenuAction`.
-  - Ajouter dans `labels(locale)` : `previewScene360: L ? "Preview
-    scene 360°" : "Tester la scène 360°"`.
-  - Branche `targetId in snap.sceneBoxes` (lignes 89-96) : pousser
-    `{ action: "preview-scene-360", label: t.previewScene360 }`
-    **avant** `toggle-fold`.
-- **Handler menu contextuel**
-  (`xflow/react/src/view/contextMenu/NodalContextMenu.tsx`) :
-  ajouter le case `"preview-scene-360"` qui résout
-  `sceneIdFromSboxId(targetId)` (réciproque de `sboxIdFromScene`,
-  à ajouter dans `reconcileSceneBoxes.ts` si pas déjà présente) puis
-  appelle `ui.openScenePreview(sceneId)`.
-- **Contexte UI** (`xflow/react/src/view/nodalUiContext.tsx`) :
-  - Ajouter `scenePreviewSceneId: SceneNodeId | null` +
-    `setScenePreviewSceneId`.
-  - Ajouter helper `openScenePreview(sceneId: SceneNodeId)` qui
-    réinitialise les autres popups d'édition de contenu (msg, pick,
-    goto, req, pwd, selector, coordsEditor, choiceEditor, mediaEditor,
-    objectEditor, popupThemeCustomization, globalSettingsHub,
-    publishHub) puis `setScenePreviewSceneId(sceneId)`.
-- **Montage** (`xflow/react/src/view/NodalCanvas.tsx`) : monter
-  `<ScenePreviewModal sceneId={ui.scenePreviewSceneId} onClose={()
-  => ui.setScenePreviewSceneId(null)} />` aux côtés des autres
-  popups.
-- **Style** (`xflow/react/src/view/NodalCanvas.css`) : ajouter
-  `.nodal-scene-preview-modal` (overlay sombre, header bandeau,
-  container Pannellum `flex-grow: 1`), variable CSS
-  `--nodal-z-fullscreen-modal: 2000`.
-
-**Critères de fin** :
-
-- Clic droit sur s-box → entrée « Tester la scène 360° » /
-  « Preview scene 360° » présente avant l'entrée Replier/Déplier.
-- Clic sur entrée → modale plein écran s'ouvre, panorama Pannellum
-  chargé sur la scène ciblée.
-- Hotspots de la scène visibles en outline rouge dashed avec label
-  tronqué (alignement legacy `previewScene`).
-- Bouton « Fermer », croix, et Échap ferment la modale ;
-  `viewer.destroy()` appelé (vérifié manuellement via DevTools — pas
-  de fuite WebGL, pas de listener orphelin).
-- Scène avec `panoramaUrl === ""` : modale ouverte avec message
-  « Image 360 manquante » + bouton Fermer (pas d'erreur Pannellum
-  console).
-- Scène sans hotspots : viewer seul, pas de message d'erreur.
-- **Tests Vitest** : `c18ScenePreviewModal.test.tsx` couvrant —
-  (i) entrée menu contextuel s-box présente quand C18.1 monté ;
-  (ii) `openScenePreview(sceneId)` met à jour
-  `scenePreviewSceneId` ET ferme les autres popups ;
-  (iii) projection `collectSceneHotspotProjections` produit le bon
-  nombre d'hotspots avec pitch / yaw / cssClass ; (iv) modale rend
-  le message d'erreur si `panoramaUrl === ""`. **Pannellum mocké**
-  (`vi.mock("pannellum", () => ({ default: { viewer: vi.fn(() =>
-  ({ destroy: vi.fn() })) } }))`).
-- Smoke FR/EN : `editeur.html` + `editor_en.html`, ouvrir une
-  scène avec 0 / 1 / plusieurs hotspots, vérifier light + dark mode.
-
-**Branche / commit** :
-
-- Branche : `feat/c18-360-preview-and-picker`.
-- Commit : `feat(nodal): C18.1 aperçu scène 360° depuis menu
-  contextuel s-box`.
-- **Annexe D — Journal de chantier** : entrée 1-2 lignes au commit.
-
-### Plan détaillé C18.2 — directives pour Cursor
-
-**Pré-requis** : C18.1 livré (réutilisation `<NodalPanoramaViewer>`,
-`normalizePanoramaUrl`, `collectSceneHotspotProjections`).
-
-**Contexte** : porter dans la couche React le comportement legacy
-`openPicker` / `validerCoordonnees` (`js/editor-shared-preview-picker
-.js:33-82`). Un nouveau bouton « 📍 Placer sur l'image » apparaît
-dans `CoordsOptionsPopup` sous les inputs pitch / yaw. Au clic, une
-modale plein écran s'ouvre avec Pannellum (mode `picker`) centré
-sur le pitch / yaw actuel du satellite ; les autres hotspots de la
-scène apparaissent en gris dashed pour donner du contexte spatial.
-Un clic n'importe où sur l'image → header met à jour pitch / yaw
-live. Boutons Valider / Annuler ; Échap = Annuler ; Enter = Valider.
-À la validation, écriture pitch + yaw uniquement dans le satellite
-via `updateNodeData` (le reste — visibility, appearance, customCss
-— reste intact).
-
-**Fichiers à lire avant de coder** :
-
-- `js/editor-shared-preview-picker.js:33-82` — référence
-  comportementale (`openPicker`, header live `live-pitch` /
-  `live-yaw`, `validerCoordonnees`, `closePicker`).
-- `editeur.html` lignes 418-432 — markup historique `#picker-modal`
-  (croix viseur centrale via overlay CSS — à conserver dans la
-  variante non active `<PickerCrosshairOverlay>` côté React).
-- `xflow/react/src/view/popups/CoordsOptionsPopup.tsx` — popup à
-  étendre (ajout du bouton + appel `openCoordsPicker`).
-- `xflow/react/src/view/preview/NodalPanoramaViewer.tsx` (créé
-  C18.1) — réutiliser en mode `picker` avec `onPick` callback.
-- `xflow/react/src/view/preview/sceneHotspotProjections.ts` (créé
-  C18.1) — réutiliser avec `cssVariant: "picker-bg"` et
-  `excludeIds: [parentActionId]`.
-- `xflow/react/src/store/reconcileAutoSatellites.ts` — résolution
-  satellite `coords-options` → action parente.
-- `xflow/react/src/store/nodalProjectStore.ts` — `updateNodeData`
-  pour écrire pitch / yaw au commit.
-- Spec §3.4 (satellite `coords-options`) + §0.2-1 (carte source de
-  vérité).
-
-**Phase questions (workflow §8.1)** — *réalisé en pré-rédaction
-Annexe D*. Questions résiduelles éventuelles :
-
-- **Q-C18.2-1** — Helper `findSceneOfHotspotSatellite` : nouveau
-  fichier `xflow/react/src/store/findSceneOfHotspotSatellite.ts` ou
-  méthode du store ? *Vote : fichier helper pur (testable
-  unitairement, pas d'effet de bord store).*
-- **Q-C18.2-2** — Si l'action parente du satellite n'est pas un
-  hotspot État 2 (ex. choix d'un selector — État 3 — qui aurait
-  exceptionnellement un satellite coords) : modale s'ouvre avec
-  message d'erreur, ou bouton « Placer sur l'image » désactivé ?
-  *Vote : bouton désactivé avec tooltip « Disponible pour les
-  hotspots de scène uniquement » — évite l'erreur runtime.*
-  *Note* : selon §3.4, le satellite `coords-options` est attaché
-  **automatiquement** uniquement à un hotspot État 2, donc ce cas
-  ne devrait pas arriver en pratique — la garde est défensive.
-- **Q-C18.2-3** — Style hotspots autres en gris dashed : opacité
-  réduite (0.4 ?) ou pleine opacité ? *Vote : opacité ~0.5 +
-  outline gris (`#888` ?) dashed pour rester discret sans
-  disparaître.*
-
-**Périmètre** :
-
-- **Étendre `CoordsOptionsPopup.tsx`** :
-  - Ajouter un bouton `<button type="button" className="nodal-coords
-    -pick-btn" onClick={onPickClick}>📍 Placer sur l'image</button>`
-    sous le `<div className="nodal-popup-grid">` qui contient les
-    inputs pitch / yaw (avant la row `requiresItem`).
-  - `onPickClick` appelle `useNodalUi().openCoordsPicker(satellite
-    .id)`.
-  - Pas de cleanup à faire à la fermeture du picker (le picker écrit
-    dans le store, le `useEffect` de `CoordsOptionsPopup` (lignes
-    30-42) re-synchronise les states locaux `pitch` / `yaw` au
-    prochain render).
-- **Helper `findSceneOfHotspotSatellite`** (nouveau,
-  `xflow/react/src/store/findSceneOfHotspotSatellite.ts`) :
-  signature `findSceneOfHotspotSatellite(state:
-  NodalProjectStore, satelliteId: SatelliteNodeId): { sceneId:
-  SceneNodeId; actionId: ActionNodeId } | null`. Algorithme :
-  1. Lit le satellite ; si pas `coords-options` → null.
-  2. Cherche l'action parente (dans `state.actions`, parcours des
-     edges meta-out d'action vers ce satellite — ou champ direct
-     si la résolution est déjà disponible ailleurs).
-  3. Cherche la scène parente via le `flow-in` edge de l'action
-     (edges family flow, target = action).
-  4. Retourne `{ sceneId, actionId }` ou `null` si chemin cassé.
-- **Composant `<CoordsPickerModal>`** (nouveau,
-  `xflow/react/src/view/popups/CoordsPickerModal.tsx`) :
-  - Props : `{ satelliteId: SatelliteNodeId | null; onClose: () =>
-    void }`.
-  - Si `satelliteId === null` : retourne `null`.
-  - Résolution : `findSceneOfHotspotSatellite(state, satelliteId)`.
-    Si `null` → message d'erreur « Cible introuvable » + bouton
-    Fermer.
-  - Lit le satellite (pitch / yaw initiaux), la scène
-    (`panoramaUrl`).
-  - Si `panoramaUrl === ""` : message d'erreur « Image 360 manquante
-    — renseigner panoramaUrl » + bouton Fermer.
-  - Sinon : `useState<{ pitch: number; yaw: number }>` initialisé
-    avec les valeurs du satellite. `<NodalPanoramaViewer mode=
-    "picker" panoramaUrl={url} initialPitch={pitch} initialYaw={yaw}
-    onPick={(p, y) => setLive({ pitch: p, yaw: y })} hotSpots={
-    backgroundHotspots} />` où `backgroundHotspots =
-    collectSceneHotspotProjections(state, sceneId, { excludeIds:
-    [actionId], cssVariant: "picker-bg" })`.
-  - Header : « 📍 Cible : Pitch <live.pitch.toFixed(1)> | Yaw
-    <live.yaw.toFixed(1)> » + boutons Valider / Annuler.
-  - Valider : `useNodalUi().store.getState().updateNodeData(
-    satelliteId, { ...current.data, pitch: live.pitch, yaw: live
-    .yaw })`. Important : ne touche PAS aux autres champs du
-    satellite (visibility, appearance, customCss, sfx,
-    hotspotCssExpert).
-  - Annuler : ferme sans écrire.
-  - Listener clavier : Échap = Annuler ; Enter = Valider.
-- **Contexte UI** (`xflow/react/src/view/nodalUiContext.tsx`) :
-  - Ajouter `coordsPickerSatelliteId: SatelliteNodeId | null` +
-    `setCoordsPickerSatelliteId`.
-  - Ajouter helper `openCoordsPicker(satId: SatelliteNodeId)` qui
-    réinitialise les autres popups (mais **pas**
-    `coordsEditorSatelliteId` — les deux popups peuvent rester
-    « ouvertes » conceptuellement, le picker passe par-dessus avec
-    z-index supérieur ; au close picker, on retombe sur la popup
-    coords ouverte derrière) puis `setCoordsPickerSatelliteId
-    (satId)`.
-- **Montage** (`xflow/react/src/view/NodalCanvas.tsx`) : monter
-  `<CoordsPickerModal satelliteId={ui.coordsPickerSatelliteId}
-  onClose={() => ui.setCoordsPickerSatelliteId(null)} />` aux
-  côtés de `<ScenePreviewModal>`. Z-index au-dessus de
-  `<HotspotAppearancePopup>` et de `<CoordsOptionsPopup>`.
-- **Style** (`xflow/react/src/view/NodalCanvas.css`) :
-  - `.nodal-coords-picker-modal` (overlay sombre, header avec
-    affichage pitch / yaw live, container Pannellum, footer
-    boutons Valider / Annuler).
-  - `.nodal-coords-pick-btn` dans `CoordsOptionsPopup` (bouton
-    secondaire, équivalent style `.nodal-coords-appearance-btn`).
-  - Classes hotspots `picker-bg` (gris dashed `#888`, opacité 0.5).
-  - `.nodal-picker-crosshair-overlay` (commentée / non active —
-    fallback Q-C18-4).
-
-**Critères de fin** :
-
-- Bouton « 📍 Placer sur l'image » présent dans `CoordsOptionsPopup`,
-  sous les inputs pitch / yaw.
-- Clic ouvre la modale picker plein écran, viewer Pannellum centré
-  sur les valeurs pitch / yaw actuelles du satellite.
-- Hotspots autres de la scène visibles en gris dashed (opacité
-  réduite). Le hotspot en cours d'édition n'est pas dans la liste.
-- Clic sur l'image met à jour pitch / yaw live dans le header.
-- « Valider » / Enter écrit pitch + yaw dans le satellite via
-  `updateNodeData` (vérifié `store.getState().satellites
-  [satelliteId].data`) sans toucher aux autres champs.
-- « Annuler » / Échap referme sans écrire.
-- Réouverture immédiate du picker : viewer s'ouvre aux nouvelles
-  valeurs sauvegardées (cohérence read).
-- Scène sans `panoramaUrl` ou résolution scène cassée : message
-  d'erreur dans modale, pas de viewer.
-- **Tests Vitest** : `c18CoordsPickerModal.test.tsx` couvrant —
-  (i) bouton présent dans `CoordsOptionsPopup` ;
-  (ii) `openCoordsPicker(satId)` met à jour
-  `coordsPickerSatelliteId` ; (iii) résolution
-  `findSceneOfHotspotSatellite` correcte (cas hotspot, cas
-  satellite orphelin → null) ; (iv) callback `onPick(p, y)` →
-  `live.pitch / live.yaw` mis à jour ; (v) Valider commit
-  `store.getState().satellites[satId].data.pitch / yaw` correct,
-  champs visibility / appearance intacts ; (vi) Annuler ne commit
-  pas. **Pannellum mocké** comme C18.1.
-- Smoke FR/EN : ouvrir un hotspot existant, picker, repositionner,
-  Valider, vérifier que la position du hotspot s'est mise à jour
-  visiblement (carte nodale + aperçu C18.1) ; round-trip
-  `.escapegame` (les valeurs picker doivent persister à
-  `getCurrentProjectData()` côté DOM legacy via flush).
-
-**Branche / commit** :
-
-- Branche : `feat/c18-360-preview-and-picker`.
-- Commit : `feat(nodal): C18.2 modale placement coords hotspots
-  depuis CoordsOptionsPopup`.
-- **Annexe D — Journal de chantier** : entrée 1-2 lignes au commit.
-
-### Journal de chantier
-
-- 2026-05-08 — Ouverture Annexe D. Cadrage validé en phase questions
-  (Q-C18-1 à Q-C18-12). Découpage 2 sous-chantiers (C18.1 + C18.2) ;
-  item drag direct + resize hotspots reporté en chantier séparé
-  post-C18 (numéro non figé). Branche
-  `feat/c18-360-preview-and-picker` créée depuis `feat/nodal-map`.
-  Plans détaillés C18.1 et C18.2 rédigés en one-shot dans cette
-  Annexe D, prêts à être livrés à Cursor sous-chantier par
-  sous-chantier.
-

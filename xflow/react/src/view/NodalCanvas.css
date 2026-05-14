@@ -41,6 +41,9 @@
   --theme-toggle-color: #1f2937;
   --theme-toggle-hover-bg: #f1f5f9;
 
+  /* C18.1 — modale aperçu 360° plein écran */
+  --nodal-z-fullscreen-modal: 2000;
+
   /* S-box (C8.1.b — 1.b.4) : cadre groupe scène + actions */
   --sbox-frame-bg: color-mix(in srgb, var(--node-scene-bg) 58%, transparent);
   --sbox-frame-border: var(--node-scene-border);
@@ -110,6 +113,8 @@
   --node-start-badge-bg: #422006;
   --node-start-badge-border: #f59e0b;
   --node-start-badge-text: #fde68a;
+
+  --nodal-z-fullscreen-modal: 2000;
 }
 
 .nodal-canvas-pane {
@@ -694,4 +699,377 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   text-align: left;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* C18.1 — aperçu scène 360° (Pannellum plein écran, menu contextuel s-box) */
+.nodal-canvas-layout .nodal-scene-preview-modal.nodal-popup-overlay {
+  z-index: var(--nodal-z-fullscreen-modal);
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  max-height: 100vh;
+  background: var(--palette-bg);
+  color: var(--node-text);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--palette-border);
+  background: color-mix(in srgb, var(--palette-bg) 88%, var(--node-text));
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__close-x {
+  border: none;
+  background: transparent;
+  color: var(--node-text);
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__close-x:hover {
+  background: var(--palette-button-hover);
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__body .nodal-panorama-viewer-host {
+  flex: 1;
+  min-height: 280px;
+  width: 100%;
+}
+
+/* C18.3 — toggle « Éditer les hotspots » dans le header de l'aperçu scène. */
+.nodal-canvas-layout .nodal-scene-preview-modal__edit-toggle {
+  margin-left: auto;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__edit-toggle:hover {
+  background: var(--palette-button-hover);
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__edit-toggle[data-active="1"] {
+  border-color: var(--node-selected-outline);
+  background: color-mix(in srgb, var(--node-selected-outline) 18%, var(--palette-button-bg));
+  font-weight: 600;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__edit-hint {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  text-align: center;
+  font-size: 0.92rem;
+  border-bottom: 1px solid var(--palette-border);
+  background: color-mix(in srgb, var(--node-selected-outline) 8%, var(--palette-bg));
+}
+
+/* C18.3 — curseur grab sur les hotspots quand l'aperçu est en mode édition. */
+.nodal-canvas-layout .nodal-scene-preview-modal[data-edit-mode="1"] [class*="prev-hs-"] {
+  cursor: grab;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal[data-edit-mode="1"] [class*="prev-hs-"]:active {
+  cursor: grabbing;
+}
+
+/* C18.3 — fantôme du hotspot pendant le drag : suit le curseur, n'intercepte rien. */
+.nodal-canvas-layout .nodal-hotspot-ghost {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  opacity: 0.55;
+  filter: grayscale(0.25);
+}
+
+.nodal-canvas-layout .nodal-hotspot-ghost__inner {
+  outline: 2px dashed rgba(255, 255, 255, 0.85);
+  outline-offset: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/*
+ * C18.4 — handles de resize aux 4 coins du hotspot sélectionné.
+ * Position fixe (alignée sur le `getBoundingClientRect()` du hotspot,
+ * relayé par rAF dans `<HotspotResizeHandles>`). Les handles sont
+ * centrés sur le coin via `translate(-50%, -50%)`.
+ */
+.nodal-canvas-layout .nodal-hotspot-handle {
+  position: fixed;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  background: var(--node-selected-outline, #ff7a00);
+  border: 1.5px solid #ffffff;
+  border-radius: 2px;
+  z-index: 9998;
+  pointer-events: auto;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  touch-action: none;
+}
+
+.nodal-canvas-layout .nodal-hotspot-handle--nw,
+.nodal-canvas-layout .nodal-hotspot-handle--se {
+  cursor: nwse-resize;
+}
+
+.nodal-canvas-layout .nodal-hotspot-handle--ne,
+.nodal-canvas-layout .nodal-hotspot-handle--sw {
+  cursor: nesw-resize;
+}
+
+/* C18.2-fix — wrapper pour superposer le viseur central au panorama. */
+.nodal-canvas-layout .nodal-panorama-viewer-frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  width: 100%;
+}
+
+.nodal-canvas-layout .nodal-panorama-viewer-frame > .nodal-panorama-viewer-host {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+/* C18.2-fix — viseur central (croix) en mode picker, ne bloque pas la souris. */
+.nodal-canvas-layout .nodal-picker-crosshair-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+
+.nodal-canvas-layout .nodal-picker-crosshair-overlay::before,
+.nodal-canvas-layout .nodal-picker-crosshair-overlay::after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
+.nodal-canvas-layout .nodal-picker-crosshair-overlay::before {
+  width: 2px;
+  height: 28px;
+}
+
+.nodal-canvas-layout .nodal-picker-crosshair-overlay::after {
+  width: 28px;
+  height: 2px;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__empty {
+  padding: 32px 24px;
+  text-align: center;
+  max-width: 420px;
+  margin: auto;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__empty-title {
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__footer {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--palette-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__close-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.nodal-canvas-layout .nodal-scene-preview-modal__close-btn:hover {
+  background: var(--palette-button-hover);
+}
+
+/* C18.2 — picker coords au-dessus des popups carte (z-index 2100) et de l’aperçu scène (2000) */
+.nodal-canvas-layout .nodal-coords-picker-modal.nodal-popup-overlay {
+  z-index: 2200;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100%;
+  max-height: 100vh;
+  background: var(--palette-bg);
+  color: var(--node-text);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__panel--compact {
+  min-height: auto;
+  max-height: min(90vh, 420px);
+  width: min(440px, 94vw);
+  margin: auto;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--palette-border);
+  background: color-mix(in srgb, var(--palette-bg) 88%, var(--node-text));
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__title-live {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__body--message {
+  padding: 20px 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: stretch;
+  text-align: center;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__footer {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--palette-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__btn-primary {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--node-selected-outline);
+  background: color-mix(in srgb, var(--node-selected-outline) 18%, var(--palette-button-bg));
+  color: var(--node-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__btn-primary:hover {
+  background: color-mix(in srgb, var(--node-selected-outline) 28%, var(--palette-button-bg));
+}
+
+.nodal-canvas-layout .nodal-coords-pick-row {
+  margin: 8px 0 10px;
+}
+
+.nodal-canvas-layout .nodal-coords-pick-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--palette-button-border);
+  background: var(--palette-button-bg);
+  color: var(--node-text);
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+}
+
+.nodal-canvas-layout .nodal-coords-pick-btn:hover:not(:disabled) {
+  background: var(--palette-button-hover);
+}
+
+.nodal-canvas-layout .nodal-coords-pick-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+.nodal-canvas-layout .nodal-coords-picker-modal__body .nodal-panorama-viewer-host {
+  flex: 1;
+  min-height: 280px;
+  width: 100%;
+}
+
+/*
+ * C18.5.2-fix — bouton « ← Retour » intégré dans le panel (top bar gauche),
+ * aligné sur runtime joueur `editeur-generate.js` `renderSelectorPanel`.
+ * Style inline appliqué côté composant `<PlayerPopupPreview>` ; pas de
+ * positionnement fixed externe.
+ */
+.nodal-player-popup-back:hover {
+  background: rgba(255, 255, 255, 0.28) !important;
 }

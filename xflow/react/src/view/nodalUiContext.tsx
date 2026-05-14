@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import type { StoreApi } from "zustand/vanilla";
 
-import type { ActionNodeId, MediaNodeId, SatelliteNodeId } from "../model/ids";
+import type { ActionNodeId, MediaNodeId, SatelliteNodeId, SceneNodeId } from "../model/ids";
 import type { NodalProjectStore } from "../store/nodalProjectStore";
 
 export type NodalUiContextValue = {
@@ -48,6 +48,15 @@ export type NodalUiContextValue = {
   /** C10.1 — modale « Publication du jeu » (palette → bouton [Publier]). */
   publishHubOpen: boolean;
   setPublishHubOpen: (open: boolean) => void;
+  /** C18.1 — aperçu Pannellum plein écran pour une scène (menu contextuel s-box). */
+  scenePreviewSceneId: SceneNodeId | null;
+  setScenePreviewSceneId: (id: SceneNodeId | null) => void;
+  /** Ouvre l’aperçu 360° et ferme les autres popups / hubs carte. */
+  openScenePreview: (sceneId: SceneNodeId) => void;
+  /** C18.2 — placement pitch/yaw sur le panorama (ne ferme pas `coordsEditorSatelliteId`). */
+  coordsPickerSatelliteId: SatelliteNodeId | null;
+  setCoordsPickerSatelliteId: (id: SatelliteNodeId | null) => void;
+  openCoordsPicker: (satId: SatelliteNodeId) => void;
 };
 
 export const NodalUiContext = createContext<NodalUiContextValue | null>(null);

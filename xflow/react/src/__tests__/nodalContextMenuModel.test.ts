@@ -100,7 +100,7 @@ describe("buildNodalContextMenuItems (C8.5.1)", () => {
     expect(items.map((i) => i.action)).toEqual(["open", "copy-target", "delete"]);
   });
 
-  it("s-box : repli / dépli uniquement (pas d’entrée dupliquer scène)", () => {
+  it("s-box : aperçu 360° + repli / déplier", () => {
     const scene: SceneNode = {
       id: asSceneNodeId("scn-sbox"),
       nodeType: "scene",
@@ -115,7 +115,7 @@ describe("buildNodalContextMenuItems (C8.5.1)", () => {
     expect(sboxIds.length).toBeGreaterThan(0);
     const sboxId = sboxIds[0]!;
     const items = buildNodalContextMenuItems(snap, "fr", sboxId as AnyNodeId, [sboxId], true);
-    expect(items.map((i) => i.action)).toEqual(["toggle-fold"]);
+    expect(items.map((i) => i.action)).toEqual(["preview-scene-360", "toggle-fold"]);
   });
 });
 

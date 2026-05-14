@@ -33,21 +33,62 @@ export function playerPopupThemeToMsgPreviewChrome(s: PlayerPopupTheme): {
   closeBtn: CSSProperties;
   btn: CSSProperties;
 } {
+  return playerPopupThemeToChromeImpl(s, "embedded");
+}
+
+/**
+ * C18.5.1 — variante plein écran pour l'overlay preview joueur déclenché
+ * depuis l'aperçu scène. Diffère de `MsgPreviewChrome` (utilisé par les
+ * éditeurs) uniquement sur le viewport (`fixed inset:0` + z-index élevé,
+ * curseur pointer pour signifier la zone de fermeture backdrop).
+ *
+ * Boutons close + actions : `cursor: "default"` est conservé ici ; le
+ * composant `PlayerPopupPreview` les surcharge en `cursor: "pointer"`
+ * quand `interactive` est fourni.
+ */
+export function playerPopupThemeToPlayerOverlayChrome(s: PlayerPopupTheme): {
+  viewport: CSSProperties;
+  panel: CSSProperties;
+  closeBtn: CSSProperties;
+  btn: CSSProperties;
+} {
+  return playerPopupThemeToChromeImpl(s, "overlay");
+}
+
+function playerPopupThemeToChromeImpl(
+  s: PlayerPopupTheme,
+  flavor: "embedded" | "overlay"
+): { viewport: CSSProperties; panel: CSSProperties; closeBtn: CSSProperties; btn: CSSProperties } {
   const box = playerPopupThemeToDemoBoxStyle(s);
   const bs = playerPopupThemeToDemoBtnStyle(s);
+  const viewport: CSSProperties =
+    flavor === "overlay"
+      ? {
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+          boxSizing: "border-box",
+          background: "rgba(0,0,0,0.82)",
+          zIndex: 10050,
+          cursor: "pointer",
+        }
+      : {
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 12,
+          boxSizing: "border-box",
+          background: "rgba(0,0,0,0.82)",
+          borderRadius: 6,
+        };
   return {
-    viewport: {
-      position: "relative",
-      width: "100%",
-      height: "100%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 12,
-      boxSizing: "border-box",
-      background: "rgba(0,0,0,0.82)",
-      borderRadius: 6,
-    },
+    viewport,
     panel: {
       background: box.backgroundColor,
       color: box.color,

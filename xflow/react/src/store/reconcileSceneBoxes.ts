@@ -13,6 +13,12 @@ export function sboxIdFromScene(sceneId: SceneNodeId): SceneBoxNodeId {
   return asSceneBoxNodeId(`sbox-${String(sceneId)}`);
 }
 
+/** Réciproque de `sboxIdFromScene` — résout la scène depuis un cadre s-box. */
+export function sceneIdFromSboxId(state: NodalProject, sboxId: SceneBoxNodeId): SceneNodeId | null {
+  const box = state.sceneBoxes[sboxId];
+  return box?.sceneId ?? null;
+}
+
 /**
  * Garantit pour chaque scène un `sceneBox` + layout, reparente la scène sous le s-box,
  * migre les hotspots `parentId === sceneId` vers le s-box (coords relatives inchangées

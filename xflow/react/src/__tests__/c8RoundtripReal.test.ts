@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -41,11 +41,16 @@ function absProjection(
   return getAbsolutePosition(node, map);
 }
 
-describe("C8.7-fix.3 — repro données réelles (docs/temporaire/c8-roundtrip-broken)", () => {
-  const repoRoot = join(__dirname, "../../../..");
-  const brokenDir = join(repoRoot, "docs/temporaire/c8-roundtrip-broken");
-  const projectPath = join(brokenDir, "project.json");
-  const layoutPath = join(brokenDir, "map-layout.json");
+const repoRoot = join(__dirname, "../../../..");
+const brokenDir = join(repoRoot, "docs/temporaire/c8-roundtrip-broken");
+const projectPath = join(brokenDir, "project.json");
+const layoutPath = join(brokenDir, "map-layout.json");
+const c8RoundtripFixturesPresent =
+  existsSync(projectPath) && existsSync(layoutPath);
+
+describe.skipIf(!c8RoundtripFixturesPresent)(
+  "C8.7-fix.3 — repro données réelles (docs/temporaire/c8-roundtrip-broken)",
+  () => {
 
   it("Q-fix2-1/2/3 : le fixture map-layout documente stockage s-box + duplication scene/box + actions", () => {
     const raw = readFileSync(layoutPath, "utf8");

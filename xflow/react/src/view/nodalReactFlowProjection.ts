@@ -277,7 +277,14 @@ export function toReactFlowNodes(state: NodalProject): RFNode<NodalRFData>[] {
         collapsed: !!bl.collapsed,
         sceneBoxActionCount: actionUnderSbox,
       },
-      style: { width: bounds.width, height: bounds.height },
+      // C18.5-followup — `zIndex: -1` pour garantir que la S-BOX reste
+      // toujours derrière les autres nœuds (scènes enfants, actions,
+      // satellites, médias), même quand un média est ajouté hors
+      // hiérarchie parent. Sans ce `zIndex`, React Flow v12 peut élever
+      // la S-BOX au-dessus d'un média récemment ajouté (selon ordre
+      // d'ajout / sélection), bloquant le clic sur le média (l'utilisateur
+      // doit déplacer la scène pour y accéder).
+      style: { width: bounds.width, height: bounds.height, zIndex: -1 },
     });
   }
   for (const scene of Object.values(state.scenes)) {

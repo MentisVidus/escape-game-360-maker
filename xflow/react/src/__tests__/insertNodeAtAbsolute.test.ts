@@ -12,6 +12,7 @@ import {
 import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import { createNodalProjectStore } from "../store/nodalProjectStore";
 import { absoluteFlowPositionInPane, computeContainerBounds, SCENE_PADDING_TOP, SCENE_PADDING_X } from "../view/nesting/containerBounds";
+import { DEFAULT_MEDIA_IMAGE_PLACEHOLDER_URL } from "../view/preview/scenePanoramaDisplay";
 
 const sfx = { url: "", volume: 1 };
 const visibility = { requiresItem: "", hiddenIfHasItem: "", clickWhenInvisible: true };
@@ -118,6 +119,9 @@ describe("insertNodeAtAbsolute + palette D&D (C9.1)", () => {
     const after = store.getState();
     const med = Object.values(after.media)[0];
     expect(med).toBeTruthy();
+    if (med && med.mediaType === "media-image") {
+      expect(med.data.url).toBe(DEFAULT_MEDIA_IMAGE_PLACEHOLDER_URL);
+    }
     expect(after.layout[med!.id]?.parentId ?? null).toBeNull();
     expect(after.edges.some((e) => e.family === "flow" && e.targetId === med!.id)).toBe(false);
   });
