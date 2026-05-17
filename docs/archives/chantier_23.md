@@ -534,6 +534,13 @@ implémentation :
 **Hors scope C23** : images end-screens (nouveau champ = C20/C21) ;
 refonte « toujours panorama via nœud média » (Q-C23.1-8 **C**).
 
+- **2026-05-17 — C23.3-fix Generate Game web HTML autoportant** — Régression
+  post-clôture : `sceneAmbianceClips` calculé depuis `getCurrentProjectData()`
+  sans enrich → ambiance absente du HTML. Fix : `getEnrichedProjectForPlayerExport()`
+  + `computeSceneAmbianceClipsForPlayer` avant template ; un seul projet enrichi
+  pour `buildPlayerHtmlTemplate` / `exportGameWebZip` / `generateGame`. Tests
+  `c23_3_fix_generate_game_ambiance.test.ts`.
+
 - **2026-05-17 — C23.3 livré** — Reconnexion blob au load via
   `getBundleAssetPathBlobs()` + `reconnectBundleMediaInStore` (médias,
   `meta.settings`, inventaire, satellites `ui_img`, orphelins) ; warning

@@ -325,6 +325,39 @@
      * `serializeForBundle` + enrich si disponible, sinon DOM + enrich.
      * @param {function} getDomProject — typiquement `getCurrentProjectData`
      */
+    /**
+     * Dictionnaire ambiance par scène pour le runtime joueur (HTML autoportant).
+     * @param {object} project — projet enrichi (`getProjectJsonForPortableMediaExport`)
+     * @param {function(string): string} [pathFn] — ex. `playerRelMediaPathIfLocal`
+     */
+    function computeSceneAmbianceClipsForPlayer(project, pathFn) {
+        var normalize =
+            typeof pathFn === "function"
+                ? pathFn
+                : function (u) {
+                      return u;
+                  };
+        var clips = {};
+        (project.scenes || []).forEach(function (scene, index) {
+            if (!scene || typeof scene !== "object") return;
+            var scId = scene.id || "scene_" + (index + 1);
+            var amb = scene.media && scene.media.ambiance;
+            var scAudioRaw =
+                typeof amb === "string"
+                    ? String(amb).trim()
+                    : amb && amb.url != null
+                      ? String(amb.url).trim()
+                      : "";
+            if (!scAudioRaw) return;
+            var ambVol =
+                amb && typeof amb === "object" && amb.volume !== undefined && !isNaN(Number(amb.volume))
+                    ? Math.max(0, Math.min(1, Number(amb.volume)))
+                    : 1;
+            clips[scId] = { url: normalize(scAudioRaw), volume: ambVol };
+        });
+        return clips;
+    }
+
     function getProjectJsonForPortableMediaExport(getDomProject) {
         var pack =
             global.Escape360EditorNodalMap &&
@@ -360,6 +393,7 @@
         rewritePortableUrlsInProjectCloneExtended: rewritePortableUrlsInProjectCloneExtended,
         rewritePortableUrlsInLayoutClone: rewritePortableUrlsInLayoutClone,
         buildTypedBundlePathMap: buildTypedBundlePathMap,
-        getProjectJsonForPortableMediaExport: getProjectJsonForPortableMediaExport
+        getProjectJsonForPortableMediaExport: getProjectJsonForPortableMediaExport,
+        computeSceneAmbianceClipsForPlayer: computeSceneAmbianceClipsForPlayer
     };
 })(typeof window !== "undefined" ? window : this);

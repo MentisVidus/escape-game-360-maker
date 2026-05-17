@@ -24,7 +24,7 @@ import {
   type BundleSessionResolver,
 } from "../store/reconnectBundleMedia";
 
-const BLOB = {
+export const BLOB = {
   global: "blob:https://session.test/global.mp3",
   amb: "blob:https://session.test/amb.mp3",
   sfx: "blob:https://session.test/sfx.mp3",
@@ -35,7 +35,7 @@ const BLOB = {
   orphan: "blob:https://session.test/orphan.jpg",
 };
 
-function buildFixtureStore() {
+export function buildFixtureStore() {
   const store = createNodalProjectStore();
   const sceneId = stableSceneNodeIdFromExternal("room");
   const sc: SceneNode = {

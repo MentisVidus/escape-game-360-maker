@@ -87,10 +87,27 @@ var WEB_ZIP_README_EN =
     "--- Web hosting ---\r\n" +
     "Upload the full ZIP contents (index.html, lib/, media/) to your host or GitHub Pages.\r\n";
 
-/** @returns {string} Full player HTML (Pannellum via CDN links). */
-function buildPlayerHtmlTemplate() {
-    // 1. Globals from project v2
-    const project = getCurrentProjectData();
+/** Nodal serialize + enrich — single source for self-contained player HTML. */
+function getEnrichedProjectForPlayerExport() {
+    if (
+        window.EditorSharedBundlePaths &&
+        typeof window.EditorSharedBundlePaths.getProjectJsonForPortableMediaExport === "function"
+    ) {
+        return window.EditorSharedBundlePaths.getProjectJsonForPortableMediaExport(getCurrentProjectData);
+    }
+    if (window.EditorSharedBundle && typeof window.EditorSharedBundle.flushNodalStoreToEditorDom === "function") {
+        window.EditorSharedBundle.flushNodalStoreToEditorDom();
+    }
+    return typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
+}
+
+/**
+ * @param {object} [projectOverride] — enriched project (skip re-serialize when already computed).
+ * @returns {string} Full player HTML (Pannellum via CDN links).
+ */
+function buildPlayerHtmlTemplate(projectOverride) {
+    // 1. Globals from project v2 (nodal enrich: scene.media, globalMusic, invIcon, …)
+    const project = projectOverride || getEnrichedProjectForPlayerExport();
     const playerGameFingerprint = computePlayerGameFingerprint(project);
     const title = project.title || "My awesome game";
     const hasInv = project.useInv !== false;
@@ -440,22 +457,6 @@ function buildPlayerHtmlTemplate() {
         let scImg = (scene.media && scene.media.panoramaUrl) ? scene.media.panoramaUrl : "";
         scImg = playerRelMediaPathIfLocal(scImg);
 
-        var amb = scene.media && scene.media.ambiance;
-        var scAudioRaw =
-            typeof amb === "string"
-                ? String(amb).trim()
-                : amb && amb.url != null
-                  ? String(amb.url).trim()
-                  : "";
-        if (scAudioRaw) {
-            let scAudioUrl = playerRelMediaPathIfLocal(scAudioRaw);
-            var ambVol =
-                amb && typeof amb === "object" && amb.volume !== undefined && !isNaN(Number(amb.volume))
-                    ? Math.max(0, Math.min(1, Number(amb.volume)))
-                    : 1;
-            sceneAmbianceClips[scId] = { url: scAudioUrl, volume: ambVol };
-        }
-        
         let hotSpots = [];
         
         // Hotspots → Pannellum hotSpots + CSS classes
@@ -485,6 +486,12 @@ function buildPlayerHtmlTemplate() {
         // scenesConfig[scId] for viewer init
         scenesConfig[scId] = { type: "equirectangular", panorama: scImg, hotSpots: hotSpots };
     });
+
+    sceneAmbianceClips =
+        window.EditorSharedBundlePaths &&
+        typeof window.EditorSharedBundlePaths.computeSceneAmbianceClipsForPlayer === "function"
+            ? window.EditorSharedBundlePaths.computeSceneAmbianceClipsForPlayer(project, playerRelMediaPathIfLocal)
+            : sceneAmbianceClips;
 
     // 3. JSON scenes — replace string "hotspotDispatcher" with live function ref
     let jsonScenes = JSON.stringify(scenesConfig, null, 4).replace(/"createTooltipFunc": "hotspotDispatcher"/g, '"createTooltipFunc": hotspotDispatcher');
@@ -2503,11 +2510,7 @@ function buildPlayerHtmlTemplate() {
 }
 
 function generateGame() {
-    /* C10.1 — defense in depth (Q-C10.1.x-3): flush nodal store → legacy DOM before read. */
-    if (window.EditorSharedBundle && typeof window.EditorSharedBundle.flushNodalStoreToEditorDom === "function") {
-        window.EditorSharedBundle.flushNodalStoreToEditorDom();
-    }
-    var project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
+    var project = getEnrichedProjectForPlayerExport();
     var embedList =
         typeof window.collectPortableBundleEmbeds === "function"
             ? window.collectPortableBundleEmbeds(project)
@@ -2520,7 +2523,7 @@ function generateGame() {
         );
         if (!proceed) return;
     }
-    const htmlTemplate = buildPlayerHtmlTemplate();
+    const htmlTemplate = buildPlayerHtmlTemplate(project);
     const blob = new Blob([htmlTemplate], { type: "text/html;charset=utf-8" });
     const lien = document.createElement("a");
     lien.href = URL.createObjectURL(blob);
@@ -2537,22 +2540,10 @@ async function exportGameWebZip() {
         return;
     }
     try {
-        const htmlRaw = buildPlayerHtmlTemplate();
+        /* C23.3-fix — single enriched project for self-contained HTML + media collection. */
+        var project = getEnrichedProjectForPlayerExport();
+        const htmlRaw = buildPlayerHtmlTemplate(project);
         let html = patchPlayerHtmlForOffline(htmlRaw);
-        /* C23.3 — nodal serialize + enrich before portable media collection. */
-        var project =
-            window.EditorSharedBundlePaths &&
-            typeof window.EditorSharedBundlePaths.getProjectJsonForPortableMediaExport === "function"
-                ? window.EditorSharedBundlePaths.getProjectJsonForPortableMediaExport(getCurrentProjectData)
-                : (function () {
-                      if (
-                          window.EditorSharedBundle &&
-                          typeof window.EditorSharedBundle.flushNodalStoreToEditorDom === "function"
-                      ) {
-                          window.EditorSharedBundle.flushNodalStoreToEditorDom();
-                      }
-                      return typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
-                  })();
         var embedList =
             typeof window.collectPortableBundleEmbeds === "function"
                 ? window.collectPortableBundleEmbeds(project)
