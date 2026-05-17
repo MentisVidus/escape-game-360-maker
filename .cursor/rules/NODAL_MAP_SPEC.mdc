@@ -2491,7 +2491,7 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 | # | Périmètre | Dépend de | Type | Statut |
 |---|-----------|-----------|------|--------|
 | **C23.1** | **Audit complet doc-only** du flux save/load des médias bundle local (audio + image). Rapport tableau dans Annexe D § Journal de chantier : pour chaque emplacement (audio global / ambient / sfx, image panorama / hotspot / inventaire / end-screens, médias orphelins), tracer (i) projection JSON, (ii) embarquement asset, (iii) reconnexion blob au load. Identifier `bundleAssetPathBlobs` (Map JS pure ou dépendance DOM). Trancher convention path actuelle. Identifier impact rétrocompat. Recommandations pour découpage final C23.2 et C23.3 | — | doc | **livré** (2026-05-17, voir Journal) |
-| **C23.2** | **Projection sérialisation** + **walker bundle** : helpers (`sceneAmbianceProjection`, `scenePanoramaProjection`, hotspot `ui_img` dans JSON ou walker layout), extension `eachPortableMediaUrlInProject` / `rewritePortableUrlsInProjectClone` (`meta.settings.*`, `scene.media.*`, orphelins via scan layout). Paths write-only `./assets/<type>/…`. Tests `c23_2_*` round-trip JSON | C23.1 | code | à livrer |
+| **C23.2** | **Projection sérialisation** + **walker bundle** : helpers (`sceneAmbianceProjection`, `scenePanoramaProjection`, hotspot `ui_img` dans JSON ou walker layout), extension `eachPortableMediaUrlInProject` / `rewritePortableUrlsInProjectClone` (`meta.settings.*`, `scene.media.*`, orphelins via scan layout). Paths write-only `./assets/<type>/…`. Tests `c23_2_*` round-trip JSON | C23.1 | code | **livré** (2026-05-17) |
 | **C23.3** | **Reconnexion blob** : `getBundleAssetPathBlobs()`, réécriture URLs `map-layout.json` au load, pont post-`hydrateFromBundle` (médias `media-*` + champs hors nœud : `meta.settings.audio`, `inventoryGlobal.icon`, `inventoryObjects`, `nodalAutoSatelliteData` ui_img). Warning `MEDIA_ORPHANED`. Pas de compat lecture path (sauf arbitrage user Q-C23.1-4). Tests `c23_3_*` + fixtures roundtrip | C23.2 | code | à livrer |
 
 Convention : un commit par sous-chantier ; fixes numérotés
@@ -2906,4 +2906,13 @@ implémentation :
 refonte « toujours panorama via nœud média » (Q-C23.1-8 **C**) ;
 `exportGameWebZip` / `generateGame` (chemins séparés via DOM flush —
 smoke manuel post-C23.3 recommandé).
+
+- **2026-05-17 — C23.2 livré** — Projections :
+  `sceneAmbianceProjection.ts`, `scenePanoramaProjection.ts`,
+  `hotspotAppearanceProjection.ts` ; `toProjectJson` étendu (`scene.media`,
+  `appearance.ui_img`). `enrichProjectJsonForBundleWalker` +
+  `editor-shared-bundle-paths.js` (`getAssetPath`, `collectBundleMediaEntries`,
+  rewrite layout). `saveProjectBundle` FR/EN : paths typés + layout réécrit
+  dans le ZIP. Walker `meta.settings.*` étendu. Tests `c23_2_projection.test.ts`
+  (6). Rétrocompat path : write-only confirmé user (aucun bundle externe).
 

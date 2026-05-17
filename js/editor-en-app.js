@@ -43,47 +43,37 @@ async function saveProjectBundle() {
             alert("Nodal map is not initialized. Open the nodal map then retry.");
             return;
         }
+        var BundlePaths = window.EditorSharedBundlePaths;
+        if (!BundlePaths) {
+            throw new Error("EditorSharedBundlePaths unavailable (js/editor-shared-bundle-paths.js).");
+        }
         var project = JSON.parse(JSON.stringify(pack.nodalProjectJson));
-        var neededUrls = [];
-        var seen = {};
-        eachPortableMediaUrlInProject(project, function (u) {
-            if (!u || seen[u]) return;
-            if (!u.startsWith("blob:") && !canonicalAssetRef(u)) return;
-            if (!getBlobOrFileForPortableUrl(u)) return;
-            seen[u] = true;
-            neededUrls.push(u);
-        });
-        var usedZipNames = {};
-        var urlToRelPath = {};
-        neededUrls.forEach(function (srcUrl) {
-            var blob = getBlobOrFileForPortableUrl(srcUrl);
-            if (!blob) return;
-            var hint = deriveBundleNameHint(srcUrl, blob);
-            var safe = sanitizeBundleFileName(hint, "asset.bin");
-            var finalName = uniqueNameInSet(safe, usedZipNames);
-            var rel = "./assets/" + finalName;
-            var tr = srcUrl.trim();
-            urlToRelPath[tr] = rel;
-            if (srcUrl !== tr) urlToRelPath[srcUrl] = rel;
-        });
-        rewritePortableUrlsInProjectClone(project, function (s) {
+        BundlePaths.enrichNodalProjectForBundleWalker(project);
+        var layout =
+            pack.mapLayoutJson && typeof pack.mapLayoutJson === "object"
+                ? JSON.parse(JSON.stringify(pack.mapLayoutJson))
+                : null;
+        var entries = BundlePaths.collectBundleMediaEntries(project, layout);
+        var pathMap = BundlePaths.buildTypedBundlePathMap(entries, getBlobOrFileForPortableUrl, deriveBundleNameHint);
+        var urlToRelPath = pathMap.urlToRelPath;
+        function rwUrl(s) {
             var t = typeof s === "string" ? s.trim() : "";
             if (typeof s === "string" && urlToRelPath[s]) return urlToRelPath[s];
             if (urlToRelPath[t]) return urlToRelPath[t];
             return s;
-        });
+        }
+        rewritePortableUrlsInProjectClone(project, rwUrl);
+        BundlePaths.rewritePortableUrlsInProjectCloneExtended(project, rwUrl);
+        if (layout) BundlePaths.rewritePortableUrlsInLayoutClone(layout, rwUrl);
         var zip = new JSZip();
         zip.file("project.json", JSON.stringify(project, null, 2));
-        if (pack.mapLayoutJson) {
-            zip.file("map-layout.json", JSON.stringify(pack.mapLayoutJson, null, 2));
+        if (layout) {
+            zip.file("map-layout.json", JSON.stringify(layout, null, 2));
         }
         var folder = zip.folder("assets");
-        neededUrls.forEach(function (u) {
-            var rel = urlToRelPath[u.trim()];
-            var blob = getBlobOrFileForPortableUrl(u);
-            if (!rel || !blob || !folder) return;
-            var base = rel.replace(/^\.\/assets\//, "");
-            folder.file(base, blob);
+        pathMap.zipFiles.forEach(function (zf) {
+            if (!folder || !zf.blob || !zf.zipInner) return;
+            folder.file(zf.zipInner, zf.blob);
         });
         var outBlob = await zip.generateAsync({ type: "blob" });
         var baseTitle = String(project.title || "EscapeGame")

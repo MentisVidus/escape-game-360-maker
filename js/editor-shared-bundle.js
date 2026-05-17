@@ -69,6 +69,11 @@
         if (project.globalMusic && project.globalMusic.url) V(project.globalMusic.url);
         if (project.globalAudioUrl) V(project.globalAudioUrl);
         VifUrlLike(project.invIcon);
+        var settings = project.meta && project.meta.settings;
+        if (settings && settings.audio && settings.audio.url) V(settings.audio.url);
+        if (settings && settings.inventoryGlobal && settings.inventoryGlobal.icon) {
+            VifUrlLike(settings.inventoryGlobal.icon);
+        }
         (project.scenes || []).forEach(function (scene) {
             var media = scene.media || {};
             V(media.panoramaUrl);
@@ -107,6 +112,12 @@
         if (project.globalAudioUrl != null) project.globalAudioUrl = Rw(project.globalAudioUrl);
         if (project.invIcon != null && /^(https?:|blob:|data:|\.\/)/i.test(String(project.invIcon).trim())) {
             project.invIcon = Rw(project.invIcon);
+        }
+        var settings = project.meta && project.meta.settings;
+        if (settings && settings.audio && settings.audio.url != null) settings.audio.url = Rw(settings.audio.url);
+        if (settings && settings.inventoryGlobal && settings.inventoryGlobal.icon != null) {
+            var ic = String(settings.inventoryGlobal.icon).trim();
+            if (/^(https?:|blob:|data:|\.\/)/i.test(ic)) settings.inventoryGlobal.icon = Rw(settings.inventoryGlobal.icon);
         }
         (project.scenes || []).forEach(function (scene) {
             var media = scene.media || {};

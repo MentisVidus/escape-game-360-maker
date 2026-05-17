@@ -8,6 +8,10 @@
         "id": "scene-a",
         "title": "Scene A",
         "panoramaUrl": "scene-a.jpg",
+        "media": {
+          "panoramaUrl": "scene-a.jpg",
+          "ambiance": { "url": "", "volume": 1 }
+        },
         "hotspots": [
           {
             "action": {
@@ -54,6 +58,10 @@
         "id": "scene-b",
         "title": "Scene B",
         "panoramaUrl": "scene-b.jpg",
+        "media": {
+          "panoramaUrl": "scene-b.jpg",
+          "ambiance": { "url": "", "volume": 1 }
+        },
         "hotspots": [
           {
             "action": {
