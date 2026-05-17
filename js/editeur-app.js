@@ -24,6 +24,7 @@ var openBundleLocalMediaPicker = EditorSharedBundleApi.openBundleLocalMediaPicke
 var onBundleLocalMediaSelected = EditorSharedBundleApi.onBundleLocalMediaSelected;
 var mapZipAssetsToEditorSession = EditorSharedBundleApi.mapZipAssetsToEditorSession;
 var rewriteLoadedProjectPathsToBlobUrls = EditorSharedBundleApi.rewriteLoadedProjectPathsToBlobUrls;
+var rewriteLoadedBundleLayoutToBlobUrls = EditorSharedBundleApi.rewriteLoadedBundleLayoutToBlobUrls;
 var flushNodalStoreToEditorDom = EditorSharedBundleApi.flushNodalStoreToEditorDom;
 var detachNodalMapEditorAfterProjectLoad = EditorSharedBundleApi.detachNodalMapEditorAfterProjectLoad;
 window.collectPortableBundleEmbeds = EditorSharedBundleApi.collectPortableBundleEmbeds;
@@ -1777,6 +1778,7 @@ function loadProject(event) {
                             if (o.layoutText && typeof o.layoutText === "string" && o.layoutText.trim()) {
                                 try {
                                     layoutObj = JSON.parse(o.layoutText);
+                                    rewriteLoadedBundleLayoutToBlobUrls(layoutObj, pathMap);
                                 } catch (eL) {
                                     console.warn("map-layout.json", eL);
                                 }

@@ -361,6 +361,48 @@
             return s;
         }
         rewritePortableUrlsInProjectClone(project, R);
+        var Paths = global.EditorSharedBundlePaths;
+        if (Paths && typeof Paths.rewritePortableUrlsInProjectCloneExtended === "function") {
+            Paths.rewritePortableUrlsInProjectCloneExtended(project, R);
+        }
+    }
+
+    function rewriteLoadedBundleLayoutToBlobUrls(layout, pathToBlobUrl) {
+        if (!layout) return;
+        function R(s) {
+            if (typeof s !== "string") return s;
+            var t = s.trim();
+            var c = canonicalAssetRef(t);
+            if (c && pathToBlobUrl[c]) return pathToBlobUrl[c];
+            return s;
+        }
+        var Paths = global.EditorSharedBundlePaths;
+        if (Paths && typeof Paths.rewritePortableUrlsInLayoutClone === "function") {
+            Paths.rewritePortableUrlsInLayoutClone(layout, R);
+        }
+    }
+
+    /** C23.3 — accès contrôlé à la Map path → Blob (pas d’exposition `window` nu). */
+    function getBundleAssetPathBlobs() {
+        return global.bundleAssetPathBlobs;
+    }
+
+    /**
+     * C23.3 — crée une URL `blob:` de session + enregistre dans `bundleAssets`.
+     * @param {Blob|File} blob
+     * @param {string} [nameHint]
+     * @returns {string} blob URL
+     */
+    function registerSessionBlobFromAssetBlob(blob, nameHint) {
+        var baseName = nameHint || "asset.bin";
+        var f =
+            blob instanceof File
+                ? blob
+                : new File([blob], baseName, { type: blob.type || "application/octet-stream" });
+        var blobUrl = URL.createObjectURL(f);
+        registerBundleBlobUrl(blobUrl);
+        global.bundleAssets.set(blobUrl, f);
+        return blobUrl;
     }
 
     /**
@@ -412,6 +454,9 @@
         collectPortableBundleEmbeds: collectPortableBundleEmbeds,
         mapZipAssetsToEditorSession: mapZipAssetsToEditorSession,
         rewriteLoadedProjectPathsToBlobUrls: rewriteLoadedProjectPathsToBlobUrls,
+        rewriteLoadedBundleLayoutToBlobUrls: rewriteLoadedBundleLayoutToBlobUrls,
+        getBundleAssetPathBlobs: getBundleAssetPathBlobs,
+        registerSessionBlobFromAssetBlob: registerSessionBlobFromAssetBlob,
         flushNodalStoreToEditorDom: flushNodalStoreToEditorDom,
         detachNodalMapEditorAfterProjectLoad: detachNodalMapEditorAfterProjectLoad
     };

@@ -1,4 +1,5 @@
-import type { ActionNodeId, AnyNodeId, SceneBoxNodeId, SceneNodeId } from "../model/ids";
+import type { ActionNodeId, AnyNodeId, MediaNodeId, SceneBoxNodeId, SceneNodeId } from "../model/ids";
+import { listOrphanedMediaNodes, orphanMediaWarningLabel } from "./reconnectBundleMedia";
 import type { ActionNode } from "../model/nodes";
 import type { NodalProject } from "../model/project";
 import { getActionContextualState } from "./reconcileAutoSatellites";
@@ -12,7 +13,8 @@ export type WarningCode =
   | "START_SCENE_UNSET"
   | "GOTO_ORPHAN"
   | "SELECTOR_CYCLE"
-  | "OBJECT_UNDEFINED";
+  | "OBJECT_UNDEFINED"
+  | "MEDIA_ORPHANED";
 
 export type Warning = {
   code: WarningCode;
@@ -266,6 +268,16 @@ export function computeWarnings(state: NodalProject): Warning[] {
       label: "Menu recursif detecte.",
     });
     break;
+  }
+
+  for (const mediaId of listOrphanedMediaNodes(state)) {
+    const url = String(state.media[mediaId]?.data?.url ?? "").trim();
+    if (!url) continue;
+    warnings.push({
+      code: "MEDIA_ORPHANED",
+      nodeId: mediaId,
+      label: orphanMediaWarningLabel(state, mediaId),
+    });
   }
 
   return warnings;

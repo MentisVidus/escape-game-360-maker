@@ -2903,9 +2903,14 @@ implémentation :
    pas DOM) ; `MEDIA_ORPHANED` ; tests 3 mp3 + 2 jpg avec vrai ZIP.
 
 **Hors scope C23** : images end-screens (nouveau champ = C20/C21) ;
-refonte « toujours panorama via nœud média » (Q-C23.1-8 **C**) ;
-`exportGameWebZip` / `generateGame` (chemins séparés via DOM flush —
-smoke manuel post-C23.3 recommandé).
+refonte « toujours panorama via nœud média » (Q-C23.1-8 **C**).
+
+- **2026-05-17 — C23.3 livré** — Reconnexion blob au load via
+  `getBundleAssetPathBlobs()` + `reconnectBundleMediaInStore` (médias,
+  `meta.settings`, inventaire, satellites `ui_img`, orphelins) ; warning
+  `MEDIA_ORPHANED` ; tests `c23_3_roundtrip.test.ts`. **Scope étendu** :
+  Generate Game web (`getProjectJsonForPortableMediaExport` + enrich avant
+  walker, convention `media/` plat inchangée) — projection ambiance rétablie.
 
 - **2026-05-17 — C23.2 livré** — Projections :
   `sceneAmbianceProjection.ts`, `scenePanoramaProjection.ts`,

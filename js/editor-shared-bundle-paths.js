@@ -320,6 +320,35 @@
         return { urlToRelPath: urlToRelPath, zipFiles: zipFiles };
     }
 
+    /**
+     * Projet JSON pour export médias portable (ZIP web / collecte) : nodal
+     * `serializeForBundle` + enrich si disponible, sinon DOM + enrich.
+     * @param {function} getDomProject — typiquement `getCurrentProjectData`
+     */
+    function getProjectJsonForPortableMediaExport(getDomProject) {
+        var pack =
+            global.Escape360EditorNodalMap &&
+            typeof global.Escape360EditorNodalMap.serializeForBundle === "function"
+                ? global.Escape360EditorNodalMap.serializeForBundle()
+                : null;
+        var project = null;
+        if (pack && pack.nodalProjectJson) {
+            project = JSON.parse(JSON.stringify(pack.nodalProjectJson));
+        } else {
+            var Ex = global.EditorSharedBundle;
+            if (Ex && typeof Ex.flushNodalStoreToEditorDom === "function") {
+                Ex.flushNodalStoreToEditorDom();
+            }
+            if (typeof getDomProject === "function") {
+                project = JSON.parse(JSON.stringify(getDomProject()));
+            } else {
+                project = { schemaVersion: 2, title: "", scenes: [] };
+            }
+        }
+        enrichNodalProjectForBundleWalker(project);
+        return project;
+    }
+
     global.EditorSharedBundlePaths = {
         sanitizeBundleFileName: sanitizeBundleFileName,
         getAssetPath: getAssetPath,
@@ -330,6 +359,7 @@
         collectBundleMediaEntries: collectBundleMediaEntries,
         rewritePortableUrlsInProjectCloneExtended: rewritePortableUrlsInProjectCloneExtended,
         rewritePortableUrlsInLayoutClone: rewritePortableUrlsInLayoutClone,
-        buildTypedBundlePathMap: buildTypedBundlePathMap
+        buildTypedBundlePathMap: buildTypedBundlePathMap,
+        getProjectJsonForPortableMediaExport: getProjectJsonForPortableMediaExport
     };
 })(typeof window !== "undefined" ? window : this);

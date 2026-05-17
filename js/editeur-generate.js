@@ -2553,14 +2553,23 @@ async function exportGameWebZip() {
         );
         return;
     }
-    /* C10.1 — defense in depth (Q-C10.1.x-3) : flush nodal → DOM legacy avant lecture. */
-    if (window.EditorSharedBundle && typeof window.EditorSharedBundle.flushNodalStoreToEditorDom === "function") {
-        window.EditorSharedBundle.flushNodalStoreToEditorDom();
-    }
     try {
         const htmlRaw = buildPlayerHtmlTemplate();
         let html = patchPlayerHtmlForOffline(htmlRaw);
-        const project = typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
+        /* C23.3 — nodal serialize + enrich (scene.media.ambiance, meta.settings, etc.) avant collecte. */
+        var project =
+            window.EditorSharedBundlePaths &&
+            typeof window.EditorSharedBundlePaths.getProjectJsonForPortableMediaExport === "function"
+                ? window.EditorSharedBundlePaths.getProjectJsonForPortableMediaExport(getCurrentProjectData)
+                : (function () {
+                      if (
+                          window.EditorSharedBundle &&
+                          typeof window.EditorSharedBundle.flushNodalStoreToEditorDom === "function"
+                      ) {
+                          window.EditorSharedBundle.flushNodalStoreToEditorDom();
+                      }
+                      return typeof getCurrentProjectData === "function" ? getCurrentProjectData() : {};
+                  })();
         var embedList =
             typeof window.collectPortableBundleEmbeds === "function"
                 ? window.collectPortableBundleEmbeds(project)
