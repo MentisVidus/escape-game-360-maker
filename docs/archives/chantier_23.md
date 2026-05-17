@@ -534,6 +534,11 @@ implémentation :
 **Hors scope C23** : images end-screens (nouveau champ = C20/C21) ;
 refonte « toujours panorama via nœud média » (Q-C23.1-8 **C**).
 
+- **2026-05-18 — C23.3-fix2 hotspots HTML autoportant** — `getProjectJsonForPortableMediaExport`
+  repart du DOM legacy (pitch/yaw/customCss) ; `overlayNodalMediaFieldsOnDomProject`
+  surimpose ambiance/panorama depuis le store nodal (sans remplacer
+  `serializeForBundle` comme source structurelle).
+
 - **2026-05-17 — C23.3-fix Generate Game web HTML autoportant** — Régression
   post-clôture : `sceneAmbianceClips` calculé depuis `getCurrentProjectData()`
   sans enrich → ambiance absente du HTML. Fix : `getEnrichedProjectForPlayerExport()`

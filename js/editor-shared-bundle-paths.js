@@ -75,6 +75,88 @@
         return String(assetPath || "").replace(/^\.\/assets\//, "");
     }
 
+    /** Premier media-audio lié à la scène (edge meta) — miroir sceneAmbianceProjection.ts. */
+    function linkedMediaAudioAmbianceForScene(state, sceneNodeId) {
+        var edges = state.edges || [];
+        var media = state.media || {};
+        for (var i = 0; i < edges.length; i++) {
+            var e = edges[i];
+            if (!e || e.family !== "meta" || e.sourceId !== sceneNodeId) continue;
+            var m = media[e.targetId];
+            if (!m || m.mediaType !== "media-audio" || !m.data) continue;
+            var url = String(m.data.url != null ? m.data.url : "").trim();
+            if (!url) continue;
+            var rawVol = m.data.volume;
+            return {
+                url: url,
+                volume:
+                    typeof rawVol === "number" && !isNaN(rawVol) ? Math.max(0, Math.min(1, rawVol)) : 1
+            };
+        }
+        return null;
+    }
+
+    /** Premier media-image lié à la scène (edge meta) — miroir scenePanoramaProjection.ts. */
+    function linkedMediaImagePanoramaForScene(state, sceneNodeId) {
+        var edges = state.edges || [];
+        var media = state.media || {};
+        for (var i = 0; i < edges.length; i++) {
+            var e = edges[i];
+            if (!e || e.family !== "meta" || e.sourceId !== sceneNodeId) continue;
+            var m = media[e.targetId];
+            if (!m || m.mediaType !== "media-image" || !m.data) continue;
+            var url = String(m.data.url != null ? m.data.url : "").trim();
+            if (url) return url;
+        }
+        return "";
+    }
+
+    /**
+     * Complète les champs media du projet DOM (ambiance / panorama) depuis le store nodal,
+     * sans remplacer hotspots (pitch/yaw/customCss).
+     */
+    function overlayNodalMediaFieldsOnDomProject(project) {
+        if (!project || typeof project !== "object") return project;
+        var st = global.__ESCAPE360_NODAL_STORE__;
+        if (!st || typeof st.getState !== "function") return project;
+        var state = st.getState();
+        if (state.meta && state.meta.settings) {
+            project.meta = project.meta || {};
+            project.meta.settings = JSON.parse(JSON.stringify(state.meta.settings));
+        }
+        var internalByExternal = {};
+        var nodalScenes = state.scenes || {};
+        for (var ik in nodalScenes) {
+            if (!Object.prototype.hasOwnProperty.call(nodalScenes, ik)) continue;
+            var ns = nodalScenes[ik];
+            if (ns && ns.sceneId) internalByExternal[String(ns.sceneId).trim()] = ns;
+        }
+        (project.scenes || []).forEach(function (domSc) {
+            if (!domSc || typeof domSc !== "object") return;
+            var ext = domSc.id != null ? String(domSc.id).trim() : "";
+            if (!ext) return;
+            var nodalSc = internalByExternal[ext];
+            if (!nodalSc || !nodalSc.id) return;
+            domSc.media = domSc.media || {};
+            var curAmb = domSc.media.ambiance;
+            var curAmbUrl =
+                typeof curAmb === "string" ? String(curAmb).trim() : curAmb && curAmb.url != null ? String(curAmb.url).trim() : "";
+            if (!curAmbUrl) {
+                var amb = linkedMediaAudioAmbianceForScene(state, nodalSc.id);
+                if (amb && amb.url) domSc.media.ambiance = { url: amb.url, volume: amb.volume };
+            }
+            var curPan = String(domSc.media.panoramaUrl || domSc.panoramaUrl || "").trim();
+            if (!curPan) {
+                var pan = linkedMediaImagePanoramaForScene(state, nodalSc.id);
+                if (pan) {
+                    domSc.media.panoramaUrl = pan;
+                    domSc.panoramaUrl = pan;
+                }
+            }
+        });
+        return project;
+    }
+
     function enrichNodalProjectForBundleWalker(project) {
         if (!project || typeof project !== "object") return project;
         var settings = project.meta && project.meta.settings;
@@ -321,8 +403,8 @@
     }
 
     /**
-     * Projet JSON pour export médias portable (ZIP web / collecte) : nodal
-     * `serializeForBundle` + enrich si disponible, sinon DOM + enrich.
+     * Projet JSON pour export joueur / médias portables : DOM legacy (format runtime
+     * complet : pitch/yaw/customCss) + surimpression media nodal + enrich.
      * @param {function} getDomProject — typiquement `getCurrentProjectData`
      */
     /**
@@ -359,25 +441,15 @@
     }
 
     function getProjectJsonForPortableMediaExport(getDomProject) {
-        var pack =
-            global.Escape360EditorNodalMap &&
-            typeof global.Escape360EditorNodalMap.serializeForBundle === "function"
-                ? global.Escape360EditorNodalMap.serializeForBundle()
-                : null;
-        var project = null;
-        if (pack && pack.nodalProjectJson) {
-            project = JSON.parse(JSON.stringify(pack.nodalProjectJson));
-        } else {
-            var Ex = global.EditorSharedBundle;
-            if (Ex && typeof Ex.flushNodalStoreToEditorDom === "function") {
-                Ex.flushNodalStoreToEditorDom();
-            }
-            if (typeof getDomProject === "function") {
-                project = JSON.parse(JSON.stringify(getDomProject()));
-            } else {
-                project = { schemaVersion: 2, title: "", scenes: [] };
-            }
+        var Ex = global.EditorSharedBundle;
+        if (Ex && typeof Ex.flushNodalStoreToEditorDom === "function") {
+            Ex.flushNodalStoreToEditorDom();
         }
+        var project =
+            typeof getDomProject === "function"
+                ? JSON.parse(JSON.stringify(getDomProject()))
+                : { schemaVersion: 2, title: "", scenes: [] };
+        overlayNodalMediaFieldsOnDomProject(project);
         enrichNodalProjectForBundleWalker(project);
         return project;
     }
@@ -389,6 +461,7 @@
         uniquePathInSet: uniquePathInSet,
         zipInnerFromAssetPath: zipInnerFromAssetPath,
         enrichNodalProjectForBundleWalker: enrichNodalProjectForBundleWalker,
+        overlayNodalMediaFieldsOnDomProject: overlayNodalMediaFieldsOnDomProject,
         collectBundleMediaEntries: collectBundleMediaEntries,
         rewritePortableUrlsInProjectCloneExtended: rewritePortableUrlsInProjectCloneExtended,
         rewritePortableUrlsInLayoutClone: rewritePortableUrlsInLayoutClone,

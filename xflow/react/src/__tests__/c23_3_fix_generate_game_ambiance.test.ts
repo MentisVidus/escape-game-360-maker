@@ -69,4 +69,50 @@ describe("C23.3-fix — Generate Game web sceneAmbianceClips", () => {
     const enriched = enrichProjectJsonForBundleWalker(serializeToProjectJson(store.getState()));
     expect(computeSceneAmbianceClipsLikePlayer(enriched)).toEqual({});
   });
+
+  it("enrich préserve pitch/yaw/customCss hotspots (format DOM legacy)", () => {
+    const domLike: ProjectJsonV2 = {
+      schemaVersion: 2,
+      title: "Test",
+      scenes: [
+        {
+          id: "room",
+          title: "Room",
+          panoramaUrl: C23_BLOB.pano,
+          media: {
+            panoramaUrl: C23_BLOB.pano,
+            ambiance: { url: C23_BLOB.amb, volume: 0.7 },
+          },
+          hotspots: [
+            {
+              id: "hs_1",
+              title: "HS",
+              pitch: 12.5,
+              yaw: -30,
+              customCss: "background:red;",
+              appearance: { ui_img: C23_BLOB.hs },
+              action: {
+                type: "msg",
+                payload: { copy: { bodyHtml: "<p>x</p>", buttonLabel: "OK" } },
+                sfx: { url: C23_BLOB.sfx, volume: 1 },
+                visibility: {
+                  requiresItem: "",
+                  hiddenIfHasItem: "",
+                  clickWhenInvisible: true,
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const enriched = enrichProjectJsonForBundleWalker(domLike);
+    const hs = enriched.scenes[0]?.hotspots[0];
+    expect(hs?.pitch).toBe(12.5);
+    expect(hs?.yaw).toBe(-30);
+    expect(hs?.customCss).toContain("red");
+    expect(enriched.scenes[0]?.media?.ambiance?.url).toBe(C23_BLOB.amb);
+    const clips = computeSceneAmbianceClipsLikePlayer(enriched);
+    expect(clips.room?.url).toBe(C23_BLOB.amb);
+  });
 });
