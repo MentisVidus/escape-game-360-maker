@@ -2490,9 +2490,9 @@ Synthèse des décisions issues de la phase questions (Claude ↔ user,
 
 | # | Périmètre | Dépend de | Type | Statut |
 |---|-----------|-----------|------|--------|
-| **C23.1** | **Audit complet doc-only** du flux save/load des médias bundle local (audio + image). Rapport tableau dans Annexe D § Journal de chantier : pour chaque emplacement (audio global / ambient / sfx, image panorama / hotspot / inventaire / end-screens, médias orphelins), tracer (i) projection JSON, (ii) embarquement asset, (iii) reconnexion blob au load. Identifier `bundleAssetPathBlobs` (Map JS pure ou dépendance DOM). Trancher convention path actuelle. Identifier impact rétrocompat. Recommandations pour découpage final C23.2 et C23.3 | — | doc | à livrer |
-| **C23.2** | **Projection sérialisation** manquantes côté `toProjectJson` (helpers symétriques à C19.1 `actionSfxProjection.ts` : `sceneAmbianceProjection`, projection global, projections image selon audit). Adoption nouvelle convention path par type (cf. § Scope figé). Tests round-trip JSON `c23_2_*` (sans embarquement bundle réel — juste la projection JSON) | C23.1 | code | squelette — à affiner post-audit |
-| **C23.3** | **Reconnexion blob** `./assets/...` → nœud `media-*` au load via pont vers `bundleAssetPathBlobs` legacy (Map JS pure, pas de DOM). **Compat lecture path** si décidé en audit (ancienne convention `./assets/<filename>` + nouvelle `./assets/<type>/.../<filename>`). **Warning UI médias orphelins** (extension panel §6 warnings). Tests round-trip complet `c23_3_*` (3 mp3 + 2 jpg mock blob: → save → load → reconnect vérifié) + augmentation fixtures roundtrip existants (`c8EscapegameLayoutRoundtrip.test.ts`, etc.) | C23.2 | code | squelette — à affiner post-audit |
+| **C23.1** | **Audit complet doc-only** du flux save/load des médias bundle local (audio + image). Rapport tableau dans Annexe D § Journal de chantier : pour chaque emplacement (audio global / ambient / sfx, image panorama / hotspot / inventaire / end-screens, médias orphelins), tracer (i) projection JSON, (ii) embarquement asset, (iii) reconnexion blob au load. Identifier `bundleAssetPathBlobs` (Map JS pure ou dépendance DOM). Trancher convention path actuelle. Identifier impact rétrocompat. Recommandations pour découpage final C23.2 et C23.3 | — | doc | **livré** (2026-05-17, voir Journal) |
+| **C23.2** | **Projection sérialisation** + **walker bundle** : helpers (`sceneAmbianceProjection`, `scenePanoramaProjection`, hotspot `ui_img` dans JSON ou walker layout), extension `eachPortableMediaUrlInProject` / `rewritePortableUrlsInProjectClone` (`meta.settings.*`, `scene.media.*`, orphelins via scan layout). Paths write-only `./assets/<type>/…`. Tests `c23_2_*` round-trip JSON | C23.1 | code | à livrer |
+| **C23.3** | **Reconnexion blob** : `getBundleAssetPathBlobs()`, réécriture URLs `map-layout.json` au load, pont post-`hydrateFromBundle` (médias `media-*` + champs hors nœud : `meta.settings.audio`, `inventoryGlobal.icon`, `inventoryObjects`, `nodalAutoSatelliteData` ui_img). Warning `MEDIA_ORPHANED`. Pas de compat lecture path (sauf arbitrage user Q-C23.1-4). Tests `c23_3_*` + fixtures roundtrip | C23.2 | code | à livrer |
 
 Convention : un commit par sous-chantier ; fixes numérotés
 `C23.x.y-fix` si correctifs en cours de chantier (cf. §8.2 + §2.2 du
@@ -2681,73 +2681,95 @@ Emplacements à auditer :
 - Commit : `docs(nodal): C23.1 audit complet flux save/load médias bundle local (audio + image)`.
 - Push en `-u` (première poussée de la branche).
 
-### Plan détaillé C23.2 — squelette *(à affiner post-audit C23.1)*
+### Plan détaillé C23.2 — affiné post-audit C23.1
 
-**Pré-requis** : C23.1 livré, rapport d'audit complet dans Annexe D.
+**Pré-requis** : C23.1 livré (Journal 2026-05-17).
 
-**Contexte** : implémenter les projections sérialisation manquantes
-identifiées en C23.1, en suivant le pattern `actionSfxProjection.ts`
-livré C19.1. Adopter la nouvelle convention path par type (sauf
-décision contraire en audit).
+**Contexte** : corriger (i) projections `project.json` nodal et (ii)
+collecte ZIP — le walker legacy ne parcourt pas `meta.settings` ni
+`map-layout.json` ; `saveProjectBundle` lit uniquement
+`serializeForBundle().nodalProjectJson`.
 
-**Fichiers à toucher (probable)** :
+**Livrables code** :
 
-- `xflow/react/src/model/sceneAmbianceProjection.ts` (nouveau) —
-  helper miroir de `actionSfxProjection.ts`.
-- Autres helpers projection selon résultat audit (panorama,
-  inventaire, etc.).
-- `xflow/react/src/serialize/toProjectJson.ts` — câblage des
-  projections.
-- Helper `getAssetPath(node, parentInfo): string` quelque part
-  (probablement `xflow/react/src/services/` ou
-  `xflow/react/src/model/`).
-- Tests Vitest `c23_2_projection_*.test.ts`.
+1. **Helpers projection** (miroir `actionSfxProjection.ts`) :
+   - `sceneAmbianceProjection.ts` → alimente `scene.media.ambiance`
+     (ou champ canonique aligné `EditorCore.normalizeSceneMedia`) dans
+     `serializeToProjectJson`.
+   - `scenePanoramaProjection.ts` (Q-C23.1-8 **B**) → si edge meta
+     scène→`media-image`, projeter `data.url` dans `scene.panoramaUrl` ;
+     sinon conserver `scene.panoramaUrl` direct.
+   - Hotspot image : projeter `appearance.ui_img` dans le JSON exporté
+     **ou** documenter extension walker layout (préférence audit :
+     **projection dans `project.json`** via extension schéma hotspot
+     / sidecar `meta` — à trancher en implémentation ; minimum :
+     walker lit `map-layout` pour `nodalAutoSatelliteData.*.coords.appearance.ui_img`).
+2. **Audio global** : pas de nœud `media-*` — projeter
+   `meta.settings.audio` **et** alias legacy `globalMusic` dans le
+   clone passé au walker (ou étendre le walker pour
+   `meta.settings.audio.url`).
+3. **Inventaire** : walker + rewrite pour
+   `meta.settings.inventoryGlobal.icon` **et**
+   `map-layout.inventoryObjects[].iconUrl` (icônes objet).
+4. **`getAssetPath(mediaNode | context, parentInfo)`** — paths
+   write-only Annexe D (`./assets/audio/global/`, `ambiance/`, `sfx/`,
+   `image360/`, `icone/inventaire|objet|hotspot/`, `orphelin/<id>/`).
+5. **`js/editor-shared-bundle.js`** — étendre
+   `eachPortableMediaUrlInProject` + `rewritePortableUrlsInProjectClone`
+   ; fonction **`collectOrphanMediaFromLayout(layout)`** (vote Q-C23.1-6
+   **C**) appelée depuis `saveProjectBundle` en plus du `project.json`.
+6. **`saveProjectBundle`** (`editeur-app.js` / `editor-en-app.js`) :
+   passer `map-layout.json` (ou liste orphelins) à la collecte ;
+   appliquer `getAssetPath` à l'écriture ZIP (sous-dossiers `assets/`).
+7. Tests Vitest `c23_2_projection_*.test.ts` + extension walker (si
+   testable en Node avec mocks).
 
-**Critères de fin** :
-
-- Tous les emplacements identifiés cassés en C23.1 ont leur
-  projection corrigée.
-- Nouvelle convention path appliquée (sauf décision contraire).
-- Tests round-trip JSON (export → re-import sans bundle) verts.
-- Annexe D mise à jour (Journal entrée C23.2 livré).
+**Critères de fin** : tableau C23.1 → colonnes (i) et (ii) en ✅ pour
+tous les emplacements sauf N/A ; paths typés au save ; tests JSON verts.
 
 **Commit** : `feat(nodal): C23.2 projection sérialisation médias
 bundle (audio ambient/global + image selon audit) + tests round-trip
 JSON`.
 
-### Plan détaillé C23.3 — squelette *(à affiner post-audit C23.1)*
+### Plan détaillé C23.3 — affiné post-audit C23.1
 
 **Pré-requis** : C23.2 livré.
 
-**Contexte** : reconnexion blob `./assets/...` → nœud `media-*` au
-load, via pont vers `bundleAssetPathBlobs` legacy (Map JS pure, **pas
-d'accès au DOM** — règle nodal React = source de vérité préservée
-Q-C23-3). Compat lecture path si décidée en audit. Warning UI pour
-médias orphelins.
+**Contexte** : (iii) reconnexion — aujourd'hui `rewriteLoadedProjectPathsToBlobUrls`
+ne touche que le walker `project.json` ; **`map-layout.json` n'est pas
+réécrit** (`nodalMedia`, `inventoryObjects`, `nodalAutoSatelliteData`
+gardent `blob:` morts ou `./assets/` non résolus). Le pont ne doit pas
+lire le DOM (Q-C23-3).
 
-**Fichiers à toucher (probable)** :
+**Livrables code** :
 
-- Pont React → `bundleAssetPathBlobs` (effet post-load dans un
-  hook ou dans le store).
-- `xflow/react/src/serialize/fromProjectJson.ts` ou hook post-load
-  (selon architecture).
-- Compat lecture path (helper `normalizeAssetPath` ou similaire).
-- Panel §6 warnings — nouveau type `MEDIA_ORPHANED`.
-- Tests Vitest `c23_3_roundtrip_*.test.tsx` (3 mp3 + 2 jpg mock
-  blob:).
-- Extension fixtures roundtrip existants (`c8EscapegameLayoutRoundtrip.test.ts`,
-  `roundtrip.test.ts`).
+1. **`EditorSharedBundle.getBundleAssetPathBlobs()`** (Q-C23.1-2 **b**)
+   — wrapper sur la Map interne ; React n'utilise pas
+   `window.bundleAssetPathBlobs` nu.
+2. **`loadProject` ZIP** (`*-app.js`) : après `mapZipAssetsToEditorSession`,
+   réécrire les URLs **`./assets/…`** → `blob:` dans **`map-layout.json`**
+   (parcours `nodalMedia`, `inventoryObjects`, `nodalAutoSatelliteData`,
+   champs texte du layout) **avant** `hydrateFromBundle`.
+3. **Pont post-`hydrateFromBundle`** (hook store ou
+   `nodalProjectStore.hydrateFromProject` fin de chaîne) :
+   - Pour chaque nœud `media-*` : si `data.url` est `./assets/…`, remplacer
+     par `URL.createObjectURL` depuis `getBundleAssetPathBlobs()` +
+     enregistrer dans `bundleAssets` session.
+   - **Hors nœud média** (obligatoire audit) : mettre à jour
+     `meta.settings.audio.url`, `meta.settings.inventoryGlobal.icon`,
+     `meta.objects[*].iconUrl`, satellites `appearance.ui_img` via
+     la même Map (pas seulement `updateNodeData` sur `media-*`).
+   - Utiliser `nodalMetaMediaLinks` / `nodalSceneMetaMediaLinks` pour
+     corréler paths projetés ↔ nœuds.
+4. **Warning `MEDIA_ORPHANED`** dans `computeWarnings.ts` + panel §6.
+5. **Pas de compat lecture** path (vote audit Q-C23.1-4 **(i)**) — sauf
+   **reconfirmation user** bundles externes (signalé dans le rapport).
+6. Tests `c23_3_roundtrip_*.test.tsx` (3 mp3 + 2 jpg mock `blob:`) ;
+   étendre `c8EscapegameLayoutRoundtrip.test.ts` / `c5EscapegameRoundtrip`
+   avec assets réels dans le ZIP (pas seulement JSON).
 
-**Critères de fin** :
-
-- Round-trip complet (save → load) reconnecte tous les médias bundle
-  local sur leurs nœuds React.
-- Compat lecture path opérationnelle (si décidée).
-- Warning orphelins visible dans le panel §6.
-- Tests Vitest verts.
-- Smoke FR/EN manuel : projet avec 3 mp3 + 2 jpg → save → reload →
-  tous fonctionnent dans l'aperçu 360° et le runtime export.
-- Annexe D mise à jour (Journal entrée C23.3 livré).
+**Critères de fin** : colonne (iii) ✅ sur le tableau audit ; smoke
+3 mp3 + 2 jpg ; Annexe D Journal C23.3.
 
 **Commit** : `feat(nodal): C23.3 reconnexion blob au load (audio +
 image) + warning orphelins + tests round-trip complet`.
@@ -2762,4 +2784,126 @@ image) + warning orphelins + tests round-trip complet`.
   consommation Map JS pure uniquement. Plan détaillé C23.1 (audit)
   rédigé ; plans C23.2 et C23.3 en squelette à affiner post-audit.
   Branche `feat/c23-bundle-audio-image` créée depuis `feat/nodal-map`.
+
+- **2026-05-17 — C23.1 livré (audit doc-only)** — Phase questions
+  §8.1 (Q-C23.1-1…9) validée par le user. Rapport ci-dessous.
+  Plans C23.2 / C23.3 affinés dans cette Annexe. Aucune modification
+  de code source.
+
+#### C23.1 — Rapport d'audit flux save/load médias bundle (audio + image)
+
+**Chaîne save** : `Escape360EditorNodalMap.serializeForBundle()` →
+`serializeToProjectJson` + `serializeLayout` → `saveProjectBundle()`
+(`editeur-app.js`) clone `project.json`, collecte via
+`eachPortableMediaUrlInProject`, réécriture `./assets/<filename>` plat,
+ZIP `assets/` + `map-layout.json`. **Pas** de `getCurrentProjectData()`
+ni flush DOM.
+
+**Chaîne load** : `mapZipAssetsToEditorSession` remplit
+`bundleAssetPathBlobs` + `bundleAssets` ; `rewriteLoadedProjectPathsToBlobUrls`
+sur **`project.json` seulement** ; `hydrateFromBundle` →
+`hydrateFromProject` + `applyHydratedLayout` (`nodalMedia`,
+`inventoryObjects`, `nodalAutoSatelliteData`, liens meta).
+
+**Réponses validées (phase questions)** : Q-C23.1-1 grille 3 couches ;
+Q-C23.1-2 getter API C23.3 ; Q-C23.1-3 étendre `toProjectJson` + walker ;
+Q-C23.1-4 **(i) write-only** — *à reconfirmer user* bundles hors repo ;
+Q-C23.1-5 end-screens N/A ; Q-C23.1-6 mix projection + scan orphelins ;
+Q-C23.1-7 inventaire HUD + icônes objet ; Q-C23.1-8 panorama **(B)** ;
+Q-C23.1-9 taxonomie paths Annexe D dès C23.2.
+
+##### Tableau principal (emplacements bundle-éligibles)
+
+Légende : **(i)** projection / présence dans `project.json` exporté ;
+**(ii)** embarquement dans `.escapegame` (`assets/`) ;
+**(iii)** reconnexion session (`blob:`) + store React après reload.
+
+| Emplacement | Source store (vérité nodale) | (i) Projection JSON | (ii) Embarquement asset | (iii) Reconnexion load |
+|-------------|------------------------------|---------------------|-------------------------|------------------------|
+| **Audio global** | `meta.settings.audio` (`url`, `volume`) — **pas** de nœud `media-*` | ⚠ `meta.settings` passé tel quel par `serializeToProjectJson` ; **pas** d'alias `globalMusic` pour le joueur / walker | ❌ Walker lit `globalMusic.url` / `globalAudioUrl`, **pas** `meta.settings.audio.url` → blob ignoré au save nodal | ❌ `rewritePortableUrls…` ne parcourt pas `meta.settings` ; hydrate recopie `./assets/` ou `blob:` mort ; preview nodal lit le store, pas reconnecté depuis Map |
+| **Audio ambient** | Nœud `media-audio` + edge `meta` scène→média ; preview via `resolveSceneAmbiance` | ❌ Pas de `scene.media.ambiance` dans `toProjectJson` ; graphe média hors V2 (layout + liens) | ❌ Walker attend `scene.media.ambiance` sur JSON aplati — absent du bundle nodal | ❌ `nodalMedia` dans layout non réécrit au load ; edge meta restaurée mais `data.url` reste `blob:` invalide ; **flush DOM** ne projette pas l'ambiance vers `.sc-audio` (`editor-shared-nodal-to-dom.js` sans équivalent `mediaAudioLinkedFromScene`) |
+| **Audio SFX** | Nœud `media-audio` + edge `meta` action→média ; C19.1 | ✅ `resolveLinkedMediaAudioSfxForAction` → `action.sfx` dans `toProjectJson` | ✅ Si URL projetée en `action.sfx.url` et blob en session `bundleAssets` | ⚠ `project.json` : `action.sfx` → `blob:` via rewrite ; **nœud** `media-*` dans `nodalMedia` souvent **non** mis à jour (URL `blob:` morte) — preview nodal peut marcher via `action.sfx` fallback, reconnexion média graphe incomplète |
+| **Image panorama** | `scene.panoramaUrl` **ou** `media-image` meta (Q-C23.1-8 **B**) ; `resolveScenePanoramaDisplayUrl` | ⚠ Seul `scene.panoramaUrl` exporté ; **pas** de projection depuis `media-image` lié | ⚠ Embarqué **seulement** si URL dans `scene.panoramaUrl` ; cas « panorama uniquement sur nœud média » → ❌ | ⚠ Rewrite sur `scene.panoramaUrl` si présent ; `nodalMedia` non réécrit ; edge scène→image restaurée (`nodalSceneMetaMediaLinks`) mais blob média souvent mort |
+| **Image hotspot** | `satellites[coords-options].data.appearance.ui_img` ; UI `HotspotAppearancePopup` | **Couche A store** : ✅ en session. **B `map-layout`** : ✅ `nodalAutoSatelliteData[path].coords.appearance.ui_img`. **C `project.json`** : ❌ hotspots V2 = `{ action }` seulement, pas `appearance` | ❌ Walker lit `hs.appearance.ui_img` sur JSON **projet** — absent ; layout **non** scanné | ❌ Layout non réécrit ; `applyNodalAutoSatelliteData` restaure `ui_img` `./assets/` ou `blob:` mort ; flush DOM projette `ui_img` **si** URL valide — sinon visuel cassé |
+| **Inventaire HUD** | `meta.settings.inventoryGlobal.icon` ; `MediaUploadButton` | ✅ Round-trip `meta.settings` (tests C10.2.b) | ❌ Walker lit `project.invIcon` racine, **pas** `meta.settings.inventoryGlobal.icon` | ❌ `meta.settings` hors rewrite ; flush DOM vers `#inv-icon` si valeur résolue |
+| **Icônes objet** | `meta.objects[id].iconUrl` + `iconMediaId` ; `map-layout.inventoryObjects` | **Store** : ✅. **`project.json`** : ❌ objets hors V2. **Layout** : ✅ `inventoryObjects` | ❌ Aucune URL objet dans le walker `project.json` | ❌ `inventoryObjects` non réécrit ; `iconMediaId` peut recâbler un nœud média dont l'URL reste invalide |
+| **End-screens image** | — | **N/A** — pas de champ image (`EndScreensSettings` = texte seul ; Q-C23.1-5) | **N/A** | **N/A** |
+| **Médias orphelins** | Nœuds `media-*` sans edge `meta` parent ; persistés dans `nodalMedia` | ❌ Pas de cible `project.json` (vote Q-C23.1-6 **C**) | ❌ Non collectés (URLs seulement dans layout) | ❌ Présents dans layout avec `blob:` mort ; **aucun** warning `MEDIA_ORPHANED` (`computeWarnings.ts`) |
+
+##### Grille multi-couches (Q-C23.1-1 / Q-C23.1-6 / Q-C23.1-7)
+
+| Emplacement | Store React | `map-layout.json` | `project.json` (runtime joueur) | Walker / ZIP |
+|-------------|-------------|-------------------|----------------------------------|--------------|
+| Hotspot `ui_img` | `satellite.appearance` | `nodalAutoSatelliteData` | ❌ (export generate via DOM flush seulement) | ❌ |
+| Panorama | `scene` + `media-image` meta | `nodalMedia` + `nodalSceneMetaMediaLinks` | `scene.panoramaUrl` (partiel) | partiel |
+| Ambient / SFX | `media-*` + edges meta | idem + `nodalMetaMediaLinks` | SFX ✅ ambient ❌ | SFX partiel |
+| Inventaire HUD | `meta.settings.inventoryGlobal` | — (dans `project.json`) | via `meta.settings` si generate lit JSON nodal — **generate** lit `getCurrentProjectData` → `invIcon` DOM | ❌ |
+| Icônes objet | `meta.objects` | `inventoryObjects` | ❌ V2 | ❌ |
+
+##### 4 points spécifiques
+
+**1. `bundleAssetPathBlobs` (Map JS)**
+
+| Attribut | Constat |
+|----------|---------|
+| Type | `Map` JS (`path canonique ./assets/…` → `Blob`) |
+| Couplage DOM | **Non** pour la Map ; remplissage ZIP pur (`mapZipAssetsToEditorSession`) |
+| Accès React | Aujourd'hui `window.bundleAssetPathBlobs` ; **pas** exporté par `EditorSharedBundle` → **C23.3** : `getBundleAssetPathBlobs()` |
+| Upload | `pickLocalMediaFromBundle` utilise un `<input type="file">` caché (DOM) — hors périmètre pont load |
+| Session blobs | `bundleAssets` : `blob:` → `File` ; `getBlobOrFileForPortableUrl` résout les deux |
+
+**2. Convention path actuelle (save)**
+
+- **Écriture ZIP** : `./assets/<filename>` **plat** (pas de sous-dossier type) ;
+  `uniqueNameInSet` sur le basename ; fichier ZIP `assets/<filename>`.
+- **Lecture ZIP** : clé `./assets/<inner>` où `inner` = chemin relatif sous
+  `assets/` (supporte déjà des sous-dossiers si présents dans l'archive).
+- **Cible C23.2** (validée Q-C23.1-9) : write-only
+  `./assets/<type>/<sous-type>/<filename>` (cf. § Scope figé).
+
+**3. Médias orphelins**
+
+| Aspect | État actuel |
+|--------|-------------|
+| Persistés layout | ✅ `serializeLayout` → `nodalMedia` (tous les nœuds média) |
+| Dans ZIP `assets/` | ❌ sauf URL aussi présente dans `project.json` walker |
+| Path `./assets/orphelin/…` | ❌ non implémenté |
+| Warning UI | ❌ pas de code `MEDIA_ORPHANED` |
+
+**4. Rétrocompat path**
+
+- **Vote audit** : **(i) casser proprement** — write-only nouvelle taxonomie ;
+  **aucun** `.escapegame` versionné dans le repo.
+- **⚠ À reconfirmer par le user** avant C23.3 : bundles externes critiques
+  → bascule **(ii) compat lecture** si retour positif (sinon (i) maintenu).
+
+##### Écarts structurels (cause racine)
+
+1. **Double schéma** : nodal exporte `meta.settings` + `map-layout` ;
+   walker / joueur legacy attendent souvent racine `globalMusic`, `invIcon`,
+   `scene.media.ambiance`, `appearance` sur hotspots DOM.
+2. **`saveProjectBundle` ne scanne pas `map-layout.json`** — tout média
+   « layout-only » (orphelins, icônes objet, `ui_img`, médias liés non
+   projetés) est perdu dans `assets/`.
+3. **Load asymétrique** : rewrite JSON projet seulement — le layout garde
+   des `blob:` de session précédente.
+4. **Tests ZIP** (`zipBundle.ts`, `c5EscapegameRoundtrip`) : pas d'assets
+   binaires — ne détectent pas la régression bundle médias.
+
+##### Recommandations découpage C23.2 / C23.3
+
+Voir plans détaillés affinés ci-dessus (§ Plan C23.2 / C23.3). Priorité
+implémentation :
+
+1. **C23.2** — `sceneAmbianceProjection` + `scenePanoramaProjection` ;
+   étendre walker + `saveProjectBundle` (layout orphelins + inventaire) ;
+   `getAssetPath` ; paths typés.
+2. **C23.3** — `getBundleAssetPathBlobs()` ; rewrite layout au load ;
+   pont post-hydrate (**médias + champs settings/objects/satellites**,
+   pas DOM) ; `MEDIA_ORPHANED` ; tests 3 mp3 + 2 jpg avec vrai ZIP.
+
+**Hors scope C23** : images end-screens (nouveau champ = C20/C21) ;
+refonte « toujours panorama via nœud média » (Q-C23.1-8 **C**) ;
+`exportGameWebZip` / `generateGame` (chemins séparés via DOM flush —
+smoke manuel post-C23.3 recommandé).
 
