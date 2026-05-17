@@ -48,6 +48,7 @@ import { buildClipboard, getNodalClipboard, pasteClipboard, setNodalClipboard } 
 import type { InsertNodeAtAbsoluteOpts, PaletteInsertSpec } from "./insertNodeAtAbsolute";
 import { insertNodeAtAbsolute as mergeInsertNodeAtAbsolute } from "./insertNodeAtAbsolute";
 import { computeWarnings, type Warning } from "./computeWarnings";
+import { reconnectBundleMediaInStore, type BundleSessionResolver } from "./reconnectBundleMedia";
 import { reconcileAutoSatellites } from "./reconcileAutoSatellites";
 
 type NodePatch = Partial<ActionNode | SceneNode | SatelliteNode | MediaNode>;
@@ -105,6 +106,8 @@ export type NodalProjectStore = NodalProject & {
   removeObject: (objectId: string) => void;
   /** Remplace tout le projet (ZIP / brouillon) : même schéma que `removeNode` — copie + reconcile + withWarnings. */
   hydrateFromProject: (projectJson: ProjectJsonV2, layoutJson: MapLayoutJson) => void;
+  /** C23.3 — reconnexion `./assets/...` → `blob:` (session bundle) sans DOM. */
+  reconnectBundleMediaFromSession: (resolver: BundleSessionResolver) => void;
   /** C8.1.b.2.x — re-ancrage du conteneur s-box (coords directes ≥ pad). */
   reanchorSBox: (sboxId: SceneBoxNodeId) => void;
   /** C8.5.2 — presse-papiers runtime (sous-graphe). */
@@ -1057,9 +1060,43 @@ export const createNodalProjectStore = (): StoreApi<NodalProjectStore> =>
           },
         },
       };
+      const resolver = createDefaultBundleSessionResolver();
+      if (resolver) reconnectBundleMediaInStore(withPopupTheme, resolver);
       set(withWarnings(withPopupTheme));
+    },
+
+    reconnectBundleMediaFromSession: (resolver) => {
+      set((state) => {
+        const next = { ...state };
+        reconnectBundleMediaInStore(next, resolver);
+        return withWarnings(next);
+      });
     },
   }));
   };
+
+/** C23.3 — résolveur par défaut (navigateur + `EditorSharedBundle`). */
+export function createDefaultBundleSessionResolver(): BundleSessionResolver | null {
+  if (typeof window === "undefined") return null;
+  const Ex = (
+    window as Window & {
+      EditorSharedBundle?: {
+        canonicalAssetRef?: (url: string) => string | null;
+        getBundleAssetPathBlobs?: () => Map<string, Blob>;
+        registerSessionBlobFromAssetBlob?: (blob: Blob, nameHint?: string) => string;
+      };
+    }
+  ).EditorSharedBundle;
+  if (!Ex?.getBundleAssetPathBlobs || !Ex.registerSessionBlobFromAssetBlob) return null;
+  return {
+    resolveToSessionBlobUrl: (assetRef: string) => {
+      const c = Ex.canonicalAssetRef ? Ex.canonicalAssetRef(assetRef) : assetRef;
+      if (!c) return null;
+      const blob = Ex.getBundleAssetPathBlobs!().get(c);
+      if (!blob) return null;
+      return Ex.registerSessionBlobFromAssetBlob!(blob, assetRef.split("/").pop());
+    },
+  };
+}
 
 export const getStoreState = (store: StoreApi<NodalProjectStore>): NodalProjectStore => store.getState();

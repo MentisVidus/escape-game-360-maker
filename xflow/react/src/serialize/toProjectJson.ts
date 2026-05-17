@@ -1,6 +1,9 @@
 import { resolveLinkedMediaAudioSfxForAction } from "../model/actionSfxProjection";
+import { resolveHotspotUiImgForAction } from "../model/hotspotAppearanceProjection";
+import { resolveLinkedMediaAudioAmbianceForScene } from "../model/sceneAmbianceProjection";
+import { resolveScenePanoramaUrlForExport } from "../model/scenePanoramaProjection";
 import type { ActionNodeId, SceneNodeId } from "../model/ids";
-import type { ActionNode, ReqActionNode, PwdActionNode, SelectorActionNode } from "../model/nodes";
+import type { ActionNode, HotspotAppearanceUi, ReqActionNode, PwdActionNode, SelectorActionNode } from "../model/nodes";
 import type { NodalProject, ProjectSettings } from "../model/project";
 import { sboxIdFromScene } from "../store/reconcileSceneBoxes";
 import { INTERNAL_TO_V2_ACTION_TYPE } from "./v2TypeMap";
@@ -12,11 +15,18 @@ export type ProjectJsonV2Action = {
   visibility: { requiresItem: string; hiddenIfHasItem: string; clickWhenInvisible: boolean };
 };
 
+export type ProjectJsonV2SceneMedia = {
+  panoramaUrl: string;
+  ambiance: { url: string; volume: number };
+};
+
 export type ProjectJsonV2Scene = {
   id: string;
   title: string;
   panoramaUrl: string;
-  hotspots: Array<{ action: ProjectJsonV2Action }>;
+  /** C23.2 — médias scène pour walker bundle / runtime (`EditorCore.normalizeSceneMedia`). */
+  media?: ProjectJsonV2SceneMedia;
+  hotspots: Array<{ action: ProjectJsonV2Action; appearance?: Pick<HotspotAppearanceUi, "ui_img"> }>;
 };
 
 export type ProjectJsonV2 = {
@@ -26,6 +36,10 @@ export type ProjectJsonV2 = {
   scenes: ProjectJsonV2Scene[];
   /** C10.2+ — omis si aucun groupe `settings` défini. */
   meta?: { settings?: ProjectSettings };
+  /** Alias walker bundle (rempli par `enrichProjectJsonForBundleWalker`). */
+  globalMusic?: { url: string; volume: number };
+  useGlobalAudio?: boolean;
+  invIcon?: string;
 };
 
 const isReqOrPwd = (action: ActionNode): action is ReqActionNode | PwdActionNode =>
@@ -113,15 +127,31 @@ export const getHotspotActionIdsForScene = (state: NodalProject, sceneId: SceneN
 
 export const serializeToProjectJson = (state: NodalProject): ProjectJsonV2 => {
   const startSceneExternalId = state.meta.startSceneId ? state.scenes[state.meta.startSceneId]?.sceneId ?? null : null;
-  const scenes = Object.values(state.scenes).map((scene) => ({
-    id: scene.sceneId,
-    title: scene.label,
-    panoramaUrl: scene.panoramaUrl,
-    hotspots: getHotspotActionIdsForScene(state, scene.id)
-      .map((actionId) => serializeAction(state, actionId))
-      .filter((action): action is ProjectJsonV2Action => action !== null)
-      .map((action) => ({ action })),
-  }));
+  const scenes = Object.values(state.scenes).map((scene) => {
+    const panoramaUrl = resolveScenePanoramaUrlForExport(state, scene.id);
+    const linkedAmb = resolveLinkedMediaAudioAmbianceForScene(state, scene.id);
+    const ambiance = linkedAmb
+      ? { url: linkedAmb.url, volume: linkedAmb.volume }
+      : { url: "", volume: 1 };
+    return {
+      id: scene.sceneId,
+      title: scene.label,
+      panoramaUrl,
+      media: { panoramaUrl, ambiance },
+      hotspots: getHotspotActionIdsForScene(state, scene.id)
+        .map((actionId) => {
+          const action = serializeAction(state, actionId);
+          if (!action) return null;
+          const uiImg = resolveHotspotUiImgForAction(state, actionId);
+          const hs: { action: ProjectJsonV2Action; appearance?: Pick<HotspotAppearanceUi, "ui_img"> } = {
+            action,
+          };
+          if (uiImg) hs.appearance = { ui_img: uiImg };
+          return hs;
+        })
+        .filter((hs): hs is { action: ProjectJsonV2Action; appearance?: Pick<HotspotAppearanceUi, "ui_img"> } => hs !== null),
+    };
+  });
 
   const base: ProjectJsonV2 = {
     schemaVersion: 2,
